@@ -9,22 +9,30 @@ finance_bp = Blueprint('finance', __name__)
 @finance_bp.route('/dashboard')
 @login_required
 def dashboard():
-    # Admin vê tudo, outros veem apenas da sua filial
-    if current_user.role == 'admin':
+    # Verifica permissões usando o novo campo church_role
+    if not current_user.church_role:
+        flash('Você não tem cargo definido. Contate o administrador.', 'danger')
+        return redirect(url_for('members.dashboard'))
+
+    role_name = current_user.church_role.name
+
+    if role_name == 'Administrador Global':
         transactions = Transaction.query.order_by(Transaction.date.desc()).all()
         assets = Asset.query.all()
-    elif current_user.role in ['treasurer', 'pastor_leader']:
+    elif role_name in ['Tesoureiro', 'Pastor Líder']:
         transactions = Transaction.query.filter_by(church_id=current_user.church_id).order_by(Transaction.date.desc()).all()
         assets = Asset.query.filter_by(church_id=current_user.church_id).all()
     else:
+        # Membros comuns veem apenas suas próprias transações (se houver)
         transactions = Transaction.query.filter_by(user_id=current_user.id).order_by(Transaction.date.desc()).all()
         assets = []
+
     return render_template('finance/dashboard.html', transactions=transactions, assets=assets)
 
 @finance_bp.route('/asset/add', methods=['GET', 'POST'])
 @login_required
 def add_asset():
-    if current_user.role not in ['admin', 'treasurer']:
+    if not current_user.church_role or current_user.church_role.name not in ['Administrador Global', 'Tesoureiro']:
         flash('Acesso negado.', 'danger')
         return redirect(url_for('finance.dashboard'))
         
@@ -40,13 +48,15 @@ def add_asset():
         db.session.commit()
         flash('Bem cadastrado no patrimônio!', 'success')
         return redirect(url_for('finance.dashboard'))
+    
     return render_template('finance/add_asset.html')
 
 @finance_bp.route('/asset/<int:id>/maintenance', methods=['GET', 'POST'])
 @login_required
 def add_maintenance(id):
     asset = Asset.query.get_or_404(id)
-    if current_user.role not in ['admin', 'treasurer']:
+    
+    if not current_user.church_role or current_user.church_role.name not in ['Administrador Global', 'Tesoureiro']:
         flash('Acesso negado.', 'danger')
         return redirect(url_for('finance.dashboard'))
         
@@ -57,7 +67,7 @@ def add_maintenance(id):
             cost=float(request.form.get('cost')),
             type=request.form.get('type')
         )
-        # Também registra como uma despesa financeira
+        # Registra também como despesa financeira
         tx = Transaction(
             type='expense',
             category=f'Manutenção: {asset.name}',
@@ -70,12 +80,13 @@ def add_maintenance(id):
         db.session.commit()
         flash('Manutenção registrada e lançada no financeiro!', 'success')
         return redirect(url_for('finance.dashboard'))
+    
     return render_template('finance/add_maintenance.html', asset=asset)
 
 @finance_bp.route('/add', methods=['GET', 'POST'])
 @login_required
 def add_transaction():
-    if current_user.role not in ['admin', 'treasurer']:
+    if not current_user.church_role or current_user.church_role.name not in ['Administrador Global', 'Tesoureiro']:
         flash('Acesso negado.', 'danger')
         return redirect(url_for('finance.dashboard'))
         
@@ -93,7 +104,6 @@ def add_transaction():
         db.session.commit()
         
         if new_tx.user_id:
-            from app.utils.pdf_gen import generate_receipt
             new_tx.receipt_path = generate_receipt(new_tx)
             db.session.commit()
             
@@ -107,12 +117,15 @@ def add_transaction():
 @login_required
 def download_receipt(tx_id):
     tx = Transaction.query.get_or_404(tx_id)
-    if current_user.role not in ['admin', 'treasurer'] and tx.user_id != current_user.id:
+    
+    if not current_user.church_role or (
+        current_user.church_role.name not in ['Administrador Global', 'Tesoureiro'] 
+        and tx.user_id != current_user.id
+    ):
         flash('Acesso negado.', 'danger')
         return redirect(url_for('finance.dashboard'))
         
     if not tx.receipt_path:
-        from app.utils.pdf_gen import generate_receipt
         tx.receipt_path = generate_receipt(tx)
         db.session.commit()
         

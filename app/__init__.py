@@ -22,16 +22,18 @@ def create_app():
     from app.modules.members.routes import members_bp
     from app.modules.finance.routes import finance_bp
     from app.modules.edification.routes import edification_bp
+    from app.modules.admin.routes import admin_bp
     
     app.register_blueprint(auth_bp, url_prefix='/auth')
     app.register_blueprint(members_bp, url_prefix='/members')
     app.register_blueprint(finance_bp, url_prefix='/finance')
     app.register_blueprint(edification_bp, url_prefix='/edification')
+    app.register_blueprint(admin_bp, url_prefix='/admin')
     
     # Main route
     @app.route('/')
     def index():
-        from flask import redirect, url_for
-        return redirect(url_for('auth.login'))
+        from flask import render_template
+        return render_template('index.html')
         
     return app

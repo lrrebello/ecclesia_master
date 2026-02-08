@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card border-0 shadow-sm p-4">
+            <h3 class="fw-bold mb-4">Adicionar Mídia</h3>
+            <form method="POST" enctype="multipart/form-data">
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">TÍTULO</label>
+                    <input type="text" name="title" class="form-control bg-light border-0" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">EVENTO / DATA</label>
+                    <input type="text" name="event_name" class="form-control bg-light border-0" placeholder="Ex: Culto de Jovens - 08/02">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">TIPO DE MÍDIA</label>
+                    <select name="media_type" class="form-select bg-light border-0">
+                        <option value="image">Imagem / Foto</option>
+                        <option value="video">Vídeo</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">ARQUIVO</label>
+                    <input type="file" name="file" class="form-control bg-light border-0" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">DESCRIÇÃO</label>
+                    <textarea name="description" class="form-control bg-light border-0" rows="2"></textarea>
+                </div>
+                <div class="d-grid mt-4">
+                    <button type="submit" class="btn btn-primary btn-lg py-3 fw-bold shadow-sm">
+                        Fazer Upload
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

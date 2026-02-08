@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card border-0 shadow-sm p-4">
+            <h3 class="fw-bold mb-4">Novo Cargo</h3>
+            <form method="POST">
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">NOME DO CARGO</label>
+                    <input type="text" name="name" class="form-control bg-light border-0" placeholder="Ex: Diácono, Presbítero, Missionário" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">DESCRIÇÃO</label>
+                    <textarea name="description" class="form-control bg-light border-0" rows="3" placeholder="Descreva as responsabilidades..."></textarea>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">ORDEM DE EXIBIÇÃO</label>
+                    <input type="number" name="order" class="form-control bg-light border-0" value="0" min="0" placeholder="Número para ordenar na lista (menor primeiro)">
+                </div>
+                <div class="d-grid mt-4">
+                    <button type="submit" class="btn btn-primary btn-lg py-3 fw-bold shadow-sm">
+                        Cadastrar Cargo
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -59,20 +59,51 @@ def logout():
     logout_user()
     return redirect(url_for('auth.login'))
 
+@auth_bp.route('/change-password', methods=['GET', 'POST'])
+@login_required
+def change_password():
+    if request.method == 'POST':
+        old_password = request.form.get('old_password')
+        new_password = request.form.get('new_password')
+        confirm_password = request.form.get('confirm_password')
+        
+        if not current_user.check_password(old_password):
+            flash('Senha atual incorreta.', 'danger')
+        elif new_password != confirm_password:
+            flash('As novas senhas não coincidem.', 'danger')
+        else:
+            current_user.set_password(new_password)
+            db.session.commit()
+            flash('Senha alterada com sucesso!', 'success')
+            return redirect(url_for('members.profile'))
+            
+    return render_template('auth/change_password.html')
+
 # Rota de Aprovação (Acessível por Admin e Pastor Líder)
 @auth_bp.route('/admin/approve/<int:user_id>/<string:action>')
 @login_required
 def approve_member(user_id, action):
-    if current_user.role not in ['admin', 'pastor_leader']:
+    # Verifica se o usuário tem permissão (usando o novo campo church_role)
+    if not current_user.church_role or current_user.church_role.name not in ['Administrador Global', 'Pastor Líder']:
         flash('Acesso negado.', 'danger')
         return redirect(url_for('members.dashboard'))
         
     user = User.query.get_or_404(user_id)
+    
+    # Garante que o aprovador só aprove/rejeite membros da própria filial (exceto admin global)
+    if current_user.church_role.name != 'Administrador Global' and user.church_id != current_user.church_id:
+        flash('Você não tem permissão para aprovar membros de outras congregações.', 'danger')
+        return redirect(url_for('members.dashboard'))
+    
     if action == 'approve':
         user.status = 'active'
-        flash(f'Membro {user.name} aprovado!', 'success')
+        flash(f'Membro {user.name} aprovado com sucesso!', 'success')
     elif action == 'reject':
         user.status = 'rejected'
         flash(f'Membro {user.name} rejeitado.', 'warning')
+    else:
+        flash('Ação inválida.', 'danger')
+        return redirect(url_for('members.dashboard'))
+    
     db.session.commit()
     return redirect(request.referrer or url_for('members.dashboard'))

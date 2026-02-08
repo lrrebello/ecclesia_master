@@ -61,12 +61,12 @@
         <div class="card border-0 shadow-sm p-4 mb-4">
             <h5 class="fw-bold mb-3">Painel de Liderança</h5>
             <div class="d-grid gap-2">
-                {% if current_user.role in ['admin', 'pastor_leader'] %}
+                {% if current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder'] %}
                 <a href="{{ url_for('members.add_ministry') }}" class="btn btn-outline-primary text-start">
                     <i class="bi bi-plus-circle me-2"></i> Criar Ministério
                 </a>
                 {% endif %}
-                {% if current_user.role in ['admin', 'treasurer'] %}
+                {% if current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Tesoureiro'] %}
                 <a href="{{ url_for('finance.add_transaction') }}" class="btn btn-outline-success text-start">
                     <i class="bi bi-cash-coin me-2"></i> Lançar Financeiro
                 </a>

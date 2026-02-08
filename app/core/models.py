@@ -23,6 +23,17 @@ class Church(db.Model):
     members = db.relationship('User', backref='church', lazy=True)
     ministries = db.relationship('Ministry', backref='church', lazy=True)
     assets = db.relationship('Asset', backref='church', lazy=True)
+    roles = db.relationship('ChurchRole', backref='church', lazy=True, cascade="all, delete-orphan")
+
+class ChurchRole(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(80), nullable=False)
+    description = db.Column(db.Text, nullable=True)
+    church_id = db.Column(db.Integer, db.ForeignKey('church.id'), nullable=False)
+    is_active = db.Column(db.Boolean, default=True)
+    order = db.Column(db.Integer, default=0)  # para ordenar na exibição
+    
+    users = db.relationship('User', backref='church_role', lazy=True)
 
 class User(db.Model, UserMixin):
     id = db.Column(db.Integer, primary_key=True)
@@ -33,17 +44,17 @@ class User(db.Model, UserMixin):
     # Dados Pessoais Expandidos
     birth_date = db.Column(db.Date)
     gender = db.Column(db.String(20))
-    documents = db.Column(db.String(200)) # Flexível para diferentes países
+    documents = db.Column(db.String(200))
     address = db.Column(db.Text)
     phone = db.Column(db.String(50))
     
     # Status e Permissões
-    role = db.Column(db.String(20), default='member') # admin, pastor_leader, treasurer, member
-    status = db.Column(db.String(20), default='pending') # pending, active, rejected
+    status = db.Column(db.String(20), default='pending')  # pending, active, rejected
     is_ministry_leader = db.Column(db.Boolean, default=False)
     
     church_id = db.Column(db.Integer, db.ForeignKey('church.id'))
     family_id = db.Column(db.Integer, db.ForeignKey('family.id'), nullable=True)
+    church_role_id = db.Column(db.Integer, db.ForeignKey('church_role.id'), nullable=True)  # ← NOVO
     
     # Relacionamentos
     ministries = db.relationship('Ministry', secondary=member_ministries, backref=db.backref('members', lazy='dynamic'))

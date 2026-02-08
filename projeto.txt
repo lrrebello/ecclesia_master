@@ -1,0 +1,2365 @@
+\n\n===== ./app/core/models.py =====
+from datetime import datetime
+from flask_sqlalchemy import SQLAlchemy
+from flask_login import UserMixin
+from werkzeug.security import generate_password_hash, check_password_hash
+
+db = SQLAlchemy()
+
+# Tabela de associação para Membros e Ministérios (Muitos-para-Muitos)
+member_ministries = db.Table('member_ministries',
+    db.Column('user_id', db.Integer, db.ForeignKey('user.id'), primary_key=True),
+    db.Column('ministry_id', db.Integer, db.ForeignKey('ministry.id'), primary_key=True)
+)
+
+class Church(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    address = db.Column(db.String(200))
+    city = db.Column(db.String(100))
+    country = db.Column(db.String(100))
+    is_main = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    members = db.relationship('User', backref='church', lazy=True)
+    ministries = db.relationship('Ministry', backref='church', lazy=True)
+    assets = db.relationship('Asset', backref='church', lazy=True)
+
+class User(db.Model, UserMixin):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    email = db.Column(db.String(120), unique=True, nullable=False)
+    password_hash = db.Column(db.String(128))
+    
+    # Dados Pessoais Expandidos
+    birth_date = db.Column(db.Date)
+    gender = db.Column(db.String(20))
+    documents = db.Column(db.String(200)) # Flexível para diferentes países
+    address = db.Column(db.Text)
+    phone = db.Column(db.String(50))
+    
+    # Status e Permissões
+    role = db.Column(db.String(20), default='member') # admin, pastor_leader, treasurer, member
+    status = db.Column(db.String(20), default='pending') # pending, active, rejected
+    is_ministry_leader = db.Column(db.Boolean, default=False)
+    
+    church_id = db.Column(db.Integer, db.ForeignKey('church.id'))
+    family_id = db.Column(db.Integer, db.ForeignKey('family.id'), nullable=True)
+    
+    # Relacionamentos
+    ministries = db.relationship('Ministry', secondary=member_ministries, backref=db.backref('members', lazy='dynamic'))
+    
+    def set_password(self, password):
+        self.password_hash = generate_password_hash(password)
+    
+    def check_password(self, password):
+        return check_password_hash(self.password_hash, password)
+
+class Ministry(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    description = db.Column(db.Text)
+    church_id = db.Column(db.Integer, db.ForeignKey('church.id'))
+    leader_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    
+    events = db.relationship('Event', backref='ministry', lazy=True)
+
+class Event(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(100), nullable=False)
+    description = db.Column(db.Text)
+    start_time = db.Column(db.DateTime, nullable=False)
+    location = db.Column(db.String(200))
+    ministry_id = db.Column(db.Integer, db.ForeignKey('ministry.id'), nullable=True) # Se nulo, é evento geral da igreja
+    church_id = db.Column(db.Integer, db.ForeignKey('church.id'))
+
+class Asset(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    category = db.Column(db.String(50)) # Equipamento, Veículo, Móvel
+    identifier = db.Column(db.String(50)) # Placa, Serial
+    purchase_date = db.Column(db.Date)
+    value = db.Column(db.Float)
+    church_id = db.Column(db.Integer, db.ForeignKey('church.id'))
+    
+    maintenance_logs = db.relationship('MaintenanceLog', backref='asset', lazy=True)
+
+class MaintenanceLog(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    asset_id = db.Column(db.Integer, db.ForeignKey('asset.id'))
+    date = db.Column(db.Date, default=datetime.utcnow().date)
+    description = db.Column(db.Text)
+    cost = db.Column(db.Float, default=0.0)
+    type = db.Column(db.String(50)) # Combustível, Seguro, Reparo
+
+class Family(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    users = db.relationship('User', backref='family_group', lazy=True)
+
+class Transaction(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    type = db.Column(db.String(10)) # income, expense
+    category = db.Column(db.String(50))
+    amount = db.Column(db.Float, nullable=False)
+    date = db.Column(db.DateTime, default=datetime.utcnow)
+    description = db.Column(db.Text)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    church_id = db.Column(db.Integer, db.ForeignKey('church.id'))
+    receipt_path = db.Column(db.String(255))
+
+class KidsActivity(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(100), nullable=False)
+    content = db.Column(db.Text) # Markdown ou link para imagem/PDF
+    age_group = db.Column(db.String(20))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+class Study(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(200), nullable=False)
+    content = db.Column(db.Text, nullable=False)
+    category = db.Column(db.String(50), default='Geral')
+    author_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    questions = db.relationship('StudyQuestion', backref='study', lazy=True)
+
+class StudyQuestion(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    study_id = db.Column(db.Integer, db.ForeignKey('study.id'))
+    question_text = db.Column(db.Text, nullable=False)
+    options = db.Column(db.Text) # JSON string com opções
+    correct_option = db.Column(db.Integer)
+
+class Devotional(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(200))
+    content = db.Column(db.Text, nullable=False)
+    verse = db.Column(db.String(200))
+    date = db.Column(db.Date, default=datetime.utcnow().date)
+
+\n\n===== ./app/modules/auth/routes.py =====
+from flask import Blueprint, render_template, redirect, url_for, flash, request
+from flask_login import login_user, logout_user, login_required, current_user
+from app.core.models import User, Church, db
+from datetime import datetime
+
+auth_bp = Blueprint('auth', __name__)
+
+@auth_bp.route('/login', methods=['GET', 'POST'])
+def login():
+    if current_user.is_authenticated:
+        return redirect(url_for('members.dashboard'))
+    if request.method == 'POST':
+        email = request.form.get('email')
+        password = request.form.get('password')
+        user = User.query.filter_by(email=email).first()
+        if user and user.check_password(password):
+            if user.status == 'pending':
+                flash('Seu cadastro ainda está em análise pela liderança.', 'warning')
+                return redirect(url_for('auth.login'))
+            if user.status == 'rejected':
+                flash('Seu cadastro não foi aprovado. Entre em contato com a secretaria.', 'danger')
+                return redirect(url_for('auth.login'))
+            login_user(user, remember=True)
+            return redirect(url_for('members.dashboard'))
+        flash('E-mail ou senha incorretos.', 'danger')
+    return render_template('auth/login.html')
+
+@auth_bp.route('/register', methods=['GET', 'POST'])
+def register():
+    if request.method == 'POST':
+        email = request.form.get('email')
+        if User.query.filter_by(email=email).first():
+            flash('E-mail já cadastrado.', 'danger')
+            return redirect(url_for('auth.register'))
+            
+        new_user = User(
+            name=request.form.get('name'),
+            email=email,
+            birth_date=datetime.strptime(request.form.get('birth_date'), '%Y-%m-%d').date(),
+            gender=request.form.get('gender'),
+            documents=request.form.get('documents'),
+            address=request.form.get('address'),
+            phone=request.form.get('phone'),
+            church_id=request.form.get('church_id'),
+            status='pending'
+        )
+        new_user.set_password(request.form.get('password'))
+        db.session.add(new_user)
+        db.session.commit()
+        flash('Solicitação enviada com sucesso! Aguarde a aprovação da liderança.', 'success')
+        return redirect(url_for('auth.login'))
+        
+    churches = Church.query.all()
+    return render_template('auth/register.html', churches=churches)
+
+@auth_bp.route('/logout')
+@login_required
+def logout():
+    logout_user()
+    return redirect(url_for('auth.login'))
+
+@auth_bp.route('/change-password', methods=['GET', 'POST'])
+@login_required
+def change_password():
+    if request.method == 'POST':
+        old_password = request.form.get('old_password')
+        new_password = request.form.get('new_password')
+        confirm_password = request.form.get('confirm_password')
+        
+        if not current_user.check_password(old_password):
+            flash('Senha atual incorreta.', 'danger')
+        elif new_password != confirm_password:
+            flash('As novas senhas não coincidem.', 'danger')
+        else:
+            current_user.set_password(new_password)
+            db.session.commit()
+            flash('Senha alterada com sucesso!', 'success')
+            return redirect(url_for('members.profile'))
+            
+    return render_template('auth/change_password.html')
+
+# Rota de Aprovação (Acessível por Admin e Pastor Líder)
+@auth_bp.route('/admin/approve/<int:user_id>/<string:action>')
+@login_required
+def approve_member(user_id, action):
+    if current_user.role not in ['admin', 'pastor_leader']:
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('members.dashboard'))
+        
+    user = User.query.get_or_404(user_id)
+    if action == 'approve':
+        user.status = 'active'
+        flash(f'Membro {user.name} aprovado!', 'success')
+    elif action == 'reject':
+        user.status = 'rejected'
+        flash(f'Membro {user.name} rejeitado.', 'warning')
+    db.session.commit()
+    return redirect(request.referrer or url_for('members.dashboard'))
+
+\n\n===== ./app/modules/members/routes.py =====
+from flask import Blueprint, render_template, redirect, url_for, flash, request
+from flask_login import login_required, current_user
+from app.core.models import User, Church, Ministry, Event, db, Devotional, Study
+
+members_bp = Blueprint('members', __name__)
+
+@members_bp.route('/dashboard')
+@login_required
+def dashboard():
+    latest_devotional = Devotional.query.order_by(Devotional.date.desc()).first()
+    recent_studies = Study.query.order_by(Study.created_at.desc()).limit(3).all()
+    
+    # Agenda Personalizada: Eventos Gerais + Eventos dos Ministérios do Membro
+    ministry_ids = [m.id for m in current_user.ministries]
+    personal_agenda = Event.query.filter(
+        (Event.church_id == current_user.church_id) & 
+        ((Event.ministry_id == None) | (Event.ministry_id.in_(ministry_ids)))
+    ).order_by(Event.start_time.asc()).all()
+    
+    # Se for Pastor Líder, ver solicitações pendentes da sua filial
+    pending_members = []
+    if current_user.role in ['admin', 'pastor_leader']:
+        pending_members = User.query.filter_by(church_id=current_user.church_id, status='pending').all()
+        
+    return render_template('members/dashboard.html', 
+                           devotional=latest_devotional, 
+                           studies=recent_studies,
+                           agenda=personal_agenda,
+                           pending_members=pending_members)
+
+@members_bp.route('/profile')
+@login_required
+def profile():
+    return render_template('members/profile.html')
+
+@members_bp.route('/ministries')
+@login_required
+def list_ministries():
+    # Pastor Líder vê todos da sua filial, Membro vê os seus
+    if current_user.role in ['admin', 'pastor_leader']:
+        ministries = Ministry.query.filter_by(church_id=current_user.church_id).all()
+    else:
+        ministries = current_user.ministries
+    return render_template('members/ministries.html', ministries=ministries)
+
+@members_bp.route('/ministry/add', methods=['GET', 'POST'])
+@login_required
+def add_ministry():
+    if current_user.role not in ['admin', 'pastor_leader']:
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('members.list_ministries'))
+        
+    if request.method == 'POST':
+        new_min = Ministry(
+            name=request.form.get('name'),
+            description=request.form.get('description'),
+            church_id=current_user.church_id,
+            leader_id=request.form.get('leader_id')
+        )
+        db.session.add(new_min)
+        db.session.commit()
+        flash('Ministério criado com sucesso!', 'success')
+        return redirect(url_for('members.list_ministries'))
+        
+    potential_leaders = User.query.filter_by(church_id=current_user.church_id, status='active').all()
+    return render_template('members/add_ministry.html', leaders=potential_leaders)
+
+@members_bp.route('/ministry/<int:id>/event/add', methods=['GET', 'POST'])
+@login_required
+def add_ministry_event(id):
+    ministry = Ministry.query.get_or_404(id)
+    # Apenas Admin, Pastor Líder ou o Líder do Ministério podem criar eventos
+    if current_user.role not in ['admin', 'pastor_leader'] and ministry.leader_id != current_user.id:
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('members.list_ministries'))
+        
+    if request.method == 'POST':
+        new_event = Event(
+            title=request.form.get('title'),
+            description=request.form.get('description'),
+            start_time=datetime.strptime(request.form.get('start_time'), '%Y-%m-%dT%H:%M'),
+            location=request.form.get('location'),
+            ministry_id=ministry.id,
+            church_id=current_user.church_id
+        )
+        db.session.add(new_event)
+        db.session.commit()
+        flash('Evento do ministério agendado!', 'success')
+        return redirect(url_for('members.dashboard'))
+        
+    return render_template('members/add_event.html', ministry=ministry)
+
+@members_bp.route('/my-church/members')
+@login_required
+def church_members():
+    if current_user.role not in ['admin', 'pastor_leader']:
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('members.dashboard'))
+    
+    members = User.query.filter_by(church_id=current_user.church_id).all()
+    return render_template('members/church_members.html', members=members)
+
+@members_bp.route('/member/promote/<int:id>', methods=['GET', 'POST'])
+@login_required
+def promote_member(id):
+    if current_user.role not in ['admin', 'pastor_leader']:
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('members.dashboard'))
+    
+    member = User.query.get_or_404(id)
+    if member.church_id != current_user.church_id and current_user.role != 'admin':
+        flash('Este membro não pertence à sua congregação.', 'danger')
+        return redirect(url_for('members.church_members'))
+    
+    if request.method == 'POST':
+        member.role = request.form.get('role')
+        db.session.commit()
+        flash(f'Cargo de {member.name} atualizado!', 'success')
+        return redirect(url_for('members.church_members'))
+    
+    return render_template('members/promote_member.html', member=member)
+
+\n\n===== ./app/modules/finance/routes.py =====
+from flask import Blueprint, render_template, redirect, url_for, flash, request, send_from_directory, current_app
+from flask_login import login_required, current_user
+from app.core.models import Transaction, Asset, MaintenanceLog, db, User, Church
+from app.utils.pdf_gen import generate_receipt
+import os
+
+finance_bp = Blueprint('finance', __name__)
+
+@finance_bp.route('/dashboard')
+@login_required
+def dashboard():
+    # Admin vê tudo, outros veem apenas da sua filial
+    if current_user.role == 'admin':
+        transactions = Transaction.query.order_by(Transaction.date.desc()).all()
+        assets = Asset.query.all()
+    elif current_user.role in ['treasurer', 'pastor_leader']:
+        transactions = Transaction.query.filter_by(church_id=current_user.church_id).order_by(Transaction.date.desc()).all()
+        assets = Asset.query.filter_by(church_id=current_user.church_id).all()
+    else:
+        transactions = Transaction.query.filter_by(user_id=current_user.id).order_by(Transaction.date.desc()).all()
+        assets = []
+    return render_template('finance/dashboard.html', transactions=transactions, assets=assets)
+
+@finance_bp.route('/asset/add', methods=['GET', 'POST'])
+@login_required
+def add_asset():
+    if current_user.role not in ['admin', 'treasurer']:
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('finance.dashboard'))
+        
+    if request.method == 'POST':
+        new_asset = Asset(
+            name=request.form.get('name'),
+            category=request.form.get('category'),
+            identifier=request.form.get('identifier'),
+            value=float(request.form.get('value')),
+            church_id=current_user.church_id
+        )
+        db.session.add(new_asset)
+        db.session.commit()
+        flash('Bem cadastrado no patrimônio!', 'success')
+        return redirect(url_for('finance.dashboard'))
+    return render_template('finance/add_asset.html')
+
+@finance_bp.route('/asset/<int:id>/maintenance', methods=['GET', 'POST'])
+@login_required
+def add_maintenance(id):
+    asset = Asset.query.get_or_404(id)
+    if current_user.role not in ['admin', 'treasurer']:
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('finance.dashboard'))
+        
+    if request.method == 'POST':
+        log = MaintenanceLog(
+            asset_id=asset.id,
+            description=request.form.get('description'),
+            cost=float(request.form.get('cost')),
+            type=request.form.get('type')
+        )
+        # Também registra como uma despesa financeira
+        tx = Transaction(
+            type='expense',
+            category=f'Manutenção: {asset.name}',
+            amount=log.cost,
+            description=log.description,
+            church_id=current_user.church_id
+        )
+        db.session.add(log)
+        db.session.add(tx)
+        db.session.commit()
+        flash('Manutenção registrada e lançada no financeiro!', 'success')
+        return redirect(url_for('finance.dashboard'))
+    return render_template('finance/add_maintenance.html', asset=asset)
+
+@finance_bp.route('/add', methods=['GET', 'POST'])
+@login_required
+def add_transaction():
+    if current_user.role not in ['admin', 'treasurer']:
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('finance.dashboard'))
+        
+    if request.method == 'POST':
+        user_id = request.form.get('user_id')
+        new_tx = Transaction(
+            type=request.form.get('type'),
+            category=request.form.get('category'),
+            amount=float(request.form.get('amount')),
+            description=request.form.get('description'),
+            user_id=int(user_id) if user_id else None,
+            church_id=current_user.church_id
+        )
+        db.session.add(new_tx)
+        db.session.commit()
+        
+        if new_tx.user_id:
+            from app.utils.pdf_gen import generate_receipt
+            new_tx.receipt_path = generate_receipt(new_tx)
+            db.session.commit()
+            
+        flash('Transação registrada com sucesso!', 'success')
+        return redirect(url_for('finance.dashboard'))
+        
+    members = User.query.filter_by(church_id=current_user.church_id, status='active').all()
+    return render_template('finance/add.html', members=members)
+
+@finance_bp.route('/receipt/<int:tx_id>')
+@login_required
+def download_receipt(tx_id):
+    tx = Transaction.query.get_or_404(tx_id)
+    if current_user.role not in ['admin', 'treasurer'] and tx.user_id != current_user.id:
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('finance.dashboard'))
+        
+    if not tx.receipt_path:
+        from app.utils.pdf_gen import generate_receipt
+        tx.receipt_path = generate_receipt(tx)
+        db.session.commit()
+        
+    return send_from_directory(
+        os.path.join(current_app.config['UPLOAD_FOLDER'], 'receipts'),
+        tx.receipt_path,
+        as_attachment=True
+    )
+
+\n\n===== ./app/modules/edification/routes.py =====
+from flask import Blueprint, render_template, redirect, url_for, flash, request
+from flask_login import login_required, current_user
+from app.core.models import Study, Devotional, KidsActivity, StudyQuestion, db
+import markdown
+import json
+
+edification_bp = Blueprint('edification', __name__)
+
+@edification_bp.route('/studies')
+@login_required
+def list_studies():
+    studies = Study.query.order_by(Study.created_at.desc()).all()
+    return render_template('edification/studies.html', studies=studies)
+
+@edification_bp.route('/study/<int:id>')
+@login_required
+def view_study(id):
+    study = Study.query.get_or_404(id)
+    content_html = markdown.markdown(study.content)
+    return render_template('edification/view_study.html', study=study, content_html=content_html)
+
+@edification_bp.route('/kids')
+@login_required
+def kids_corner():
+    activities = KidsActivity.query.order_by(KidsActivity.created_at.desc()).all()
+    return render_template('edification/kids.html', activities=activities)
+
+@edification_bp.route('/admin/add_kids_activity', methods=['GET', 'POST'])
+@login_required
+def add_kids_activity():
+    if current_user.role not in ['admin', 'pastor_leader', 'ministry_leader']:
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('edification.kids_corner'))
+        
+    if request.method == 'POST':
+        new_act = KidsActivity(
+            title=request.form.get('title'),
+            content=request.form.get('content'),
+            age_group=request.form.get('age_group')
+        )
+        db.session.add(new_act)
+        db.session.commit()
+        flash('Atividade infantil publicada!', 'success')
+        return redirect(url_for('edification.kids_corner'))
+    return render_template('edification/add_kids.html')
+
+@edification_bp.route('/study/add', methods=['GET', 'POST'])
+@login_required
+def add_study():
+    if current_user.role not in ['admin', 'pastor_leader']:
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('edification.list_studies'))
+        
+    if request.method == 'POST':
+        new_study = Study(
+            title=request.form.get('title'),
+            content=request.form.get('content'),
+            category=request.form.get('category'),
+            author_id=current_user.id
+        )
+        db.session.add(new_study)
+        db.session.commit()
+        flash('Estudo bíblico publicado!', 'success')
+        return redirect(url_for('edification.list_studies'))
+    return render_template('edification/add_study.html')
+
+@edification_bp.route('/gallery')
+@login_required
+def gallery():
+    from app.core.models import Media
+    media_items = Media.query.order_by(Media.created_at.desc()).all()
+    return render_template('edification/gallery.html', media_items=media_items)
+
+@edification_bp.route('/media/add', methods=['GET', 'POST'])
+@login_required
+def add_media():
+    if current_user.role not in ['admin', 'pastor_leader', 'ministry_leader']:
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('edification.gallery'))
+        
+    if request.method == 'POST':
+        from app.core.models import Media
+        import os
+        from werkzeug.utils import secure_filename
+        
+        file = request.files.get('file')
+        if file:
+            filename = secure_filename(file.filename)
+            upload_path = os.path.join(current_app.config['UPLOAD_FOLDER'], 'media')
+            os.makedirs(upload_path, exist_ok=True)
+            file.save(os.path.join(upload_path, filename))
+            
+            new_media = Media(
+                title=request.form.get('title'),
+                description=request.form.get('description'),
+                file_path=filename,
+                media_type=request.form.get('media_type'),
+                event_name=request.form.get('event_name'),
+                church_id=current_user.church_id
+            )
+            db.session.add(new_media)
+            db.session.commit()
+            flash('Mídia adicionada à galeria!', 'success')
+            return redirect(url_for('edification.gallery'))
+            
+    return render_template('edification/add_media.html')
+
+\n\n===== ./app/modules/admin/routes.py =====
+from flask import Blueprint, render_template, redirect, url_for, flash, request
+from flask_login import login_required, current_user
+from app.core.models import Church, db, User
+
+admin_bp = Blueprint('admin', __name__)
+
+@admin_bp.route('/churches')
+@login_required
+def list_churches():
+    if current_user.role != 'admin':
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('members.dashboard'))
+    churches = Church.query.all()
+    return render_template('admin/churches.html', churches=churches)
+
+@admin_bp.route('/church/add', methods=['GET', 'POST'])
+@login_required
+def add_church():
+    if current_user.role != 'admin':
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('members.dashboard'))
+    
+    if request.method == 'POST':
+        new_church = Church(
+            name=request.form.get('name'),
+            address=request.form.get('address'),
+            city=request.form.get('city'),
+            country=request.form.get('country'),
+            is_main=True if request.form.get('is_main') else False
+        )
+        db.session.add(new_church)
+        db.session.commit()
+        flash('Congregação cadastrada com sucesso!', 'success')
+        return redirect(url_for('admin.list_churches'))
+    
+    return render_template('admin/add_church.html')
+
+@admin_bp.route('/church/edit/<int:id>', methods=['GET', 'POST'])
+@login_required
+def edit_church(id):
+    if current_user.role != 'admin':
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('members.dashboard'))
+    
+    church = Church.query.get_or_404(id)
+    if request.method == 'POST':
+        church.name = request.form.get('name')
+        church.address = request.form.get('address')
+        church.city = request.form.get('city')
+        church.country = request.form.get('country')
+        church.is_main = True if request.form.get('is_main') else False
+        db.session.commit()
+        flash('Congregação atualizada!', 'success')
+        return redirect(url_for('admin.list_churches'))
+    
+    return render_template('admin/edit_church.html', church=church)
+
+@admin_bp.route('/members')
+@login_required
+def list_members():
+    if current_user.role != 'admin':
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('members.dashboard'))
+    
+    members = User.query.all()
+    return render_template('admin/members.html', members=members)
+
+@admin_bp.route('/member/edit/<int:id>', methods=['GET', 'POST'])
+@login_required
+def edit_member(id):
+    if current_user.role != 'admin':
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('members.dashboard'))
+    
+    member = User.query.get_or_404(id)
+    churches = Church.query.all()
+    
+    if request.method == 'POST':
+        member.name = request.form.get('name')
+        member.email = request.form.get('email')
+        member.role = request.form.get('role')
+        member.church_id = request.form.get('church_id')
+        member.status = request.form.get('status')
+        db.session.commit()
+        flash('Membro atualizado com sucesso!', 'success')
+        return redirect(url_for('admin.list_members'))
+    
+    return render_template('admin/edit_member.html', member=member, churches=churches)
+
+\n\n===== ./app/static/css/premium.css =====
+:root {
+    --primary: #4f46e5;
+    --primary-hover: #4338ca;
+    --secondary: #64748b;
+    --success: #10b981;
+    --danger: #ef4444;
+    --warning: #f59e0b;
+    --info: #06b6d4;
+    --bg-main: #f8fafc;
+    --bg-card: #ffffff;
+    --text-main: #1e293b;
+    --text-muted: #64748b;
+    --border: #e2e8f0;
+    --sidebar-bg: #1e293b;
+    --sidebar-text: #f8fafc;
+}
+
+[data-theme="dark"] {
+    --bg-main: #0f172a;
+    --bg-card: #1e293b;
+    --text-main: #f8fafc;
+    --text-muted: #94a3b8;
+    --border: #334155;
+    --sidebar-bg: #020617;
+}
+
+body {
+    font-family: 'Inter', sans-serif;
+    background-color: var(--bg-main);
+    color: var(--text-main);
+    transition: all 0.3s ease;
+}
+
+.sidebar {
+    background-color: var(--sidebar-bg);
+    color: var(--sidebar-text);
+    min-height: 100vh;
+    padding: 2rem 1rem;
+}
+
+.nav-link {
+    color: var(--sidebar-text);
+    opacity: 0.7;
+    transition: all 0.2s;
+    border-radius: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.nav-link:hover, .nav-link.active {
+    opacity: 1;
+    background-color: rgba(255,255,255,0.1);
+    color: white;
+}
+
+.main-content {
+    padding: 2rem;
+}
+
+.card {
+    background-color: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 1rem;
+    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+    transition: transform 0.2s;
+}
+
+.card:hover {
+    transform: translateY(-2px);
+}
+
+.btn-primary {
+    background-color: var(--primary);
+    border-color: var(--primary);
+}
+
+.btn-primary:hover {
+    background-color: var(--primary-hover);
+}
+
+.stats-card {
+    padding: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.stats-icon {
+    width: 3rem;
+    height: 3rem;
+    border-radius: 0.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+}
+
+/* Study Content Styling */
+.study-content {
+    line-height: 1.8;
+    font-size: 1.1rem;
+}
+
+.study-content h1, .study-content h2 {
+    margin-top: 2rem;
+    margin-bottom: 1rem;
+    font-weight: 700;
+}
+
+.devotional-card {
+    background: linear-gradient(135deg, var(--primary), var(--info));
+    color: white;
+}
+
+/* Theme Toggle */
+.theme-toggle {
+    cursor: pointer;
+    padding: 0.5rem;
+    border-radius: 50%;
+    background: var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+\n\n===== ./app/templates/base.html =====
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ecclesia Master - Gestão Eclesiástica</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/premium.css') }}">
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="row">
+            {% if current_user.is_authenticated %}
+            <!-- Sidebar -->
+            <div class="col-md-3 col-lg-2 sidebar d-none d-md-block">
+                <div class="d-flex align-items-center mb-4 px-2">
+                    <i class="bi bi-lightning-charge-fill text-primary fs-3 me-2"></i>
+                    <h4 class="mb-0 fw-bold">Ecclesia</h4>
+                </div>
+                <nav class="nav flex-column">
+                    <a class="nav-link {{ 'active' if request.endpoint == 'members.dashboard' }}" href="{{ url_for('members.dashboard') }}">
+                        <i class="bi bi-speedometer2 me-2"></i> Dashboard
+                    </a>
+                    <a class="nav-link {{ 'active' if 'finance' in request.endpoint }}" href="{{ url_for('finance.dashboard') }}">
+                        <i class="bi bi-cash-stack me-2"></i> Financeiro
+                    </a>
+                    <a class="nav-link {{ 'active' if 'edification' in request.endpoint }}" href="{{ url_for('edification.list_studies') }}">
+                        <i class="bi bi-book me-2"></i> Edificação
+                    </a>
+                    <a class="nav-link {{ 'active' if 'gallery' in request.endpoint }}" href="{{ url_for('edification.gallery') }}">
+                        <i class="bi bi-images me-2"></i> Galeria
+                    </a>
+                    <a class="nav-link {{ 'active' if 'ministries' in request.endpoint }}" href="{{ url_for('members.list_ministries') }}">
+                        <i class="bi bi-diagram-3 me-2"></i> Ministérios
+                    </a>
+                    {% if current_user.role in ['admin', 'pastor_leader'] %}
+                    <a class="nav-link {{ 'active' if 'church_members' in request.endpoint }}" href="{{ url_for('members.church_members') }}">
+                        <i class="bi bi-people me-2"></i> Membros da Filial
+                    </a>
+                    {% endif %}
+                    {% if current_user.role == 'admin' %}
+                    <hr class="my-3 opacity-25">
+                    <label class="small text-muted px-3 mb-2">ADMINISTRAÇÃO</label>
+                    <a class="nav-link {{ 'active' if 'admin.list_churches' in request.endpoint }}" href="{{ url_for('admin.list_churches') }}">
+                        <i class="bi bi-building me-2"></i> Congregações
+                    </a>
+                    <a class="nav-link {{ 'active' if 'admin.list_members' in request.endpoint }}" href="{{ url_for('admin.list_members') }}">
+                        <i class="bi bi-globe me-2"></i> Gestão Global
+                    </a>
+                    {% endif %}
+                    <a class="nav-link" href="{{ url_for('members.profile') }}">
+                        <i class="bi bi-person me-2"></i> Meu Perfil
+                    </a>
+                    <hr class="my-3 opacity-25">
+                    <a class="nav-link text-danger" href="{{ url_for('auth.logout') }}">
+                        <i class="bi bi-box-arrow-right me-2"></i> Sair
+                    </a>
+                </nav>
+            </div>
+            {% endif %}
+
+            <!-- Main Content -->
+            <div class="col-md-9 col-lg-10 main-content {{ 'mx-auto' if not current_user.is_authenticated }}">
+                <header class="d-flex justify-content-between align-items-center mb-4">
+                    <div>
+                        {% if current_user.is_authenticated %}
+                        <h5 class="text-muted mb-0">Bem-vindo,</h5>
+                        <h3 class="fw-bold">{{ current_user.name }}</h3>
+                        {% endif %}
+                    </div>
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="theme-toggle" onclick="toggleTheme()">
+                            <i class="bi bi-moon-stars" id="theme-icon"></i>
+                        </div>
+                    </div>
+                </header>
+
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        {% for category, message in messages %}
+                            <div class="alert alert-{{ category }} alert-dismissible fade show rounded-3" role="alert">
+                                {{ message }}
+                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
+
+                {% block content %}{% endblock %}
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        function toggleTheme() {
+            const html = document.documentElement;
+            const icon = document.getElementById('theme-icon');
+            if (html.getAttribute('data-theme') === 'dark') {
+                html.removeAttribute('data-theme');
+                icon.className = 'bi bi-moon-stars';
+                localStorage.setItem('theme', 'light');
+            } else {
+                html.setAttribute('data-theme', 'dark');
+                icon.className = 'bi bi-sun';
+                localStorage.setItem('theme', 'dark');
+            }
+        }
+
+        // Load saved theme
+        if (localStorage.getItem('theme') === 'dark') {
+            document.documentElement.setAttribute('data-theme', 'dark');
+            document.getElementById('theme-icon').className = 'bi bi-sun';
+        }
+    </script>
+</body>
+</html>
+
+\n\n===== ./app/templates/members/dashboard.html =====
+{% extends "base.html" %}
+{% block content %}
+<div class="row g-4">
+    <!-- Seção de Alertas para Liderança -->
+    {% if pending_members %}
+    <div class="col-12">
+        <div class="alert alert-warning border-0 shadow-sm d-flex justify-content-between align-items-center">
+            <div>
+                <i class="bi bi-person-plus-fill me-2"></i>
+                Existem <strong>{{ pending_members|length }}</strong> solicitações de cadastro pendentes para sua filial.
+            </div>
+            <button class="btn btn-sm btn-warning fw-bold" data-bs-toggle="modal" data-bs-target="#pendingModal">Ver Solicitações</button>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Devocional e Agenda -->
+    <div class="col-lg-8">
+        <div class="card devotional-card border-0 p-4 mb-4">
+            <div class="card-body">
+                <span class="badge bg-white text-primary px-3 py-2 mb-3">Palavra do Dia</span>
+                <h2 class="fw-bold mb-3">{{ devotional.title if devotional else 'Bem-vindo ao Ecclesia Master' }}</h2>
+                <p class="fs-5 opacity-90">{{ devotional.content if devotional else 'Que a graça do Senhor Jesus seja com todos.' }}</p>
+                {% if devotional and devotional.verse %}
+                <p class="fst-italic mt-3 mb-0">"{{ devotional.verse }}"</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="card border-0 shadow-sm p-4">
+            <h4 class="fw-bold mb-4"><i class="bi bi-calendar-event me-2 text-primary"></i>Minha Agenda</h4>
+            <div class="list-group list-group-flush">
+                {% for event in agenda %}
+                <div class="list-group-item px-0 py-3 border-0 border-bottom">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="fw-bold mb-1">{{ event.title }}</h6>
+                            <small class="text-muted">
+                                <i class="bi bi-clock me-1"></i> {{ event.start_time.strftime('%d/%m %H:%M') }}
+                                {% if event.ministry %}
+                                <span class="badge bg-info bg-opacity-10 text-info ms-2">{{ event.ministry.name }}</span>
+                                {% else %}
+                                <span class="badge bg-secondary bg-opacity-10 text-secondary ms-2">Geral</span>
+                                {% endif %}
+                            </small>
+                        </div>
+                        <div class="text-end">
+                            <small class="d-block text-muted"><i class="bi bi-geo-alt"></i> {{ event.location }}</small>
+                        </div>
+                    </div>
+                </div>
+                {% else %}
+                <p class="text-muted">Nenhum evento agendado para você.</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Sidebar de Ações e Família -->
+    <div class="col-lg-4">
+        <div class="card border-0 shadow-sm p-4 mb-4">
+            <h5 class="fw-bold mb-3">Painel de Liderança</h5>
+            <div class="d-grid gap-2">
+                {% if current_user.role in ['admin', 'pastor_leader'] %}
+                <a href="{{ url_for('members.add_ministry') }}" class="btn btn-outline-primary text-start">
+                    <i class="bi bi-plus-circle me-2"></i> Criar Ministério
+                </a>
+                {% endif %}
+                {% if current_user.role in ['admin', 'treasurer'] %}
+                <a href="{{ url_for('finance.add_transaction') }}" class="btn btn-outline-success text-start">
+                    <i class="bi bi-cash-coin me-2"></i> Lançar Financeiro
+                </a>
+                <a href="{{ url_for('finance.add_asset') }}" class="btn btn-outline-info text-start">
+                    <i class="bi bi-box-seam me-2"></i> Cadastrar Patrimônio
+                </a>
+                {% endif %}
+                <a href="{{ url_for('edification.kids_corner') }}" class="btn btn-outline-warning text-start">
+                    <i class="bi bi-balloon me-2"></i> Ecclesia Kids
+                </a>
+            </div>
+        </div>
+
+        <div class="card border-0 shadow-sm p-4">
+            <h5 class="fw-bold mb-3"><i class="bi bi-people me-2 text-primary"></i>Minha Família</h5>
+            {% if current_user.family_group %}
+                <p class="text-muted small mb-3">Grupo: <strong>{{ current_user.family_group.name }}</strong></p>
+                <div class="list-group list-group-flush">
+                    {% for member in current_user.family_group.users %}
+                    <div class="list-group-item px-0 py-2 border-0 small">
+                        <i class="bi bi-person-circle me-2"></i> {{ member.name }}
+                        {% if member.id == current_user.id %}<span class="badge bg-light text-dark ms-1">Você</span>{% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p class="text-muted small">Você ainda não está vinculado a um grupo familiar.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Solicitações Pendentes -->
+<div class="modal fade" id="pendingModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-light">
+                <h5 class="modal-title fw-bold">Solicitações de Cadastro</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="table-responsive">
+                    <table class="table align-middle">
+                        <thead>
+                            <tr>
+                                <th>Nome</th>
+                                <th>E-mail</th>
+                                <th>Data Solicitada</th>
+                                <th class="text-end">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for p in pending_members %}
+                            <tr>
+                                <td>{{ p.name }}</td>
+                                <td>{{ p.email }}</td>
+                                <td>{{ p.birth_date.strftime('%d/%m/%Y') if p.birth_date else 'N/A' }}</td>
+                                <td class="text-end">
+                                    <a href="{{ url_for('auth.approve_member', user_id=p.id, action='approve') }}" class="btn btn-sm btn-success">Aprovar</a>
+                                    <a href="{{ url_for('auth.approve_member', user_id=p.id, action='reject') }}" class="btn btn-sm btn-danger">Rejeitar</a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+\n\n===== ./app/templates/members/profile.html =====
+{% extends "base.html" %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card border-0 shadow-sm p-4 p-md-5">
+            <div class="text-center mb-4">
+                <div class="d-inline-block bg-primary bg-opacity-10 rounded-circle p-4 mb-3">
+                    <i class="bi bi-person-fill text-primary fs-1"></i>
+                </div>
+                <h2 class="fw-bold">{{ current_user.name }}</h2>
+                <span class="badge bg-primary px-3 py-2">{{ current_user.role|replace('_', ' ')|title }}</span>
+            </div>
+
+            <hr class="my-4 opacity-25">
+
+            <div class="row g-4">
+                <div class="col-md-6">
+                    <label class="form-label small fw-bold text-muted">E-MAIL</label>
+                    <p class="fs-5">{{ current_user.email }}</p>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label small fw-bold text-muted">TELEFONE</label>
+                    <p class="fs-5">{{ current_user.phone or 'Não informado' }}</p>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label small fw-bold text-muted">DATA DE NASCIMENTO</label>
+                    <p class="fs-5">{{ current_user.birth_date.strftime('%d/%m/%Y') if current_user.birth_date else 'Não informado' }}</p>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label small fw-bold text-muted">CONGREGAÇÃO</label>
+                    <p class="fs-5">{{ current_user.church.name if current_user.church else 'Não vinculada' }}</p>
+                </div>
+                <div class="col-12">
+                    <label class="form-label small fw-bold text-muted">ENDEREÇO</label>
+                    <p class="fs-5">{{ current_user.address or 'Não informado' }}</p>
+                </div>
+                <div class="col-12">
+                    <label class="form-label small fw-bold text-muted">DOCUMENTOS</label>
+                    <p class="fs-5">{{ current_user.documents or 'Não informado' }}</p>
+                </div>
+            </div>
+
+            <div class="mt-4 d-flex gap-2">
+                <a href="{{ url_for('auth.change_password') }}" class="btn btn-outline-primary btn-sm">
+                    <i class="bi bi-key me-1"></i> Alterar Minha Senha
+                </a>
+            </div>
+
+            <div class="mt-5 pt-4 border-top">
+                <h5 class="fw-bold mb-3">Meus Ministérios</h5>
+                <div class="d-flex flex-wrap gap-2">
+                    {% for ministry in current_user.ministries %}
+                    <span class="badge bg-info bg-opacity-10 text-info px-3 py-2">{{ ministry.name }}</span>
+                    {% else %}
+                    <p class="text-muted small">Você ainda não faz parte de nenhum ministério.</p>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+\n\n===== ./app/templates/members/add_ministry.html =====
+{% extends "base.html" %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card border-0 shadow-sm p-4">
+            <h3 class="fw-bold mb-4">Criar Novo Ministério</h3>
+            <form method="POST">
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">NOME DO MINISTÉRIO</label>
+                    <input type="text" name="name" class="form-control bg-light border-0" placeholder="Ex: Ministério de Louvor, Grupo de Jovens" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">DESCRIÇÃO / OBJETIVO</label>
+                    <textarea name="description" class="form-control bg-light border-0" rows="3" required></textarea>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">LÍDER DO MINISTÉRIO</label>
+                    <select name="leader_id" class="form-select bg-light border-0">
+                        <option value="">Selecione um líder...</option>
+                        {% for leader in leaders %}
+                        <option value="{{ leader.id }}">{{ leader.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="d-grid mt-4">
+                    <button type="submit" class="btn btn-primary btn-lg py-3 fw-bold shadow-sm">
+                        Criar Ministério
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+\n\n===== ./app/templates/members/add_event.html =====
+{% extends "base.html" %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card border-0 shadow-sm p-4">
+            <h3 class="fw-bold mb-2">Agendar Evento</h3>
+            <p class="text-muted mb-4">Ministério: <strong>{{ ministry.name }}</strong></p>
+            <form method="POST">
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">TÍTULO DO EVENTO</label>
+                    <input type="text" name="title" class="form-control bg-light border-0" placeholder="Ex: Ensaio Geral, Reunião de Líderes" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">DATA E HORA</label>
+                    <input type="datetime-local" name="start_time" class="form-control bg-light border-0" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">LOCAL</label>
+                    <input type="text" name="location" class="form-control bg-light border-0" placeholder="Ex: Templo Sede, Sala 02" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">DESCRIÇÃO / OBSERVAÇÕES</label>
+                    <textarea name="description" class="form-control bg-light border-0" rows="3"></textarea>
+                </div>
+                <div class="d-grid mt-4">
+                    <button type="submit" class="btn btn-primary btn-lg py-3 fw-bold shadow-sm">
+                        Confirmar Agendamento
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+\n\n===== ./app/templates/members/ministries.html =====
+{% extends "base.html" %}
+{% block content %}
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-5">
+        <div>
+            <h1 class="fw-bold text-primary"><i class="bi bi-diagram-3-fill me-2"></i>Ministérios</h1>
+            <p class="text-muted">Departamentos e grupos de serviço da nossa igreja.</p>
+        </div>
+        {% if current_user.role in ['admin', 'pastor_leader'] %}
+        <a href="{{ url_for('members.add_ministry') }}" class="btn btn-primary fw-bold">
+            <i class="bi bi-plus-lg me-2"></i> Novo Ministério
+        </a>
+        {% endif %}
+    </div>
+
+    <div class="row g-4">
+        {% for ministry in ministries %}
+        <div class="col-md-6 col-lg-4">
+            <div class="card h-100 border-0 shadow-sm">
+                <div class="card-body p-4">
+                    <h5 class="fw-bold mb-2">{{ ministry.name }}</h5>
+                    <p class="text-muted small mb-4">{{ ministry.description }}</p>
+                    
+                    <div class="mb-4">
+                        <label class="small fw-bold text-muted d-block mb-1">LÍDER</label>
+                        <div class="d-flex align-items-center">
+                            <i class="bi bi-person-badge me-2 text-primary"></i>
+                            <span>{{ ministry.leader.name if ministry.leader else 'Sem líder definido' }}</span>
+                        </div>
+                    </div>
+
+                    <div class="d-grid gap-2">
+                        {% if current_user.role in ['admin', 'pastor_leader'] or ministry.leader_id == current_user.id %}
+                        <a href="{{ url_for('members.add_ministry_event', id=ministry.id) }}" class="btn btn-sm btn-outline-primary">
+                            <i class="bi bi-calendar-plus me-1"></i> Agendar Evento
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="col-12 text-center py-5">
+            <i class="bi bi-people fs-1 text-muted opacity-50 d-block mb-3"></i>
+            <p class="text-muted">Nenhum ministério cadastrado.</p>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}
+
+\n\n===== ./app/templates/members/church_members.html =====
+{% extends "base.html" %}
+{% block content %}
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-5">
+        <div>
+            <h1 class="fw-bold text-primary"><i class="bi bi-people-fill me-2"></i>Membros da Congregação</h1>
+            <p class="text-muted">Gerencie os membros vinculados à sua filial.</p>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="bg-light">
+                    <tr>
+                        <th class="ps-4">Nome</th>
+                        <th>E-mail</th>
+                        <th>Cargo Atual</th>
+                        <th>Status</th>
+                        <th class="text-end pe-4">Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for member in members %}
+                    <tr>
+                        <td class="ps-4 fw-bold">{{ member.name }}</td>
+                        <td>{{ member.email }}</td>
+                        <td><span class="badge bg-info bg-opacity-10 text-info">{{ member.role|replace('_', ' ')|title }}</span></td>
+                        <td>
+                            {% if member.status == 'active' %}
+                            <span class="badge bg-success">Ativo</span>
+                            {% elif member.status == 'pending' %}
+                            <span class="badge bg-warning">Pendente</span>
+                            {% else %}
+                            <span class="badge bg-danger">Inativo</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-end pe-4">
+                            <a href="{{ url_for('members.promote_member', id=member.id) }}" class="btn btn-sm btn-outline-primary">Alterar Cargo</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+\n\n===== ./app/templates/members/promote_member.html =====
+{% extends "base.html" %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card border-0 shadow-sm p-4">
+            <h3 class="fw-bold mb-2">Alterar Cargo</h3>
+            <p class="text-muted mb-4">Membro: <strong>{{ member.name }}</strong></p>
+            <form method="POST">
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">NOVO CARGO</label>
+                    <select name="role" class="form-select bg-light border-0">
+                        <option value="member" {{ 'selected' if member.role == 'member' }}>Membro Comum</option>
+                        <option value="treasurer" {{ 'selected' if member.role == 'treasurer' }}>Tesoureiro da Filial</option>
+                        <option value="ministry_leader" {{ 'selected' if member.role == 'ministry_leader' }}>Líder de Ministério</option>
+                        <option value="pastor_leader" {{ 'selected' if member.role == 'pastor_leader' }}>Pastor Líder</option>
+                    </select>
+                </div>
+                <p class="small text-muted mb-4"><i class="bi bi-info-circle me-1"></i> Alterar o cargo mudará as permissões de acesso deste usuário no sistema.</p>
+                <div class="d-grid mt-4">
+                    <button type="submit" class="btn btn-primary btn-lg py-3 fw-bold shadow-sm">
+                        Confirmar Alteração
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+\n\n===== ./app/templates/finance/dashboard.html =====
+{% extends "base.html" %}
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="fw-bold">Histórico Financeiro</h2>
+        {% if current_user.role in ['admin', 'treasurer'] %}
+        <a href="{{ url_for('finance.add_transaction') }}" class="btn btn-primary">
+            <i class="bi bi-plus-lg me-2"></i> Novo Lançamento
+        </a>
+        {% endif %}
+    </div>
+
+    <div class="card border-0 shadow-sm">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="bg-light">
+                        <tr>
+                            <th class="px-4 py-3">Data</th>
+                            <th class="py-3">Categoria</th>
+                            <th class="py-3">Descrição</th>
+                            <th class="py-3 text-end">Valor</th>
+                            <th class="px-4 py-3 text-center">Recibo</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for tx in transactions %}
+                        <tr>
+                            <td class="px-4">{{ tx.date.strftime('%d/%m/%Y') }}</td>
+                            <td>
+                                <span class="badge bg-{{ 'success' if tx.type == 'income' else 'danger' }} bg-opacity-10 text-{{ 'success' if tx.type == 'income' else 'danger' }} px-3 py-2">
+                                    {{ tx.category.capitalize() }}
+                                </span>
+                            </td>
+                            <td class="text-muted">{{ tx.description or '-' }}</td>
+                            <td class="text-end fw-bold {{ 'text-success' if tx.type == 'income' else 'text-danger' }}">
+                                {{ '+' if tx.type == 'income' else '-' }} R$ {{ "%.2f"|format(tx.amount) }}
+                            </td>
+                            <td class="px-4 text-center">
+                                {% if tx.user_id %}
+                                <a href="{{ url_for('finance.download_receipt', tx_id=tx.id) }}" class="btn btn-sm btn-outline-primary rounded-pill px-3">
+                                    <i class="bi bi-download me-1"></i> PDF
+                                </a>
+                                {% else %}
+                                <span class="text-muted small">N/A</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="5" class="text-center py-5 text-muted">
+                                <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                                Nenhuma transação encontrada.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+\n\n===== ./app/templates/finance/add.html =====
+{% extends "base.html" %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card border-0 shadow-sm p-4">
+            <h3 class="fw-bold mb-4">Novo Lançamento Financeiro</h3>
+            <form method="POST">
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">TIPO</label>
+                    <select name="type" class="form-select bg-light border-0" required>
+                        <option value="income">Entrada (Dízimo/Oferta)</option>
+                        <option value="expense">Saída (Despesa)</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">CATEGORIA</label>
+                    <input type="text" name="category" class="form-control bg-light border-0" placeholder="Ex: Dízimo, Luz, Aluguel" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">VALOR (R$)</label>
+                    <input type="number" step="0.01" name="amount" class="form-control bg-light border-0" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">MEMBRO (OPCIONAL - PARA RECIBO)</label>
+                    <select name="user_id" class="form-select bg-light border-0">
+                        <option value="">Anônimo / Não aplicável</option>
+                        {% for member in members %}
+                        <option value="{{ member.id }}">{{ member.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">DESCRIÇÃO</label>
+                    <textarea name="description" class="form-control bg-light border-0" rows="2"></textarea>
+                </div>
+                <div class="d-grid mt-4">
+                    <button type="submit" class="btn btn-primary btn-lg py-3 fw-bold shadow-sm">
+                        Registrar Lançamento
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+\n\n===== ./app/templates/finance/add_asset.html =====
+{% extends "base.html" %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card border-0 shadow-sm p-4">
+            <h3 class="fw-bold mb-4">Cadastrar Bem (Patrimônio)</h3>
+            <form method="POST">
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">NOME DO BEM</label>
+                    <input type="text" name="name" class="form-control bg-light border-0" placeholder="Ex: Microfone Shure, Veículo Fiat Toro" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">CATEGORIA</label>
+                    <select name="category" class="form-select bg-light border-0" required>
+                        <option value="Equipamento">Equipamento</option>
+                        <option value="Veículo">Veículo</option>
+                        <option value="Móvel">Móvel</option>
+                        <option value="Instrumento">Instrumento</option>
+                        <option value="Outros">Outros</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">IDENTIFICADOR (PLACA/SERIAL)</label>
+                    <input type="text" name="identifier" class="form-control bg-light border-0" placeholder="Ex: ABC-1234 ou SN: 987654">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">VALOR ESTIMADO (R$)</label>
+                    <input type="number" step="0.01" name="value" class="form-control bg-light border-0" required>
+                </div>
+                <div class="d-grid mt-4">
+                    <button type="submit" class="btn btn-primary btn-lg py-3 fw-bold shadow-sm">
+                        Salvar no Patrimônio
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+\n\n===== ./app/templates/finance/add_maintenance.html =====
+{% extends "base.html" %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card border-0 shadow-sm p-4">
+            <h3 class="fw-bold mb-2">Registrar Manutenção</h3>
+            <p class="text-muted mb-4">Bem: <strong>{{ asset.name }}</strong> ({{ asset.identifier }})</p>
+            <form method="POST">
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">TIPO DE CUSTO</label>
+                    <select name="type" class="form-select bg-light border-0" required>
+                        <option value="Reparo">Reparo / Conserto</option>
+                        <option value="Combustível">Combustível</option>
+                        <option value="Seguro">Seguro</option>
+                        <option value="Limpeza">Limpeza</option>
+                        <option value="Outros">Outros</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">VALOR DO CUSTO (R$)</label>
+                    <input type="number" step="0.01" name="cost" class="form-control bg-light border-0" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">DESCRIÇÃO DOS SERVIÇOS</label>
+                    <textarea name="description" class="form-control bg-light border-0" rows="3" placeholder="Detalhe o que foi feito..." required></textarea>
+                </div>
+                <div class="d-grid mt-4">
+                    <button type="submit" class="btn btn-primary btn-lg py-3 fw-bold shadow-sm">
+                        Registrar e Lançar Despesa
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+\n\n===== ./app/templates/edification/view_study.html =====
+{% extends "base.html" %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-9">
+        <nav aria-label="breadcrumb" class="mb-4">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{{ url_for('edification.list_studies') }}">Estudos</a></li>
+                <li class="breadcrumb-item active" aria-current="page">{{ study.title }}</li>
+            </ol>
+        </nav>
+
+        <div class="card border-0 shadow-sm p-4 p-md-5">
+            <div class="mb-4">
+                <span class="badge bg-primary bg-opacity-10 text-primary px-3 py-2 mb-3">{{ study.category }}</span>
+                <h1 class="fw-bold display-5 mb-3">{{ study.title }}</h1>
+                <div class="d-flex align-items-center text-muted">
+                    <i class="bi bi-person-circle me-2"></i>
+                    <span>Por <strong>{{ study.author.name }}</strong></span>
+                    <span class="mx-2">•</span>
+                    <i class="bi bi-calendar3 me-2"></i>
+                    <span>{{ study.created_at.strftime('%d de %B, %Y') }}</span>
+                </div>
+            </div>
+            
+            <hr class="my-4 opacity-25">
+            
+            <div class="study-content">
+                {{ content_html|safe }}
+            </div>
+            
+            <div class="mt-5 pt-4 border-top opacity-75">
+                <p class="text-muted small">Este estudo foi publicado para a edificação do corpo de Cristo. Que a Palavra de Deus produza frutos em seu coração.</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+\n\n===== ./app/templates/edification/kids.html =====
+{% extends "base.html" %}
+{% block content %}
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-5">
+        <div>
+            <h1 class="fw-bold text-warning"><i class="bi bi-balloon-heart-fill me-2"></i>Ecclesia Kids</h1>
+            <p class="text-muted">Espaço especial para nossas crianças crescerem na Palavra!</p>
+        </div>
+        {% if current_user.role in ['admin', 'pastor_leader', 'ministry_leader'] %}
+        <a href="{{ url_for('edification.add_kids_activity') }}" class="btn btn-warning fw-bold">
+            <i class="bi bi-plus-lg me-2"></i> Nova Atividade
+        </a>
+        {% endif %}
+    </div>
+
+    <div class="row g-4">
+        {% for act in activities %}
+        <div class="col-md-6 col-lg-4">
+            <div class="card h-100 border-0 shadow-sm overflow-hidden">
+                <div class="bg-warning py-2 px-3 text-white small fw-bold">
+                    {{ act.age_group }}
+                </div>
+                <div class="card-body p-4">
+                    <h5 class="fw-bold mb-3">{{ act.title }}</h5>
+                    <p class="text-muted small mb-4">{{ act.content[:150] }}...</p>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <small class="text-muted">{{ act.created_at.strftime('%d/%m/%Y') }}</small>
+                        <button class="btn btn-sm btn-outline-warning rounded-pill px-3">Ver Atividade</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="col-12 text-center py-5">
+            <i class="bi bi-emoji-smile fs-1 text-warning opacity-50 d-block mb-3"></i>
+            <p class="text-muted">Em breve teremos muitas atividades legais aqui!</p>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}
+
+\n\n===== ./app/templates/edification/add_kids.html =====
+{% extends "base.html" %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card border-0 shadow-sm p-4">
+            <h3 class="fw-bold mb-4 text-warning"><i class="bi bi-balloon me-2"></i>Nova Atividade Kids</h3>
+            <form method="POST">
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">TÍTULO DA ATIVIDADE</label>
+                    <input type="text" name="title" class="form-control bg-light border-0" placeholder="Ex: A Arca de Noé - Colorir" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">FAIXA ETÁRIA</label>
+                    <select name="age_group" class="form-select bg-light border-0" required>
+                        <option value="0-3 anos">Berçário (0-3 anos)</option>
+                        <option value="4-6 anos">Maternal (4-6 anos)</option>
+                        <option value="7-10 anos">Primários (7-10 anos)</option>
+                        <option value="11+ anos">Juniores (11+ anos)</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">CONTEÚDO / INSTRUÇÕES</label>
+                    <textarea name="content" class="form-control bg-light border-0" rows="5" placeholder="Descreva a atividade ou cole o link do material..." required></textarea>
+                </div>
+                <div class="d-grid mt-4">
+                    <button type="submit" class="btn btn-warning btn-lg py-3 fw-bold shadow-sm">
+                        Publicar no Espaço Kids
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+\n\n===== ./app/templates/edification/studies.html =====
+{% extends "base.html" %}
+{% block content %}
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-5">
+        <div>
+            <h1 class="fw-bold text-primary"><i class="bi bi-book-half me-2"></i>Centro de Estudos</h1>
+            <p class="text-muted">Cresça no conhecimento da Palavra de Deus.</p>
+        </div>
+        {% if current_user.role in ['admin', 'pastor_leader'] %}
+        <a href="{{ url_for('edification.add_study') }}" class="btn btn-primary fw-bold">
+            <i class="bi bi-plus-lg me-2"></i> Novo Estudo
+        </a>
+        {% endif %}
+    </div>
+
+    <div class="row g-4">
+        {% for study in studies %}
+        <div class="col-md-6 col-lg-4">
+            <div class="card h-100 border-0 shadow-sm">
+                <div class="card-body p-4">
+                    <h5 class="fw-bold mb-3">{{ study.title }}</h5>
+                    <p class="text-muted small mb-4">{{ study.content[:150] }}...</p>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <small class="text-muted">{{ study.created_at.strftime('%d/%m/%Y') }}</small>
+                        <a href="{{ url_for('edification.view_study', id=study.id) }}" class="btn btn-sm btn-outline-primary rounded-pill px-3">Ler Estudo</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="col-12 text-center py-5">
+            <i class="bi bi-journal-text fs-1 text-muted opacity-50 d-block mb-3"></i>
+            <p class="text-muted">Nenhum estudo bíblico disponível no momento.</p>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}
+
+\n\n===== ./app/templates/edification/add_study.html =====
+{% extends "base.html" %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card border-0 shadow-sm p-4">
+            <h3 class="fw-bold mb-4">Novo Estudo Bíblico</h3>
+            <form method="POST">
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">TÍTULO DO ESTUDO</label>
+                    <input type="text" name="title" class="form-control bg-light border-0" placeholder="Ex: A Importância da Oração" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">CATEGORIA</label>
+                    <input type="text" name="category" class="form-control bg-light border-0" placeholder="Ex: Doutrina, Família, Escatologia" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">CONTEÚDO (SUPORTA MARKDOWN)</label>
+                    <textarea name="content" class="form-control bg-light border-0" rows="12" placeholder="Escreva o estudo aqui..." required></textarea>
+                    <div class="form-text small">Você pode usar negrito (**texto**), listas (- item) e títulos (# Título).</div>
+                </div>
+                <div class="d-grid mt-4">
+                    <button type="submit" class="btn btn-primary btn-lg py-3 fw-bold shadow-sm">
+                        Publicar Estudo
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+\n\n===== ./app/templates/edification/gallery.html =====
+{% extends "base.html" %}
+{% block content %}
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-5">
+        <div>
+            <h1 class="fw-bold text-primary"><i class="bi bi-images me-2"></i>Galeria de Mídia</h1>
+            <p class="text-muted">Memórias e registros dos nossos eventos e cultos.</p>
+        </div>
+        {% if current_user.role in ['admin', 'pastor_leader', 'ministry_leader'] %}
+        <a href="{{ url_for('edification.add_media') }}" class="btn btn-primary fw-bold">
+            <i class="bi bi-upload me-2"></i> Nova Mídia
+        </a>
+        {% endif %}
+    </div>
+
+    <div class="row g-4">
+        {% for item in media_items %}
+        <div class="col-md-6 col-lg-4">
+            <div class="card h-100 border-0 shadow-sm overflow-hidden">
+                {% if item.media_type == 'image' %}
+                <img src="{{ url_for('static', filename='uploads/media/' + item.file_path) }}" class="card-img-top" alt="{{ item.title }}" style="height: 200px; object-fit: cover;">
+                {% else %}
+                <div class="bg-dark d-flex align-items-center justify-content-center" style="height: 200px;">
+                    <i class="bi bi-play-circle-fill text-white display-4"></i>
+                </div>
+                {% endif %}
+                <div class="card-body p-4">
+                    <span class="badge bg-primary bg-opacity-10 text-primary mb-2">{{ item.event_name or 'Evento Geral' }}</span>
+                    <h5 class="fw-bold mb-2">{{ item.title }}</h5>
+                    <p class="text-muted small mb-0">{{ item.description }}</p>
+                </div>
+                <div class="card-footer bg-white border-0 px-4 pb-4 pt-0">
+                    <small class="text-muted">{{ item.created_at.strftime('%d/%m/%Y') }}</small>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="col-12 text-center py-5">
+            <i class="bi bi-camera fs-1 text-muted opacity-50 d-block mb-3"></i>
+            <p class="text-muted">Nenhuma mídia cadastrada na galeria.</p>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}
+
+\n\n===== ./app/templates/edification/add_media.html =====
+{% extends "base.html" %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card border-0 shadow-sm p-4">
+            <h3 class="fw-bold mb-4">Adicionar Mídia</h3>
+            <form method="POST" enctype="multipart/form-data">
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">TÍTULO</label>
+                    <input type="text" name="title" class="form-control bg-light border-0" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">EVENTO / DATA</label>
+                    <input type="text" name="event_name" class="form-control bg-light border-0" placeholder="Ex: Culto de Jovens - 08/02">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">TIPO DE MÍDIA</label>
+                    <select name="media_type" class="form-select bg-light border-0">
+                        <option value="image">Imagem / Foto</option>
+                        <option value="video">Vídeo</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">ARQUIVO</label>
+                    <input type="file" name="file" class="form-control bg-light border-0" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">DESCRIÇÃO</label>
+                    <textarea name="description" class="form-control bg-light border-0" rows="2"></textarea>
+                </div>
+                <div class="d-grid mt-4">
+                    <button type="submit" class="btn btn-primary btn-lg py-3 fw-bold shadow-sm">
+                        Fazer Upload
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+\n\n===== ./app/templates/auth/login.html =====
+{% extends "base.html" %}
+{% block content %}
+<div class="row justify-content-center align-items-center min-vh-100">
+    <div class="col-md-5 col-lg-4">
+        <div class="text-center mb-5">
+            <div class="d-inline-flex align-items-center justify-content-center bg-primary bg-opacity-10 rounded-circle p-3 mb-3">
+                <i class="bi bi-lightning-charge-fill text-primary fs-1"></i>
+            </div>
+            <h2 class="fw-bold">Ecclesia Master</h2>
+            <p class="text-muted">Gestão Eclesiástica de Alta Performance</p>
+        </div>
+
+        <div class="card border-0 shadow-lg p-4">
+            <div class="card-body">
+                <h4 class="fw-bold mb-4">Acesse sua conta</h4>
+                <form method="POST">
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold text-muted">E-MAIL</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-light border-0"><i class="bi bi-envelope"></i></span>
+                            <input type="email" name="email" class="form-control bg-light border-0" placeholder="seu@email.com" required>
+                        </div>
+                    </div>
+                    <div class="mb-4">
+                        <label class="form-label small fw-bold text-muted">SENHA</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-light border-0"><i class="bi bi-lock"></i></span>
+                            <input type="password" name="password" class="form-control bg-light border-0" placeholder="Sua senha" required>
+                        </div>
+                    </div>
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary btn-lg py-3 fw-bold shadow-sm">
+                            Entrar no Sistema
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <div class="text-center mt-4">
+            <p class="text-muted small">© 2026 Ecclesia Master. Todos os direitos reservados.</p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+\n\n===== ./app/templates/auth/register.html =====
+{% extends "base.html" %}
+{% block content %}
+<div class="row justify-content-center py-5">
+    <div class="col-md-8 col-lg-6">
+        <div class="card border-0 shadow-lg p-4">
+            <div class="card-body">
+                <h3 class="fw-bold mb-4 text-center">Solicitar Cadastro</h3>
+                <form method="POST">
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="form-label small fw-bold">NOME COMPLETO</label>
+                            <input type="text" name="name" class="form-control bg-light border-0" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold">E-MAIL</label>
+                            <input type="email" name="email" class="form-control bg-light border-0" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold">SENHA</label>
+                            <input type="password" name="password" class="form-control bg-light border-0" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold">DATA DE NASCIMENTO</label>
+                            <input type="date" name="birth_date" class="form-control bg-light border-0" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold">SEXO</label>
+                            <select name="gender" class="form-select bg-light border-0" required>
+                                <option value="Masculino">Masculino</option>
+                                <option value="Feminino">Feminino</option>
+                                <option value="Outro">Outro</option>
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small fw-bold">CONGREGAÇÃO (FILIAL)</label>
+                            <select name="church_id" class="form-select bg-light border-0" required>
+                                {% for church in churches %}
+                                <option value="{{ church.id }}">{{ church.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small fw-bold">DOCUMENTOS (RG/CPF/PASSAPORTE)</label>
+                            <input type="text" name="documents" class="form-control bg-light border-0" placeholder="Informe seus documentos principais" required>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small fw-bold">ENDEREÇO COMPLETO</label>
+                            <textarea name="address" class="form-control bg-light border-0" rows="2" required></textarea>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small fw-bold">TELEFONE / CONTATO</label>
+                            <input type="text" name="phone" class="form-control bg-light border-0" required>
+                        </div>
+                    </div>
+                    <div class="d-grid mt-4">
+                        <button type="submit" class="btn btn-primary btn-lg py-3 fw-bold shadow-sm">
+                            Enviar Solicitação
+                        </button>
+                    </div>
+                    <div class="text-center mt-3">
+                        <a href="{{ url_for('auth.login') }}" class="text-decoration-none small">Já tem conta? Faça login</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+\n\n===== ./app/templates/auth/change_password.html =====
+{% extends "base.html" %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-5">
+        <div class="card border-0 shadow-sm p-4">
+            <h3 class="fw-bold mb-4"><i class="bi bi-shield-lock me-2 text-primary"></i>Alterar Senha</h3>
+            <form method="POST">
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">SENHA ATUAL</label>
+                    <input type="password" name="old_password" class="form-control bg-light border-0" required>
+                </div>
+                <hr class="my-4 opacity-25">
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">NOVA SENHA</label>
+                    <input type="password" name="new_password" class="form-control bg-light border-0" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">CONFIRMAR NOVA SENHA</label>
+                    <input type="password" name="confirm_password" class="form-control bg-light border-0" required>
+                </div>
+                <div class="d-grid mt-4">
+                    <button type="submit" class="btn btn-primary btn-lg py-3 fw-bold shadow-sm">
+                        Atualizar Senha
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+\n\n===== ./app/templates/index.html =====
+{% extends "base.html" %}
+{% block content %}
+<div class="row align-items-center min-vh-75">
+    <div class="col-lg-6">
+        <span class="badge bg-primary bg-opacity-10 text-primary px-3 py-2 mb-3 fw-bold">Gestão Eclesiástica 2026</span>
+        <h1 class="display-3 fw-bold mb-4">Ecclesia <span class="text-primary">Master</span></h1>
+        <p class="lead text-muted mb-5">Uma plataforma completa e moderna para a gestão da sua igreja, congregações e ministérios. Focada em edificação, transparência e comunhão.</p>
+        
+        <div class="d-flex gap-3">
+            {% if not current_user.is_authenticated %}
+            <a href="{{ url_for('auth.login') }}" class="btn btn-primary btn-lg px-5 py-3 fw-bold shadow">Entrar no Sistema</a>
+            <a href="{{ url_for('auth.register') }}" class="btn btn-outline-primary btn-lg px-5 py-3 fw-bold">Solicitar Cadastro</a>
+            {% else %}
+            <a href="{{ url_for('members.dashboard') }}" class="btn btn-primary btn-lg px-5 py-3 fw-bold shadow">Ir para o Painel</a>
+            {% endif %}
+        </div>
+    </div>
+    <div class="col-lg-6 d-none d-lg-block">
+        <div class="position-relative">
+            <div class="bg-primary bg-opacity-10 rounded-4 p-5">
+                <i class="bi bi-lightning-charge-fill text-primary display-1"></i>
+                <div class="mt-4">
+                    <h4 class="fw-bold">Multi-Congregação</h4>
+                    <p class="text-muted">Gerencie todas as suas filiais em um único lugar com relatórios consolidados.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+\n\n===== ./app/templates/admin/churches.html =====
+{% extends "base.html" %}
+{% block content %}
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-5">
+        <div>
+            <h1 class="fw-bold text-primary"><i class="bi bi-building-fill me-2"></i>Congregações</h1>
+            <p class="text-muted">Gerencie a sede e as filiais da igreja.</p>
+        </div>
+        <a href="{{ url_for('admin.add_church') }}" class="btn btn-primary fw-bold">
+            <i class="bi bi-plus-lg me-2"></i> Nova Congregação
+        </a>
+    </div>
+
+    <div class="row g-4">
+        {% for church in churches %}
+        <div class="col-md-6">
+            <div class="card h-100 border-0 shadow-sm">
+                <div class="card-body p-4">
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <h5 class="fw-bold mb-0">{{ church.name }}</h5>
+                        {% if church.is_main %}
+                        <span class="badge bg-primary">Sede</span>
+                        {% else %}
+                        <span class="badge bg-secondary">Filial</span>
+                        {% endif %}
+                    </div>
+                    <p class="text-muted small mb-2"><i class="bi bi-geo-alt me-2"></i>{{ church.address }}</p>
+                    <p class="text-muted small mb-4"><i class="bi bi-globe me-2"></i>{{ church.city }}, {{ church.country }}</p>
+                    
+                    <div class="d-flex gap-2">
+                        <a href="{{ url_for('admin.edit_church', id=church.id) }}" class="btn btn-sm btn-outline-primary">Editar</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}
+
+\n\n===== ./app/templates/admin/add_church.html =====
+{% extends "base.html" %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card border-0 shadow-sm p-4">
+            <h3 class="fw-bold mb-4">Nova Congregação</h3>
+            <form method="POST">
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">NOME DA CONGREGAÇÃO</label>
+                    <input type="text" name="name" class="form-control bg-light border-0" placeholder="Ex: AD Jesus para as Nações - Filial Sul" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">ENDEREÇO</label>
+                    <input type="text" name="address" class="form-control bg-light border-0" required>
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label small fw-bold">CIDADE</label>
+                        <input type="text" name="city" class="form-control bg-light border-0" required>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label small fw-bold">PAÍS</label>
+                        <input type="text" name="country" class="form-control bg-light border-0" required>
+                    </div>
+                </div>
+                <div class="mb-3 form-check">
+                    <input type="checkbox" name="is_main" class="form-check-input" id="isMain">
+                    <label class="form-check-label" for="isMain">Esta é a sede principal?</label>
+                </div>
+                <div class="d-grid mt-4">
+                    <button type="submit" class="btn btn-primary btn-lg py-3 fw-bold shadow-sm">
+                        Cadastrar Congregação
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+\n\n===== ./app/templates/admin/members.html =====
+{% extends "base.html" %}
+{% block content %}
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-5">
+        <div>
+            <h1 class="fw-bold text-primary"><i class="bi bi-people-fill me-2"></i>Gestão Global de Membros</h1>
+            <p class="text-muted">Visualize e gerencie todos os membros de todas as congregações.</p>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="bg-light">
+                    <tr>
+                        <th class="ps-4">Nome</th>
+                        <th>E-mail</th>
+                        <th>Congregação</th>
+                        <th>Cargo</th>
+                        <th>Status</th>
+                        <th class="text-end pe-4">Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for member in members %}
+                    <tr>
+                        <td class="ps-4 fw-bold">{{ member.name }}</td>
+                        <td>{{ member.email }}</td>
+                        <td>{{ member.church.name if member.church else 'N/A' }}</td>
+                        <td><span class="badge bg-info bg-opacity-10 text-info">{{ member.role|replace('_', ' ')|title }}</span></td>
+                        <td>
+                            {% if member.status == 'active' %}
+                            <span class="badge bg-success">Ativo</span>
+                            {% elif member.status == 'pending' %}
+                            <span class="badge bg-warning">Pendente</span>
+                            {% else %}
+                            <span class="badge bg-danger">Inativo</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-end pe-4">
+                            <a href="{{ url_for('admin.edit_member', id=member.id) }}" class="btn btn-sm btn-outline-primary">Editar</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+\n\n===== ./app/templates/admin/edit_member.html =====
+{% extends "base.html" %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card border-0 shadow-sm p-4">
+            <h3 class="fw-bold mb-4">Editar Membro</h3>
+            <form method="POST">
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">NOME COMPLETO</label>
+                    <input type="text" name="name" class="form-control bg-light border-0" value="{{ member.name }}" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">E-MAIL</label>
+                    <input type="email" name="email" class="form-control bg-light border-0" value="{{ member.email }}" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">CONGREGAÇÃO</label>
+                    <select name="church_id" class="form-select bg-light border-0">
+                        {% for church in churches %}
+                        <option value="{{ church.id }}" {{ 'selected' if member.church_id == church.id }}>{{ church.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">CARGO / ROLE</label>
+                    <select name="role" class="form-select bg-light border-0">
+                        <option value="member" {{ 'selected' if member.role == 'member' }}>Membro</option>
+                        <option value="treasurer" {{ 'selected' if member.role == 'treasurer' }}>Tesoureiro</option>
+                        <option value="pastor_leader" {{ 'selected' if member.role == 'pastor_leader' }}>Pastor Líder</option>
+                        <option value="ministry_leader" {{ 'selected' if member.role == 'ministry_leader' }}>Líder de Ministério</option>
+                        <option value="admin" {{ 'selected' if member.role == 'admin' }}>Administrador</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">STATUS</label>
+                    <select name="status" class="form-select bg-light border-0">
+                        <option value="active" {{ 'selected' if member.status == 'active' }}>Ativo</option>
+                        <option value="pending" {{ 'selected' if member.status == 'pending' }}>Pendente</option>
+                        <option value="inactive" {{ 'selected' if member.status == 'inactive' }}>Inativo</option>
+                    </select>
+                </div>
+                <div class="d-grid mt-4">
+                    <button type="submit" class="btn btn-primary btn-lg py-3 fw-bold shadow-sm">
+                        Salvar Alterações
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+\n\n===== ./app/utils/pdf_gen.py =====
+from fpdf import FPDF
+import os
+from flask import current_app
+
+class ReceiptPDF(FPDF):
+    def header(self):
+        self.set_font('Arial', 'B', 15)
+        self.cell(0, 10, 'RECIBO DE CONTRIBUIÇÃO', 0, 1, 'C')
+        self.ln(5)
+
+    def footer(self):
+        self.set_y(-15)
+        self.set_font('Arial', 'I', 8)
+        self.cell(0, 10, f'Página {self.page_no()}', 0, 0, 'C')
+
+def generate_receipt(transaction):
+    pdf = ReceiptPDF()
+    pdf.add_page()
+    pdf.set_font('Arial', '', 12)
+    
+    # Church Info
+    pdf.set_font('Arial', 'B', 12)
+    pdf.cell(0, 10, f'Igreja: {transaction.church.name}', 0, 1)
+    pdf.set_font('Arial', '', 12)
+    pdf.cell(0, 10, f'Endereço: {transaction.church.address}', 0, 1)
+    pdf.ln(10)
+    
+    # Transaction Info
+    pdf.cell(0, 10, f'Recebemos de: {transaction.user.name if transaction.user else "Doador Anônimo"}', 0, 1)
+    pdf.cell(0, 10, f'A quantia de: R$ {transaction.amount:.2f}', 0, 1)
+    pdf.cell(0, 10, f'Referente a: {transaction.category.capitalize()}', 0, 1)
+    pdf.cell(0, 10, f'Data: {transaction.date.strftime("%d/%m/%Y")}', 0, 1)
+    pdf.ln(20)
+    
+    # Signature
+    pdf.line(10, pdf.get_y(), 100, pdf.get_y())
+    pdf.cell(0, 10, 'Assinatura da Tesouraria', 0, 1)
+    
+    filename = f"recibo_{transaction.id}_{transaction.date.strftime('%Y%m%d')}.pdf"
+    filepath = os.path.join(current_app.config['UPLOAD_FOLDER'], 'receipts', filename)
+    
+    # Ensure directory exists
+    os.makedirs(os.path.dirname(filepath), exist_ok=True)
+    
+    pdf.output(filepath)
+    return filename
+
+\n\n===== ./app/__init__.py =====
+from flask import Flask
+from flask_login import LoginManager
+from app.core.models import db, User
+from config import Config
+
+login_manager = LoginManager()
+
+def create_app():
+    app = Flask(__name__)
+    app.config.from_object(Config)
+    
+    db.init_app(app)
+    login_manager.init_app(app)
+    login_manager.login_view = 'auth.login'
+    
+    @login_manager.user_loader
+    def load_user(user_id):
+        return User.query.get(int(user_id))
+    
+    # Register Blueprints
+    from app.modules.auth.routes import auth_bp
+    from app.modules.members.routes import members_bp
+    from app.modules.finance.routes import finance_bp
+    from app.modules.edification.routes import edification_bp
+    from app.modules.admin.routes import admin_bp
+    
+    app.register_blueprint(auth_bp, url_prefix='/auth')
+    app.register_blueprint(members_bp, url_prefix='/members')
+    app.register_blueprint(finance_bp, url_prefix='/finance')
+    app.register_blueprint(edification_bp, url_prefix='/edification')
+    app.register_blueprint(admin_bp, url_prefix='/admin')
+    
+    # Main route
+    @app.route('/')
+    def index():
+        from flask import render_template
+        return render_template('index.html')
+        
+    return app
+
+\n\n===== ./config.py =====
+import os
+from datetime import timedelta
+
+class Config:
+    SECRET_KEY = os.environ.get('SECRET_KEY') or 'dev-key-ecclesia-2026'
+    
+    # Suporte dinâmico para PostgreSQL ou SQLite
+    # No Heroku/Render, a variável DATABASE_URL é preenchida automaticamente
+    database_url = os.environ.get('DATABASE_URL')
+    if database_url and database_url.startswith("postgres://"):
+        database_url = database_url.replace("postgres://", "postgresql://", 1)
+    
+    SQLALCHEMY_DATABASE_URI = database_url or 'sqlite:///ecclesia.db'
+    SQLALCHEMY_TRACK_MODIFICATIONS = False
+    
+    REMEMBER_COOKIE_DURATION = timedelta(days=30)
+    UPLOAD_FOLDER = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'app/static/uploads')
+    MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16MB
+
+\n\n===== ./run.py =====
+from app import create_app
+
+app = create_app()
+
+if __name__ == '__main__':
+    app.run(debug=True)
+
+\n\n===== ./seed.py =====
+from app import create_app
+from app.core.models import db, User, Church, Devotional, Study, Transaction, Ministry, Family
+from datetime import datetime, timedelta
+
+app = create_app()
+
+with app.app_context():
+    db.drop_all()
+    db.create_all()
+    
+    # 1. Igrejas
+    sede = Church(name="AD Jesus para as Nações - Sede", address="Rua Principal, 123", city="São Paulo", country="Brasil", is_main=True)
+    filial1 = Church(name="AD Jesus para as Nações - Filial Norte", address="Av. Norte, 456", city="São Paulo", country="Brasil")
+    db.session.add_all([sede, filial1])
+    db.session.commit()
+    
+    # 2. Família
+    familia = Family(name="Família Silva")
+    db.session.add(familia)
+    db.session.commit()
+    
+    # 3. Usuários
+    admin = User(name="Super Admin", email="admin@igreja.com", role="admin", status="active", 
+                 church_id=sede.id, birth_date=datetime(1980, 1, 1).date())
+    admin.set_password("admin123")
+    
+    pastor = User(name="Pr. Roberto", email="pastor@igreja.com", role="pastor_leader", status="active", 
+                  church_id=sede.id, birth_date=datetime(1975, 6, 15).date())
+    pastor.set_password("pastor123")
+    
+    tesoureiro = User(name="Irmão Financeiro", email="tesouro@igreja.com", role="treasurer", status="active", 
+                      church_id=sede.id, birth_date=datetime(1985, 3, 20).date())
+    tesoureiro.set_password("tesouro123")
+    
+    membro = User(name="Membro Ativo", email="membro@igreja.com", role="member", status="active", 
+                  church_id=sede.id, family_id=familia.id, birth_date=datetime(1990, 5, 15).date())
+    membro.set_password("membro123")
+    
+    pendente = User(name="Novo Candidato", email="novo@email.com", role="member", status="pending", 
+                    church_id=sede.id, birth_date=datetime(2000, 10, 10).date())
+    pendente.set_password("novo123")
+    
+    db.session.add_all([admin, pastor, tesoureiro, membro, pendente])
+    db.session.commit()
+    
+    # 4. Ministérios
+    louvor = Ministry(name="Ministério de Louvor", description="Equipe de música e adoração", church_id=sede.id, leader_id=membro.id)
+    homens = Ministry(name="União Masculina", description="Grupo de homens da igreja", church_id=sede.id, leader_id=pastor.id)
+    db.session.add_all([louvor, homens])
+    db.session.commit()
+    
+    # Associar membro ao ministério
+    membro.ministries.append(louvor)
+    membro.ministries.append(homens)
+    db.session.commit()
+    
+    # 5. Devocional
+    dev = Devotional(title="Firmeza na Rocha", content="Quem ouve estas minhas palavras e as pratica é como um homem prudente que construiu a sua casa sobre a rocha.", verse="Mateus 7:24")
+    db.session.add(dev)
+    
+    db.session.commit()
+    print("Ecclesia Master Expandido inicializado com sucesso!")
+
+\n\n===== ./README.md =====
+# ecclesia_master
+

@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-5">
+        <div>
+            <h1 class="fw-bold text-primary"><i class="bi bi-person-badge-fill me-2"></i>Cargos da Congregação</h1>
+            <p class="text-muted">Gerencie os cargos disponíveis para membros da sua congregação.</p>
+        </div>
+        <a href="{{ url_for('admin.add_role') }}" class="btn btn-primary fw-bold">
+            <i class="bi bi-plus-lg me-2"></i> Novo Cargo
+        </a>
+    </div>
+
+    <div class="card border-0 shadow-sm">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="bg-light">
+                    <tr>
+                        <th class="ps-4">Nome do Cargo</th>
+                        <th>Descrição</th>
+                        <th>Ordem</th>
+                        <th class="text-end pe-4">Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for role in roles %}
+                    <tr>
+                        <td class="ps-4 fw-bold">{{ role.name }}</td>
+                        <td>{{ role.description or 'Sem descrição' }}</td>
+                        <td>{{ role.order }}</td>
+                        <td class="text-end pe-4">
+                            <a href="{{ url_for('admin.edit_role', id=role.id) }}" class="btn btn-sm btn-outline-primary me-2">Editar</a>
+                            <a href="{{ url_for('admin.delete_role', id=role.id) }}" class="btn btn-sm btn-outline-danger" onclick="return confirm('Tem certeza que deseja excluir este cargo?');">Excluir</a>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="4" class="text-center py-5 text-muted">
+                            <i class="bi bi-person-badge fs-1 d-block mb-2"></i>
+                            Nenhum cargo cadastrado para esta congregação.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

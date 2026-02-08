@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card border-0 shadow-sm p-4">
+            <h3 class="fw-bold mb-4">Nova Congregação</h3>
+            <form method="POST">
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">NOME DA CONGREGAÇÃO</label>
+                    <input type="text" name="name" class="form-control bg-light border-0" placeholder="Ex: AD Jesus para as Nações - Filial Sul" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">ENDEREÇO</label>
+                    <input type="text" name="address" class="form-control bg-light border-0" required>
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label small fw-bold">CIDADE</label>
+                        <input type="text" name="city" class="form-control bg-light border-0" required>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label small fw-bold">PAÍS</label>
+                        <input type="text" name="country" class="form-control bg-light border-0" required>
+                    </div>
+                </div>
+                <div class="mb-3 form-check">
+                    <input type="checkbox" name="is_main" class="form-check-input" id="isMain">
+                    <label class="form-check-label" for="isMain">Esta é a sede principal?</label>
+                </div>
+                <div class="d-grid mt-4">
+                    <button type="submit" class="btn btn-primary btn-lg py-3 fw-bold shadow-sm">
+                        Cadastrar Congregação
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

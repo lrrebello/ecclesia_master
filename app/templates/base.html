@@ -29,9 +29,30 @@
                     <a class="nav-link {{ 'active' if 'edification' in request.endpoint }}" href="{{ url_for('edification.list_studies') }}">
                         <i class="bi bi-book me-2"></i> Edificação
                     </a>
+                    <a class="nav-link {{ 'active' if 'gallery' in request.endpoint }}" href="{{ url_for('edification.gallery') }}">
+                        <i class="bi bi-images me-2"></i> Galeria
+                    </a>
                     <a class="nav-link {{ 'active' if 'ministries' in request.endpoint }}" href="{{ url_for('members.list_ministries') }}">
                         <i class="bi bi-diagram-3 me-2"></i> Ministérios
                     </a>
+                    {% if current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder'] %}
+                    <a class="nav-link {{ 'active' if 'church_members' in request.endpoint }}" href="{{ url_for('members.church_members') }}">
+                        <i class="bi bi-people me-2"></i> Membros da Filial
+                    </a>
+                    <a class="nav-link {{ 'active' if 'roles' in request.endpoint }}" href="{{ url_for('admin.list_roles') }}">
+                        <i class="bi bi-person-badge me-2"></i> Cargos da Congregação
+                    </a>
+                    {% endif %}
+                    {% if current_user.church_role and current_user.church_role.name == 'Administrador Global' %}
+                    <hr class="my-3 opacity-25">
+                    <label class="small text-muted px-3 mb-2">ADMINISTRAÇÃO</label>
+                    <a class="nav-link {{ 'active' if 'admin.list_churches' in request.endpoint }}" href="{{ url_for('admin.list_churches') }}">
+                        <i class="bi bi-building me-2"></i> Congregações
+                    </a>
+                    <a class="nav-link {{ 'active' if 'admin.list_members' in request.endpoint }}" href="{{ url_for('admin.list_members') }}">
+                        <i class="bi bi-globe me-2"></i> Gestão Global
+                    </a>
+                    {% endif %}
                     <a class="nav-link" href="{{ url_for('members.profile') }}">
                         <i class="bi bi-person me-2"></i> Meu Perfil
                     </a>

@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-5">
+        <div>
+            <h1 class="fw-bold text-primary"><i class="bi bi-building-fill me-2"></i>Congregações</h1>
+            <p class="text-muted">Gerencie a sede e as filiais da igreja.</p>
+        </div>
+        <a href="{{ url_for('admin.add_church') }}" class="btn btn-primary fw-bold">
+            <i class="bi bi-plus-lg me-2"></i> Nova Congregação
+        </a>
+    </div>
+
+    <div class="row g-4">
+        {% for church in churches %}
+        <div class="col-md-6">
+            <div class="card h-100 border-0 shadow-sm">
+                <div class="card-body p-4">
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <h5 class="fw-bold mb-0">{{ church.name }}</h5>
+                        {% if church.is_main %}
+                        <span class="badge bg-primary">Sede</span>
+                        {% else %}
+                        <span class="badge bg-secondary">Filial</span>
+                        {% endif %}
+                    </div>
+                    <p class="text-muted small mb-2"><i class="bi bi-geo-alt me-2"></i>{{ church.address }}</p>
+                    <p class="text-muted small mb-4"><i class="bi bi-globe me-2"></i>{{ church.city }}, {{ church.country }}</p>
+                    
+                    <div class="d-flex gap-2">
+                        <a href="{{ url_for('admin.edit_church', id=church.id) }}" class="btn btn-sm btn-outline-primary">Editar</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}
