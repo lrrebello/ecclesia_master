@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row justify-content-center py-5">
+    <div class="col-md-8 col-lg-6">
+        <div class="card border-0 shadow-lg p-4">
+            <div class="card-body">
+                <h3 class="fw-bold mb-4 text-center">Solicitar Cadastro</h3>
+                <form method="POST">
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="form-label small fw-bold">NOME COMPLETO</label>
+                            <input type="text" name="name" class="form-control bg-light border-0" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold">E-MAIL</label>
+                            <input type="email" name="email" class="form-control bg-light border-0" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold">SENHA</label>
+                            <input type="password" name="password" class="form-control bg-light border-0" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold">DATA DE NASCIMENTO</label>
+                            <input type="date" name="birth_date" class="form-control bg-light border-0" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold">SEXO</label>
+                            <select name="gender" class="form-select bg-light border-0" required>
+                                <option value="Masculino">Masculino</option>
+                                <option value="Feminino">Feminino</option>
+                                <option value="Outro">Outro</option>
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small fw-bold">CONGREGAÇÃO (FILIAL)</label>
+                            <select name="church_id" class="form-select bg-light border-0" required>
+                                {% for church in churches %}
+                                <option value="{{ church.id }}">{{ church.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small fw-bold">DOCUMENTOS (RG/CPF/PASSAPORTE)</label>
+                            <input type="text" name="documents" class="form-control bg-light border-0" placeholder="Informe seus documentos principais" required>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small fw-bold">ENDEREÇO COMPLETO</label>
+                            <textarea name="address" class="form-control bg-light border-0" rows="2" required></textarea>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small fw-bold">TELEFONE / CONTATO</label>
+                            <input type="text" name="phone" class="form-control bg-light border-0" required>
+                        </div>
+                    </div>
+                    <div class="d-grid mt-4">
+                        <button type="submit" class="btn btn-primary btn-lg py-3 fw-bold shadow-sm">
+                            Enviar Solicitação
+                        </button>
+                    </div>
+                    <div class="text-center mt-3">
+                        <a href="{{ url_for('auth.login') }}" class="text-decoration-none small">Já tem conta? Faça login</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

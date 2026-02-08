@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card border-0 shadow-sm p-4">
+            <h3 class="fw-bold mb-2">Registrar Manutenção</h3>
+            <p class="text-muted mb-4">Bem: <strong>{{ asset.name }}</strong> ({{ asset.identifier }})</p>
+            <form method="POST">
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">TIPO DE CUSTO</label>
+                    <select name="type" class="form-select bg-light border-0" required>
+                        <option value="Reparo">Reparo / Conserto</option>
+                        <option value="Combustível">Combustível</option>
+                        <option value="Seguro">Seguro</option>
+                        <option value="Limpeza">Limpeza</option>
+                        <option value="Outros">Outros</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">VALOR DO CUSTO (R$)</label>
+                    <input type="number" step="0.01" name="cost" class="form-control bg-light border-0" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">DESCRIÇÃO DOS SERVIÇOS</label>
+                    <textarea name="description" class="form-control bg-light border-0" rows="3" placeholder="Detalhe o que foi feito..." required></textarea>
+                </div>
+                <div class="d-grid mt-4">
+                    <button type="submit" class="btn btn-primary btn-lg py-3 fw-bold shadow-sm">
+                        Registrar e Lançar Despesa
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

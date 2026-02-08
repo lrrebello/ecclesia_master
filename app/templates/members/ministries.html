@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-5">
+        <div>
+            <h1 class="fw-bold text-primary"><i class="bi bi-diagram-3-fill me-2"></i>Ministérios</h1>
+            <p class="text-muted">Departamentos e grupos de serviço da nossa igreja.</p>
+        </div>
+        {% if current_user.role in ['admin', 'pastor_leader'] %}
+        <a href="{{ url_for('members.add_ministry') }}" class="btn btn-primary fw-bold">
+            <i class="bi bi-plus-lg me-2"></i> Novo Ministério
+        </a>
+        {% endif %}
+    </div>
+
+    <div class="row g-4">
+        {% for ministry in ministries %}
+        <div class="col-md-6 col-lg-4">
+            <div class="card h-100 border-0 shadow-sm">
+                <div class="card-body p-4">
+                    <h5 class="fw-bold mb-2">{{ ministry.name }}</h5>
+                    <p class="text-muted small mb-4">{{ ministry.description }}</p>
+                    
+                    <div class="mb-4">
+                        <label class="small fw-bold text-muted d-block mb-1">LÍDER</label>
+                        <div class="d-flex align-items-center">
+                            <i class="bi bi-person-badge me-2 text-primary"></i>
+                            <span>{{ ministry.leader.name if ministry.leader else 'Sem líder definido' }}</span>
+                        </div>
+                    </div>
+
+                    <div class="d-grid gap-2">
+                        {% if current_user.role in ['admin', 'pastor_leader'] or ministry.leader_id == current_user.id %}
+                        <a href="{{ url_for('members.add_ministry_event', id=ministry.id) }}" class="btn btn-sm btn-outline-primary">
+                            <i class="bi bi-calendar-plus me-1"></i> Agendar Evento
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="col-12 text-center py-5">
+            <i class="bi bi-people fs-1 text-muted opacity-50 d-block mb-3"></i>
+            <p class="text-muted">Nenhum ministério cadastrado.</p>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

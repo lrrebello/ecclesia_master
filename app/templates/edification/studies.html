@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-5">
+        <div>
+            <h1 class="fw-bold text-primary"><i class="bi bi-book-half me-2"></i>Centro de Estudos</h1>
+            <p class="text-muted">Cresça no conhecimento da Palavra de Deus.</p>
+        </div>
+        {% if current_user.role in ['admin', 'pastor_leader'] %}
+        <a href="#" class="btn btn-primary fw-bold">
+            <i class="bi bi-plus-lg me-2"></i> Novo Estudo
+        </a>
+        {% endif %}
+    </div>
+
+    <div class="row g-4">
+        {% for study in studies %}
+        <div class="col-md-6 col-lg-4">
+            <div class="card h-100 border-0 shadow-sm">
+                <div class="card-body p-4">
+                    <h5 class="fw-bold mb-3">{{ study.title }}</h5>
+                    <p class="text-muted small mb-4">{{ study.content[:150] }}...</p>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <small class="text-muted">{{ study.created_at.strftime('%d/%m/%Y') }}</small>
+                        <a href="{{ url_for('edification.view_study', id=study.id) }}" class="btn btn-sm btn-outline-primary rounded-pill px-3">Ler Estudo</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="col-12 text-center py-5">
+            <i class="bi bi-journal-text fs-1 text-muted opacity-50 d-block mb-3"></i>
+            <p class="text-muted">Nenhum estudo bíblico disponível no momento.</p>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

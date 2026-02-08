@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card border-0 shadow-sm p-4">
+            <h3 class="fw-bold mb-2">Agendar Evento</h3>
+            <p class="text-muted mb-4">Ministério: <strong>{{ ministry.name }}</strong></p>
+            <form method="POST">
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">TÍTULO DO EVENTO</label>
+                    <input type="text" name="title" class="form-control bg-light border-0" placeholder="Ex: Ensaio Geral, Reunião de Líderes" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">DATA E HORA</label>
+                    <input type="datetime-local" name="start_time" class="form-control bg-light border-0" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">LOCAL</label>
+                    <input type="text" name="location" class="form-control bg-light border-0" placeholder="Ex: Templo Sede, Sala 02" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">DESCRIÇÃO / OBSERVAÇÕES</label>
+                    <textarea name="description" class="form-control bg-light border-0" rows="3"></textarea>
+                </div>
+                <div class="d-grid mt-4">
+                    <button type="submit" class="btn btn-primary btn-lg py-3 fw-bold shadow-sm">
+                        Confirmar Agendamento
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

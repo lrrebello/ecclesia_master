@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-5">
+        <div>
+            <h1 class="fw-bold text-warning"><i class="bi bi-balloon-heart-fill me-2"></i>Ecclesia Kids</h1>
+            <p class="text-muted">Espaço especial para nossas crianças crescerem na Palavra!</p>
+        </div>
+        {% if current_user.role in ['admin', 'pastor_leader', 'ministry_leader'] %}
+        <a href="{{ url_for('edification.add_kids_activity') }}" class="btn btn-warning fw-bold">
+            <i class="bi bi-plus-lg me-2"></i> Nova Atividade
+        </a>
+        {% endif %}
+    </div>
+
+    <div class="row g-4">
+        {% for act in activities %}
+        <div class="col-md-6 col-lg-4">
+            <div class="card h-100 border-0 shadow-sm overflow-hidden">
+                <div class="bg-warning py-2 px-3 text-white small fw-bold">
+                    {{ act.age_group }}
+                </div>
+                <div class="card-body p-4">
+                    <h5 class="fw-bold mb-3">{{ act.title }}</h5>
+                    <p class="text-muted small mb-4">{{ act.content[:150] }}...</p>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <small class="text-muted">{{ act.created_at.strftime('%d/%m/%Y') }}</small>
+                        <button class="btn btn-sm btn-outline-warning rounded-pill px-3">Ver Atividade</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="col-12 text-center py-5">
+            <i class="bi bi-emoji-smile fs-1 text-warning opacity-50 d-block mb-3"></i>
+            <p class="text-muted">Em breve teremos muitas atividades legais aqui!</p>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

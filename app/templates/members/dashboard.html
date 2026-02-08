@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row g-4">
+    <!-- Seção de Alertas para Liderança -->
+    {% if pending_members %}
+    <div class="col-12">
+        <div class="alert alert-warning border-0 shadow-sm d-flex justify-content-between align-items-center">
+            <div>
+                <i class="bi bi-person-plus-fill me-2"></i>
+                Existem <strong>{{ pending_members|length }}</strong> solicitações de cadastro pendentes para sua filial.
+            </div>
+            <button class="btn btn-sm btn-warning fw-bold" data-bs-toggle="modal" data-bs-target="#pendingModal">Ver Solicitações</button>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Devocional e Agenda -->
+    <div class="col-lg-8">
+        <div class="card devotional-card border-0 p-4 mb-4">
+            <div class="card-body">
+                <span class="badge bg-white text-primary px-3 py-2 mb-3">Palavra do Dia</span>
+                <h2 class="fw-bold mb-3">{{ devotional.title if devotional else 'Bem-vindo ao Ecclesia Master' }}</h2>
+                <p class="fs-5 opacity-90">{{ devotional.content if devotional else 'Que a graça do Senhor Jesus seja com todos.' }}</p>
+                {% if devotional and devotional.verse %}
+                <p class="fst-italic mt-3 mb-0">"{{ devotional.verse }}"</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="card border-0 shadow-sm p-4">
+            <h4 class="fw-bold mb-4"><i class="bi bi-calendar-event me-2 text-primary"></i>Minha Agenda</h4>
+            <div class="list-group list-group-flush">
+                {% for event in agenda %}
+                <div class="list-group-item px-0 py-3 border-0 border-bottom">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="fw-bold mb-1">{{ event.title }}</h6>
+                            <small class="text-muted">
+                                <i class="bi bi-clock me-1"></i> {{ event.start_time.strftime('%d/%m %H:%M') }}
+                                {% if event.ministry %}
+                                <span class="badge bg-info bg-opacity-10 text-info ms-2">{{ event.ministry.name }}</span>
+                                {% else %}
+                                <span class="badge bg-secondary bg-opacity-10 text-secondary ms-2">Geral</span>
+                                {% endif %}
+                            </small>
+                        </div>
+                        <div class="text-end">
+                            <small class="d-block text-muted"><i class="bi bi-geo-alt"></i> {{ event.location }}</small>
+                        </div>
+                    </div>
+                </div>
+                {% else %}
+                <p class="text-muted">Nenhum evento agendado para você.</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Sidebar de Ações e Família -->
+    <div class="col-lg-4">
+        <div class="card border-0 shadow-sm p-4 mb-4">
+            <h5 class="fw-bold mb-3">Painel de Liderança</h5>
+            <div class="d-grid gap-2">
+                {% if current_user.role in ['admin', 'pastor_leader'] %}
+                <a href="{{ url_for('members.add_ministry') }}" class="btn btn-outline-primary text-start">
+                    <i class="bi bi-plus-circle me-2"></i> Criar Ministério
+                </a>
+                {% endif %}
+                {% if current_user.role in ['admin', 'treasurer'] %}
+                <a href="{{ url_for('finance.add_transaction') }}" class="btn btn-outline-success text-start">
+                    <i class="bi bi-cash-coin me-2"></i> Lançar Financeiro
+                </a>
+                <a href="{{ url_for('finance.add_asset') }}" class="btn btn-outline-info text-start">
+                    <i class="bi bi-box-seam me-2"></i> Cadastrar Patrimônio
+                </a>
+                {% endif %}
+                <a href="{{ url_for('edification.kids_corner') }}" class="btn btn-outline-warning text-start">
+                    <i class="bi bi-balloon me-2"></i> Ecclesia Kids
+                </a>
+            </div>
+        </div>
+
+        <div class="card border-0 shadow-sm p-4">
+            <h5 class="fw-bold mb-3"><i class="bi bi-people me-2 text-primary"></i>Minha Família</h5>
+            {% if current_user.family_group %}
+                <p class="text-muted small mb-3">Grupo: <strong>{{ current_user.family_group.name }}</strong></p>
+                <div class="list-group list-group-flush">
+                    {% for member in current_user.family_group.users %}
+                    <div class="list-group-item px-0 py-2 border-0 small">
+                        <i class="bi bi-person-circle me-2"></i> {{ member.name }}
+                        {% if member.id == current_user.id %}<span class="badge bg-light text-dark ms-1">Você</span>{% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p class="text-muted small">Você ainda não está vinculado a um grupo familiar.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Solicitações Pendentes -->
+<div class="modal fade" id="pendingModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-light">
+                <h5 class="modal-title fw-bold">Solicitações de Cadastro</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="table-responsive">
+                    <table class="table align-middle">
+                        <thead>
+                            <tr>
+                                <th>Nome</th>
+                                <th>E-mail</th>
+                                <th>Data Solicitada</th>
+                                <th class="text-end">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for p in pending_members %}
+                            <tr>
+                                <td>{{ p.name }}</td>
+                                <td>{{ p.email }}</td>
+                                <td>{{ p.birth_date.strftime('%d/%m/%Y') if p.birth_date else 'N/A' }}</td>
+                                <td class="text-end">
+                                    <a href="{{ url_for('auth.approve_member', user_id=p.id, action='approve') }}" class="btn btn-sm btn-success">Aprovar</a>
+                                    <a href="{{ url_for('auth.approve_member', user_id=p.id, action='reject') }}" class="btn btn-sm btn-danger">Rejeitar</a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

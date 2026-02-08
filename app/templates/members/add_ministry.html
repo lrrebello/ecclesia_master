@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card border-0 shadow-sm p-4">
+            <h3 class="fw-bold mb-4">Criar Novo Ministério</h3>
+            <form method="POST">
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">NOME DO MINISTÉRIO</label>
+                    <input type="text" name="name" class="form-control bg-light border-0" placeholder="Ex: Ministério de Louvor, Grupo de Jovens" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">DESCRIÇÃO / OBJETIVO</label>
+                    <textarea name="description" class="form-control bg-light border-0" rows="3" required></textarea>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">LÍDER DO MINISTÉRIO</label>
+                    <select name="leader_id" class="form-select bg-light border-0">
+                        <option value="">Selecione um líder...</option>
+                        {% for leader in leaders %}
+                        <option value="{{ leader.id }}">{{ leader.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="d-grid mt-4">
+                    <button type="submit" class="btn btn-primary btn-lg py-3 fw-bold shadow-sm">
+                        Criar Ministério
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

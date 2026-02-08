@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="fw-bold">Histórico Financeiro</h2>
+        {% if current_user.role in ['admin', 'treasurer'] %}
+        <a href="{{ url_for('finance.add_transaction') }}" class="btn btn-primary">
+            <i class="bi bi-plus-lg me-2"></i> Novo Lançamento
+        </a>
+        {% endif %}
+    </div>
+
+    <div class="card border-0 shadow-sm">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="bg-light">
+                        <tr>
+                            <th class="px-4 py-3">Data</th>
+                            <th class="py-3">Categoria</th>
+                            <th class="py-3">Descrição</th>
+                            <th class="py-3 text-end">Valor</th>
+                            <th class="px-4 py-3 text-center">Recibo</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for tx in transactions %}
+                        <tr>
+                            <td class="px-4">{{ tx.date.strftime('%d/%m/%Y') }}</td>
+                            <td>
+                                <span class="badge bg-{{ 'success' if tx.type == 'income' else 'danger' }} bg-opacity-10 text-{{ 'success' if tx.type == 'income' else 'danger' }} px-3 py-2">
+                                    {{ tx.category.capitalize() }}
+                                </span>
+                            </td>
+                            <td class="text-muted">{{ tx.description or '-' }}</td>
+                            <td class="text-end fw-bold {{ 'text-success' if tx.type == 'income' else 'text-danger' }}">
+                                {{ '+' if tx.type == 'income' else '-' }} R$ {{ "%.2f"|format(tx.amount) }}
+                            </td>
+                            <td class="px-4 text-center">
+                                {% if tx.user_id %}
+                                <a href="{{ url_for('finance.download_receipt', tx_id=tx.id) }}" class="btn btn-sm btn-outline-primary rounded-pill px-3">
+                                    <i class="bi bi-download me-1"></i> PDF
+                                </a>
+                                {% else %}
+                                <span class="text-muted small">N/A</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="5" class="text-center py-5 text-muted">
+                                <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                                Nenhuma transação encontrada.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
