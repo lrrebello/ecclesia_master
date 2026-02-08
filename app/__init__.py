@@ -1,6 +1,6 @@
 from flask import Flask, render_template
 from flask_login import LoginManager
-from app.core.models import db, User, Event
+from app.core.models import db, User, Event, Media
 from config import Config
 from datetime import datetime
 
@@ -44,5 +44,10 @@ def create_app():
     @app.route('/')
     def index():
         return render_template('index.html')
+    
+    @app.context_processor
+    def inject_recent_media():
+        recent_media = Media.query.filter_by(church_id=1).order_by(Media.created_at.desc()).limit(6).all()  # ajuste church_id se necessário
+        return dict(recent_media=recent_media)
         
     return app

@@ -63,4 +63,34 @@
         </div>
     </div>
 </div>
+
+<!-- Galeria Pública - Visível sem login -->
+<div class="row justify-content-center mb-5">
+    <div class="col-lg-10">
+        <div class="card border-0 shadow-sm p-4">
+            <h4 class="fw-bold mb-4 text-center"><i class="bi bi-images me-2 text-primary"></i>Galeria da Igreja</h4>
+            <div class="row g-3">
+                {% for item in recent_media %}
+                <div class="col-md-4 col-lg-3">
+                    {% if item.media_type == 'image' %}
+                    <img src="{{ url_for('static', filename='uploads/media/' + item.file_path) }}" class="img-fluid rounded shadow-sm" alt="{{ item.title }}" style="height: 180px; object-fit: cover; width: 100%;">
+                    {% else %}
+                    <video controls class="img-fluid rounded shadow-sm" style="height: 180px; object-fit: cover; width: 100%;">
+                        <source src="{{ url_for('static', filename='uploads/media/' + item.file_path) }}" type="video/mp4">
+                    </video>
+                    {% endif %}
+                    <p class="small text-center mt-2 fw-bold">{{ item.title }}</p>
+                </div>
+                {% else %}
+                <p class="text-center text-muted">Ainda não há mídias públicas disponíveis.</p>
+                {% endfor %}
+            </div>
+            <div class="text-center mt-4">
+                <a href="{{ url_for('auth.register') }}" class="btn btn-outline-primary">
+                    <i class="bi bi-person-plus me-1"></i> Solicite seu cadastro para ver a galeria completa
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
