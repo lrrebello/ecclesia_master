@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card border-0 shadow-sm p-4">
+            <h3 class="fw-bold mb-2">Agendar Evento Geral da Igreja</h3>
+            <p class="text-muted mb-4">Este evento será visível para todos os membros da congregação.</p>
+            <form method="POST">
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">TÍTULO DO EVENTO</label>
+                    <input type="text" name="title" class="form-control bg-light border-0" placeholder="Ex: Culto Dominical, Conferência Anual" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">DATA E HORA</label>
+                    <input type="datetime-local" name="start_time" class="form-control bg-light border-0" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">LOCAL</label>
+                    <input type="text" name="location" class="form-control bg-light border-0" placeholder="Ex: Templo Sede" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">DESCRIÇÃO</label>
+                    <textarea name="description" class="form-control bg-light border-0" rows="3"></textarea>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">REPETIÇÃO</label>
+                    <select name="recurrence" class="form-select bg-light border-0">
+                        <option value="none">Sem repetição</option>
+                        <option value="weekly">Semanal</option>
+                        <option value="monthly">Mensal</option>
+                        <option value="quarterly">Trimestral</option>
+                    </select>
+                </div>
+                <div class="d-grid mt-4">
+                    <button type="submit" class="btn btn-primary btn-lg py-3 fw-bold shadow-sm">
+                        Confirmar Agendamento Geral
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

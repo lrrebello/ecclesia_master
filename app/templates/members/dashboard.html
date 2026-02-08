@@ -65,6 +65,9 @@
                 <a href="{{ url_for('members.add_ministry') }}" class="btn btn-outline-primary text-start">
                     <i class="bi bi-plus-circle me-2"></i> Criar Ministério
                 </a>
+                <a href="{{ url_for('members.add_general_event') }}" class="btn btn-outline-success text-start">
+                    <i class="bi bi-calendar-plus me-2"></i> Criar Evento Geral da Igreja
+                </a>
                 {% endif %}
                 {% if current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Tesoureiro'] %}
                 <a href="{{ url_for('finance.add_transaction') }}" class="btn btn-outline-success text-start">

@@ -44,17 +44,17 @@ class User(db.Model, UserMixin):
     # Dados Pessoais Expandidos
     birth_date = db.Column(db.Date)
     gender = db.Column(db.String(20))
-    documents = db.Column(db.String(200))
+    documents = db.Column(db.String(200)) # Flexível para diferentes países
     address = db.Column(db.Text)
     phone = db.Column(db.String(50))
     
     # Status e Permissões
-    status = db.Column(db.String(20), default='pending')  # pending, active, rejected
+    status = db.Column(db.String(20), default='pending') # pending, active, rejected
     is_ministry_leader = db.Column(db.Boolean, default=False)
     
     church_id = db.Column(db.Integer, db.ForeignKey('church.id'))
     family_id = db.Column(db.Integer, db.ForeignKey('family.id'), nullable=True)
-    church_role_id = db.Column(db.Integer, db.ForeignKey('church_role.id'), nullable=True)  # ← NOVO
+    church_role_id = db.Column(db.Integer, db.ForeignKey('church_role.id'), nullable=True)
     
     # Relacionamentos
     ministries = db.relationship('Ministry', secondary=member_ministries, backref=db.backref('members', lazy='dynamic'))
@@ -73,6 +73,7 @@ class Ministry(db.Model):
     leader_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
     
     events = db.relationship('Event', backref='ministry', lazy=True)
+    leader = db.relationship('User', foreign_keys=[leader_id])
 
 class Event(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -82,6 +83,7 @@ class Event(db.Model):
     location = db.Column(db.String(200))
     ministry_id = db.Column(db.Integer, db.ForeignKey('ministry.id'), nullable=True) # Se nulo, é evento geral da igreja
     church_id = db.Column(db.Integer, db.ForeignKey('church.id'))
+    recurrence = db.Column(db.String(20), default='none')  # 'none', 'weekly', 'monthly', 'quarterly'
 
 class Asset(db.Model):
     id = db.Column(db.Integer, primary_key=True)

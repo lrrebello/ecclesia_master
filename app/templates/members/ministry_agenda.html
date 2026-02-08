@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-5">
+        <div>
+            <h1 class="fw-bold text-primary"><i class="bi bi-calendar-event-fill me-2"></i>Agenda - {{ ministry.name }}</h1>
+            <p class="text-muted">Eventos exclusivos deste ministério e aviso de eventos gerais da congregação.</p>
+        </div>
+        <a href="{{ url_for('members.my_led_ministries') }}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-1"></i> Voltar aos Meus Ministérios
+        </a>
+    </div>
+
+    <!-- Eventos do Ministério -->
+    <div class="card border-0 shadow-sm mb-5">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">Eventos do {{ ministry.name }}</h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="list-group list-group-flush">
+                {% for event in ministry_events %}
+                <div class="list-group-item px-4 py-3 border-bottom">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="fw-bold mb-1">{{ event.title }}</h6>
+                            <small class="text-muted d-block">
+                                <i class="bi bi-clock me-1"></i> {{ event.start_time.strftime('%d/%m/%Y %H:%M') }}
+                                <i class="bi bi-geo-alt ms-3 me-1"></i> {{ event.location }}
+                            </small>
+                        </div>
+                        <span class="badge bg-primary bg-opacity-10 text-primary px-3 py-2">
+                            {{ ministry.name }}
+                        </span>
+                    </div>
+                    {% if event.description %}
+                    <p class="text-muted small mt-2 mb-0">{{ event.description|truncate(120) }}</p>
+                    {% endif %}
+                </div>
+                {% else %}
+                <div class="text-center py-5 text-muted">
+                    <i class="bi bi-calendar-x fs-1 d-block mb-2"></i>
+                    Nenhum evento agendado para este ministério ainda.
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        <div class="card-footer bg-light text-end">
+            <a href="{{ url_for('members.add_ministry_event', id=ministry.id) }}" class="btn btn-sm btn-success">
+                <i class="bi bi-plus-circle me-1"></i> Novo Evento para este Ministério
+            </a>
+        </div>
+    </div>
+
+    <!-- Aviso de Eventos Gerais -->
+    {% if general_events %}
+    <div class="alert alert-info border-0 shadow-sm">
+        <h5 class="fw-bold mb-3"><i class="bi bi-info-circle me-2"></i>Eventos Gerais da Congregação</h5>
+        <p class="mb-3">Estes eventos não são exclusivos do seu ministério, mas podem afetar todos os membros:</p>
+        <ul class="list-group list-group-flush">
+            {% for event in general_events %}
+            <li class="list-group-item border-0 py-2">
+                <strong>{{ event.title }}</strong> - 
+                {{ event.start_time.strftime('%d/%m/%Y %H:%M') }} 
+                {% if event.location %}em {{ event.location }}{% endif %}
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% else %}
+    <div class="alert alert-light border">
+        <i class="bi bi-info-circle me-2"></i>
+        Nenhum evento geral agendado no momento.
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

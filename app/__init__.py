@@ -1,7 +1,8 @@
-from flask import Flask
+from flask import Flask, render_template
 from flask_login import LoginManager
-from app.core.models import db, User
+from app.core.models import db, User, Event
 from config import Config
+from datetime import datetime
 
 login_manager = LoginManager()
 
@@ -16,6 +17,15 @@ def create_app():
     @login_manager.user_loader
     def load_user(user_id):
         return User.query.get(int(user_id))
+    
+    # Context processor para eventos públicos na inicial
+    @app.context_processor
+    def inject_public_events():
+        public_events = Event.query.filter(
+            Event.ministry_id.is_(None),
+            Event.start_time >= datetime.utcnow()
+        ).order_by(Event.start_time.asc()).limit(5).all()
+        return dict(public_events=public_events)
     
     # Register Blueprints
     from app.modules.auth.routes import auth_bp
@@ -33,7 +43,6 @@ def create_app():
     # Main route
     @app.route('/')
     def index():
-        from flask import render_template
         return render_template('index.html')
         
     return app

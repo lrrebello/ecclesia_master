@@ -39,10 +39,27 @@
                     <a class="nav-link {{ 'active' if 'church_members' in request.endpoint }}" href="{{ url_for('members.church_members') }}">
                         <i class="bi bi-people me-2"></i> Membros da Filial
                     </a>
+                    {% endif %}
+                    
+                    <!-- Novo link: Meus Ministérios Liderados -->
+                    {% set led_count = namespace(count=0) %}
+                    {% for min in current_user.ministries %}
+                        {% if min.leader_id == current_user.id %}
+                            {% set led_count.count = led_count.count + 1 %}
+                        {% endif %}
+                    {% endfor %}
+                    {% if led_count.count > 0 %}
+                    <a class="nav-link {{ 'active' if 'my_led_ministries' in request.endpoint }}" href="{{ url_for('members.my_led_ministries') }}">
+                        <i class="bi bi-star-fill me-2"></i> Meus Ministérios Liderados
+                    </a>
+                    {% endif %}
+                    
+                    {% if current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder'] %}
                     <a class="nav-link {{ 'active' if 'roles' in request.endpoint }}" href="{{ url_for('admin.list_roles') }}">
                         <i class="bi bi-person-badge me-2"></i> Cargos da Congregação
                     </a>
                     {% endif %}
+                    
                     {% if current_user.church_role and current_user.church_role.name == 'Administrador Global' %}
                     <hr class="my-3 opacity-25">
                     <label class="small text-muted px-3 mb-2">ADMINISTRAÇÃO</label>
@@ -112,7 +129,6 @@
             }
         }
 
-        // Load saved theme
         if (localStorage.getItem('theme') === 'dark') {
             document.documentElement.setAttribute('data-theme', 'dark');
             document.getElementById('theme-icon').className = 'bi bi-sun';
