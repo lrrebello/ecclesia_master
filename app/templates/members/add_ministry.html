@@ -3,28 +3,39 @@
 <div class="row justify-content-center">
     <div class="col-md-6">
         <div class="card border-0 shadow-sm p-4">
-            <h3 class="fw-bold mb-4">Criar Novo Ministério</h3>
+            <h3 class="fw-bold mb-4">Novo Ministério</h3>
             <form method="POST">
                 <div class="mb-3">
                     <label class="form-label small fw-bold">NOME DO MINISTÉRIO</label>
                     <input type="text" name="name" class="form-control bg-light border-0" placeholder="Ex: Ministério de Louvor, Grupo de Jovens" required>
                 </div>
                 <div class="mb-3">
-                    <label class="form-label small fw-bold">DESCRIÇÃO / OBJETIVO</label>
-                    <textarea name="description" class="form-control bg-light border-0" rows="3"></textarea>
+                    <label class="form-label small fw-bold">DESCRIÇÃO</label>
+                    <textarea name="description" class="form-control bg-light border-0" rows="3" placeholder="Descreva as responsabilidades..."></textarea>
                 </div>
+                {% if churches %}
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">FILIAL / CONGREGAÇÃO</label>
+                    <select name="church_id" class="form-select bg-light border-0" required>
+                        <option value="">Selecione uma filial...</option>
+                        {% for church in churches %}
+                        <option value="{{ church.id }}">{{ church.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                {% endif %}
                 <div class="mb-3">
                     <label class="form-label small fw-bold">LÍDER DO MINISTÉRIO</label>
                     <select name="leader_id" class="form-select bg-light border-0" required>
                         <option value="">Selecione um líder...</option>
                         {% for leader in leaders %}
-                        <option value="{{ leader.id }}">{{ leader.name }} ({{ leader.church_role.name if leader.church_role else 'Sem cargo' }})</option>
+                        <option value="{{ leader.id }}">{{ leader.name }}</option>
                         {% endfor %}
                     </select>
                 </div>
                 <div class="d-grid mt-4">
                     <button type="submit" class="btn btn-primary btn-lg py-3 fw-bold shadow-sm">
-                        Criar Ministério
+                        Cadastrar Ministério
                     </button>
                 </div>
             </form>

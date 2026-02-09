@@ -10,15 +10,26 @@
                     <input type="text" name="name" class="form-control bg-light border-0" value="{{ ministry.name }}" required>
                 </div>
                 <div class="mb-3">
-                    <label class="form-label small fw-bold">DESCRIÇÃO / OBJETIVO</label>
-                    <textarea name="description" class="form-control bg-light border-0" rows="3">{{ ministry.description }}</textarea>
+                    <label class="form-label small fw-bold">DESCRIÇÃO</label>
+                    <textarea name="description" class="form-control bg-light border-0" rows="3">{{ ministry.description or '' }}</textarea>
                 </div>
+                {% if current_user.church_role and current_user.church_role.name == 'Administrador Global' %}
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">FILIAL / CONGREGAÇÃO</label>
+                    <select name="church_id" class="form-select bg-light border-0" required>
+                        <option value="">Selecione uma filial...</option>
+                        {% for church in churches %}
+                        <option value="{{ church.id }}" {{ 'selected' if ministry.church_id == church.id }}>{{ church.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                {% endif %}
                 <div class="mb-3">
                     <label class="form-label small fw-bold">LÍDER DO MINISTÉRIO</label>
                     <select name="leader_id" class="form-select bg-light border-0" required>
                         <option value="">Selecione um líder...</option>
                         {% for leader in leaders %}
-                        <option value="{{ leader.id }}" {{ 'selected' if ministry.leader_id == leader.id }}>{{ leader.name }} ({{ leader.church_role.name if leader.church_role else 'Sem cargo' }})</option>
+                        <option value="{{ leader.id }}" {{ 'selected' if ministry.leader_id == leader.id }}>{{ leader.name }}</option>
                         {% endfor %}
                     </select>
                 </div>

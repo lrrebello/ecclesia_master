@@ -23,43 +23,45 @@
                     <a class="nav-link {{ 'active' if request.endpoint == 'members.dashboard' }}" href="{{ url_for('members.dashboard') }}">
                         <i class="bi bi-speedometer2 me-2"></i> Dashboard
                     </a>
-                    <a class="nav-link {{ 'active' if 'gallery' in request.endpoint }}" href="{{ url_for('edification.gallery') }}">
-                        <i class="bi bi-images me-2"></i> Galeria
-                    </a>
                     <a class="nav-link {{ 'active' if 'finance' in request.endpoint }}" href="{{ url_for('finance.dashboard') }}">
                         <i class="bi bi-cash-stack me-2"></i> Financeiro
                     </a>
                     <a class="nav-link {{ 'active' if 'edification' in request.endpoint }}" href="{{ url_for('edification.list_studies') }}">
                         <i class="bi bi-book me-2"></i> Edificação
                     </a>
-                                        <a class="nav-link {{ 'active' if 'ministries' in request.endpoint }}" href="{{ url_for('members.list_ministries') }}">
+                    <a class="nav-link {{ 'active' if 'gallery' in request.endpoint }}" href="{{ url_for('edification.gallery') }}">
+                        <i class="bi bi-images me-2"></i> Galeria
+                    </a>
+                    <a class="nav-link {{ 'active' if 'ministries' in request.endpoint }}" href="{{ url_for('members.list_ministries') }}">
                         <i class="bi bi-diagram-3 me-2"></i> Ministérios
                     </a>
-                    {% if current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder'] %}
+                    {% if current_user.can_approve_members or (current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder']) %}
                     <a class="nav-link {{ 'active' if 'church_members' in request.endpoint }}" href="{{ url_for('members.church_members') }}">
                         <i class="bi bi-people me-2"></i> Membros da Filial
                     </a>
                     {% endif %}
-                    
-                    <!-- Novo link: Meus Ministérios Liderados -->
-                    {% set led_count = namespace(count=0) %}
-                    {% for min in current_user.ministries %}
-                        {% if min.leader_id == current_user.id %}
-                            {% set led_count.count = led_count.count + 1 %}
+
+                    <!-- Link "Meus Ministérios Liderados" - aparece se o usuário é líder de algum ministério -->
+                    {% if current_user.is_authenticated %}
+                        {% set has_led_ministries = namespace(value=false) %}
+                        {% for ministry in current_user.ministries %}
+                            {% if ministry.leader_id == current_user.id %}
+                                {% set has_led_ministries.value = true %}
+                            {% endif %}
+                        {% endfor %}
+                        {% if has_led_ministries.value %}
+                        <a class="nav-link {{ 'active' if 'my_led_ministries' in request.endpoint }}" href="{{ url_for('members.my_led_ministries') }}">
+                            <i class="bi bi-star-fill me-2"></i> Meus Ministérios Liderados
+                        </a>
                         {% endif %}
-                    {% endfor %}
-                    {% if led_count.count > 0 %}
-                    <a class="nav-link {{ 'active' if 'my_led_ministries' in request.endpoint }}" href="{{ url_for('members.my_led_ministries') }}">
-                        <i class="bi bi-star-fill me-2"></i> Meus Ministérios Liderados
-                    </a>
                     {% endif %}
-                    
-                    {% if current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder'] %}
+
+                    {% if current_user.can_approve_members or (current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder']) %}
                     <a class="nav-link {{ 'active' if 'roles' in request.endpoint }}" href="{{ url_for('admin.list_roles') }}">
                         <i class="bi bi-person-badge me-2"></i> Cargos da Congregação
                     </a>
                     {% endif %}
-                    
+
                     {% if current_user.church_role and current_user.church_role.name == 'Administrador Global' %}
                     <hr class="my-3 opacity-25">
                     <label class="small text-muted px-3 mb-2">ADMINISTRAÇÃO</label>
@@ -70,6 +72,7 @@
                         <i class="bi bi-globe me-2"></i> Gestão Global
                     </a>
                     {% endif %}
+
                     <a class="nav-link" href="{{ url_for('members.profile') }}">
                         <i class="bi bi-person me-2"></i> Meu Perfil
                     </a>

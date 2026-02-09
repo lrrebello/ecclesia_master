@@ -64,6 +64,15 @@ class User(db.Model, UserMixin):
     
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
+    
+    # Permissoes
+    can_manage_ministries = db.Column(db.Boolean, default=False)
+    can_manage_media = db.Column(db.Boolean, default=False)
+    can_publish_devotionals = db.Column(db.Boolean, default=False)
+    can_approve_members = db.Column(db.Boolean, default=False)
+    can_manage_finance = db.Column(db.Boolean, default=False)
+    can_manage_kids = db.Column(db.Boolean, default=False)
+    can_manage_events = db.Column(db.Boolean, default=False)  # para eventos gerais
 
 class Ministry(db.Model):
     id = db.Column(db.Integer, primary_key=True)

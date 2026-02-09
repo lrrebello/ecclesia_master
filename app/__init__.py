@@ -1,6 +1,6 @@
 from flask import Flask, render_template
-from flask_login import LoginManager
-from app.core.models import db, User, Event, Media
+from flask_login import LoginManager, current_user  # Import current_user aqui
+from app.core.models import db, User, Event, Ministry  # Import Ministry para o context processor
 from config import Config
 from datetime import datetime
 
@@ -27,6 +27,15 @@ def create_app():
         ).order_by(Event.start_time.asc()).limit(5).all()
         return dict(public_events=public_events)
     
+    # Context processor para verificar se o usuário é líder de algum ministério
+    @app.context_processor
+    def inject_is_ministry_leader():
+        if current_user.is_authenticated:
+            is_ministry_leader = Ministry.query.filter_by(leader_id=current_user.id).count() > 0
+        else:
+            is_ministry_leader = False
+        return dict(is_ministry_leader=is_ministry_leader)
+    
     # Register Blueprints
     from app.modules.auth.routes import auth_bp
     from app.modules.members.routes import members_bp
@@ -44,10 +53,5 @@ def create_app():
     @app.route('/')
     def index():
         return render_template('index.html')
-    
-    @app.context_processor
-    def inject_recent_media():
-        recent_media = Media.query.filter_by(church_id=1).order_by(Media.created_at.desc()).limit(6).all()  # ajuste church_id se necessário
-        return dict(recent_media=recent_media)
         
     return app

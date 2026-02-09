@@ -31,10 +31,10 @@ def kids_corner():
     activities = KidsActivity.query.order_by(KidsActivity.created_at.desc()).all()
     return render_template('edification/kids.html', activities=activities)
 
-@edification_bp.route('/admin/add_kids_activity', methods=['GET', 'POST'])
+@edification_bp.route('/kids/add', methods=['GET', 'POST'])
 @login_required
 def add_kids_activity():
-    if not current_user.church_role or current_user.church_role.name not in ['Administrador Global', 'Pastor Líder', 'Líder de Mídia']:
+    if not current_user.can_manage_media:
         flash('Acesso negado.', 'danger')
         return redirect(url_for('edification.kids_corner'))
         
@@ -53,7 +53,7 @@ def add_kids_activity():
 @edification_bp.route('/study/add', methods=['GET', 'POST'])
 @login_required
 def add_study():
-    if not current_user.church_role or current_user.church_role.name not in ['Administrador Global', 'Pastor Líder']:
+    if not current_user.can_publish_devotionals:
         flash('Acesso negado.', 'danger')
         return redirect(url_for('edification.list_studies'))
         
@@ -79,7 +79,7 @@ def gallery():
 @edification_bp.route('/media/add', methods=['GET', 'POST'])
 @login_required
 def add_media():
-    if not current_user.church_role or current_user.church_role.name not in ['Administrador Global', 'Pastor Líder', 'Líder de Mídia']:
+    if not current_user.can_manage_media:
         flash('Acesso negado.', 'danger')
         return redirect(url_for('edification.gallery'))
         
@@ -109,8 +109,7 @@ def add_media():
         )
         db.session.add(new_media)
         db.session.commit()
-        
         flash('Mídia adicionada à galeria com sucesso!', 'success')
         return redirect(url_for('edification.gallery'))
-    
+        
     return render_template('edification/add_media.html')

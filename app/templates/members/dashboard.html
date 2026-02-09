@@ -19,10 +19,29 @@
         <div class="card devotional-card border-0 p-4 mb-4">
             <div class="card-body">
                 <span class="badge bg-white text-primary px-3 py-2 mb-3">Palavra do Dia</span>
-                <h2 class="fw-bold mb-3">{{ devotional.title if devotional else 'Bem-vindo ao Ecclesia Master' }}</h2>
-                <p class="fs-5 opacity-90">{{ devotional.content if devotional else 'Que a graça do Senhor Jesus seja com todos.' }}</p>
-                {% if devotional and devotional.verse %}
-                <p class="fst-italic mt-3 mb-0">"{{ devotional.verse }}"</p>
+                {% if devotional and devotional.date == datetime.utcnow().date() %}
+                    <h2 class="fw-bold mb-3">{{ devotional.title }}</h2>
+                    <p class="fs-5 opacity-90">{{ devotional.content | safe }}</p>
+                    {% if devotional.verse %}
+                    <p class="fst-italic mt-3 mb-0">"{{ devotional.verse }}"</p>
+                    {% endif %}
+                {% elif devotional %}
+                    <h2 class="fw-bold mb-3">{{ devotional.title }}</h2>
+                    <p class="fs-5 opacity-90">{{ devotional.content | safe }}</p>
+                    {% if devotional.verse %}
+                    <p class="fst-italic mt-3 mb-0">"{{ devotional.verse }}"</p>
+                    {% endif %}
+                    <div class="alert alert-info mt-3">
+                        <i class="bi bi-info-circle me-2"></i>
+                        Este é o devocional mais recente. O de hoje ainda não foi publicado.
+                    </div>
+                {% else %}
+                    <h2 class="fw-bold mb-3">Bem-vindo ao Ecclesia Master</h2>
+                    <p class="fs-5 opacity-90">Que a graça do Senhor Jesus seja com todos.</p>
+                    <div class="alert alert-warning mt-3">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        Nenhum devocional publicado ainda.
+                    </div>
                 {% endif %}
             </div>
         </div>
@@ -61,15 +80,19 @@
         <div class="card border-0 shadow-sm p-4 mb-4">
             <h5 class="fw-bold mb-3">Painel de Liderança</h5>
             <div class="d-grid gap-2">
-                {% if current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder'] %}
+                {% if current_user.can_manage_ministries %}
                 <a href="{{ url_for('members.add_ministry') }}" class="btn btn-outline-primary text-start">
                     <i class="bi bi-plus-circle me-2"></i> Criar Ministério
                 </a>
+                {% endif %}
+
+                {% if current_user.can_manage_events or current_user.can_manage_ministries %}
                 <a href="{{ url_for('members.add_general_event') }}" class="btn btn-outline-success text-start">
                     <i class="bi bi-calendar-plus me-2"></i> Criar Evento Geral da Igreja
                 </a>
                 {% endif %}
-                {% if current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Tesoureiro'] %}
+
+                {% if current_user.can_manage_finance %}
                 <a href="{{ url_for('finance.add_transaction') }}" class="btn btn-outline-success text-start">
                     <i class="bi bi-cash-coin me-2"></i> Lançar Financeiro
                 </a>
@@ -77,6 +100,13 @@
                     <i class="bi bi-box-seam me-2"></i> Cadastrar Patrimônio
                 </a>
                 {% endif %}
+
+                {% if current_user.can_manage_media %}
+                <a href="{{ url_for('edification.add_media') }}" class="btn btn-outline-info text-start">
+                    <i class="bi bi-images me-2"></i> Adicionar Mídia à Galeria
+                </a>
+                {% endif %}
+
                 <a href="{{ url_for('edification.kids_corner') }}" class="btn btn-outline-warning text-start">
                     <i class="bi bi-balloon me-2"></i> Ecclesia Kids
                 </a>
