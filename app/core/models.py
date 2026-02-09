@@ -164,10 +164,12 @@ class Media(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(200), nullable=False)
     description = db.Column(db.Text)
-    file_path = db.Column(db.String(255), nullable=False)  # nome do arquivo salvo
-    media_type = db.Column(db.String(20), default='image')  # 'image' ou 'video'
-    event_name = db.Column(db.String(200))  # ex: "Culto de Jovens - 08/02"
+    file_path = db.Column(db.String(255), nullable=False)
+    media_type = db.Column(db.String(20), default='image')  # 'image', 'pdf', 'video', etc.
+    event_name = db.Column(db.String(200))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     church_id = db.Column(db.Integer, db.ForeignKey('church.id'), nullable=False)
+    ministry_id = db.Column(db.Integer, db.ForeignKey('ministry.id'), nullable=True)  # ← Novo campo!
     
     church = db.relationship('Church', backref='media_items')
+    ministry = db.relationship('Ministry', backref='media_items')  # ← Relacionamento inverso

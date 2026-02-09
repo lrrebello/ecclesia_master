@@ -1,0 +1,27 @@
+<!-- Materiais do Ministério -->
+<div class="card border-0 shadow-sm mb-5">
+    <div class="card-header bg-primary text-white">
+        <h5 class="mb-0">Materiais do Ministério</h5>
+    </div>
+    <div class="card-body">
+        {% if ministry.media_items %}
+        <div class="list-group">
+            {% for item in ministry.media_items %}
+            <a href="{{ url_for('static', filename='uploads/media/' + item.file_path) }}" class="list-group-item list-group-item-action" target="_blank">
+                <i class="bi bi-file-earmark me-2"></i> {{ item.title }}
+                <small class="text-muted float-end">{{ item.created_at.strftime('%d/%m/%Y') }}</small>
+            </a>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-muted text-center py-3">Ainda não há materiais anexados.</p>
+        {% endif %}
+    </div>
+    {% if current_user.id == ministry.leader_id or current_user.can_manage_ministries %}
+    <div class="card-footer bg-light text-end">
+        <a href="{{ url_for('edification.add_media', ministry_id=ministry.id) }}" class="btn btn-sm btn-success">
+            <i class="bi bi-plus-circle me-1"></i> Adicionar Arquivo/Material
+        </a>
+    </div>
+    {% endif %}
+</div>

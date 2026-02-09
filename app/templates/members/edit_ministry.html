@@ -13,7 +13,7 @@
                     <label class="form-label small fw-bold">DESCRIÇÃO</label>
                     <textarea name="description" class="form-control bg-light border-0" rows="3">{{ ministry.description or '' }}</textarea>
                 </div>
-                {% if current_user.church_role and current_user.church_role.name == 'Administrador Global' %}
+                {% if churches %}
                 <div class="mb-3">
                     <label class="form-label small fw-bold">FILIAL / CONGREGAÇÃO</label>
                     <select name="church_id" class="form-select bg-light border-0" required>

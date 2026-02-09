@@ -37,10 +37,16 @@ def profile():
 @members_bp.route('/ministries')
 @login_required
 def list_ministries():
-    if current_user.can_manage_ministries or (current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder']):
+    if current_user.church_role and current_user.church_role.name == 'Administrador Global':
+        # Admin Global vê todos os ministérios de todas as filiais
+        ministries = Ministry.query.all()
+    elif current_user.can_manage_ministries or (current_user.church_role and current_user.church_role.name == 'Pastor Líder'):
+        # Pastor Líder vê os da sua filial
         ministries = Ministry.query.filter_by(church_id=current_user.church_id).all()
     else:
+        # Usuários comuns veem só os que participam
         ministries = current_user.ministries
+    
     return render_template('members/ministries.html', ministries=ministries)
 
 @members_bp.route('/ministry/add', methods=['GET', 'POST'])
@@ -61,7 +67,7 @@ def add_ministry():
         db.session.add(new_min)
         db.session.commit()
         
-        # Associar o líder como membro do ministério
+        # Associar o líder como membro
         if leader_id:
             leader = User.query.get(int(leader_id))
             new_min.members.append(leader)
@@ -105,10 +111,13 @@ def edit_ministry(id):
         flash('Ministério atualizado!', 'success')
         return redirect(url_for('members.list_ministries'))
     
-    # Carregar filiais só para Admin Global
+    # Carregar todas as filiais para Admin Global
     churches = Church.query.all() if current_user.church_role and current_user.church_role.name == 'Administrador Global' else None
     potential_leaders = User.query.filter_by(church_id=ministry.church_id, status='active').all()
-    return render_template('members/edit_ministry.html', ministry=ministry, leaders=potential_leaders, churches=churches)
+    return render_template('members/edit_ministry.html', 
+                           ministry=ministry, 
+                           leaders=potential_leaders, 
+                           churches=churches)
 
 @members_bp.route('/ministry/<int:id>/delete')
 @login_required
@@ -175,7 +184,6 @@ def promote_member(id):
         new_role_id = request.form.get('church_role_id')
         member.church_role_id = int(new_role_id) if new_role_id else None
         
-        # Salvar permissões especiais
         member.can_manage_ministries = 'can_manage_ministries' in request.form
         member.can_manage_media = 'can_manage_media' in request.form
         member.can_publish_devotionals = 'can_publish_devotionals' in request.form

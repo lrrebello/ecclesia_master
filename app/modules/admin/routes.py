@@ -38,17 +38,18 @@ def add_church():
 @admin_bp.route('/church/edit/<int:id>', methods=['GET', 'POST'])
 @login_required
 def edit_church(id):
-    if not current_user.church_role or current_user.church_role.name != 'Administrador Global':
+    if current_user.church_role.name != 'Administrador Global':
         flash('Acesso negado.', 'danger')
-        return redirect(url_for('members.dashboard'))
+        return redirect(url_for('admin.list_churches'))
     
     church = Church.query.get_or_404(id)
+    
     if request.method == 'POST':
         church.name = request.form.get('name')
         church.address = request.form.get('address')
         church.city = request.form.get('city')
         church.country = request.form.get('country')
-        church.is_main = True if request.form.get('is_main') else False
+        church.is_main = 'is_main' in request.form
         db.session.commit()
         flash('Congregação atualizada!', 'success')
         return redirect(url_for('admin.list_churches'))
