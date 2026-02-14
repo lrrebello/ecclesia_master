@@ -1,3 +1,4 @@
+# Arquivo completo: app/modules/edification/routes.py (baseado no TXT, com filtro de midias por ministério do user, HEIC mantido, novas rotas para edit/delete media)
 from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app
 from flask_login import login_required, current_user
 from app.core.models import db, Devotional, Study, KidsActivity, StudyQuestion, Media, Ministry
@@ -7,7 +8,7 @@ import os
 from PIL import Image
 import pillow_heif
 
-# Registra suporte a HEIC (executa uma vez ao carregar o módulo)
+# Registra suporte a HEIC
 pillow_heif.register_heif_opener()
 
 edification_bp = Blueprint('edification', __name__)
@@ -71,7 +72,6 @@ def add_study():
         db.session.add(new_study)
         db.session.commit()
         
-        # Adicionar questões se fornecidas
         questions = request.form.getlist('questions[]')
         options = request.form.getlist('options[]')
         correct_options = request.form.getlist('correct_options[]')
@@ -127,6 +127,10 @@ def add_kids_activity():
 def gallery():
     query = Media.query.filter_by(church_id=current_user.church_id)
     
+    # Filtro para midias gerais ou dos ministérios do user
+    ministry_ids = [m.id for m in current_user.ministries]
+    query = query.filter((Media.ministry_id.is_(None)) | (Media.ministry_id.in_(ministry_ids)))
+    
     ministry_id = request.args.get('ministry_id')
     if ministry_id:
         query = query.filter_by(ministry_id=ministry_id)
@@ -162,7 +166,6 @@ def upload_media():
         filename = secure_filename(file.filename)
         file_ext = os.path.splitext(filename)[1].lower()
         
-        # Suporte a HEIC
         if file_ext == '.heic':
             try:
                 img = Image.open(file)
@@ -205,3 +208,76 @@ def upload_media():
         return redirect(url_for('edification.gallery'))
     
     return render_template('edification/add_media.html', ministries=ministries)
+
+# Nova rota para editar mídia
+@edification_bp.route('/media/<int:id>/edit', methods=['GET', 'POST'])
+@login_required
+def edit_media(id):
+    media = Media.query.get_or_404(id)
+    
+    # Permissão: dono, líder do ministério ou admin
+    if not (current_user.can_manage_media or (current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder']) or (media.ministry and media.ministry.leader_id == current_user.id)):
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('edification.gallery'))
+    
+    ministries = Ministry.query.filter_by(church_id=current_user.church_id).all()
+    
+    if request.method == 'POST':
+        media.title = request.form.get('title')
+        media.description = request.form.get('description')
+        media.ministry_id = int(request.form.get('ministry_id')) if request.form.get('ministry_id') else None
+        
+        file = request.files.get('file')
+        if file:
+            filename = secure_filename(file.filename)
+            file_ext = os.path.splitext(filename)[1].lower()
+            
+            if file_ext == '.heic':
+                img = Image.open(file)
+                new_filename = filename.replace('.heic', '.jpg', 1)
+                full_path = os.path.join(current_app.config['UPLOAD_FOLDER'], 'media', new_filename)
+                os.makedirs(os.path.dirname(full_path), exist_ok=True)
+                img.convert('RGB').save(full_path, 'JPEG', quality=95)
+                media.file_path = 'uploads/media/' + new_filename
+                media.media_type = 'image'
+            else:
+                full_path = os.path.join(current_app.config['UPLOAD_FOLDER'], 'media', filename)
+                os.makedirs(os.path.dirname(full_path), exist_ok=True)
+                file.save(full_path)
+                media.file_path = 'uploads/media/' + filename
+                
+                if file_ext in ['.jpg', '.jpeg', '.png', '.gif']:
+                    media.media_type = 'image'
+                elif file_ext in ['.mp4', '.mov']:
+                    media.media_type = 'video'
+                elif file_ext == '.pdf':
+                    media.media_type = 'pdf'
+                else:
+                    flash('Formato de arquivo não suportado.', 'danger')
+                    return redirect(request.url)
+        
+        db.session.commit()
+        flash('Mídia atualizada com sucesso!', 'success')
+        return redirect(url_for('edification.gallery'))
+    
+    return render_template('edification/edit_media.html', media=media, ministries=ministries)
+
+# Nova rota para excluir mídia
+@edification_bp.route('/media/<int:id>/delete')
+@login_required
+def delete_media(id):
+    media = Media.query.get_or_404(id)
+    
+    # Permissão: dono, líder ou admin
+    if not (current_user.can_manage_media or (current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder']) or (media.ministry and media.ministry.leader_id == current_user.id)):
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('edification.gallery'))
+    
+    # Delete file from disk if exists
+    if media.file_path and os.path.exists(current_app.config['UPLOAD_FOLDER'] + '/' + media.file_path.replace('uploads/', '')):
+        os.remove(current_app.config['UPLOAD_FOLDER'] + '/' + media.file_path.replace('uploads/', ''))
+    
+    db.session.delete(media)
+    db.session.commit()
+    flash('Mídia excluída com sucesso!', 'info')
+    return redirect(url_for('edification.gallery'))

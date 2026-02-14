@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container py-5">
+    <h1 class="fw-bold text-primary mb-4">Editar Mídia</h1>
+    
+    <form method="POST" enctype="multipart/form-data">
+        <div class="mb-3">
+            <label for="title" class="form-label">Título</label>
+            <input type="text" class="form-control" id="title" name="title" value="{{ media.title }}" required>
+        </div>
+        <div class="mb-3">
+            <label for="description" class="form-label">Descrição</label>
+            <textarea class="form-control" id="description" name="description" rows="3">{{ media.description }}</textarea>
+        </div>
+        <div class="mb-3">
+            <label for="ministry_id" class="form-label">Ministério (opcional)</label>
+            <select class="form-select" id="ministry_id" name="ministry_id">
+                <option value="">Geral (visível para toda a igreja)</option>
+                {% for ministry in ministries %}
+                <option value="{{ ministry.id }}" {{ 'selected' if media.ministry_id == ministry.id }}>{{ ministry.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="mb-3">
+            <label for="file" class="form-label">Atualizar Arquivo (opcional)</label>
+            <input type="file" class="form-control" id="file" name="file" accept="image/*,video/*,.pdf,.heic">
+        </div>
+        <button type="submit" class="btn btn-primary">Salvar Alterações</button>
+        <a href="{{ url_for('edification.gallery') }}" class="btn btn-secondary">Cancelar</a>
+    </form>
+</div>
+{% endblock %}

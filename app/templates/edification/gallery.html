@@ -5,7 +5,6 @@
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h1 class="fw-bold text-primary"><i class="bi bi-images me-2"></i>Galeria da Igreja</h1>
         
-        {# Versão segura sem any(generator) #}
         {% set lider_ministerios = current_user.ministries | selectattr("leader_id", "equalto", current_user.id) | list %}
         {% set pode_gerenciar = current_user.can_manage_media 
                              or (current_user.church_role and current_user.church_role.name in ["Administrador Global", "Pastor Líder"]) 
@@ -52,7 +51,9 @@
         <div class="col-md-4 col-lg-3">
             <div class="card h-100 border-0 shadow-sm overflow-hidden">
                 {% if item.media_type == 'image' %}
-                <img src="{{ url_for('static', filename=item.file_path) }}" class="card-img-top" alt="{{ item.title }}" style="height: 200px; object-fit: cover;">
+                <a href="#" data-bs-toggle="modal" data-bs-target="#imageModal{{ item.id }}">
+                    <img src="{{ url_for('static', filename=item.file_path) }}" class="card-img-top" alt="{{ item.title }}" style="height: 200px; object-fit: cover;">
+                </a>
                 {% elif item.media_type == 'video' %}
                 <video controls class="card-img-top" style="height: 200px; object-fit: cover;">
                     <source src="{{ url_for('static', filename=item.file_path) }}" type="video/mp4">
@@ -78,8 +79,36 @@
                     <p class="card-text small text-muted">
                         {{ item.created_at.strftime('%d/%m/%Y') }}
                     </p>
+                    {% if pode_gerenciar %}
+                    <div class="d-flex justify-content-between">
+                        <a href="{{ url_for('edification.edit_media', id=item.id) }}" class="btn btn-sm btn-primary">Editar</a>
+                        <a href="{{ url_for('edification.delete_media', id=item.id) }}" class="btn btn-sm btn-danger" onclick="return confirm('Tem certeza que deseja excluir?');">Excluir</a>
+                    </div>
+                    {% endif %}
                 </div>
             </div>
+            
+            <!-- Modal para zoom de imagem -->
+            {% if item.media_type == 'image' %}
+            <div class="modal fade" id="imageModal{{ item.id }}" tabindex="-1" aria-labelledby="imageModalLabel" aria-hidden="true">
+                <div class="modal-dialog modal-xl">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">{{ item.title }}</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <img src="{{ url_for('static', filename=item.file_path) }}" class="img-fluid" alt="{{ item.title }}">
+                            <p class="mt-3">{{ item.description }}</p>
+                        </div>
+                        <div class="modal-footer">
+                            <a href="{{ url_for('static', filename=item.file_path) }}" download class="btn btn-primary">Baixar Imagem</a>
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
         </div>
         {% endfor %}
     </div>

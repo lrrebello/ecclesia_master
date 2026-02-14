@@ -182,9 +182,10 @@ class Media(db.Model):
 
 
 ===== ./app/__init__.py =====
-from flask import Flask, render_template
-from flask_login import LoginManager, current_user  # Import current_user aqui
-from app.core.models import db, User, Event, Ministry  # Import Ministry para o context processor
+# Arquivo completo: app/__init__.py
+from flask import Flask, render_template, request, current_app
+from flask_login import LoginManager, current_user
+from app.core.models import db, User, Event, Ministry, Media  # Adicione Media para o context processor
 from config import Config
 from datetime import datetime
 
@@ -202,42 +203,46 @@ def create_app():
     def load_user(user_id):
         return User.query.get(int(user_id))
     
-    # Context processor para eventos públicos na inicial
-    @app.context_processor
-    def inject_public_events():
-        public_events = Event.query.filter(
-            Event.ministry_id.is_(None),
-            Event.start_time >= datetime.utcnow()
-        ).order_by(Event.start_time.asc()).limit(5).all()
-        return dict(public_events=public_events)
-    
-    # Context processor para verificar se o usuário é líder de algum ministério
-    @app.context_processor
-    def inject_is_ministry_leader():
-        if current_user.is_authenticated:
-            is_ministry_leader = Ministry.query.filter_by(leader_id=current_user.id).count() > 0
-        else:
-            is_ministry_leader = False
-        return dict(is_ministry_leader=is_ministry_leader)
-    
-    # Register Blueprints
+    # Blueprints
     from app.modules.auth.routes import auth_bp
     from app.modules.members.routes import members_bp
     from app.modules.finance.routes import finance_bp
     from app.modules.edification.routes import edification_bp
     from app.modules.admin.routes import admin_bp
-    
-    app.register_blueprint(auth_bp, url_prefix='/auth')
+    app.register_blueprint(auth_bp)
     app.register_blueprint(members_bp, url_prefix='/members')
     app.register_blueprint(finance_bp, url_prefix='/finance')
     app.register_blueprint(edification_bp, url_prefix='/edification')
     app.register_blueprint(admin_bp, url_prefix='/admin')
-    
-    # Main route
+
+    # Rota inicial
     @app.route('/')
     def index():
         return render_template('index.html')
-        
+
+    # Context Processor para eventos públicos
+    @app.context_processor
+    def inject_public_events():
+        public_events = Event.query.filter(Event.ministry_id.is_(None), Event.church_id == current_user.church_id if current_user.is_authenticated else None).order_by(Event.start_time.asc()).limit(5).all()
+        return dict(public_events=public_events)
+
+    # Context Processor para is_ministry_leader
+    @app.context_processor
+    def inject_is_ministry_leader():
+        def is_ministry_leader(ministry_id):
+            ministry = Ministry.query.get(ministry_id)
+            return ministry and ministry.leader_id == current_user.id
+        return dict(is_ministry_leader=is_ministry_leader)
+
+    # Novo Context Processor para midias públicas (slides)
+    @app.context_processor
+    def inject_public_media():
+        if current_user.is_authenticated:
+            public_media = Media.query.filter_by(church_id=current_user.church_id, ministry_id=None).order_by(Media.created_at.desc()).limit(5).all()
+        else:
+            public_media = Media.query.filter(Media.ministry_id.is_(None)).order_by(Media.created_at.desc()).limit(5).all()  # Públicas globais para não logados
+        return dict(public_media=public_media)
+
     return app
 
 
@@ -537,6 +542,7 @@ def approve_member(user_id, action):
 
 
 ===== ./app/modules/edification/routes.py =====
+# Arquivo completo: app/modules/edification/routes.py
 from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app
 from flask_login import login_required, current_user
 from app.core.models import db, Devotional, Study, KidsActivity, StudyQuestion, Media, Ministry
@@ -546,7 +552,6 @@ import os
 from PIL import Image
 import pillow_heif
 
-# Registra suporte a HEIC (executa uma vez ao carregar o módulo)
 pillow_heif.register_heif_opener()
 
 edification_bp = Blueprint('edification', __name__)
@@ -610,7 +615,6 @@ def add_study():
         db.session.add(new_study)
         db.session.commit()
         
-        # Adicionar questões se fornecidas
         questions = request.form.getlist('questions[]')
         options = request.form.getlist('options[]')
         correct_options = request.form.getlist('correct_options[]')
@@ -666,6 +670,9 @@ def add_kids_activity():
 def gallery():
     query = Media.query.filter_by(church_id=current_user.church_id)
     
+    ministry_ids = [m.id for m in current_user.ministries]
+    query = query.filter((Media.ministry_id.is_(None)) | (Media.ministry_id.in_(ministry_ids)))
+    
     ministry_id = request.args.get('ministry_id')
     if ministry_id:
         query = query.filter_by(ministry_id=ministry_id)
@@ -701,7 +708,6 @@ def upload_media():
         filename = secure_filename(file.filename)
         file_ext = os.path.splitext(filename)[1].lower()
         
-        # Suporte a HEIC
         if file_ext == '.heic':
             try:
                 img = Image.open(file)
@@ -3126,34 +3132,37 @@ body {
     </div>
 </div>
 
-<!-- Galeria Pública - Visível sem login -->
-<div class="row justify-content-center mb-5">
-    <div class="col-lg-10">
-        <div class="card border-0 shadow-sm p-4">
-            <h4 class="fw-bold mb-4 text-center"><i class="bi bi-images me-2 text-primary"></i>Galeria da Igreja</h4>
-            <div class="row g-3">
-                {% for item in recent_media %}
-                <div class="col-md-4 col-lg-3">
-                    {% if item.media_type == 'image' %}
-                    <img src="{{ url_for('static', filename='uploads/media/' + item.file_path) }}" class="img-fluid rounded shadow-sm" alt="{{ item.title }}" style="height: 180px; object-fit: cover; width: 100%;">
-                    {% else %}
-                    <video controls class="img-fluid rounded shadow-sm" style="height: 180px; object-fit: cover; width: 100%;">
-                        <source src="{{ url_for('static', filename='uploads/media/' + item.file_path) }}" type="video/mp4">
-                    </video>
-                    {% endif %}
-                    <p class="small text-center mt-2 fw-bold">{{ item.title }}</p>
+<!-- Slides com midias públicas -->
+    {% if public_media %}
+    <div class="carousel slide mb-4" data-bs-ride="carousel">
+        <div class="carousel-inner">
+            {% for media in public_media %}
+            <div class="carousel-item {{ 'active' if loop.first }}">
+                <img src="{{ url_for('static', filename=media.file_path) }}" class="d-block w-100" alt="{{ media.title }}" style="height: 400px; object-fit: cover;">
+                <div class="carousel-caption d-none d-md-block">
+                    <h5>{{ media.title }}</h5>
+                    <p>{{ media.description | truncate(50) }}</p>
                 </div>
-                {% else %}
-                <p class="text-center text-muted">Ainda não há mídias públicas disponíveis.</p>
-                {% endfor %}
             </div>
-            <div class="text-center mt-4">
-                <a href="{{ url_for('auth.register') }}" class="btn btn-outline-primary">
-                    <i class="bi bi-person-plus me-1"></i> Solicite seu cadastro para ver a galeria completa
-                </a>
-            </div>
+            {% endfor %}
         </div>
+        <button class="carousel-control-prev" type="button" data-bs-target="#carouselExample" data-bs-slide="prev">
+            <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+            <span class="visually-hidden">Previous</span>
+        </button>
+        <button class="carousel-control-next" type="button" data-bs-target="#carouselExample" data-bs-slide="next">
+            <span class="carousel-control-next-icon" aria-hidden="true"></span>
+            <span class="visually-hidden">Next</span>
+        </button>
     </div>
+    {% else %}
+    <div class="alert alert-info">
+        Nenhuma mídia pública disponível no momento.
+    </div>
+    {% endif %}
+
+    <a href="{{ url_for('auth.login') }}" class="btn btn-primary">Login</a>
+    <a href="{{ url_for('auth.register') }}" class="btn btn-secondary">Registrar</a>
 </div>
 {% endblock %}
 
@@ -3515,6 +3524,8 @@ body {
     </div>
 </div>
 {% endblock %}
+
+
 
 
 ===== ./app/templates/members/edit_ministry.html =====

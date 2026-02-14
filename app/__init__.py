@@ -1,6 +1,7 @@
-from flask import Flask, render_template
-from flask_login import LoginManager, current_user  # Import current_user aqui
-from app.core.models import db, User, Event, Ministry  # Import Ministry para o context processor
+# Arquivo completo: app/__init__.py (baseado no TXT, com context processor para public_media adicionado)
+from flask import Flask, render_template, request, current_app
+from flask_login import LoginManager, current_user
+from app.core.models import db, User, Event, Ministry, Media  # Adicionado Media para o context processor
 from config import Config
 from datetime import datetime
 
@@ -18,40 +19,44 @@ def create_app():
     def load_user(user_id):
         return User.query.get(int(user_id))
     
-    # Context processor para eventos públicos na inicial
-    @app.context_processor
-    def inject_public_events():
-        public_events = Event.query.filter(
-            Event.ministry_id.is_(None),
-            Event.start_time >= datetime.utcnow()
-        ).order_by(Event.start_time.asc()).limit(5).all()
-        return dict(public_events=public_events)
-    
-    # Context processor para verificar se o usuário é líder de algum ministério
-    @app.context_processor
-    def inject_is_ministry_leader():
-        if current_user.is_authenticated:
-            is_ministry_leader = Ministry.query.filter_by(leader_id=current_user.id).count() > 0
-        else:
-            is_ministry_leader = False
-        return dict(is_ministry_leader=is_ministry_leader)
-    
-    # Register Blueprints
+    # Blueprints
     from app.modules.auth.routes import auth_bp
     from app.modules.members.routes import members_bp
     from app.modules.finance.routes import finance_bp
     from app.modules.edification.routes import edification_bp
     from app.modules.admin.routes import admin_bp
-    
-    app.register_blueprint(auth_bp, url_prefix='/auth')
+    app.register_blueprint(auth_bp)
     app.register_blueprint(members_bp, url_prefix='/members')
     app.register_blueprint(finance_bp, url_prefix='/finance')
     app.register_blueprint(edification_bp, url_prefix='/edification')
     app.register_blueprint(admin_bp, url_prefix='/admin')
-    
-    # Main route
+
+    # Rota inicial
     @app.route('/')
     def index():
         return render_template('index.html')
-        
+
+    # Context Processor para eventos públicos
+    @app.context_processor
+    def inject_public_events():
+        public_events = Event.query.filter(Event.ministry_id.is_(None), Event.church_id == current_user.church_id if current_user.is_authenticated else None).order_by(Event.start_time.asc()).limit(5).all()
+        return dict(public_events=public_events)
+
+    # Context Processor para is_ministry_leader
+    @app.context_processor
+    def inject_is_ministry_leader():
+        def is_ministry_leader(ministry_id):
+            ministry = Ministry.query.get(ministry_id)
+            return ministry and ministry.leader_id == current_user.id
+        return dict(is_ministry_leader=is_ministry_leader)
+
+    # Novo Context Processor para midias públicas (slides)
+    @app.context_processor
+    def inject_public_media():
+        if current_user.is_authenticated:
+            public_media = Media.query.filter_by(church_id=current_user.church_id, ministry_id=None).order_by(Media.created_at.desc()).limit(5).all()
+        else:
+            public_media = Media.query.filter(Media.ministry_id.is_(None)).order_by(Media.created_at.desc()).limit(5).all()  # Públicas globais para não logados
+        return dict(public_media=public_media)
+
     return app
