@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-5">
+        <div>
+            <h1 class="fw-bold text-primary"><i class="bi bi-book-half me-2"></i> Gerenciar Devocionais</h1>
+            <p class="text-muted">Todos os devocionais cadastrados. Edite ou exclua quando necessário.</p>
+        </div>
+        <a href="{{ url_for('edification.add_devotional') }}" class="btn btn-primary fw-bold">
+            <i class="bi bi-plus-lg me-2"></i> Novo Devocional
+        </a>
+    </div>
+
+    {% if devotionals %}
+    <div class="table-responsive">
+        <table class="table table-hover align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>Data</th>
+                    <th>Título</th>
+                    <th>Versículo</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for dev in devotionals %}
+                <tr>
+                    <td>{{ dev.date.strftime('%d/%m/%Y') }}</td>
+                    <td>{{ dev.title or 'Sem título' }}</td>
+                    <td><em>{{ dev.verse or '-' }}</em></td>
+                    <td>
+                        <a href="{{ url_for('edification.edit_devotional', id=dev.id) }}" class="btn btn-sm btn-outline-info">
+                            <i class="bi bi-pencil"></i> Editar
+                        </a>
+                        <a href="{{ url_for('edification.delete_devotional', id=dev.id) }}" class="btn btn-sm btn-outline-danger" onclick="return confirm('Tem certeza que deseja excluir este devocional?');">
+                            <i class="bi bi-trash"></i> Excluir
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="alert alert-info text-center py-5">
+        <i class="bi bi-journal-text fs-1 d-block mb-3"></i>
+        <p class="mb-0">Nenhum devocional cadastrado ainda.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

@@ -13,6 +13,7 @@
     --border: #e2e8f0;
     --sidebar-bg: #1e293b;
     --sidebar-text: #f8fafc;
+    --input-bg: #ffffff;
 }
 
 [data-theme="dark"] {
@@ -22,6 +23,7 @@
     --text-muted: #94a3b8;
     --border: #334155;
     --sidebar-bg: #020617;
+    --input-bg: #334155;
 }
 
 body {
@@ -94,6 +96,35 @@ body {
     font-size: 1.5rem;
 }
 
+/* Form Controls Dark Mode */
+.form-control, .form-select {
+    background-color: var(--input-bg);
+    border-color: var(--border);
+    color: var(--text-main);
+}
+
+.form-control:focus, .form-select:focus {
+    background-color: var(--input-bg);
+    color: var(--text-main);
+    border-color: var(--primary);
+    box-shadow: 0 0 0 0.25rem rgba(79, 70, 229, 0.25);
+}
+
+/* Table Dark Mode */
+.table {
+    color: var(--text-main);
+}
+
+.table thead th {
+    background-color: var(--bg-main);
+    border-bottom-color: var(--border);
+    color: var(--text-muted);
+}
+
+.table td {
+    border-bottom-color: var(--border);
+}
+
 /* Study Content Styling */
 .study-content {
     line-height: 1.8;
@@ -120,4 +151,22 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
+    width: 40px;
+    height: 40px;
+}
+
+/* Image Placeholders */
+.img-placeholder {
+    background-color: var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+    border-radius: 0.5rem;
+}
+
+.church-logo {
+    width: 48px;
+    height: 48px;
+    object-fit: contain;
 }

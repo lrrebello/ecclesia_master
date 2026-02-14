@@ -3,19 +3,32 @@
 <div class="row justify-content-center">
     <div class="col-md-6">
         <div class="card border-0 shadow-sm p-4">
-            <h3 class="fw-bold mb-4">Adicionar Arquivo{% if ministry %} ao Ministério {{ ministry.name }}{% endif %}</h3>
+            <h3 class="fw-bold mb-4">Adicionar Mídia</h3>
             <form method="POST" enctype="multipart/form-data">
                 <div class="mb-3">
                     <label class="form-label small fw-bold">TÍTULO</label>
                     <input type="text" name="title" class="form-control bg-light border-0" required placeholder="Ex: Hinos do Ensaio - Fevereiro">
                 </div>
                 <div class="mb-3">
-                    <label class="form-label small fw-bold">DESCRIÇÃO (opcional)</label>
-                    <textarea name="description" class="form-control bg-light border-0" rows="3" placeholder="Detalhes do arquivo..."></textarea>
+                    <label class="form-label small fw-bold">EVENTO / DATA</label>
+                    <input type="text" name="event_name" class="form-control bg-light border-0" placeholder="Ex: Culto de Jovens - 08/02">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">MINISTÉRIO (OPCIONAL)</label>
+                    <select name="ministry_id" class="form-select bg-light border-0">
+                        <option value="">Geral / Igreja</option>
+                        {% for min in ministries %}
+                        <option value="{{ min.id }}">{{ min.name }}</option>
+                        {% endfor %}
+                    </select>
                 </div>
                 <div class="mb-3">
                     <label class="form-label small fw-bold">ARQUIVO (imagem, PDF, vídeo mp4)</label>
                     <input type="file" name="file" class="form-control bg-light border-0" accept="image/*,application/pdf,video/mp4" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">DESCRIÇÃO (opcional)</label>
+                    <textarea name="description" class="form-control bg-light border-0" rows="3" placeholder="Detalhes do arquivo..."></textarea>
                 </div>
                 <div class="d-grid mt-4">
                     <button type="submit" class="btn btn-primary btn-lg py-3 fw-bold shadow-sm">

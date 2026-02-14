@@ -26,7 +26,7 @@
                     <a class="nav-link {{ 'active' if 'finance' in request.endpoint }}" href="{{ url_for('finance.dashboard') }}">
                         <i class="bi bi-cash-stack me-2"></i> Financeiro
                     </a>
-                    <a class="nav-link {{ 'active' if 'edification' in request.endpoint }}" href="{{ url_for('edification.list_studies') }}">
+                    <a class="nav-link {{ 'active' if 'edification' in request.endpoint }}" href="{{ url_for('edification.studies') }}">
                         <i class="bi bi-book me-2"></i> Edificação
                     </a>
                     <a class="nav-link {{ 'active' if 'gallery' in request.endpoint }}" href="{{ url_for('edification.gallery') }}">

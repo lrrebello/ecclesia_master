@@ -102,12 +102,12 @@
                 {% endif %}
 
                 {% if current_user.can_manage_media %}
-                <a href="{{ url_for('edification.add_media') }}" class="btn btn-outline-info text-start">
+                <a href="{{ url_for('edification.upload_media') }}" class="btn btn-outline-info text-start">
                     <i class="bi bi-images me-2"></i> Adicionar Mídia à Galeria
                 </a>
                 {% endif %}
 
-                <a href="{{ url_for('edification.kids_corner') }}" class="btn btn-outline-warning text-start">
+                <a href="{{ url_for('edification.kids') }}" class="btn btn-outline-warning text-start">
                     <i class="bi bi-balloon me-2"></i> Ecclesia Kids
                 </a>
             </div>

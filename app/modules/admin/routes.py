@@ -4,10 +4,13 @@ from app.core.models import Church, db, User, ChurchRole
 
 admin_bp = Blueprint('admin', __name__)
 
+def is_global_admin():
+    return current_user.church_role and current_user.church_role.name == 'Administrador Global'
+
 @admin_bp.route('/churches')
 @login_required
 def list_churches():
-    if not current_user.church_role or current_user.church_role.name != 'Administrador Global':
+    if not is_global_admin():
         flash('Acesso negado.', 'danger')
         return redirect(url_for('members.dashboard'))
     churches = Church.query.all()
@@ -16,7 +19,7 @@ def list_churches():
 @admin_bp.route('/church/add', methods=['GET', 'POST'])
 @login_required
 def add_church():
-    if not current_user.church_role or current_user.church_role.name != 'Administrador Global':
+    if not is_global_admin():
         flash('Acesso negado.', 'danger')
         return redirect(url_for('members.dashboard'))
     
@@ -38,7 +41,7 @@ def add_church():
 @admin_bp.route('/church/edit/<int:id>', methods=['GET', 'POST'])
 @login_required
 def edit_church(id):
-    if current_user.church_role.name != 'Administrador Global':
+    if not is_global_admin():
         flash('Acesso negado.', 'danger')
         return redirect(url_for('admin.list_churches'))
     
@@ -59,7 +62,7 @@ def edit_church(id):
 @admin_bp.route('/members')
 @login_required
 def list_members():
-    if not current_user.church_role or current_user.church_role.name != 'Administrador Global':
+    if not is_global_admin():
         flash('Acesso negado.', 'danger')
         return redirect(url_for('members.dashboard'))
     
@@ -69,7 +72,7 @@ def list_members():
 @admin_bp.route('/member/edit/<int:id>', methods=['GET', 'POST'])
 @login_required
 def edit_member(id):
-    if not current_user.church_role or current_user.church_role.name != 'Administrador Global':
+    if not is_global_admin():
         flash('Acesso negado.', 'danger')
         return redirect(url_for('members.dashboard'))
     

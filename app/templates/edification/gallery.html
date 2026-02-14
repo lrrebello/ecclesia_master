@@ -1,48 +1,96 @@
 {% extends "base.html" %}
+
 {% block content %}
-<div class="container py-4">
-    <div class="d-flex justify-content-between align-items-center mb-5">
-        <div>
-            <h1 class="fw-bold text-primary"><i class="bi bi-images me-2"></i>Galeria da Igreja</h1>
-            <p class="text-muted">Momentos especiais, cultos e eventos da nossa congregação.</p>
-        </div>
-        {% if current_user.can_manage_media %}
-        <a href="{{ url_for('edification.add_media') }}" class="btn btn-primary fw-bold">
-            <i class="bi bi-upload me-2"></i> Adicionar Mídia
+<div class="container py-5">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="fw-bold text-primary"><i class="bi bi-images me-2"></i>Galeria da Igreja</h1>
+        
+        {# Versão segura sem any(generator) #}
+        {% set lider_ministerios = current_user.ministries | selectattr("leader_id", "equalto", current_user.id) | list %}
+        {% set pode_gerenciar = current_user.can_manage_media 
+                             or (current_user.church_role and current_user.church_role.name in ["Administrador Global", "Pastor Líder"]) 
+                             or lider_ministerios | length > 0 %}
+
+        {% if pode_gerenciar %}
+        <a href="{{ url_for('edification.upload_media') }}" class="btn btn-success">
+            <i class="bi bi-plus-lg me-1"></i> Adicionar Mídia
         </a>
         {% endif %}
     </div>
 
+    <!-- Filtros -->
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body">
+            <form method="GET" class="row g-3">
+                <div class="col-md-4">
+                    <select name="ministry_id" class="form-select">
+                        <option value="">Todos os Ministérios</option>
+                        {% for ministry in ministries %}
+                        <option value="{{ ministry.id }}" {{ 'selected' if request.args.get('ministry_id') == ministry.id|string }}>{{ ministry.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <select name="media_type" class="form-select">
+                        <option value="">Todos os Tipos</option>
+                        <option value="image" {{ 'selected' if request.args.get('media_type') == 'image' }}>Imagens</option>
+                        <option value="video" {{ 'selected' if request.args.get('media_type') == 'video' }}>Vídeos</option>
+                        <option value="pdf" {{ 'selected' if request.args.get('media_type') == 'pdf' }}>PDFs</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <button type="submit" class="btn btn-primary w-100">Filtrar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Galeria -->
+    {% if media_items %}
     <div class="row g-4">
         {% for item in media_items %}
-        <div class="col-md-6 col-lg-4">
+        <div class="col-md-4 col-lg-3">
             <div class="card h-100 border-0 shadow-sm overflow-hidden">
                 {% if item.media_type == 'image' %}
-                <img src="{{ url_for('static', filename='uploads/media/' + item.file_path) }}" class="card-img-top" alt="{{ item.title }}" style="height: 220px; object-fit: cover;">
-                {% else %}
-                <video controls class="card-img-top" style="height: 220px; object-fit: cover;">
-                    <source src="{{ url_for('static', filename='uploads/media/' + item.file_path) }}" type="video/mp4">
+                <img src="{{ url_for('static', filename=item.file_path) }}" class="card-img-top" alt="{{ item.title }}" style="height: 200px; object-fit: cover;">
+                {% elif item.media_type == 'video' %}
+                <video controls class="card-img-top" style="height: 200px; object-fit: cover;">
+                    <source src="{{ url_for('static', filename=item.file_path) }}" type="video/mp4">
                     Seu navegador não suporta vídeo.
                 </video>
+                {% elif item.media_type == 'pdf' %}
+                <div class="d-flex align-items-center justify-content-center bg-light" style="height: 200px;">
+                    <i class="bi bi-file-earmark-pdf display-1 text-danger"></i>
+                </div>
                 {% endif %}
-                <div class="card-body p-4">
-                    <h5 class="fw-bold mb-2">{{ item.title }}</h5>
-                    <p class="text-muted small mb-2">{{ item.description or 'Sem descrição' }}</p>
-                    <small class="text-muted d-block">
-                        <i class="bi bi-calendar me-1"></i> {{ item.created_at.strftime('%d/%m/%Y') }}
-                        {% if item.event_name %}
-                        <span class="badge bg-info bg-opacity-10 text-info ms-2">{{ item.event_name }}</span>
+                
+                <div class="card-body">
+                    <h5 class="card-title">{{ item.title }}</h5>
+                    <p class="card-text small text-muted">
+                        {{ item.description|truncate(80) or 'Sem descrição' }}
+                    </p>
+                    <p class="card-text small">
+                        <span class="badge bg-secondary">{{ item.media_type|upper }}</span>
+                        {% if item.ministry %}
+                        <span class="badge bg-info ms-1">{{ item.ministry.name }}</span>
                         {% endif %}
-                    </small>
+                    </p>
+                    <p class="card-text small text-muted">
+                        {{ item.created_at.strftime('%d/%m/%Y') }}
+                    </p>
                 </div>
             </div>
         </div>
-        {% else %}
-        <div class="col-12 text-center py-5">
-            <i class="bi bi-camera fs-1 text-muted opacity-50 d-block mb-3"></i>
-            <p class="text-muted">Ainda não há mídias na galeria.</p>
-        </div>
         {% endfor %}
     </div>
+    {% else %}
+    <div class="alert alert-info text-center py-5">
+        <i class="bi bi-images display-1 d-block mb-3"></i>
+        Nenhuma mídia encontrada no momento.
+        {% if pode_gerenciar %}
+        <p class="mt-3">Que tal adicionar algumas fotos ou vídeos da igreja?</p>
+        {% endif %}
+    </div>
+    {% endif %}
 </div>
 {% endblock %}

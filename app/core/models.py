@@ -128,6 +128,9 @@ class Transaction(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
     church_id = db.Column(db.Integer, db.ForeignKey('church.id'))
     receipt_path = db.Column(db.String(255))
+    
+    church = db.relationship('Church', backref='transactions')
+    user = db.relationship('User', backref='transactions')
 
 class KidsActivity(db.Model):
     id = db.Column(db.Integer, primary_key=True)

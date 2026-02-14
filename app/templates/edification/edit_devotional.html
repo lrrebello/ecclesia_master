@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card border-0 shadow-sm p-4">
+            <h3 class="fw-bold mb-4">Editar Devocional de {{ devotional.date.strftime('%d/%m/%Y') }}</h3>
+            <form method="POST">
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">TÍTULO</label>
+                    <input type="text" name="title" class="form-control bg-light border-0" value="{{ devotional.title }}" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">VERSÍCULO</label>
+                    <input type="text" name="verse" class="form-control bg-light border-0" value="{{ devotional.verse }}" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">CONTEÚDO</label>
+                    <textarea name="content" class="form-control bg-light border-0" rows="10" required>{{ devotional.content }}</textarea>
+                </div>
+                <div class="d-grid mt-4">
+                    <button type="submit" class="btn btn-primary btn-lg py-3 fw-bold shadow-sm">
+                        Salvar Alterações
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
