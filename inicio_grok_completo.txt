@@ -245,6 +245,7 @@ def create_app():
 from flask import Blueprint, render_template, redirect, url_for, flash, request
 from flask_login import login_required, current_user
 from app.core.models import Church, db, User, ChurchRole
+from datetime import datetime  # se precisar em edit_member
 
 admin_bp = Blueprint('admin', __name__)
 
@@ -310,8 +311,28 @@ def list_members():
         flash('Acesso negado.', 'danger')
         return redirect(url_for('members.dashboard'))
     
-    members = User.query.all()
-    return render_template('admin/members.html', members=members)
+    # Pega o filtro da URL (GET ?church_id=...)
+    church_id = request.args.get('church_id', type=int)
+    churches = Church.query.order_by(Church.name).all()
+    
+    if church_id:
+        selected_church = Church.query.get(church_id)
+        if selected_church:
+            members = User.query.filter_by(church_id=church_id).order_by(User.name).all()
+        else:
+            members = []
+            flash('Congregação não encontrada.', 'warning')
+    else:
+        selected_church = None
+        members = User.query.order_by(User.name).all()
+    
+    return render_template(
+        'admin/members.html',
+        members=members,
+        churches=churches,
+        selected_church=selected_church,
+        current_church_id=church_id  # para manter selecionado no select
+    )
 
 @admin_bp.route('/member/edit/<int:id>', methods=['GET', 'POST'])
 @login_required
@@ -518,73 +539,67 @@ def approve_member(user_id, action):
 ===== ./app/modules/edification/routes.py =====
 from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app
 from flask_login import login_required, current_user
-from app.core.models import Study, Devotional, KidsActivity, StudyQuestion, db, Media, Ministry
-import markdown
-import os
+from app.core.models import db, Devotional, Study, KidsActivity, StudyQuestion, Media, Ministry
+from datetime import datetime
 from werkzeug.utils import secure_filename
+import os
+from PIL import Image
+import pillow_heif
+
+# Registra suporte a HEIC (executa uma vez ao carregar o módulo)
+pillow_heif.register_heif_opener()
 
 edification_bp = Blueprint('edification', __name__)
 
-ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'mp4', 'pdf'}
-
-def allowed_file(filename):
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
-
-def can_manage_content():
+def can_publish_content():
     return current_user.can_publish_devotionals or (current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder'])
 
-def can_manage_kids():
-    return current_user.can_manage_kids or (current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder'])
+@edification_bp.route('/devotionals')
+@login_required
+def devotionals():
+    devotionals = Devotional.query.order_by(Devotional.date.desc()).all()
+    return render_template('edification/devotionals.html', devotionals=devotionals)
 
-def can_manage_media():
-    is_leader = any(m.leader_id == current_user.id for m in current_user.ministries)
-    return current_user.can_manage_media or (current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder']) or is_leader
+@edification_bp.route('/devotional/add', methods=['GET', 'POST'])
+@login_required
+def add_devotional():
+    if not can_publish_content():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('edification.devotionals'))
+    
+    if request.method == 'POST':
+        new_dev = Devotional(
+            title=request.form.get('title'),
+            content=request.form.get('content'),
+            verse=request.form.get('verse'),
+            date=datetime.strptime(request.form.get('date'), '%Y-%m-%d').date()
+        )
+        db.session.add(new_dev)
+        db.session.commit()
+        flash('Devocional publicado!', 'success')
+        return redirect(url_for('edification.devotionals'))
+    
+    return render_template('edification/add_devotional.html')
 
 @edification_bp.route('/studies')
 @login_required
-def list_studies():
+def studies():
     studies = Study.query.order_by(Study.created_at.desc()).all()
     return render_template('edification/studies.html', studies=studies)
 
 @edification_bp.route('/study/<int:id>')
 @login_required
-def view_study(id):
+def study_detail(id):
     study = Study.query.get_or_404(id)
-    content_html = markdown.markdown(study.content)
-    return render_template('edification/view_study.html', study=study, content_html=content_html)
-
-@edification_bp.route('/kids')
-@login_required
-def kids_corner():
-    activities = KidsActivity.query.order_by(KidsActivity.created_at.desc()).all()
-    return render_template('edification/kids.html', activities=activities)
-
-@edification_bp.route('/kids/add', methods=['GET', 'POST'])
-@login_required
-def add_kids_activity():
-    if not can_manage_kids():
-        flash('Acesso negado.', 'danger')
-        return redirect(url_for('edification.kids_corner'))
-        
-    if request.method == 'POST':
-        new_act = KidsActivity(
-            title=request.form.get('title'),
-            content=request.form.get('content'),
-            age_group=request.form.get('age_group')
-        )
-        db.session.add(new_act)
-        db.session.commit()
-        flash('Atividade infantil publicada!', 'success')
-        return redirect(url_for('edification.kids_corner'))
-    return render_template('edification/add_kids.html')
+    return render_template('edification/study_detail.html', study=study)
 
 @edification_bp.route('/study/add', methods=['GET', 'POST'])
 @login_required
 def add_study():
-    if not can_manage_content():
+    if not can_publish_content():
         flash('Acesso negado.', 'danger')
-        return redirect(url_for('edification.list_studies'))
-        
+        return redirect(url_for('edification.studies'))
+    
     if request.method == 'POST':
         new_study = Study(
             title=request.form.get('title'),
@@ -594,66 +609,141 @@ def add_study():
         )
         db.session.add(new_study)
         db.session.commit()
-        flash('Estudo bíblico publicado!', 'success')
-        return redirect(url_for('edification.list_studies'))
+        
+        # Adicionar questões se fornecidas
+        questions = request.form.getlist('questions[]')
+        options = request.form.getlist('options[]')
+        correct_options = request.form.getlist('correct_options[]')
+        
+        for q, opt, correct in zip(questions, options, correct_options):
+            if q:
+                new_q = StudyQuestion(
+                    study_id=new_study.id,
+                    question_text=q,
+                    options=opt,
+                    correct_option=int(correct) if correct else None
+                )
+                db.session.add(new_q)
+        
+        db.session.commit()
+        flash('Estudo publicado com sucesso!', 'success')
+        return redirect(url_for('edification.studies'))
+    
     return render_template('edification/add_study.html')
+
+@edification_bp.route('/kids')
+@login_required
+def kids():
+    if not current_user.can_manage_kids and not (current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder']):
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('members.dashboard'))
+    
+    activities = KidsActivity.query.order_by(KidsActivity.created_at.desc()).all()
+    return render_template('edification/kids.html', activities=activities)
+
+@edification_bp.route('/kids/add', methods=['GET', 'POST'])
+@login_required
+def add_kids_activity():
+    if not current_user.can_manage_kids and not (current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder']):
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('edification.kids'))
+    
+    if request.method == 'POST':
+        new_act = KidsActivity(
+            title=request.form.get('title'),
+            content=request.form.get('content'),
+            age_group=request.form.get('age_group')
+        )
+        db.session.add(new_act)
+        db.session.commit()
+        flash('Atividade infantil adicionada!', 'success')
+        return redirect(url_for('edification.kids'))
+    
+    return render_template('edification/add_kids_activity.html')
 
 @edification_bp.route('/gallery')
 @login_required
 def gallery():
-    ministry_id = request.args.get('ministry_id', type=int)
-    
     query = Media.query.filter_by(church_id=current_user.church_id)
+    
+    ministry_id = request.args.get('ministry_id')
     if ministry_id:
         query = query.filter_by(ministry_id=ministry_id)
-        
+    
+    media_type = request.args.get('media_type')
+    if media_type:
+        query = query.filter_by(media_type=media_type)
+    
     media_items = query.order_by(Media.created_at.desc()).all()
     ministries = Ministry.query.filter_by(church_id=current_user.church_id).all()
     
     return render_template('edification/gallery.html', media_items=media_items, ministries=ministries)
 
-@edification_bp.route('/media/add', methods=['GET', 'POST'])
+@edification_bp.route('/upload_media', methods=['GET', 'POST'])
 @login_required
-def add_media():
-    if not can_manage_media():
+def upload_media():
+    if not current_user.can_manage_media and not (current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder']) and not any(m.leader_id == current_user.id for m in current_user.ministries):
         flash('Acesso negado.', 'danger')
         return redirect(url_for('edification.gallery'))
-        
+    
+    ministries = Ministry.query.filter_by(church_id=current_user.church_id).all()
+    
     if request.method == 'POST':
+        title = request.form.get('title')
+        description = request.form.get('description')
+        ministry_id = request.form.get('ministry_id')
         file = request.files.get('file')
-        if not file or file.filename == '':
+        
+        if not file:
             flash('Nenhum arquivo selecionado.', 'danger')
             return redirect(request.url)
         
-        if not allowed_file(file.filename):
-            flash('Tipo de arquivo não permitido.', 'danger')
-            return redirect(request.url)
-        
         filename = secure_filename(file.filename)
-        upload_folder = os.path.join(current_app.config['UPLOAD_FOLDER'], 'media')
-        os.makedirs(upload_folder, exist_ok=True)
-        file.save(os.path.join(upload_folder, filename))
+        file_ext = os.path.splitext(filename)[1].lower()
+        
+        # Suporte a HEIC
+        if file_ext == '.heic':
+            try:
+                img = Image.open(file)
+                new_filename = filename.replace('.heic', '.jpg', 1)
+                full_path = os.path.join(current_app.config['UPLOAD_FOLDER'], 'media', new_filename)
+                os.makedirs(os.path.dirname(full_path), exist_ok=True)
+                img.convert('RGB').save(full_path, 'JPEG', quality=95)
+                file_path = 'uploads/media/' + new_filename
+                media_type = 'image'
+            except Exception as e:
+                flash(f'Erro ao converter HEIC: {str(e)}', 'danger')
+                return redirect(request.url)
+        else:
+            full_path = os.path.join(current_app.config['UPLOAD_FOLDER'], 'media', filename)
+            os.makedirs(os.path.dirname(full_path), exist_ok=True)
+            file.save(full_path)
+            file_path = 'uploads/media/' + filename
+            
+            if file_ext in ['.jpg', '.jpeg', '.png', '.gif']:
+                media_type = 'image'
+            elif file_ext in ['.mp4', '.mov']:
+                media_type = 'video'
+            elif file_ext == '.pdf':
+                media_type = 'pdf'
+            else:
+                flash('Formato de arquivo não suportado.', 'danger')
+                return redirect(request.url)
         
         new_media = Media(
-            title=request.form.get('title'),
-            description=request.form.get('description'),
-            file_path=filename,
-            media_type='video' if filename.lower().endswith('.mp4') else ('pdf' if filename.lower().endswith('.pdf') else 'image'),
-            event_name=request.form.get('event_name'),
+            title=title,
+            description=description,
+            file_path=file_path,
+            media_type=media_type,
             church_id=current_user.church_id,
-            ministry_id=request.form.get('ministry_id') if request.form.get('ministry_id') else None
+            ministry_id=int(ministry_id) if ministry_id else None
         )
         db.session.add(new_media)
         db.session.commit()
         flash('Mídia adicionada com sucesso!', 'success')
         return redirect(url_for('edification.gallery'))
-        
-    my_ministries = [m for m in current_user.ministries if m.leader_id == current_user.id]
-    if not my_ministries and (current_user.can_manage_media or (current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder'])):
-        my_ministries = Ministry.query.filter_by(church_id=current_user.church_id).all()
-        
-    return render_template('edification/add_media.html', ministries=my_ministries)
-
+    
+    return render_template('edification/add_media.html', ministries=ministries)
 
 
 ===== ./app/modules/finance/routes.py =====
@@ -1705,53 +1795,70 @@ body {
 
 ===== ./app/templates/admin/members.html =====
 {% extends "base.html" %}
+
 {% block content %}
 <div class="container py-4">
-    <div class="d-flex justify-content-between align-items-center mb-5">
-        <div>
-            <h1 class="fw-bold text-primary"><i class="bi bi-people-fill me-2"></i>Gestão Global de Membros</h1>
-            <p class="text-muted">Visualize e gerencie todos os membros de todas as congregações.</p>
+    <h1 class="fw-bold text-primary mb-4">Gestão Global - Membros das Congregações</h1>
+
+    <!-- Seletor de Congregação -->
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body">
+            <form method="GET" class="row g-3 align-items-end">
+                <div class="col-md-6">
+                    <label for="church_id" class="form-label fw-bold">Selecionar Congregação</label>
+                    <select name="church_id" id="church_id" class="form-select" onchange="this.form.submit()">
+                        <option value="">-- Todas as Congregações --</option>
+                        {% for church in churches %}
+                        <option value="{{ church.id }}" {{ 'selected' if current_church_id == church.id }}>
+                            {{ church.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary w-100">Filtrar</button>
+                </div>
+            </form>
         </div>
     </div>
 
-    <div class="card border-0 shadow-sm">
-        <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0">
-                <thead class="bg-light">
-                    <tr>
-                        <th class="ps-4">Nome</th>
-                        <th>E-mail</th>
-                        <th>Congregação</th>
-                        <th>Cargo</th>
-                        <th>Status</th>
-                        <th class="text-end pe-4">Ações</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for member in members %}
-                    <tr>
-                        <td class="ps-4 fw-bold">{{ member.name }}</td>
-                        <td>{{ member.email }}</td>
-                        <td>{{ member.church.name if member.church else 'N/A' }}</td>
-                        <td><span class="badge bg-info bg-opacity-10 text-info">{{ member.church_role.name if member.church_role else 'Sem cargo' }}</span></td>
-                        <td>
-                            {% if member.status == 'active' %}
-                            <span class="badge bg-success">Ativo</span>
-                            {% elif member.status == 'pending' %}
-                            <span class="badge bg-warning">Pendente</span>
-                            {% else %}
-                            <span class="badge bg-danger">Inativo</span>
-                            {% endif %}
-                        </td>
-                        <td class="text-end pe-4">
-                            <a href="{{ url_for('admin.edit_member', id=member.id) }}" class="btn btn-sm btn-outline-primary">Editar</a>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
+    <!-- Tabela -->
+    {% if members %}
+    <div class="table-responsive">
+        <table class="table table-hover table-striped">
+            <thead class="table-dark">
+                <tr>
+                    <th>Nome</th>
+                    <th>E-mail</th>
+                    <th>Congregação</th>
+                    <th>Status</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for member in members %}
+                <tr>
+                    <td>{{ member.name }}</td>
+                    <td>{{ member.email }}</td>
+                    <td>{{ member.church.name if member.church else 'Sem congregação' }}</td>
+                    <td>
+                        <span class="badge {{ 'bg-success' if member.status == 'active' else 'bg-warning' if member.status == 'pending' else 'bg-danger' }}">
+                            {{ member.status|capitalize }}
+                        </span>
+                    </td>
+                    <td>
+                        <a href="{{ url_for('admin.edit_member', id=member.id) }}" class="btn btn-sm btn-primary">Editar</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
+    {% else %}
+    <div class="alert alert-info text-center py-4">
+        Nenhum membro encontrado para a seleção atual.
+    </div>
+    {% endif %}
 </div>
 {% endblock %}
 
@@ -1940,7 +2047,7 @@ body {
                     <a class="nav-link {{ 'active' if 'finance' in request.endpoint }}" href="{{ url_for('finance.dashboard') }}">
                         <i class="bi bi-cash-stack me-2"></i> Financeiro
                     </a>
-                    <a class="nav-link {{ 'active' if 'edification' in request.endpoint }}" href="{{ url_for('edification.list_studies') }}">
+                    <a class="nav-link {{ 'active' if 'edification' in request.endpoint }}" href="{{ url_for('edification.studies') }}">
                         <i class="bi bi-book me-2"></i> Edificação
                     </a>
                     <a class="nav-link {{ 'active' if 'gallery' in request.endpoint }}" href="{{ url_for('edification.gallery') }}">
@@ -2249,7 +2356,7 @@ body {
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h1 class="fw-bold text-primary"><i class="bi bi-images me-2"></i>Galeria da Igreja</h1>
         
-        {# Calcula se o usuário é líder de algum ministério #}
+        {# Versão segura sem any(generator) #}
         {% set lider_ministerios = current_user.ministries | selectattr("leader_id", "equalto", current_user.id) | list %}
         {% set pode_gerenciar = current_user.can_manage_media 
                              or (current_user.church_role and current_user.church_role.name in ["Administrador Global", "Pastor Líder"]) 
@@ -2464,8 +2571,7 @@ body {
                     <p class="text-muted small mb-4">{{ study.content[:150] }}...</p>
                     <div class="d-flex justify-content-between align-items-center">
                         <small class="text-muted">{{ study.created_at.strftime('%d/%m/%Y') }}</small>
-                        <a href="{{ url_for('edification.view_study', id=study.id) }}" class="btn btn-sm btn-outline-primary rounded-pill px-3">Ler Estudo</a>
-                    </div>
+                            <a href="{{ url_for('edification.study_detail', id=study.id) }}" class="btn btn-sm btn-outline-primary rounded-pill px-3">Ler Estudo</a>                    </div>
                 </div>
             </div>
         </div>
@@ -2479,6 +2585,57 @@ body {
 </div>
 {% endblock %}
 
+
+
+===== ./app/templates/edification/study_detail.html =====
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <div class="card border-0 shadow-lg">
+                <div class="card-header bg-primary text-white">
+                    <h3 class="mb-0">{{ study.title }}</h3>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex justify-content-between mb-4">
+                        <small class="text-muted">
+                            <i class="bi bi-calendar-event me-1"></i>
+                            Publicado em: {{ study.created_at.strftime('%d/%m/%Y às %H:%M') }}
+                        </small>
+                        <span class="badge bg-info">{{ study.category }}</span>
+                    </div>
+
+                    <div class="study-content mb-5">
+                        {{ study.content | safe }}  <!-- | safe permite HTML/Markdown se você usar -->
+                    </div>
+
+                    {% if study.questions %}
+                    <h5 class="mt-5 mb-3">Perguntas para Reflexão</h5>
+                    <ul class="list-group">
+                        {% for question in study.questions %}
+                        <li class="list-group-item">
+                            <strong>{{ question.question_text }}</strong>
+                            {% if question.options %}
+                            <br><small class="text-muted">Opções: {{ question.options }}</small>
+                            {% endif %}
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% endif %}
+
+                    <div class="mt-5">
+                        <a href="{{ url_for('edification.studies') }}" class="btn btn-outline-secondary">
+                            ← Voltar para Lista de Estudos
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
 
 
 ===== ./app/templates/edification/view_study.html =====
@@ -3289,12 +3446,12 @@ body {
                 {% endif %}
 
                 {% if current_user.can_manage_media %}
-                <a href="{{ url_for('edification.add_media') }}" class="btn btn-outline-info text-start">
+                <a href="{{ url_for('edification.upload_media') }}" class="btn btn-outline-info text-start">
                     <i class="bi bi-images me-2"></i> Adicionar Mídia à Galeria
                 </a>
                 {% endif %}
 
-                <a href="{{ url_for('edification.kids_corner') }}" class="btn btn-outline-warning text-start">
+                <a href="{{ url_for('edification.kids') }}" class="btn btn-outline-warning text-start">
                     <i class="bi bi-balloon me-2"></i> Ecclesia Kids
                 </a>
             </div>
@@ -3445,7 +3602,7 @@ body {
                         <a href="{{ url_for('members.add_ministry_event', id=ministry.id) }}" class="btn btn-sm btn-outline-primary">
                             <i class="bi bi-calendar-plus me-1"></i> Agendar Evento
                         </a>
-                        <a href="{{ url_for('edification.add_media', ministry_id=ministry.id) }}" class="btn btn-sm btn-outline-info">
+                        <a href="{{ url_for('edification.upload_media', ministry_id=ministry.id) }}" class="btn btn-sm btn-outline-info">
                             <i class="bi bi-upload me-1"></i> Upload de Mídia
                         </a>
                         <a href="{{ url_for('members.edit_ministry', id=ministry.id) }}" class="btn btn-sm btn-outline-secondary">
@@ -10420,18 +10577,35 @@ with app.app_context():
 
 
 ===== ./requirements.txt =====
-flask
-flask-sqlalchemy
-flask-login
-flask-bcrypt
-flask-migrate
-flask-wtf
-email-validator
-python-dotenv
-fpdf2
-markdown
-pillow
-psycopg2-binary
+alembic==1.18.3
+bcrypt==5.0.0
+blinker==1.9.0
+click==8.3.1
+defusedxml==0.7.1
+dnspython==2.8.0
+email-validator==2.3.0
+Flask==3.1.2
+Flask-Bcrypt==1.0.1
+Flask-Login==0.6.3
+Flask-Migrate==4.1.0
+Flask-SQLAlchemy==3.1.1
+Flask-WTF==1.2.2
+fonttools==4.61.1
+fpdf2==2.8.5
+greenlet==3.3.1
+idna==3.11
+itsdangerous==2.2.0
+Jinja2==3.1.6
+Mako==1.3.10
+Markdown==3.10.1
+MarkupSafe==3.0.3
+pillow==12.1.0
+pillow_heif==1.2.0
+python-dotenv==1.2.1
+SQLAlchemy==2.0.46
+typing_extensions==4.15.0
+Werkzeug==3.1.5
+WTForms==3.2.1
 
 
 

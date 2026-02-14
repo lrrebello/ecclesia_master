@@ -1,6 +1,7 @@
 from flask import Blueprint, render_template, redirect, url_for, flash, request
 from flask_login import login_required, current_user
 from app.core.models import Church, db, User, ChurchRole
+from datetime import datetime  # se precisar em edit_member
 
 admin_bp = Blueprint('admin', __name__)
 
@@ -66,8 +67,28 @@ def list_members():
         flash('Acesso negado.', 'danger')
         return redirect(url_for('members.dashboard'))
     
-    members = User.query.all()
-    return render_template('admin/members.html', members=members)
+    # Pega o filtro da URL (GET ?church_id=...)
+    church_id = request.args.get('church_id', type=int)
+    churches = Church.query.order_by(Church.name).all()
+    
+    if church_id:
+        selected_church = Church.query.get(church_id)
+        if selected_church:
+            members = User.query.filter_by(church_id=church_id).order_by(User.name).all()
+        else:
+            members = []
+            flash('Congregação não encontrada.', 'warning')
+    else:
+        selected_church = None
+        members = User.query.order_by(User.name).all()
+    
+    return render_template(
+        'admin/members.html',
+        members=members,
+        churches=churches,
+        selected_church=selected_church,
+        current_church_id=church_id  # para manter selecionado no select
+    )
 
 @admin_bp.route('/member/edit/<int:id>', methods=['GET', 'POST'])
 @login_required

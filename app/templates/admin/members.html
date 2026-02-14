@@ -1,50 +1,67 @@
 {% extends "base.html" %}
+
 {% block content %}
 <div class="container py-4">
-    <div class="d-flex justify-content-between align-items-center mb-5">
-        <div>
-            <h1 class="fw-bold text-primary"><i class="bi bi-people-fill me-2"></i>Gestão Global de Membros</h1>
-            <p class="text-muted">Visualize e gerencie todos os membros de todas as congregações.</p>
+    <h1 class="fw-bold text-primary mb-4">Gestão Global - Membros das Congregações</h1>
+
+    <!-- Seletor de Congregação -->
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body">
+            <form method="GET" class="row g-3 align-items-end">
+                <div class="col-md-6">
+                    <label for="church_id" class="form-label fw-bold">Selecionar Congregação</label>
+                    <select name="church_id" id="church_id" class="form-select" onchange="this.form.submit()">
+                        <option value="">-- Todas as Congregações --</option>
+                        {% for church in churches %}
+                        <option value="{{ church.id }}" {{ 'selected' if current_church_id == church.id }}>
+                            {{ church.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary w-100">Filtrar</button>
+                </div>
+            </form>
         </div>
     </div>
 
-    <div class="card border-0 shadow-sm">
-        <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0">
-                <thead class="bg-light">
-                    <tr>
-                        <th class="ps-4">Nome</th>
-                        <th>E-mail</th>
-                        <th>Congregação</th>
-                        <th>Cargo</th>
-                        <th>Status</th>
-                        <th class="text-end pe-4">Ações</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for member in members %}
-                    <tr>
-                        <td class="ps-4 fw-bold">{{ member.name }}</td>
-                        <td>{{ member.email }}</td>
-                        <td>{{ member.church.name if member.church else 'N/A' }}</td>
-                        <td><span class="badge bg-info bg-opacity-10 text-info">{{ member.church_role.name if member.church_role else 'Sem cargo' }}</span></td>
-                        <td>
-                            {% if member.status == 'active' %}
-                            <span class="badge bg-success">Ativo</span>
-                            {% elif member.status == 'pending' %}
-                            <span class="badge bg-warning">Pendente</span>
-                            {% else %}
-                            <span class="badge bg-danger">Inativo</span>
-                            {% endif %}
-                        </td>
-                        <td class="text-end pe-4">
-                            <a href="{{ url_for('admin.edit_member', id=member.id) }}" class="btn btn-sm btn-outline-primary">Editar</a>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
+    <!-- Tabela -->
+    {% if members %}
+    <div class="table-responsive">
+        <table class="table table-hover table-striped">
+            <thead class="table-dark">
+                <tr>
+                    <th>Nome</th>
+                    <th>E-mail</th>
+                    <th>Congregação</th>
+                    <th>Status</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for member in members %}
+                <tr>
+                    <td>{{ member.name }}</td>
+                    <td>{{ member.email }}</td>
+                    <td>{{ member.church.name if member.church else 'Sem congregação' }}</td>
+                    <td>
+                        <span class="badge {{ 'bg-success' if member.status == 'active' else 'bg-warning' if member.status == 'pending' else 'bg-danger' }}">
+                            {{ member.status|capitalize }}
+                        </span>
+                    </td>
+                    <td>
+                        <a href="{{ url_for('admin.edit_member', id=member.id) }}" class="btn btn-sm btn-primary">Editar</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
+    {% else %}
+    <div class="alert alert-info text-center py-4">
+        Nenhum membro encontrado para a seleção atual.
+    </div>
+    {% endif %}
 </div>
 {% endblock %}
