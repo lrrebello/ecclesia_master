@@ -15,15 +15,17 @@ with app.app_context():
         address="Rua Principal, 123",
         city="São Paulo",
         country="Brasil",
+        currency_symbol="R$",
         is_main=True
     )
-    filial1 = Church(
-        name="AD Jesus para as Nações - Filial Norte",
-        address="Av. Norte, 456",
-        city="São Paulo",
-        country="Brasil"
+    filial_pt = Church(
+        name="AD Jesus para as Nações - Lisboa",
+        address="Av. da Liberdade, 456",
+        city="Lisboa",
+        country="Portugal",
+        currency_symbol="€"
     )
-    db.session.add_all([sede, filial1])
+    db.session.add_all([sede, filial_pt])
     db.session.commit()
 
     # 2. Criar cargos para cada igreja

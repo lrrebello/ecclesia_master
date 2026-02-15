@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold mb-0">Devocionais Diários</h2>
+            <p class="text-muted">Uma palavra de fé e esperança para o seu dia.</p>
+        </div>
+        {% if current_user.can_publish_devotionals or current_user.is_global_admin %}
+        <a href="{{ url_for('edification.list_devotionals') }}" class="btn btn-outline-primary">
+            <i class="bi bi-gear me-2"></i> Gerenciar Devocionais
+        </a>
+        {% endif %}
+    </div>
+
+    <div class="row g-4">
+        {% for dev in devotionals %}
+        <div class="col-md-6 col-lg-4">
+            <div class="card border-0 shadow-sm h-100 hover-shadow transition">
+                <div class="card-body p-4">
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <span class="badge bg-primary bg-opacity-10 text-primary px-3 py-2">
+                            {{ dev.date.strftime('%d/%m/%Y') }}
+                        </span>
+                        <i class="bi bi-quote fs-1 text-primary opacity-25"></i>
+                    </div>
+                    <h4 class="fw-bold mb-3">{{ dev.title }}</h4>
+                    <p class="text-muted mb-4 flex-grow-1">
+                        {{ dev.content[:200] }}{% if dev.content|length > 200 %}...{% endif %}
+                    </p>
+                    {% if dev.verse %}
+                    <div class="bg-light p-3 rounded-3 mb-3">
+                        <p class="fst-italic mb-0 small">"{{ dev.verse }}"</p>
+                    </div>
+                    {% endif %}
+                    <button type="button" class="btn btn-link text-primary p-0 fw-bold text-decoration-none" 
+                            data-bs-toggle="modal" data-bs-target="#devModal{{ dev.id }}">
+                        Ler devocional completo <i class="bi bi-arrow-right ms-1"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal para Devocional Completo -->
+        <div class="modal fade" id="devModal{{ dev.id }}" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered modal-lg">
+                <div class="modal-content border-0 shadow">
+                    <div class="modal-header border-0 p-4 pb-0">
+                        <h5 class="modal-title fw-bold">{{ dev.title }}</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body p-4">
+                        <p class="text-muted small mb-4">Publicado em {{ dev.date.strftime('%d/%m/%Y') }}</p>
+                        <div class="devocional-content mb-4">
+                            {{ dev.content | replace('\n', '<br>') | safe }}
+                        </div>
+                        {% if dev.verse %}
+                        <div class="bg-primary bg-opacity-10 p-4 rounded-4 border-start border-primary border-4">
+                            <p class="fst-italic mb-0 fs-5">"{{ dev.verse }}"</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                    <div class="modal-footer border-0 p-4 pt-0">
+                        <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">Fechar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="col-12 text-center py-5">
+            <div class="card border-0 shadow-sm p-5">
+                <i class="bi bi-journal-text fs-1 text-muted mb-3"></i>
+                <h5 class="text-muted">Nenhum devocional publicado ainda.</h5>
+                <p class="text-muted">Fique atento, em breve teremos novas mensagens!</p>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

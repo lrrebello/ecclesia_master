@@ -39,7 +39,12 @@ def create_app():
     # Context Processor para eventos públicos
     @app.context_processor
     def inject_public_events():
-        public_events = Event.query.filter(Event.ministry_id.is_(None), Event.church_id == current_user.church_id if current_user.is_authenticated else None).order_by(Event.start_time.asc()).limit(5).all()
+        # Se não estiver logado, traz eventos gerais de qualquer igreja (ou da sede se preferir)
+        # Se estiver logado, traz eventos gerais da sua igreja
+        if current_user.is_authenticated:
+            public_events = Event.query.filter(Event.ministry_id.is_(None), Event.church_id == current_user.church_id).order_by(Event.start_time.asc()).limit(5).all()
+        else:
+            public_events = Event.query.filter(Event.ministry_id.is_(None)).order_by(Event.start_time.asc()).limit(5).all()
         return dict(public_events=public_events)
 
     # Context Processor para is_ministry_leader

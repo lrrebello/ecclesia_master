@@ -33,7 +33,7 @@
                                         </span>
                                     </td>
                                     <td class="text-end fw-bold text-success">
-                                        R$ {{ "%.2f"|format(tx.amount) }}
+                                        {{ tx.church.currency_symbol if tx.church else 'R$' }} {{ "%.2f"|format(tx.amount) }}
                                     </td>
                                     <td class="px-4 text-center">
                                         <a href="{{ url_for('finance.download_receipt', tx_id=tx.id) }}" class="btn btn-sm btn-outline-primary rounded-pill px-3">
@@ -70,7 +70,7 @@
                             <small class="text-muted">{{ debt.ministry.name }} | {{ debt.date.strftime('%d/%m/%Y') }}</small>
                         </div>
                         <div class="text-end">
-                            <div class="fw-bold text-danger">R$ {{ "%.2f"|format(debt.amount) }}</div>
+                            <div class="fw-bold text-danger">{{ debt.ministry.church.currency_symbol if debt.ministry and debt.ministry.church else 'R$' }} {{ "%.2f"|format(debt.amount) }}</div>
                             <span class="badge bg-warning text-dark small">Pendente</span>
                         </div>
                     </div>

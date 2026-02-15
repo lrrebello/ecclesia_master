@@ -17,6 +17,7 @@ class Church(db.Model):
     address = db.Column(db.String(200))
     city = db.Column(db.String(100))
     country = db.Column(db.String(100))
+    currency_symbol = db.Column(db.String(5), default='R$')
     is_main = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
@@ -74,6 +75,10 @@ class User(db.Model, UserMixin):
     can_manage_finance = db.Column(db.Boolean, default=False)
     can_manage_kids = db.Column(db.Boolean, default=False)
     can_manage_events = db.Column(db.Boolean, default=False)
+
+    @property
+    def is_global_admin(self):
+        return self.church_role and self.church_role.name == 'Administrador Global'
 
 class Ministry(db.Model):
     id = db.Column(db.Integer, primary_key=True)

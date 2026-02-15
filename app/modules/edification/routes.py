@@ -22,6 +22,15 @@ def devotionals():
     devotionals = Devotional.query.order_by(Devotional.date.desc()).all()
     return render_template('edification/devotionals.html', devotionals=devotionals)
 
+@edification_bp.route('/devotionals/manage')
+@login_required
+def list_devotionals():
+    if not can_publish_content():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('edification.devotionals'))
+    devotionals = Devotional.query.order_by(Devotional.date.desc()).all()
+    return render_template('edification/list_devotionals.html', devotionals=devotionals)
+
 @edification_bp.route('/devotional/add', methods=['GET', 'POST'])
 @login_required
 def add_devotional():
@@ -39,9 +48,41 @@ def add_devotional():
         db.session.add(new_dev)
         db.session.commit()
         flash('Devocional publicado!', 'success')
-        return redirect(url_for('edification.devotionals'))
+        return redirect(url_for('edification.list_devotionals'))
     
     return render_template('edification/add_devotional.html')
+
+@edification_bp.route('/devotional/<int:id>/edit', methods=['GET', 'POST'])
+@login_required
+def edit_devotional(id):
+    if not can_publish_content():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('edification.devotionals'))
+    
+    dev = Devotional.query.get_or_404(id)
+    if request.method == 'POST':
+        dev.title = request.form.get('title')
+        dev.content = request.form.get('content')
+        dev.verse = request.form.get('verse')
+        dev.date = datetime.strptime(request.form.get('date'), '%Y-%m-%d').date()
+        db.session.commit()
+        flash('Devocional atualizado!', 'success')
+        return redirect(url_for('edification.list_devotionals'))
+    
+    return render_template('edification/edit_devotional.html', dev=dev)
+
+@edification_bp.route('/devotional/<int:id>/delete')
+@login_required
+def delete_devotional(id):
+    if not can_publish_content():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('edification.devotionals'))
+    
+    dev = Devotional.query.get_or_404(id)
+    db.session.delete(dev)
+    db.session.commit()
+    flash('Devocional excluído!', 'info')
+    return redirect(url_for('edification.list_devotionals'))
 
 @edification_bp.route('/studies')
 @login_required

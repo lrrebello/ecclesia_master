@@ -19,11 +19,46 @@
 [data-theme="dark"] {
     --bg-main: #0f172a;
     --bg-card: #1e293b;
-    --text-main: #f8fafc;
+    --text-main: #f1f5f9;
     --text-muted: #94a3b8;
     --border: #334155;
     --sidebar-bg: #020617;
-    --input-bg: #334155;
+    --input-bg: #1e293b;
+    --sidebar-text: #f1f5f9;
+}
+
+[data-theme="dark"] .card {
+    background-color: var(--bg-card);
+    border-color: var(--border);
+}
+
+[data-theme="dark"] .list-group-item {
+    background-color: transparent;
+    color: var(--text-main);
+    border-color: var(--border);
+}
+
+[data-theme="dark"] .text-muted {
+    color: #94a3b8 !important;
+}
+
+[data-theme="dark"] .bg-light {
+    background-color: #334155 !important;
+}
+
+[data-theme="dark"] .table {
+    color: var(--text-main);
+}
+
+[data-theme="dark"] .table thead th {
+    background-color: #1e293b;
+    color: #f1f5f9;
+}
+
+[data-theme="dark"] .modal-content {
+    background-color: var(--bg-card);
+    color: var(--text-main);
+    border: 1px solid var(--border);
 }
 
 body {

@@ -2,8 +2,8 @@
 
 {% block content %}
 <div class="container py-5">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h1 class="fw-bold text-primary"><i class="bi bi-images me-2"></i>Galeria da Igreja</h1>
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
+        <h1 class="fw-bold text-primary mb-0"><i class="bi bi-images me-2"></i>Galeria da Igreja</h1>
         
         {% set lider_ministerios = current_user.ministries | selectattr("leader_id", "equalto", current_user.id) | list %}
         {% set pode_gerenciar = current_user.can_manage_media 
@@ -11,17 +11,18 @@
                              or lider_ministerios | length > 0 %}
 
         {% if pode_gerenciar %}
-        <a href="{{ url_for('edification.upload_media') }}" class="btn btn-success">
+        <a href="{{ url_for('edification.upload_media') }}" class="btn btn-success fw-bold">
             <i class="bi bi-plus-lg me-1"></i> Adicionar Mídia
         </a>
         {% endif %}
     </div>
 
     <!-- Filtros -->
-    <div class="card border-0 shadow-sm mb-4">
-        <div class="card-body">
-            <form method="GET" class="row g-3">
+    <div class="card border-0 shadow-sm mb-5">
+        <div class="card-body p-4">
+            <form method="GET" class="row g-3 align-items-end">
                 <div class="col-md-4">
+                    <label class="form-label small fw-bold text-muted">MINISTÉRIO</label>
                     <select name="ministry_id" class="form-select">
                         <option value="">Todos os Ministérios</option>
                         {% for ministry in ministries %}
@@ -30,6 +31,7 @@
                     </select>
                 </div>
                 <div class="col-md-4">
+                    <label class="form-label small fw-bold text-muted">TIPO DE MÍDIA</label>
                     <select name="media_type" class="form-select">
                         <option value="">Todos os Tipos</option>
                         <option value="image" {{ 'selected' if request.args.get('media_type') == 'image' }}>Imagens</option>
@@ -38,7 +40,7 @@
                     </select>
                 </div>
                 <div class="col-md-4">
-                    <button type="submit" class="btn btn-primary w-100">Filtrar</button>
+                    <button type="submit" class="btn btn-primary w-100 fw-bold">Aplicar Filtros</button>
                 </div>
             </form>
         </div>
@@ -48,62 +50,99 @@
     {% if media_items %}
     <div class="row g-4">
         {% for item in media_items %}
-        <div class="col-md-4 col-lg-3">
-            <div class="card h-100 border-0 shadow-sm overflow-hidden">
-                {% if item.media_type == 'image' %}
-                <a href="#" data-bs-toggle="modal" data-bs-target="#imageModal{{ item.id }}">
-                    <img src="{{ url_for('static', filename=item.file_path) }}" class="card-img-top" alt="{{ item.title }}" style="height: 200px; object-fit: cover;">
-                </a>
-                {% elif item.media_type == 'video' %}
-                <video controls class="card-img-top" style="height: 200px; object-fit: cover;">
-                    <source src="{{ url_for('static', filename=item.file_path) }}" type="video/mp4">
-                    Seu navegador não suporta vídeo.
-                </video>
-                {% elif item.media_type == 'pdf' %}
-                <div class="d-flex align-items-center justify-content-center bg-light" style="height: 200px;">
-                    <i class="bi bi-file-earmark-pdf display-1 text-danger"></i>
-                </div>
-                {% endif %}
-                
-                <div class="card-body">
-                    <h5 class="card-title">{{ item.title }}</h5>
-                    <p class="card-text small text-muted">
-                        {{ item.description|truncate(80) or 'Sem descrição' }}
-                    </p>
-                    <p class="card-text small">
-                        <span class="badge bg-secondary">{{ item.media_type|upper }}</span>
-                        {% if item.ministry %}
-                        <span class="badge bg-info ms-1">{{ item.ministry.name }}</span>
-                        {% endif %}
-                    </p>
-                    <p class="card-text small text-muted">
-                        {{ item.created_at.strftime('%d/%m/%Y') }}
-                    </p>
-                    {% if pode_gerenciar %}
-                    <div class="d-flex justify-content-between">
-                        <a href="{{ url_for('edification.edit_media', id=item.id) }}" class="btn btn-sm btn-primary">Editar</a>
-                        <a href="{{ url_for('edification.delete_media', id=item.id) }}" class="btn btn-sm btn-danger" onclick="return confirm('Tem certeza que deseja excluir?');">Excluir</a>
+        <div class="col-sm-6 col-md-4 col-lg-3">
+            <div class="card h-100 border-0 shadow-sm overflow-hidden gallery-card">
+                <div class="position-relative">
+                    {% if item.media_type == 'image' %}
+                    <div class="gallery-img-container" data-bs-toggle="modal" data-bs-target="#imageModal{{ item.id }}" style="cursor: pointer;">
+                        <img src="{{ url_for('static', filename=item.file_path) }}" class="card-img-top" alt="{{ item.title }}" style="height: 200px; object-fit: cover;">
+                        <div class="gallery-overlay">
+                            <i class="bi bi-zoom-in text-white fs-2"></i>
+                        </div>
+                    </div>
+                    {% elif item.media_type == 'video' %}
+                    <video class="card-img-top" style="height: 200px; object-fit: cover;">
+                        <source src="{{ url_for('static', filename=item.file_path) }}" type="video/mp4">
+                    </video>
+                    <div class="position-absolute top-50 start-50 translate-middle">
+                        <i class="bi bi-play-circle-fill text-white display-4 opacity-75"></i>
+                    </div>
+                    {% elif item.media_type == 'pdf' %}
+                    <div class="d-flex align-items-center justify-content-center bg-light" style="height: 200px;">
+                        <i class="bi bi-file-earmark-pdf display-1 text-danger"></i>
                     </div>
                     {% endif %}
                 </div>
+                
+                <div class="card-body p-3">
+                    <h6 class="fw-bold mb-1 text-truncate">{{ item.title }}</h6>
+                    <div class="mb-2">
+                        <span class="badge bg-secondary bg-opacity-10 text-secondary x-small">{{ item.media_type|upper }}</span>
+                        {% if item.ministry %}
+                        <span class="badge bg-info bg-opacity-10 text-info x-small">{{ item.ministry.name }}</span>
+                        {% endif %}
+                    </div>
+                    <p class="card-text small text-muted mb-3" style="height: 40px; overflow: hidden;">
+                        {{ item.description or 'Sem descrição' }}
+                    </p>
+                    
+                    <div class="d-flex justify-content-between align-items-center mt-auto">
+                        <small class="text-muted">{{ item.created_at.strftime('%d/%m/%y') }}</small>
+                        <div class="btn-group">
+                            {% if item.media_type == 'video' %}
+                            <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#videoModal{{ item.id }}">Ver</button>
+                            {% elif item.media_type == 'pdf' %}
+                            <a href="{{ url_for('static', filename=item.file_path) }}" target="_blank" class="btn btn-sm btn-outline-primary">Abrir</a>
+                            {% endif %}
+                            
+                            {% if pode_gerenciar %}
+                            <button class="btn btn-sm btn-outline-secondary dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown"></button>
+                            <ul class="dropdown-menu dropdown-menu-end">
+                                <li><a class="dropdown-item" href="{{ url_for('edification.edit_media', id=item.id) }}"><i class="bi bi-pencil me-2"></i>Editar</a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item text-danger" href="{{ url_for('edification.delete_media', id=item.id) }}" onclick="return confirm('Excluir esta mídia?');"><i class="bi bi-trash me-2"></i>Excluir</a></li>
+                            </ul>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
             </div>
             
-            <!-- Modal para zoom de imagem -->
+            <!-- Modal para zoom de imagem (Responsivo) -->
             {% if item.media_type == 'image' %}
-            <div class="modal fade" id="imageModal{{ item.id }}" tabindex="-1" aria-labelledby="imageModalLabel" aria-hidden="true">
-                <div class="modal-dialog modal-xl">
-                    <div class="modal-content">
-                        <div class="modal-header">
-                            <h5 class="modal-title">{{ item.title }}</h5>
-                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            <div class="modal fade" id="imageModal{{ item.id }}" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog modal-dialog-centered modal-xl">
+                    <div class="modal-content bg-transparent border-0">
+                        <div class="modal-header border-0 p-0 mb-2">
+                            <h5 class="modal-title text-white">{{ item.title }}</h5>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                         </div>
-                        <div class="modal-body">
-                            <img src="{{ url_for('static', filename=item.file_path) }}" class="img-fluid" alt="{{ item.title }}">
-                            <p class="mt-3">{{ item.description }}</p>
+                        <div class="modal-body p-0 text-center">
+                            <img src="{{ url_for('static', filename=item.file_path) }}" class="img-fluid rounded shadow-lg" style="max-height: 85vh; width: auto;" alt="{{ item.title }}">
+                            {% if item.description %}
+                            <div class="bg-dark bg-opacity-75 text-white p-3 mt-2 rounded">
+                                {{ item.description }}
+                            </div>
+                            {% endif %}
                         </div>
-                        <div class="modal-footer">
-                            <a href="{{ url_for('static', filename=item.file_path) }}" download class="btn btn-primary">Baixar Imagem</a>
-                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Modal para Vídeo -->
+            {% if item.media_type == 'video' %}
+            <div class="modal fade" id="videoModal{{ item.id }}" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog modal-dialog-centered modal-lg">
+                    <div class="modal-content bg-dark border-0">
+                        <div class="modal-header border-0">
+                            <h5 class="modal-title text-white">{{ item.title }}</h5>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body p-0">
+                            <video controls class="w-100">
+                                <source src="{{ url_for('static', filename=item.file_path) }}" type="video/mp4">
+                            </video>
                         </div>
                     </div>
                 </div>
@@ -113,13 +152,46 @@
         {% endfor %}
     </div>
     {% else %}
-    <div class="alert alert-info text-center py-5">
-        <i class="bi bi-images display-1 d-block mb-3"></i>
-        Nenhuma mídia encontrada no momento.
-        {% if pode_gerenciar %}
-        <p class="mt-3">Que tal adicionar algumas fotos ou vídeos da igreja?</p>
-        {% endif %}
+    <div class="text-center py-5">
+        <i class="bi bi-images display-1 text-muted opacity-25 d-block mb-3"></i>
+        <h4 class="text-muted">Nenhuma mídia encontrada</h4>
+        <p class="text-muted">Tente ajustar os filtros ou adicione novos conteúdos.</p>
     </div>
     {% endif %}
 </div>
+
+<style>
+.gallery-card {
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+.gallery-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 20px rgba(0,0,0,0.1) !important;
+}
+.gallery-img-container {
+    position: relative;
+    overflow: hidden;
+}
+.gallery-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(79, 70, 229, 0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+.gallery-img-container:hover .gallery-overlay {
+    opacity: 1;
+}
+.x-small {
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+</style>
 {% endblock %}
