@@ -20,6 +20,7 @@ class Church(db.Model):
     address = db.Column(db.String(200))
     city = db.Column(db.String(100))
     country = db.Column(db.String(100))
+    currency_symbol = db.Column(db.String(5), default='R$')
     is_main = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
@@ -50,6 +51,7 @@ class User(db.Model, UserMixin):
     documents = db.Column(db.String(200)) # Flexível para diferentes países
     address = db.Column(db.Text)
     phone = db.Column(db.String(50))
+    profile_photo = db.Column(db.String(255), nullable=True)
     
     # Status e Permissões
     status = db.Column(db.String(20), default='pending') # pending, active, rejected
@@ -75,7 +77,11 @@ class User(db.Model, UserMixin):
     can_approve_members = db.Column(db.Boolean, default=False)
     can_manage_finance = db.Column(db.Boolean, default=False)
     can_manage_kids = db.Column(db.Boolean, default=False)
-    can_manage_events = db.Column(db.Boolean, default=False)  # para eventos gerais
+    can_manage_events = db.Column(db.Boolean, default=False)
+
+    @property
+    def is_global_admin(self):
+        return self.church_role and self.church_role.name == 'Administrador Global'
 
 class Ministry(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -86,6 +92,7 @@ class Ministry(db.Model):
     
     events = db.relationship('Event', backref='ministry', lazy=True)
     leader = db.relationship('User', foreign_keys=[leader_id])
+    transactions = db.relationship('MinistryTransaction', backref='ministry', lazy=True)
 
 class Event(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -93,15 +100,15 @@ class Event(db.Model):
     description = db.Column(db.Text)
     start_time = db.Column(db.DateTime, nullable=False)
     location = db.Column(db.String(200))
-    ministry_id = db.Column(db.Integer, db.ForeignKey('ministry.id'), nullable=True) # Se nulo, é evento geral da igreja
+    ministry_id = db.Column(db.Integer, db.ForeignKey('ministry.id'), nullable=True)
     church_id = db.Column(db.Integer, db.ForeignKey('church.id'))
-    recurrence = db.Column(db.String(20), default='none')  # 'none', 'weekly', 'monthly', 'quarterly'
+    recurrence = db.Column(db.String(20), default='none')
 
 class Asset(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
-    category = db.Column(db.String(50)) # Equipamento, Veículo, Móvel
-    identifier = db.Column(db.String(50)) # Placa, Serial
+    category = db.Column(db.String(50))
+    identifier = db.Column(db.String(50))
     purchase_date = db.Column(db.Date)
     value = db.Column(db.Float)
     church_id = db.Column(db.Integer, db.ForeignKey('church.id'))
@@ -114,7 +121,7 @@ class MaintenanceLog(db.Model):
     date = db.Column(db.Date, default=datetime.utcnow().date)
     description = db.Column(db.Text)
     cost = db.Column(db.Float, default=0.0)
-    type = db.Column(db.String(50)) # Combustível, Seguro, Reparo
+    type = db.Column(db.String(50))
 
 class Family(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -135,10 +142,24 @@ class Transaction(db.Model):
     church = db.relationship('Church', backref='transactions')
     user = db.relationship('User', backref='transactions')
 
+class MinistryTransaction(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    ministry_id = db.Column(db.Integer, db.ForeignKey('ministry.id'), nullable=False)
+    type = db.Column(db.String(10)) # income, expense
+    category = db.Column(db.String(50)) # Cantina, Evento, Doação, etc.
+    amount = db.Column(db.Float, nullable=False)
+    date = db.Column(db.DateTime, default=datetime.utcnow)
+    description = db.Column(db.Text)
+    is_debt = db.Column(db.Boolean, default=False) # "Põe na conta"
+    debtor_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    is_paid = db.Column(db.Boolean, default=True) # Se for débito, marca se já foi pago
+    
+    debtor = db.relationship('User', backref='debts')
+
 class KidsActivity(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(100), nullable=False)
-    content = db.Column(db.Text) # Markdown ou link para imagem/PDF
+    content = db.Column(db.Text)
     age_group = db.Column(db.String(20))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
@@ -156,7 +177,7 @@ class StudyQuestion(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     study_id = db.Column(db.Integer, db.ForeignKey('study.id'))
     question_text = db.Column(db.Text, nullable=False)
-    options = db.Column(db.Text) # JSON string com opções
+    options = db.Column(db.Text)
     correct_option = db.Column(db.Integer)
 
 class Devotional(db.Model):
@@ -171,21 +192,22 @@ class Media(db.Model):
     title = db.Column(db.String(200), nullable=False)
     description = db.Column(db.Text)
     file_path = db.Column(db.String(255), nullable=False)
-    media_type = db.Column(db.String(20), default='image')  # 'image', 'pdf', 'video', etc.
+    media_type = db.Column(db.String(20), default='image')
     event_name = db.Column(db.String(200))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     church_id = db.Column(db.Integer, db.ForeignKey('church.id'), nullable=False)
-    ministry_id = db.Column(db.Integer, db.ForeignKey('ministry.id'), nullable=True)  # ← Novo campo!
+    ministry_id = db.Column(db.Integer, db.ForeignKey('ministry.id'), nullable=True)
     
     church = db.relationship('Church', backref='media_items')
-    ministry = db.relationship('Ministry', backref='media_items')  # ← Relacionamento inverso
+    ministry = db.relationship('Ministry', backref='media_items')
+
 
 
 ===== ./app/__init__.py =====
-# Arquivo completo: app/__init__.py
+# Arquivo completo: app/__init__.py (baseado no TXT, com context processor para public_media adicionado)
 from flask import Flask, render_template, request, current_app
 from flask_login import LoginManager, current_user
-from app.core.models import db, User, Event, Ministry, Media  # Adicione Media para o context processor
+from app.core.models import db, User, Event, Ministry, Media  # Adicionado Media para o context processor
 from config import Config
 from datetime import datetime
 
@@ -223,7 +245,12 @@ def create_app():
     # Context Processor para eventos públicos
     @app.context_processor
     def inject_public_events():
-        public_events = Event.query.filter(Event.ministry_id.is_(None), Event.church_id == current_user.church_id if current_user.is_authenticated else None).order_by(Event.start_time.asc()).limit(5).all()
+        # Se não estiver logado, traz eventos gerais de qualquer igreja (ou da sede se preferir)
+        # Se estiver logado, traz eventos gerais da sua igreja
+        if current_user.is_authenticated:
+            public_events = Event.query.filter(Event.ministry_id.is_(None), Event.church_id == current_user.church_id).order_by(Event.start_time.asc()).limit(5).all()
+        else:
+            public_events = Event.query.filter(Event.ministry_id.is_(None)).order_by(Event.start_time.asc()).limit(5).all()
         return dict(public_events=public_events)
 
     # Context Processor para is_ministry_leader
@@ -247,10 +274,13 @@ def create_app():
 
 
 ===== ./app/modules/admin/routes.py =====
-from flask import Blueprint, render_template, redirect, url_for, flash, request
+# Arquivo completo: app/modules/admin/routes.py (adicionando rota para add_user)
+from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app
 from flask_login import login_required, current_user
 from app.core.models import Church, db, User, ChurchRole
-from datetime import datetime  # se precisar em edit_member
+from werkzeug.utils import secure_filename
+import os
+from datetime import datetime
 
 admin_bp = Blueprint('admin', __name__)
 
@@ -316,7 +346,6 @@ def list_members():
         flash('Acesso negado.', 'danger')
         return redirect(url_for('members.dashboard'))
     
-    # Pega o filtro da URL (GET ?church_id=...)
     church_id = request.args.get('church_id', type=int)
     churches = Church.query.order_by(Church.name).all()
     
@@ -336,8 +365,58 @@ def list_members():
         members=members,
         churches=churches,
         selected_church=selected_church,
-        current_church_id=church_id  # para manter selecionado no select
+        current_church_id=church_id
     )
+
+@admin_bp.route('/member/add', methods=['GET', 'POST'])
+@login_required
+def add_member():
+    if not is_global_admin():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('admin.list_members'))
+    
+    churches = Church.query.all()
+    
+    if request.method == 'POST':
+        name = request.form.get('name')
+        email = request.form.get('email')
+        password = request.form.get('password')
+        birth_date = datetime.strptime(request.form.get('birth_date'), '%Y-%m-%d').date() if request.form.get('birth_date') else None
+        gender = request.form.get('gender')
+        documents = request.form.get('documents')
+        address = request.form.get('address')
+        phone = request.form.get('phone')
+        church_id = int(request.form.get('church_id')) if request.form.get('church_id') else None
+        status = request.form.get('status', 'active')
+        
+        file = request.files.get('profile_photo')
+        profile_photo = None
+        if file:
+            filename = secure_filename(file.filename)
+            full_path = os.path.join(current_app.config['UPLOAD_FOLDER'], 'profiles', filename)
+            os.makedirs(os.path.dirname(full_path), exist_ok=True)
+            file.save(full_path)
+            profile_photo = 'uploads/profiles/' + filename
+        
+        new_user = User(
+            name=name,
+            email=email,
+            birth_date=birth_date,
+            gender=gender,
+            documents=documents,
+            address=address,
+            phone=phone,
+            profile_photo=profile_photo,
+            church_id=church_id,
+            status=status
+        )
+        new_user.set_password(password)
+        db.session.add(new_user)
+        db.session.commit()
+        flash('Membro criado com sucesso!', 'success')
+        return redirect(url_for('admin.list_members'))
+    
+    return render_template('admin/add_member.html', churches=churches)
 
 @admin_bp.route('/member/edit/<int:id>', methods=['GET', 'POST'])
 @login_required
@@ -356,11 +435,27 @@ def edit_member(id):
         member.church_role_id = int(request.form.get('church_role_id')) if request.form.get('church_role_id') else None
         member.church_id = int(request.form.get('church_id')) if request.form.get('church_id') else None
         member.status = request.form.get('status')
+        member.birth_date = datetime.strptime(request.form.get('birth_date'), '%Y-%m-%d').date() if request.form.get('birth_date') else member.birth_date
+        member.gender = request.form.get('gender')
+        member.documents = request.form.get('documents')
+        member.address = request.form.get('address')
+        member.phone = request.form.get('phone')
+        
+        file = request.files.get('profile_photo')
+        if file:
+            filename = secure_filename(file.filename)
+            full_path = os.path.join(current_app.config['UPLOAD_FOLDER'], 'profiles', filename)
+            os.makedirs(os.path.dirname(full_path), exist_ok=True)
+            file.save(full_path)
+            member.profile_photo = 'uploads/profiles/' + filename
+        
         db.session.commit()
         flash('Membro atualizado com sucesso!', 'success')
         return redirect(url_for('admin.list_members'))
     
     return render_template('admin/edit_member.html', member=member, churches=churches, roles=roles)
+
+# ... (restante igual ao seu TXT)
 
 @admin_bp.route('/roles')
 @login_required
@@ -430,10 +525,13 @@ def delete_role(id):
 
 
 ===== ./app/modules/auth/routes.py =====
-from flask import Blueprint, render_template, redirect, url_for, flash, request
-from flask_login import login_user, logout_user, login_required, current_user
-from app.core.models import User, Church, db
+# Arquivo completo: app/modules/auth/routes.py (adicionando foto no register)
+from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app
+from flask_login import login_user, logout_user, current_user, login_required
+from app.core.models import db, User
+from werkzeug.utils import secure_filename
 from datetime import datetime
+import os
 
 auth_bp = Blueprint('auth', __name__)
 
@@ -441,108 +539,114 @@ auth_bp = Blueprint('auth', __name__)
 def login():
     if current_user.is_authenticated:
         return redirect(url_for('members.dashboard'))
+    
     if request.method == 'POST':
         email = request.form.get('email')
         password = request.form.get('password')
         user = User.query.filter_by(email=email).first()
         if user and user.check_password(password):
-            if user.status == 'pending':
-                flash('Seu cadastro ainda está em análise pela liderança.', 'warning')
-                return redirect(url_for('auth.login'))
-            if user.status == 'rejected':
-                flash('Seu cadastro não foi aprovado. Entre em contato com a secretaria.', 'danger')
-                return redirect(url_for('auth.login'))
-            login_user(user, remember=True)
-            return redirect(url_for('members.dashboard'))
-        flash('E-mail ou senha incorretos.', 'danger')
+            if user.status == 'active':
+                login_user(user)
+                flash('Login bem-sucedido!', 'success')
+                return redirect(url_for('members.dashboard'))
+            elif user.status == 'pending':
+                flash('Sua conta está aguardando aprovação.', 'warning')
+            else:
+                flash('Sua solicitação de conta foi rejeitada.', 'danger')
+        else:
+            flash('E-mail ou senha incorretos.', 'danger')
+    
     return render_template('auth/login.html')
 
 @auth_bp.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
+        name = request.form.get('name')
         email = request.form.get('email')
-        if User.query.filter_by(email=email).first():
-            flash('E-mail já cadastrado.', 'danger')
-            return redirect(url_for('auth.register'))
-            
+        password = request.form.get('password')
+        birth_date = datetime.strptime(request.form.get('birth_date'), '%Y-%m-%d').date()
+        gender = request.form.get('gender')
+        documents = request.form.get('documents')
+        address = request.form.get('address')
+        phone = request.form.get('phone')
+        
+        # Upload de foto
+        file = request.files.get('profile_photo')
+        profile_photo = None
+        if file:
+            filename = secure_filename(file.filename)
+            full_path = os.path.join(current_app.config['UPLOAD_FOLDER'], 'profiles', filename)
+            os.makedirs(os.path.dirname(full_path), exist_ok=True)
+            file.save(full_path)
+            profile_photo = 'uploads/profiles/' + filename
+        
         new_user = User(
-            name=request.form.get('name'),
+            name=name,
             email=email,
-            birth_date=datetime.strptime(request.form.get('birth_date'), '%Y-%m-%d').date(),
-            gender=request.form.get('gender'),
-            documents=request.form.get('documents'),
-            address=request.form.get('address'),
-            phone=request.form.get('phone'),
-            church_id=request.form.get('church_id'),
+            birth_date=birth_date,
+            gender=gender,
+            documents=documents,
+            address=address,
+            phone=phone,
+            profile_photo=profile_photo,
             status='pending'
         )
-        new_user.set_password(request.form.get('password'))
+        new_user.set_password(password)
         db.session.add(new_user)
         db.session.commit()
-        flash('Solicitação enviada com sucesso! Aguarde a aprovação da liderança.', 'success')
+        flash('Solicitação de cadastro enviada! Aguarde aprovação.', 'success')
         return redirect(url_for('auth.login'))
-        
-    churches = Church.query.all()
-    return render_template('auth/register.html', churches=churches)
+    
+    return render_template('auth/register.html')
 
 @auth_bp.route('/logout')
 @login_required
 def logout():
     logout_user()
+    flash('Logout realizado com sucesso.', 'info')
     return redirect(url_for('auth.login'))
 
-@auth_bp.route('/change-password', methods=['GET', 'POST'])
+@auth_bp.route('/approve_member/<int:user_id>', methods=['POST'])
+@login_required
+def approve_member(user_id):
+    if not current_user.can_approve_members and not (current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder']):
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('members.dashboard'))
+    
+    member = User.query.get_or_404(user_id)
+    if member.church_id != current_user.church_id and not is_global_admin():
+        flash('Este membro não pertence à sua congregação.', 'danger')
+        return redirect(url_for('members.dashboard'))
+    
+    action = request.form.get('action')
+    if action == 'approve':
+        member.status = 'active'
+        flash('Membro aprovado com sucesso!', 'success')
+    elif action == 'reject':
+        member.status = 'rejected'
+        flash('Solicitação de membro rejeitada.', 'info')
+    
+    db.session.commit()
+    return redirect(request.referrer or url_for('members.dashboard'))
+
+@auth_bp.route('/change_password', methods=['GET', 'POST'])
 @login_required
 def change_password():
     if request.method == 'POST':
         old_password = request.form.get('old_password')
         new_password = request.form.get('new_password')
-        confirm_password = request.form.get('confirm_password')
-        
-        if not current_user.check_password(old_password):
-            flash('Senha atual incorreta.', 'danger')
-        elif new_password != confirm_password:
-            flash('As novas senhas não coincidem.', 'danger')
-        else:
+        if current_user.check_password(old_password):
             current_user.set_password(new_password)
             db.session.commit()
             flash('Senha alterada com sucesso!', 'success')
             return redirect(url_for('members.profile'))
-            
+        else:
+            flash('Senha atual incorreta.', 'danger')
     return render_template('auth/change_password.html')
-
-# Rota de Aprovação (Acessível por Admin e Pastor Líder)
-@auth_bp.route('/admin/approve/<int:user_id>/<string:action>')
-@login_required
-def approve_member(user_id, action):
-    # Verifica se o usuário tem permissão (usando o novo campo church_role)
-    if not current_user.church_role or current_user.church_role.name not in ['Administrador Global', 'Pastor Líder']:
-        flash('Acesso negado.', 'danger')
-        return redirect(url_for('members.dashboard'))
-        
-    user = User.query.get_or_404(user_id)
-    
-    # Garante que o aprovador só aprove/rejeite membros da própria filial (exceto admin global)
-    if current_user.church_role.name != 'Administrador Global' and user.church_id != current_user.church_id:
-        flash('Você não tem permissão para aprovar membros de outras congregações.', 'danger')
-        return redirect(url_for('members.dashboard'))
-    
-    if action == 'approve':
-        user.status = 'active'
-        flash(f'Membro {user.name} aprovado com sucesso!', 'success')
-    elif action == 'reject':
-        user.status = 'rejected'
-        flash(f'Membro {user.name} rejeitado.', 'warning')
-    else:
-        flash('Ação inválida.', 'danger')
-        return redirect(url_for('members.dashboard'))
-    
-    db.session.commit()
-    return redirect(request.referrer or url_for('members.dashboard'))
 
 
 ===== ./app/modules/edification/routes.py =====
-# Arquivo completo: app/modules/edification/routes.py
+# Arquivo completo: app/modules/edification/routes.py (baseado no TXT, com filtro de midias por ministério do user, HEIC mantido, novas rotas para edit/delete media)
 from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app
 from flask_login import login_required, current_user
 from app.core.models import db, Devotional, Study, KidsActivity, StudyQuestion, Media, Ministry
@@ -552,6 +656,7 @@ import os
 from PIL import Image
 import pillow_heif
 
+# Registra suporte a HEIC
 pillow_heif.register_heif_opener()
 
 edification_bp = Blueprint('edification', __name__)
@@ -564,6 +669,15 @@ def can_publish_content():
 def devotionals():
     devotionals = Devotional.query.order_by(Devotional.date.desc()).all()
     return render_template('edification/devotionals.html', devotionals=devotionals)
+
+@edification_bp.route('/devotionals/manage')
+@login_required
+def list_devotionals():
+    if not can_publish_content():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('edification.devotionals'))
+    devotionals = Devotional.query.order_by(Devotional.date.desc()).all()
+    return render_template('edification/list_devotionals.html', devotionals=devotionals)
 
 @edification_bp.route('/devotional/add', methods=['GET', 'POST'])
 @login_required
@@ -582,9 +696,41 @@ def add_devotional():
         db.session.add(new_dev)
         db.session.commit()
         flash('Devocional publicado!', 'success')
-        return redirect(url_for('edification.devotionals'))
+        return redirect(url_for('edification.list_devotionals'))
     
     return render_template('edification/add_devotional.html')
+
+@edification_bp.route('/devotional/<int:id>/edit', methods=['GET', 'POST'])
+@login_required
+def edit_devotional(id):
+    if not can_publish_content():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('edification.devotionals'))
+    
+    dev = Devotional.query.get_or_404(id)
+    if request.method == 'POST':
+        dev.title = request.form.get('title')
+        dev.content = request.form.get('content')
+        dev.verse = request.form.get('verse')
+        dev.date = datetime.strptime(request.form.get('date'), '%Y-%m-%d').date()
+        db.session.commit()
+        flash('Devocional atualizado!', 'success')
+        return redirect(url_for('edification.list_devotionals'))
+    
+    return render_template('edification/edit_devotional.html', dev=dev)
+
+@edification_bp.route('/devotional/<int:id>/delete')
+@login_required
+def delete_devotional(id):
+    if not can_publish_content():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('edification.devotionals'))
+    
+    dev = Devotional.query.get_or_404(id)
+    db.session.delete(dev)
+    db.session.commit()
+    flash('Devocional excluído!', 'info')
+    return redirect(url_for('edification.list_devotionals'))
 
 @edification_bp.route('/studies')
 @login_required
@@ -663,13 +809,14 @@ def add_kids_activity():
         flash('Atividade infantil adicionada!', 'success')
         return redirect(url_for('edification.kids'))
     
-    return render_template('edification/add_kids_activity.html')
+    return render_template('edification/add_kids.html')
 
 @edification_bp.route('/gallery')
 @login_required
 def gallery():
     query = Media.query.filter_by(church_id=current_user.church_id)
     
+    # Filtro para midias gerais ou dos ministérios do user
     ministry_ids = [m.id for m in current_user.ministries]
     query = query.filter((Media.ministry_id.is_(None)) | (Media.ministry_id.in_(ministry_ids)))
     
@@ -699,63 +846,147 @@ def upload_media():
         title = request.form.get('title')
         description = request.form.get('description')
         ministry_id = request.form.get('ministry_id')
-        file = request.files.get('file')
+        files = request.files.getlist('file')
         
-        if not file:
+        if not files or not files[0].filename:
             flash('Nenhum arquivo selecionado.', 'danger')
             return redirect(request.url)
         
-        filename = secure_filename(file.filename)
-        file_ext = os.path.splitext(filename)[1].lower()
+        count = 0
+        for file in files:
+            filename = secure_filename(file.filename)
+            if not filename: continue
+            
+            file_ext = os.path.splitext(filename)[1].lower()
+            
+            # Gerar nome único para evitar sobrescrita se múltiplos arquivos tiverem mesmo nome
+            unique_filename = f"{datetime.now().strftime('%Y%m%d%H%M%S')}_{count}_{filename}"
+            
+            if file_ext == '.heic':
+                try:
+                    img = Image.open(file)
+                    new_filename = unique_filename.replace('.heic', '.jpg', 1)
+                    full_path = os.path.join(current_app.config['UPLOAD_FOLDER'], 'media', new_filename)
+                    os.makedirs(os.path.dirname(full_path), exist_ok=True)
+                    img.convert('RGB').save(full_path, 'JPEG', quality=95)
+                    file_path = 'uploads/media/' + new_filename
+                    media_type = 'image'
+                except Exception as e:
+                    flash(f'Erro ao converter HEIC ({filename}): {str(e)}', 'danger')
+                    continue
+            else:
+                full_path = os.path.join(current_app.config['UPLOAD_FOLDER'], 'media', unique_filename)
+                os.makedirs(os.path.dirname(full_path), exist_ok=True)
+                file.save(full_path)
+                file_path = 'uploads/media/' + unique_filename
+                
+                if file_ext in ['.jpg', '.jpeg', '.png', '.gif']:
+                    media_type = 'image'
+                elif file_ext in ['.mp4', '.mov']:
+                    media_type = 'video'
+                elif file_ext == '.pdf':
+                    media_type = 'pdf'
+                else:
+                    continue # Pula formatos não suportados
+            
+            # Se for upload múltiplo, o título pode ser o mesmo ou incrementado
+            current_title = title if len(files) == 1 else f"{title} ({count + 1})"
+            
+            new_media = Media(
+                title=current_title,
+                description=description,
+                file_path=file_path,
+                media_type=media_type,
+                church_id=current_user.church_id,
+                ministry_id=int(ministry_id) if ministry_id else None
+            )
+            db.session.add(new_media)
+            count += 1
+            
+        db.session.commit()
+        flash(f'{count} mídias adicionadas com sucesso!', 'success')
+        return redirect(url_for('edification.gallery'))
+    
+    return render_template('edification/add_media.html', ministries=ministries)
+
+# Nova rota para editar mídia
+@edification_bp.route('/media/<int:id>/edit', methods=['GET', 'POST'])
+@login_required
+def edit_media(id):
+    media = Media.query.get_or_404(id)
+    
+    # Permissão: dono, líder do ministério ou admin
+    if not (current_user.can_manage_media or (current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder']) or (media.ministry and media.ministry.leader_id == current_user.id)):
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('edification.gallery'))
+    
+    ministries = Ministry.query.filter_by(church_id=current_user.church_id).all()
+    
+    if request.method == 'POST':
+        media.title = request.form.get('title')
+        media.description = request.form.get('description')
+        media.ministry_id = int(request.form.get('ministry_id')) if request.form.get('ministry_id') else None
         
-        if file_ext == '.heic':
-            try:
+        file = request.files.get('file')
+        if file:
+            filename = secure_filename(file.filename)
+            file_ext = os.path.splitext(filename)[1].lower()
+            
+            if file_ext == '.heic':
                 img = Image.open(file)
                 new_filename = filename.replace('.heic', '.jpg', 1)
                 full_path = os.path.join(current_app.config['UPLOAD_FOLDER'], 'media', new_filename)
                 os.makedirs(os.path.dirname(full_path), exist_ok=True)
                 img.convert('RGB').save(full_path, 'JPEG', quality=95)
-                file_path = 'uploads/media/' + new_filename
-                media_type = 'image'
-            except Exception as e:
-                flash(f'Erro ao converter HEIC: {str(e)}', 'danger')
-                return redirect(request.url)
-        else:
-            full_path = os.path.join(current_app.config['UPLOAD_FOLDER'], 'media', filename)
-            os.makedirs(os.path.dirname(full_path), exist_ok=True)
-            file.save(full_path)
-            file_path = 'uploads/media/' + filename
-            
-            if file_ext in ['.jpg', '.jpeg', '.png', '.gif']:
-                media_type = 'image'
-            elif file_ext in ['.mp4', '.mov']:
-                media_type = 'video'
-            elif file_ext == '.pdf':
-                media_type = 'pdf'
+                media.file_path = 'uploads/media/' + new_filename
+                media.media_type = 'image'
             else:
-                flash('Formato de arquivo não suportado.', 'danger')
-                return redirect(request.url)
+                full_path = os.path.join(current_app.config['UPLOAD_FOLDER'], 'media', filename)
+                os.makedirs(os.path.dirname(full_path), exist_ok=True)
+                file.save(full_path)
+                media.file_path = 'uploads/media/' + filename
+                
+                if file_ext in ['.jpg', '.jpeg', '.png', '.gif']:
+                    media.media_type = 'image'
+                elif file_ext in ['.mp4', '.mov']:
+                    media.media_type = 'video'
+                elif file_ext == '.pdf':
+                    media.media_type = 'pdf'
+                else:
+                    flash('Formato de arquivo não suportado.', 'danger')
+                    return redirect(request.url)
         
-        new_media = Media(
-            title=title,
-            description=description,
-            file_path=file_path,
-            media_type=media_type,
-            church_id=current_user.church_id,
-            ministry_id=int(ministry_id) if ministry_id else None
-        )
-        db.session.add(new_media)
         db.session.commit()
-        flash('Mídia adicionada com sucesso!', 'success')
+        flash('Mídia atualizada com sucesso!', 'success')
         return redirect(url_for('edification.gallery'))
     
-    return render_template('edification/add_media.html', ministries=ministries)
+    return render_template('edification/edit_media.html', media=media, ministries=ministries)
+
+# Nova rota para excluir mídia
+@edification_bp.route('/media/<int:id>/delete')
+@login_required
+def delete_media(id):
+    media = Media.query.get_or_404(id)
+    
+    # Permissão: dono, líder ou admin
+    if not (current_user.can_manage_media or (current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder']) or (media.ministry and media.ministry.leader_id == current_user.id)):
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('edification.gallery'))
+    
+    # Delete file from disk if exists
+    if media.file_path and os.path.exists(current_app.config['UPLOAD_FOLDER'] + '/' + media.file_path.replace('uploads/', '')):
+        os.remove(current_app.config['UPLOAD_FOLDER'] + '/' + media.file_path.replace('uploads/', ''))
+    
+    db.session.delete(media)
+    db.session.commit()
+    flash('Mídia excluída com sucesso!', 'info')
+    return redirect(url_for('edification.gallery'))
 
 
 ===== ./app/modules/finance/routes.py =====
 from flask import Blueprint, render_template, redirect, url_for, flash, request, send_from_directory, current_app
 from flask_login import login_required, current_user
-from app.core.models import Transaction, Asset, MaintenanceLog, db, User, Church
+from app.core.models import Transaction, Asset, MaintenanceLog, db, User, Church, Ministry, MinistryTransaction
 from app.utils.pdf_gen import generate_receipt
 import os
 from datetime import datetime, timedelta
@@ -772,35 +1003,113 @@ def can_manage_finance():
 @finance_bp.route('/dashboard')
 @login_required
 def dashboard():
-    # Verifica permissões
-    if not can_manage_finance():
-        # Membros comuns veem apenas suas próprias transações
-        transactions = Transaction.query.filter_by(user_id=current_user.id).order_by(Transaction.date.desc()).all()
-        return render_template('finance/dashboard.html', transactions=transactions, assets=[], stats=None)
+    # Se o usuário for tesoureiro/admin, vê o dashboard geral
+    if can_manage_finance():
+        if is_admin():
+            query = Transaction.query
+            asset_query = Asset.query
+        else:
+            query = Transaction.query.filter_by(church_id=current_user.church_id)
+            asset_query = Asset.query.filter_by(church_id=current_user.church_id)
 
-    # Filtro por igreja
-    if is_admin():
-        query = Transaction.query
-        asset_query = Asset.query
-    else:
-        query = Transaction.query.filter_by(church_id=current_user.church_id)
-        asset_query = Asset.query.filter_by(church_id=current_user.church_id)
+        transactions = query.order_by(Transaction.date.desc()).all()
+        assets = asset_query.all()
 
-    transactions = query.order_by(Transaction.date.desc()).all()
-    assets = asset_query.all()
+        total_income = sum(t.amount for t in transactions if t.type == 'income')
+        total_expense = sum(t.amount for t in transactions if t.type == 'expense')
+        balance = total_income - total_expense
 
-    # Estatísticas Simples
-    total_income = sum(t.amount for t in transactions if t.type == 'income')
-    total_expense = sum(t.amount for t in transactions if t.type == 'expense')
-    balance = total_income - total_expense
+        stats = {
+            'income': total_income,
+            'expense': total_expense,
+            'balance': balance
+        }
+        return render_template('finance/dashboard.html', transactions=transactions, assets=assets, stats=stats)
+    
+    # Se não for tesoureiro, redireciona para o painel de membro (onde ele vê seus recibos)
+    return redirect(url_for('finance.member_finance'))
 
+@finance_bp.route('/my-contributions')
+@login_required
+def member_finance():
+    # Painel onde o membro vê seus próprios dízimos e ofertas
+    transactions = Transaction.query.filter_by(user_id=current_user.id).order_by(Transaction.date.desc()).all()
+    debts = MinistryTransaction.query.filter_by(debtor_id=current_user.id, is_paid=False).all()
+    return render_template('finance/member_finance.html', transactions=transactions, debts=debts)
+
+@finance_bp.route('/ministry/<int:ministry_id>')
+@login_required
+def ministry_finance(ministry_id):
+    ministry = Ministry.query.get_or_404(ministry_id)
+    
+    # Permissão: Líder do ministério, Tesoureiro ou Admin
+    is_leader = ministry.leader_id == current_user.id
+    if not (is_leader or can_manage_finance()):
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('members.dashboard'))
+    
+    transactions = MinistryTransaction.query.filter_by(ministry_id=ministry_id).order_by(MinistryTransaction.date.desc()).all()
+    
+    income = sum(t.amount for t in transactions if t.type == 'income' and t.is_paid)
+    expense = sum(t.amount for t in transactions if t.type == 'expense')
+    debts = sum(t.amount for t in transactions if t.is_debt and not t.is_paid)
+    
     stats = {
-        'income': total_income,
-        'expense': total_expense,
-        'balance': balance
+        'income': income,
+        'expense': expense,
+        'balance': income - expense,
+        'pending_debts': debts
     }
+    
+    return render_template('finance/ministry_finance.html', ministry=ministry, transactions=transactions, stats=stats)
 
-    return render_template('finance/dashboard.html', transactions=transactions, assets=assets, stats=stats)
+@finance_bp.route('/ministry/<int:ministry_id>/add', methods=['GET', 'POST'])
+@login_required
+def add_ministry_transaction(ministry_id):
+    ministry = Ministry.query.get_or_404(ministry_id)
+    is_leader = ministry.leader_id == current_user.id
+    if not (is_leader or can_manage_finance()):
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('members.dashboard'))
+        
+    if request.method == 'POST':
+        is_debt = 'is_debt' in request.form
+        debtor_id = request.form.get('debtor_id')
+        
+        new_tx = MinistryTransaction(
+            ministry_id=ministry.id,
+            type=request.form.get('type'),
+            category=request.form.get('category'),
+            amount=float(request.form.get('amount') or 0),
+            description=request.form.get('description'),
+            date=datetime.strptime(request.form.get('date'), '%Y-%m-%d') if request.form.get('date') else datetime.utcnow(),
+            is_debt=is_debt,
+            debtor_id=int(debtor_id) if debtor_id and debtor_id != '' else None,
+            is_paid=not is_debt # Se for débito, começa como não pago
+        )
+        db.session.add(new_tx)
+        db.session.commit()
+        flash('Lançamento do ministério registrado!', 'success')
+        return redirect(url_for('finance.ministry_finance', ministry_id=ministry.id))
+        
+    members = User.query.filter_by(church_id=current_user.church_id, status='active').all()
+    today = datetime.utcnow().date().isoformat()
+    return render_template('finance/add_ministry_tx.html', ministry=ministry, members=members, today=today)
+
+@finance_bp.route('/ministry/debt/pay/<int:tx_id>')
+@login_required
+def pay_debt(tx_id):
+    tx = MinistryTransaction.query.get_or_404(tx_id)
+    ministry = Ministry.query.get(tx.ministry_id)
+    
+    if not (ministry.leader_id == current_user.id or can_manage_finance()):
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('members.dashboard'))
+        
+    tx.is_paid = True
+    db.session.commit()
+    flash('Débito marcado como pago!', 'success')
+    return redirect(url_for('finance.ministry_finance', ministry_id=tx.ministry_id))
 
 @finance_bp.route('/asset/add', methods=['GET', 'POST'])
 @login_required
@@ -829,7 +1138,6 @@ def add_asset():
 @login_required
 def add_maintenance(id):
     asset = Asset.query.get_or_404(id)
-    
     if not can_manage_finance():
         flash('Acesso negado.', 'danger')
         return redirect(url_for('finance.dashboard'))
@@ -842,7 +1150,6 @@ def add_maintenance(id):
             type=request.form.get('type'),
             date=datetime.strptime(request.form.get('date'), '%Y-%m-%d').date() if request.form.get('date') else datetime.utcnow().date()
         )
-        # Registra também como despesa financeira
         tx = Transaction(
             type='expense',
             category=f'Manutenção: {asset.name}',
@@ -895,11 +1202,9 @@ def add_transaction():
 @login_required
 def download_receipt(tx_id):
     tx = Transaction.query.get_or_404(tx_id)
-    
-    # Permissão: Admin, Tesoureiro ou o próprio dono do recibo
     if not can_manage_finance() and tx.user_id != current_user.id:
         flash('Acesso negado.', 'danger')
-        return redirect(url_for('finance.dashboard'))
+        return redirect(url_for('members.dashboard'))
         
     if not tx.receipt_path:
         tx.receipt_path = generate_receipt(tx)
@@ -918,9 +1223,7 @@ def report():
         flash('Acesso negado.', 'danger')
         return redirect(url_for('finance.dashboard'))
 
-    # Relatório simplificado por categoria (últimos 30 dias)
     thirty_days_ago = datetime.utcnow() - timedelta(days=30)
-    
     if is_admin():
         results = db.session.query(
             Transaction.category, 
@@ -942,60 +1245,75 @@ def report():
 
 
 ===== ./app/modules/members/routes.py =====
-from flask import Blueprint, render_template, redirect, url_for, flash, request
+# Arquivo completo: app/modules/members/routes.py (adicionando edição no profile, acesso a dados para líderes)
+from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app
 from flask_login import login_required, current_user
 from app.core.models import User, Church, Ministry, Event, db, Devotional, Study, ChurchRole
 from datetime import datetime
 from sqlalchemy import func
+from werkzeug.utils import secure_filename
+import os
 
 members_bp = Blueprint('members', __name__)
 
-
 def can_manage_members():
-    return current_user.can_approve_members or (
-        current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder']
-    )
-
+    return current_user.can_approve_members or (current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder'])
 
 def can_manage_ministries():
-    return current_user.can_manage_ministries or (
-        current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder']
-    )
-
+    return current_user.can_manage_ministries or (current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder'])
 
 @members_bp.route('/dashboard')
 @login_required
 def dashboard():
     latest_devotional = Devotional.query.order_by(Devotional.date.desc()).first()
     recent_studies = Study.query.order_by(Study.created_at.desc()).limit(3).all()
-
+    
     ministry_ids = [m.id for m in current_user.ministries]
     personal_agenda = Event.query.filter(
-        (Event.church_id == current_user.church_id) &
+        (Event.church_id == current_user.church_id) & 
         ((Event.ministry_id == None) | (Event.ministry_id.in_(ministry_ids)))
     ).order_by(Event.start_time.asc()).all()
-
+    
     pending_members = []
     if can_manage_members():
-        pending_members = User.query.filter_by(
-            church_id=current_user.church_id, status='pending'
-        ).all()
-
-    return render_template(
-        'members/dashboard.html',
-        devotional=latest_devotional,
-        studies=recent_studies,
-        agenda=personal_agenda,
-        pending_members=pending_members,
-        datetime=datetime
-    )
-
+        pending_members = User.query.filter_by(church_id=current_user.church_id, status='pending').all()
+        
+    return render_template('members/dashboard.html', 
+                           devotional=latest_devotional, 
+                           studies=recent_studies,
+                           agenda=personal_agenda,
+                           pending_members=pending_members,
+                           datetime=datetime)
 
 @members_bp.route('/profile')
 @login_required
 def profile():
     return render_template('members/profile.html')
 
+@members_bp.route('/profile/edit', methods=['GET', 'POST'])
+@login_required
+def edit_profile():
+    if request.method == 'POST':
+        current_user.name = request.form.get('name')
+        current_user.birth_date = datetime.strptime(request.form.get('birth_date'), '%Y-%m-%d').date() if request.form.get('birth_date') else current_user.birth_date
+        current_user.gender = request.form.get('gender')
+        current_user.documents = request.form.get('documents')
+        current_user.address = request.form.get('address')
+        current_user.phone = request.form.get('phone')
+        
+        file = request.files.get('profile_photo')
+        if file:
+            filename = secure_filename(file.filename)
+            full_path = os.path.join(current_app.config['UPLOAD_FOLDER'], 'profiles', filename)
+            os.makedirs(os.path.dirname(full_path), exist_ok=True)
+            file.save(full_path)
+            current_user.profile_photo = 'uploads/profiles/' + filename
+        
+        db.session.commit()
+        flash('Perfil atualizado com sucesso!', 'success')
+        return redirect(url_for('members.profile'))
+    
+    return render_template('members/edit_profile.html')
 
 @members_bp.route('/ministries')
 @login_required
@@ -1006,8 +1324,42 @@ def list_ministries():
         ministries = Ministry.query.filter_by(church_id=current_user.church_id).all()
     else:
         ministries = current_user.ministries
-
+    
     return render_template('members/ministries.html', ministries=ministries)
+
+# ... (o restante do arquivo continua igual ao seu TXT, incluindo add_ministry, edit_ministry, delete_ministry, add_ministry_event, add_general_event, church_members, promote_member, my_led_ministries, ministry_manage_members, ministry_add_member, ministry_remove_member)
+
+@members_bp.route('/ministry/<int:ministry_id>/manage-members')
+@login_required
+def ministry_manage_members(ministry_id):
+    ministry = Ministry.query.get_or_404(ministry_id)
+    
+    is_leader = ministry.leader_id == current_user.id
+    is_authorized = is_leader or can_manage_ministries()
+    
+    if not is_authorized:
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('members.my_led_ministries'))
+    
+    current_members = ministry.members.all()
+    available_members = User.query.filter(
+        User.church_id == current_user.church_id,
+        User.status == 'active',
+        ~User.ministries.any(Ministry.id == ministry_id)
+    ).order_by(User.name).all()
+    
+    total_members = len(current_members)
+    gender_count = db.session.query(User.gender, func.count(User.id)).filter(
+        User.id.in_([m.id for m in current_members])
+    ).group_by(User.gender).all()
+    
+    return render_template('members/ministry_manage_members.html',
+                           ministry=ministry,
+                           current_members=current_members,
+                           available_members=available_members,
+                           total_members=total_members,
+                           gender_count=gender_count,
+                           is_leader=is_leader)  # Passa is_leader para mostrar endereço/phone
 
 
 @members_bp.route('/ministry/add', methods=['GET', 'POST'])
@@ -1212,42 +1564,6 @@ def my_led_ministries():
     return render_template('members/my_led_ministries.html', led_ministries=led_ministries)
 
 
-@members_bp.route('/ministry/<int:ministry_id>/manage-members')
-@login_required
-def ministry_manage_members(ministry_id):
-    ministry = Ministry.query.get_or_404(ministry_id)
-
-    is_leader = ministry.leader_id == current_user.id
-    is_authorized = is_leader or can_manage_ministries()
-
-    if not is_authorized:
-        flash('Acesso negado.', 'danger')
-        return redirect(url_for('members.my_led_ministries'))
-
-    current_members = ministry.members.all()
-    available_members = User.query.filter(
-        User.church_id == current_user.church_id,
-        User.status == 'active',
-        ~User.ministries.any(Ministry.id == ministry_id)
-    ).order_by(User.name).all()
-
-    total_members = len(current_members)
-    gender_count = db.session.query(
-        User.gender, func.count(User.id)
-    ).filter(
-        User.id.in_([m.id for m in current_members])
-    ).group_by(User.gender).all()
-
-    return render_template(
-        'members/ministry_manage_members.html',
-        ministry=ministry,
-        current_members=current_members,
-        available_members=available_members,
-        total_members=total_members,
-        gender_count=gender_count
-    )
-
-
 @members_bp.route('/ministry/<int:ministry_id>/add-member', methods=['POST'])
 @login_required
 def ministry_add_member(ministry_id):
@@ -1346,11 +1662,46 @@ def ministry_agenda(ministry_id):
 [data-theme="dark"] {
     --bg-main: #0f172a;
     --bg-card: #1e293b;
-    --text-main: #f8fafc;
+    --text-main: #f1f5f9;
     --text-muted: #94a3b8;
     --border: #334155;
     --sidebar-bg: #020617;
-    --input-bg: #334155;
+    --input-bg: #1e293b;
+    --sidebar-text: #f1f5f9;
+}
+
+[data-theme="dark"] .card {
+    background-color: var(--bg-card);
+    border-color: var(--border);
+}
+
+[data-theme="dark"] .list-group-item {
+    background-color: transparent;
+    color: var(--text-main);
+    border-color: var(--border);
+}
+
+[data-theme="dark"] .text-muted {
+    color: #94a3b8 !important;
+}
+
+[data-theme="dark"] .bg-light {
+    background-color: #334155 !important;
+}
+
+[data-theme="dark"] .table {
+    color: var(--text-main);
+}
+
+[data-theme="dark"] .table thead th {
+    background-color: #1e293b;
+    color: #f1f5f9;
+}
+
+[data-theme="dark"] .modal-content {
+    background-color: var(--bg-card);
+    color: var(--text-main);
+    border: 1px solid var(--border);
 }
 
 body {
@@ -1543,6 +1894,78 @@ body {
 
 
 
+===== ./app/templates/admin/add_member.html =====
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container py-5">
+    <h1 class="fw-bold text-primary mb-4">Adicionar Novo Membro</h1>
+    
+    <form method="POST" enctype="multipart/form-data">
+        <div class="mb-3">
+            <label for="name" class="form-label">Nome</label>
+            <input type="text" class="form-control" id="name" name="name" required>
+        </div>
+        <div class="mb-3">
+            <label for="email" class="form-label">E-mail</label>
+            <input type="email" class="form-control" id="email" name="email" required>
+        </div>
+        <div class="mb-3">
+            <label for="password" class="form-label">Senha</label>
+            <input type="password" class="form-control" id="password" name="password" required>
+        </div>
+        <div class="mb-3">
+            <label for="birth_date" class="form-label">Data de Nascimento</label>
+            <input type="date" class="form-control" id="birth_date" name="birth_date">
+        </div>
+        <div class="mb-3">
+            <label for="gender" class="form-label">Gênero</label>
+            <select class="form-select" id="gender" name="gender">
+                <option value="">Selecionar</option>
+                <option value="Masculino">Masculino</option>
+                <option value="Feminino">Feminino</option>
+                <option value="Outro">Outro</option>
+            </select>
+        </div>
+        <div class="mb-3">
+            <label for="documents" class="form-label">Documentos</label>
+            <input type="text" class="form-control" id="documents" name="documents">
+        </div>
+        <div class="mb-3">
+            <label for="address" class="form-label">Endereço</label>
+            <textarea class="form-control" id="address" name="address" rows="3"></textarea>
+        </div>
+        <div class="mb-3">
+            <label for="phone" class="form-label">Telefone</label>
+            <input type="tel" class="form-control" id="phone" name="phone">
+        </div>
+        <div class="mb-3">
+            <label for="profile_photo" class="form-label">Foto de Perfil (opcional)</label>
+            <input type="file" class="form-control" id="profile_photo" name="profile_photo" accept="image/*">
+        </div>
+        <div class="mb-3">
+            <label for="church_id" class="form-label">Congregação</label>
+            <select class="form-select" id="church_id" name="church_id" required>
+                {% for church in churches %}
+                <option value="{{ church.id }}">{{ church.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="mb-3">
+            <label for="status" class="form-label">Status</label>
+            <select class="form-select" id="status" name="status">
+                <option value="active">Ativo</option>
+                <option value="pending">Pendente</option>
+                <option value="rejected">Rejeitado</option>
+            </select>
+        </div>
+        <button type="submit" class="btn btn-primary">Criar Membro</button>
+        <a href="{{ url_for('admin.list_members') }}" class="btn btn-secondary">Cancelar</a>
+    </form>
+</div>
+{% endblock %}
+
+
 ===== ./app/templates/admin/add_role.html =====
 {% extends "base.html" %}
 {% block content %}
@@ -1660,53 +2083,77 @@ body {
 
 ===== ./app/templates/admin/edit_member.html =====
 {% extends "base.html" %}
+
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-md-6">
-        <div class="card border-0 shadow-sm p-4">
-            <h3 class="fw-bold mb-4">Editar Membro</h3>
-            <form method="POST">
-                <div class="mb-3">
-                    <label class="form-label small fw-bold">NOME COMPLETO</label>
-                    <input type="text" name="name" class="form-control bg-light border-0" value="{{ member.name }}" required>
-                </div>
-                <div class="mb-3">
-                    <label class="form-label small fw-bold">E-MAIL</label>
-                    <input type="email" name="email" class="form-control bg-light border-0" value="{{ member.email }}" required>
-                </div>
-                <div class="mb-3">
-                    <label class="form-label small fw-bold">CONGREGAÇÃO</label>
-                    <select name="church_id" class="form-select bg-light border-0">
-                        {% for church in churches %}
-                        <option value="{{ church.id }}" {{ 'selected' if member.church_id == church.id }}>{{ church.name }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div class="mb-3">
-                    <label class="form-label small fw-bold">CARGO</label>
-                    <select name="church_role_id" class="form-select bg-light border-0">
-                        <option value="">Sem cargo</option>
-                        {% for role in roles %}
-                        <option value="{{ role.id }}" {{ 'selected' if member.church_role_id == role.id }}>{{ role.name }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div class="mb-3">
-                    <label class="form-label small fw-bold">STATUS</label>
-                    <select name="status" class="form-select bg-light border-0">
-                        <option value="active" {{ 'selected' if member.status == 'active' }}>Ativo</option>
-                        <option value="pending" {{ 'selected' if member.status == 'pending' }}>Pendente</option>
-                        <option value="rejected" {{ 'selected' if member.status == 'rejected' }}>Rejeitado</option>
-                    </select>
-                </div>
-                <div class="d-grid mt-4">
-                    <button type="submit" class="btn btn-primary btn-lg py-3 fw-bold shadow-sm">
-                        Salvar Alterações
-                    </button>
-                </div>
-            </form>
+<div class="container py-5">
+    <h1 class="fw-bold text-primary mb-4">Editar Membro: {{ member.name }}</h1>
+    
+    <form method="POST" enctype="multipart/form-data">
+        <div class="mb-3">
+            <label for="name" class="form-label">Nome</label>
+            <input type="text" class="form-control" id="name" name="name" value="{{ member.name }}" required>
         </div>
-    </div>
+        <div class="mb-3">
+            <label for="email" class="form-label">E-mail</label>
+            <input type="email" class="form-control" id="email" name="email" value="{{ member.email }}" required>
+        </div>
+        <div class="mb-3">
+            <label for="birth_date" class="form-label">Data de Nascimento</label>
+            <input type="date" class="form-control" id="birth_date" name="birth_date" value="{{ member.birth_date.strftime('%Y-%m-%d') if member.birth_date else '' }}">
+        </div>
+        <div class="mb-3">
+            <label for="gender" class="form-label">Gênero</label>
+            <select class="form-select" id="gender" name="gender">
+                <option value="">Selecionar</option>
+                <option value="Masculino" {{ 'selected' if member.gender == 'Masculino' }}>Masculino</option>
+                <option value="Feminino" {{ 'selected' if member.gender == 'Feminino' }}>Feminino</option>
+                <option value="Outro" {{ 'selected' if member.gender == 'Outro' }}>Outro</option>
+            </select>
+        </div>
+        <div class="mb-3">
+            <label for="documents" class="form-label">Documentos</label>
+            <input type="text" class="form-control" id="documents" name="documents" value="{{ member.documents }}">
+        </div>
+        <div class="mb-3">
+            <label for="address" class="form-label">Endereço</label>
+            <textarea class="form-control" id="address" name="address" rows="3">{{ member.address }}</textarea>
+        </div>
+        <div class="mb-3">
+            <label for="phone" class="form-label">Telefone</label>
+            <input type="tel" class="form-control" id="phone" name="phone" value="{{ member.phone }}">
+        </div>
+        <div class="mb-3">
+            <label for="profile_photo" class="form-label">Foto de Perfil (atual: {{ member.profile_photo if member.profile_photo else 'Nenhuma' }})</label>
+            <input type="file" class="form-control" id="profile_photo" name="profile_photo" accept="image/*">
+        </div>
+        <div class="mb-3">
+            <label for="church_id" class="form-label">Congregação</label>
+            <select class="form-select" id="church_id" name="church_id">
+                {% for church in churches %}
+                <option value="{{ church.id }}" {{ 'selected' if member.church_id == church.id }}>{{ church.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="mb-3">
+            <label for="church_role_id" class="form-label">Cargo</label>
+            <select class="form-select" id="church_role_id" name="church_role_id">
+                <option value="">Nenhum</option>
+                {% for role in roles %}
+                <option value="{{ role.id }}" {{ 'selected' if member.church_role_id == role.id }}>{{ role.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="mb-3">
+            <label for="status" class="form-label">Status</label>
+            <select class="form-select" id="status" name="status">
+                <option value="active" {{ 'selected' if member.status == 'active' }}>Ativo</option>
+                <option value="pending" {{ 'selected' if member.status == 'pending' }}>Pendente</option>
+                <option value="rejected" {{ 'selected' if member.status == 'rejected' }}>Rejeitado</option>
+            </select>
+        </div>
+        <button type="submit" class="btn btn-primary">Salvar Alterações</button>
+        <a href="{{ url_for('admin.list_members') }}" class="btn btn-secondary">Cancelar</a>
+    </form>
 </div>
 {% endblock %}
 
@@ -1953,75 +2400,60 @@ body {
 
 
 ===== ./app/templates/auth/register.html =====
+<!-- Arquivo completo: app/templates/auth/register.html (adicionando foto no form de registro) -->
 {% extends "base.html" %}
+
 {% block content %}
-<div class="row justify-content-center py-5">
-    <div class="col-md-8 col-lg-6">
-        <div class="card border-0 shadow-lg p-4">
-            <div class="card-body">
-                <h3 class="fw-bold mb-4 text-center">Solicitar Cadastro</h3>
-                <form method="POST">
-                    <div class="row g-3">
-                        <div class="col-12">
-                            <label class="form-label small fw-bold">NOME COMPLETO</label>
-                            <input type="text" name="name" class="form-control bg-light border-0" required>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label small fw-bold">E-MAIL</label>
-                            <input type="email" name="email" class="form-control bg-light border-0" required>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label small fw-bold">SENHA</label>
-                            <input type="password" name="password" class="form-control bg-light border-0" required>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label small fw-bold">DATA DE NASCIMENTO</label>
-                            <input type="date" name="birth_date" class="form-control bg-light border-0" required>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label small fw-bold">SEXO</label>
-                            <select name="gender" class="form-select bg-light border-0" required>
-                                <option value="Masculino">Masculino</option>
-                                <option value="Feminino">Feminino</option>
-                                <option value="Outro">Outro</option>
-                            </select>
-                        </div>
-                        <div class="col-12">
-                            <label class="form-label small fw-bold">CONGREGAÇÃO (FILIAL)</label>
-                            <select name="church_id" class="form-select bg-light border-0" required>
-                                {% for church in churches %}
-                                <option value="{{ church.id }}">{{ church.name }}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                        <div class="col-12">
-                            <label class="form-label small fw-bold">DOCUMENTOS (RG/CPF/PASSAPORTE)</label>
-                            <input type="text" name="documents" class="form-control bg-light border-0" placeholder="Informe seus documentos principais" required>
-                        </div>
-                        <div class="col-12">
-                            <label class="form-label small fw-bold">ENDEREÇO COMPLETO</label>
-                            <textarea name="address" class="form-control bg-light border-0" rows="2" required></textarea>
-                        </div>
-                        <div class="col-12">
-                            <label class="form-label small fw-bold">TELEFONE / CONTATO</label>
-                            <input type="text" name="phone" class="form-control bg-light border-0" required>
-                        </div>
-                    </div>
-                    <div class="d-grid mt-4">
-                        <button type="submit" class="btn btn-primary btn-lg py-3 fw-bold shadow-sm">
-                            Enviar Solicitação
-                        </button>
-                    </div>
-                    <div class="text-center mt-3">
-                        <a href="{{ url_for('auth.login') }}" class="text-decoration-none small">Já tem conta? Faça login</a>
-                    </div>
-                </form>
-            </div>
+<div class="container py-5">
+    <h1 class="fw-bold text-primary mb-4">Registro</h1>
+    
+    <form method="POST" enctype="multipart/form-data">
+        <div class="mb-3">
+            <label for="name" class="form-label">Nome</label>
+            <input type="text" class="form-control" id="name" name="name" required>
         </div>
-    </div>
+        <div class="mb-3">
+            <label for="email" class="form-label">E-mail</label>
+            <input type="email" class="form-control" id="email" name="email" required>
+        </div>
+        <div class="mb-3">
+            <label for="password" class="form-label">Senha</label>
+            <input type="password" class="form-control" id="password" name="password" required>
+        </div>
+        <div class="mb-3">
+            <label for="birth_date" class="form-label">Data de Nascimento</label>
+            <input type="date" class="form-control" id="birth_date" name="birth_date" required>
+        </div>
+        <div class="mb-3">
+            <label for="gender" class="form-label">Gênero</label>
+            <select class="form-select" id="gender" name="gender" required>
+                <option value="">Selecionar</option>
+                <option value="Masculino">Masculino</option>
+                <option value="Feminino">Feminino</option>
+                <option value="Outro">Outro</option>
+            </select>
+        </div>
+        <div class="mb-3">
+            <label for="documents" class="form-label">Documentos</label>
+            <input type="text" class="form-control" id="documents" name="documents">
+        </div>
+        <div class="mb-3">
+            <label for="address" class="form-label">Endereço</label>
+            <textarea class="form-control" id="address" name="address" rows="3"></textarea>
+        </div>
+        <div class="mb-3">
+            <label for="phone" class="form-label">Telefone</label>
+            <input type="tel" class="form-control" id="phone" name="phone">
+        </div>
+        <div class="mb-3">
+            <label for="profile_photo" class="form-label">Foto de Perfil (opcional)</label>
+            <input type="file" class="form-control" id="profile_photo" name="profile_photo" accept="image/*">
+        </div>
+        <button type="submit" class="btn btn-primary">Registrar</button>
+        <a href="{{ url_for('auth.login') }}" class="btn btn-secondary">Voltar para Login</a>
+    </form>
 </div>
 {% endblock %}
-
 
 
 ===== ./app/templates/base.html =====
@@ -2050,12 +2482,25 @@ body {
                     <a class="nav-link {{ 'active' if request.endpoint == 'members.dashboard' }}" href="{{ url_for('members.dashboard') }}">
                         <i class="bi bi-speedometer2 me-2"></i> Dashboard
                     </a>
-                    <a class="nav-link {{ 'active' if 'finance' in request.endpoint }}" href="{{ url_for('finance.dashboard') }}">
-                        <i class="bi bi-cash-stack me-2"></i> Financeiro
+                    {% if current_user.can_manage_finance or (current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder', 'Tesoureiro']) %}
+                    <a class="nav-link {{ 'active' if request.endpoint == 'finance.dashboard' }}" href="{{ url_for('finance.dashboard') }}">
+                        <i class="bi bi-cash-stack me-2"></i> Gestão Financeira
                     </a>
-                    <a class="nav-link {{ 'active' if 'edification' in request.endpoint }}" href="{{ url_for('edification.studies') }}">
-                        <i class="bi bi-book me-2"></i> Edificação
+                    {% endif %}
+                    <a class="nav-link {{ 'active' if request.endpoint == 'finance.member_finance' }}" href="{{ url_for('finance.member_finance') }}">
+                        <i class="bi bi-wallet2 me-2"></i> Minhas Contribuições
                     </a>
+                    <a class="nav-link {{ 'active' if request.endpoint == 'edification.studies' }}" href="{{ url_for('edification.studies') }}">
+                        <i class="bi bi-book me-2"></i> Estudos Bíblicos
+                    </a>
+                    <a class="nav-link {{ 'active' if request.endpoint == 'edification.devotionals' }}" href="{{ url_for('edification.devotionals') }}">
+                        <i class="bi bi-journal-text me-2"></i> Devocionais
+                    </a>
+                    {% if current_user.can_manage_kids or (current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder']) %}
+                    <a class="nav-link {{ 'active' if request.endpoint == 'edification.kids' }}" href="{{ url_for('edification.kids') }}">
+                        <i class="bi bi-balloon-heart me-2"></i> Ecclesia Kids
+                    </a>
+                    {% endif %}
                     <a class="nav-link {{ 'active' if 'gallery' in request.endpoint }}" href="{{ url_for('edification.gallery') }}">
                         <i class="bi bi-images me-2"></i> Galeria
                     </a>
@@ -2268,8 +2713,9 @@ body {
                     </select>
                 </div>
                 <div class="mb-3">
-                    <label class="form-label small fw-bold">ARQUIVO (imagem, PDF, vídeo mp4)</label>
-                    <input type="file" name="file" class="form-control bg-light border-0" accept="image/*,application/pdf,video/mp4" required>
+                    <label class="form-label small fw-bold">ARQUIVOS (imagem, PDF, vídeo mp4)</label>
+                    <input type="file" name="file" class="form-control bg-light border-0" accept="image/*,application/pdf,video/mp4" multiple required>
+                    <div class="form-text small">Você pode selecionar várias fotos de uma vez.</div>
                 </div>
                 <div class="mb-3">
                     <label class="form-label small fw-bold">DESCRIÇÃO (opcional)</label>
@@ -2285,7 +2731,6 @@ body {
     </div>
 </div>
 {% endblock %}
-
 
 
 ===== ./app/templates/edification/add_study.html =====
@@ -2322,25 +2767,112 @@ body {
 
 
 
+===== ./app/templates/edification/devotionals.html =====
+{% extends "base.html" %}
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold mb-0">Devocionais Diários</h2>
+            <p class="text-muted">Uma palavra de fé e esperança para o seu dia.</p>
+        </div>
+        {% if current_user.can_publish_devotionals or current_user.is_global_admin %}
+        <a href="{{ url_for('edification.list_devotionals') }}" class="btn btn-outline-primary">
+            <i class="bi bi-gear me-2"></i> Gerenciar Devocionais
+        </a>
+        {% endif %}
+    </div>
+
+    <div class="row g-4">
+        {% for dev in devotionals %}
+        <div class="col-md-6 col-lg-4">
+            <div class="card border-0 shadow-sm h-100 hover-shadow transition">
+                <div class="card-body p-4">
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <span class="badge bg-primary bg-opacity-10 text-primary px-3 py-2">
+                            {{ dev.date.strftime('%d/%m/%Y') }}
+                        </span>
+                        <i class="bi bi-quote fs-1 text-primary opacity-25"></i>
+                    </div>
+                    <h4 class="fw-bold mb-3">{{ dev.title }}</h4>
+                    <p class="text-muted mb-4 flex-grow-1">
+                        {{ dev.content[:200] }}{% if dev.content|length > 200 %}...{% endif %}
+                    </p>
+                    {% if dev.verse %}
+                    <div class="bg-light p-3 rounded-3 mb-3">
+                        <p class="fst-italic mb-0 small">"{{ dev.verse }}"</p>
+                    </div>
+                    {% endif %}
+                    <button type="button" class="btn btn-link text-primary p-0 fw-bold text-decoration-none" 
+                            data-bs-toggle="modal" data-bs-target="#devModal{{ dev.id }}">
+                        Ler devocional completo <i class="bi bi-arrow-right ms-1"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal para Devocional Completo -->
+        <div class="modal fade" id="devModal{{ dev.id }}" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered modal-lg">
+                <div class="modal-content border-0 shadow">
+                    <div class="modal-header border-0 p-4 pb-0">
+                        <h5 class="modal-title fw-bold">{{ dev.title }}</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body p-4">
+                        <p class="text-muted small mb-4">Publicado em {{ dev.date.strftime('%d/%m/%Y') }}</p>
+                        <div class="devocional-content mb-4">
+                            {{ dev.content | replace('\n', '<br>') | safe }}
+                        </div>
+                        {% if dev.verse %}
+                        <div class="bg-primary bg-opacity-10 p-4 rounded-4 border-start border-primary border-4">
+                            <p class="fst-italic mb-0 fs-5">"{{ dev.verse }}"</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                    <div class="modal-footer border-0 p-4 pt-0">
+                        <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">Fechar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="col-12 text-center py-5">
+            <div class="card border-0 shadow-sm p-5">
+                <i class="bi bi-journal-text fs-1 text-muted mb-3"></i>
+                <h5 class="text-muted">Nenhum devocional publicado ainda.</h5>
+                <p class="text-muted">Fique atento, em breve teremos novas mensagens!</p>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}
+
+
 ===== ./app/templates/edification/edit_devotional.html =====
 {% extends "base.html" %}
 {% block content %}
 <div class="row justify-content-center">
     <div class="col-md-6">
         <div class="card border-0 shadow-sm p-4">
-            <h3 class="fw-bold mb-4">Editar Devocional de {{ devotional.date.strftime('%d/%m/%Y') }}</h3>
+            <h3 class="fw-bold mb-4">Editar Devocional de {{ dev.date.strftime('%d/%m/%Y') }}</h3>
             <form method="POST">
                 <div class="mb-3">
+                    <label class="form-label small fw-bold">DATA</label>
+                    <input type="date" name="date" class="form-control bg-light border-0" value="{{ dev.date.strftime('%Y-%m-%d') }}" required>
+                </div>
+                <div class="mb-3">
                     <label class="form-label small fw-bold">TÍTULO</label>
-                    <input type="text" name="title" class="form-control bg-light border-0" value="{{ devotional.title }}" required>
+                    <input type="text" name="title" class="form-control bg-light border-0" value="{{ dev.title }}" required>
                 </div>
                 <div class="mb-3">
                     <label class="form-label small fw-bold">VERSÍCULO</label>
-                    <input type="text" name="verse" class="form-control bg-light border-0" value="{{ devotional.verse }}" required>
+                    <input type="text" name="verse" class="form-control bg-light border-0" value="{{ dev.verse }}" required>
                 </div>
                 <div class="mb-3">
                     <label class="form-label small fw-bold">CONTEÚDO</label>
-                    <textarea name="content" class="form-control bg-light border-0" rows="10" required>{{ devotional.content }}</textarea>
+                    <textarea name="content" class="form-control bg-light border-0" rows="10" required>{{ dev.content }}</textarea>
                 </div>
                 <div class="d-grid mt-4">
                     <button type="submit" class="btn btn-primary btn-lg py-3 fw-bold shadow-sm">
@@ -2354,32 +2886,68 @@ body {
 {% endblock %}
 
 
+===== ./app/templates/edification/edit_media.html =====
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container py-5">
+    <h1 class="fw-bold text-primary mb-4">Editar Mídia</h1>
+    
+    <form method="POST" enctype="multipart/form-data">
+        <div class="mb-3">
+            <label for="title" class="form-label">Título</label>
+            <input type="text" class="form-control" id="title" name="title" value="{{ media.title }}" required>
+        </div>
+        <div class="mb-3">
+            <label for="description" class="form-label">Descrição</label>
+            <textarea class="form-control" id="description" name="description" rows="3">{{ media.description }}</textarea>
+        </div>
+        <div class="mb-3">
+            <label for="ministry_id" class="form-label">Ministério (opcional)</label>
+            <select class="form-select" id="ministry_id" name="ministry_id">
+                <option value="">Geral (visível para toda a igreja)</option>
+                {% for ministry in ministries %}
+                <option value="{{ ministry.id }}" {{ 'selected' if media.ministry_id == ministry.id }}>{{ ministry.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="mb-3">
+            <label for="file" class="form-label">Atualizar Arquivo (opcional)</label>
+            <input type="file" class="form-control" id="file" name="file" accept="image/*,video/*,.pdf,.heic">
+        </div>
+        <button type="submit" class="btn btn-primary">Salvar Alterações</button>
+        <a href="{{ url_for('edification.gallery') }}" class="btn btn-secondary">Cancelar</a>
+    </form>
+</div>
+{% endblock %}
+
+
 ===== ./app/templates/edification/gallery.html =====
 {% extends "base.html" %}
 
 {% block content %}
 <div class="container py-5">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h1 class="fw-bold text-primary"><i class="bi bi-images me-2"></i>Galeria da Igreja</h1>
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
+        <h1 class="fw-bold text-primary mb-0"><i class="bi bi-images me-2"></i>Galeria da Igreja</h1>
         
-        {# Versão segura sem any(generator) #}
         {% set lider_ministerios = current_user.ministries | selectattr("leader_id", "equalto", current_user.id) | list %}
         {% set pode_gerenciar = current_user.can_manage_media 
                              or (current_user.church_role and current_user.church_role.name in ["Administrador Global", "Pastor Líder"]) 
                              or lider_ministerios | length > 0 %}
 
         {% if pode_gerenciar %}
-        <a href="{{ url_for('edification.upload_media') }}" class="btn btn-success">
+        <a href="{{ url_for('edification.upload_media') }}" class="btn btn-success fw-bold">
             <i class="bi bi-plus-lg me-1"></i> Adicionar Mídia
         </a>
         {% endif %}
     </div>
 
     <!-- Filtros -->
-    <div class="card border-0 shadow-sm mb-4">
-        <div class="card-body">
-            <form method="GET" class="row g-3">
+    <div class="card border-0 shadow-sm mb-5">
+        <div class="card-body p-4">
+            <form method="GET" class="row g-3 align-items-end">
                 <div class="col-md-4">
+                    <label class="form-label small fw-bold text-muted">MINISTÉRIO</label>
                     <select name="ministry_id" class="form-select">
                         <option value="">Todos os Ministérios</option>
                         {% for ministry in ministries %}
@@ -2388,6 +2956,7 @@ body {
                     </select>
                 </div>
                 <div class="col-md-4">
+                    <label class="form-label small fw-bold text-muted">TIPO DE MÍDIA</label>
                     <select name="media_type" class="form-select">
                         <option value="">Todos os Tipos</option>
                         <option value="image" {{ 'selected' if request.args.get('media_type') == 'image' }}>Imagens</option>
@@ -2396,7 +2965,7 @@ body {
                     </select>
                 </div>
                 <div class="col-md-4">
-                    <button type="submit" class="btn btn-primary w-100">Filtrar</button>
+                    <button type="submit" class="btn btn-primary w-100 fw-bold">Aplicar Filtros</button>
                 </div>
             </form>
         </div>
@@ -2406,51 +2975,152 @@ body {
     {% if media_items %}
     <div class="row g-4">
         {% for item in media_items %}
-        <div class="col-md-4 col-lg-3">
-            <div class="card h-100 border-0 shadow-sm overflow-hidden">
-                {% if item.media_type == 'image' %}
-                <img src="{{ url_for('static', filename=item.file_path) }}" class="card-img-top" alt="{{ item.title }}" style="height: 200px; object-fit: cover;">
-                {% elif item.media_type == 'video' %}
-                <video controls class="card-img-top" style="height: 200px; object-fit: cover;">
-                    <source src="{{ url_for('static', filename=item.file_path) }}" type="video/mp4">
-                    Seu navegador não suporta vídeo.
-                </video>
-                {% elif item.media_type == 'pdf' %}
-                <div class="d-flex align-items-center justify-content-center bg-light" style="height: 200px;">
-                    <i class="bi bi-file-earmark-pdf display-1 text-danger"></i>
+        <div class="col-sm-6 col-md-4 col-lg-3">
+            <div class="card h-100 border-0 shadow-sm overflow-hidden gallery-card">
+                <div class="position-relative">
+                    {% if item.media_type == 'image' %}
+                    <div class="gallery-img-container" data-bs-toggle="modal" data-bs-target="#imageModal{{ item.id }}" style="cursor: pointer;">
+                        <img src="{{ url_for('static', filename=item.file_path) }}" class="card-img-top" alt="{{ item.title }}" style="height: 200px; object-fit: cover;">
+                        <div class="gallery-overlay">
+                            <i class="bi bi-zoom-in text-white fs-2"></i>
+                        </div>
+                    </div>
+                    {% elif item.media_type == 'video' %}
+                    <video class="card-img-top" style="height: 200px; object-fit: cover;">
+                        <source src="{{ url_for('static', filename=item.file_path) }}" type="video/mp4">
+                    </video>
+                    <div class="position-absolute top-50 start-50 translate-middle">
+                        <i class="bi bi-play-circle-fill text-white display-4 opacity-75"></i>
+                    </div>
+                    {% elif item.media_type == 'pdf' %}
+                    <div class="d-flex align-items-center justify-content-center bg-light" style="height: 200px;">
+                        <i class="bi bi-file-earmark-pdf display-1 text-danger"></i>
+                    </div>
+                    {% endif %}
                 </div>
-                {% endif %}
                 
-                <div class="card-body">
-                    <h5 class="card-title">{{ item.title }}</h5>
-                    <p class="card-text small text-muted">
-                        {{ item.description|truncate(80) or 'Sem descrição' }}
-                    </p>
-                    <p class="card-text small">
-                        <span class="badge bg-secondary">{{ item.media_type|upper }}</span>
+                <div class="card-body p-3">
+                    <h6 class="fw-bold mb-1 text-truncate">{{ item.title }}</h6>
+                    <div class="mb-2">
+                        <span class="badge bg-secondary bg-opacity-10 text-secondary x-small">{{ item.media_type|upper }}</span>
                         {% if item.ministry %}
-                        <span class="badge bg-info ms-1">{{ item.ministry.name }}</span>
+                        <span class="badge bg-info bg-opacity-10 text-info x-small">{{ item.ministry.name }}</span>
                         {% endif %}
+                    </div>
+                    <p class="card-text small text-muted mb-3" style="height: 40px; overflow: hidden;">
+                        {{ item.description or 'Sem descrição' }}
                     </p>
-                    <p class="card-text small text-muted">
-                        {{ item.created_at.strftime('%d/%m/%Y') }}
-                    </p>
+                    
+                    <div class="d-flex justify-content-between align-items-center mt-auto">
+                        <small class="text-muted">{{ item.created_at.strftime('%d/%m/%y') }}</small>
+                        <div class="btn-group">
+                            {% if item.media_type == 'video' %}
+                            <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#videoModal{{ item.id }}">Ver</button>
+                            {% elif item.media_type == 'pdf' %}
+                            <a href="{{ url_for('static', filename=item.file_path) }}" target="_blank" class="btn btn-sm btn-outline-primary">Abrir</a>
+                            {% endif %}
+                            
+                            {% if pode_gerenciar %}
+                            <button class="btn btn-sm btn-outline-secondary dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown"></button>
+                            <ul class="dropdown-menu dropdown-menu-end">
+                                <li><a class="dropdown-item" href="{{ url_for('edification.edit_media', id=item.id) }}"><i class="bi bi-pencil me-2"></i>Editar</a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item text-danger" href="{{ url_for('edification.delete_media', id=item.id) }}" onclick="return confirm('Excluir esta mídia?');"><i class="bi bi-trash me-2"></i>Excluir</a></li>
+                            </ul>
+                            {% endif %}
+                        </div>
+                    </div>
                 </div>
             </div>
+            
+            <!-- Modal para zoom de imagem (Responsivo) -->
+            {% if item.media_type == 'image' %}
+            <div class="modal fade" id="imageModal{{ item.id }}" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog modal-dialog-centered modal-xl">
+                    <div class="modal-content bg-transparent border-0">
+                        <div class="modal-header border-0 p-0 mb-2">
+                            <h5 class="modal-title text-white">{{ item.title }}</h5>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body p-0 text-center">
+                            <img src="{{ url_for('static', filename=item.file_path) }}" class="img-fluid rounded shadow-lg" style="max-height: 85vh; width: auto;" alt="{{ item.title }}">
+                            {% if item.description %}
+                            <div class="bg-dark bg-opacity-75 text-white p-3 mt-2 rounded">
+                                {{ item.description }}
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Modal para Vídeo -->
+            {% if item.media_type == 'video' %}
+            <div class="modal fade" id="videoModal{{ item.id }}" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog modal-dialog-centered modal-lg">
+                    <div class="modal-content bg-dark border-0">
+                        <div class="modal-header border-0">
+                            <h5 class="modal-title text-white">{{ item.title }}</h5>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body p-0">
+                            <video controls class="w-100">
+                                <source src="{{ url_for('static', filename=item.file_path) }}" type="video/mp4">
+                            </video>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
         </div>
         {% endfor %}
     </div>
     {% else %}
-    <div class="alert alert-info text-center py-5">
-        <i class="bi bi-images display-1 d-block mb-3"></i>
-        Nenhuma mídia encontrada no momento.
-        {% if pode_gerenciar %}
-        <p class="mt-3">Que tal adicionar algumas fotos ou vídeos da igreja?</p>
-        {% endif %}
+    <div class="text-center py-5">
+        <i class="bi bi-images display-1 text-muted opacity-25 d-block mb-3"></i>
+        <h4 class="text-muted">Nenhuma mídia encontrada</h4>
+        <p class="text-muted">Tente ajustar os filtros ou adicione novos conteúdos.</p>
     </div>
     {% endif %}
 </div>
+
+<style>
+.gallery-card {
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+.gallery-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 20px rgba(0,0,0,0.1) !important;
+}
+.gallery-img-container {
+    position: relative;
+    overflow: hidden;
+}
+.gallery-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(79, 70, 229, 0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+.gallery-img-container:hover .gallery-overlay {
+    opacity: 1;
+}
+.x-small {
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+</style>
 {% endblock %}
+
 
 
 ===== ./app/templates/edification/kids.html =====
@@ -2863,6 +3533,161 @@ body {
 
 
 
+===== ./app/templates/finance/add_ministry_transaction.html =====
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container py-5">
+    <h1 class="fw-bold text-primary mb-4">Novo Lançamento - {{ ministry.name }}</h1>
+    
+    <form method="POST">
+        <div class="mb-3">
+            <label for="type" class="form-label">Tipo</label>
+            <select class="form-select" id="type" name="type" required>
+                <option value="income">Receita (arrecadação, oferta, cantina)</option>
+                <option value="expense">Despesa (custo de evento, material)</option>
+                <option value="debt">Põe na conta (adiantamento/dívida)</option>
+            </select>
+        </div>
+        <div class="mb-3">
+            <label for="category" class="form-label">Categoria</label>
+            <input type="text" class="form-control" id="category" name="category" required placeholder="ex: Cantina, Material de Som, Transporte">
+        </div>
+        <div class="mb-3">
+            <label for="amount" class="form-label">Valor (R$)</label>
+            <input type="number" step="0.01" class="form-control" id="amount" name="amount" required>
+        </div>
+        <div class="mb-3">
+            <label for="description" class="form-label">Descrição</label>
+            <textarea class="form-control" id="description" name="description" rows="3"></textarea>
+        </div>
+        <div class="mb-3" id="debt_user_field" style="display:none;">
+            <label for="debt_user_id" class="form-label">Devedor (para Põe na conta)</label>
+            <select class="form-select" id="debt_user_id" name="debt_user_id">
+                <option value="">Selecionar irmão</option>
+                {% for user in potential_debtors %}
+                <option value="{{ user.id }}">{{ user.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <button type="submit" class="btn btn-primary">Lançar</button>
+        <a href="{{ url_for('finance.ministry_finance', ministry_id=ministry.id) }}" class="btn btn-secondary">Cancelar</a>
+    </form>
+</div>
+
+<script>
+document.getElementById('type').addEventListener('change', function() {
+    var debtField = document.getElementById('debt_user_field');
+    if (this.value === 'debt') {
+        debtField.style.display = 'block';
+    } else {
+        debtField.style.display = 'none';
+    }
+});
+</script>
+{% endblock %}
+
+
+===== ./app/templates/finance/add_ministry_tx.html =====
+{% extends "base.html" %}
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body p-5">
+                    <h3 class="fw-bold mb-4">Novo Lançamento: {{ ministry.name }}</h3>
+                    
+                    <form method="POST">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Tipo de Movimentação</label>
+                                <select name="type" class="form-select" required onchange="toggleDebtFields(this.value)">
+                                    <option value="income">Entrada (Arrecadação/Venda)</option>
+                                    <option value="expense">Saída (Gasto/Pagamento)</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Categoria</label>
+                                <select name="category" class="form-select" required>
+                                    <option value="Cantina">Cantina</option>
+                                    <option value="Evento">Evento</option>
+                                    <option value="Doação">Doação</option>
+                                    <option value="Material">Material</option>
+                                    <option value="Outros">Outros</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Valor (R$)</label>
+                                <input type="number" step="0.01" name="amount" class="form-control" placeholder="0.00" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Data</label>
+                                <input type="date" name="date" class="form-control" value="{{ today }}" required>
+                            </div>
+                            
+                            <div class="col-12" id="debt_option_container">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" name="is_debt" id="is_debt" onchange="toggleDebtorSelect(this.checked)">
+                                    <label class="form-check-label fw-bold" for="is_debt">Põe na conta? (Débito pendente)</label>
+                                </div>
+                            </div>
+
+                            <div class="col-12 d-none" id="debtor_container">
+                                <label class="form-label fw-bold">Membro Devedor</label>
+                                <select name="debtor_id" class="form-select">
+                                    <option value="">Selecione o membro...</option>
+                                    {% for member in members %}
+                                    <option value="{{ member.id }}">{{ member.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <div class="col-12">
+                                <label class="form-label fw-bold">Descrição / Observação</label>
+                                <textarea name="description" class="form-control" rows="3" placeholder="Ex: Venda de salgados na cantina..."></textarea>
+                            </div>
+                        </div>
+
+                        <div class="mt-5 d-flex gap-2">
+                            <button type="submit" class="btn btn-primary px-5 fw-bold">Salvar Lançamento</button>
+                            <a href="{{ url_for('finance.ministry_finance', ministry_id=ministry.id) }}" class="btn btn-light px-4">Cancelar</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function toggleDebtFields(type) {
+    const container = document.getElementById('debt_option_container');
+    const debtorContainer = document.getElementById('debtor_container');
+    const isDebtCheckbox = document.getElementById('is_debt');
+    
+    if (type === 'expense') {
+        container.classList.add('d-none');
+        debtorContainer.classList.add('d-none');
+        isDebtCheckbox.checked = false;
+    } else {
+        container.classList.remove('d-none');
+    }
+}
+
+function toggleDebtorSelect(checked) {
+    const container = document.getElementById('debtor_container');
+    if (checked) {
+        container.classList.remove('d-none');
+    } else {
+        container.classList.add('d-none');
+    }
+}
+</script>
+{% endblock %}
+
+
+
 ===== ./app/templates/finance/dashboard.html =====
 {% extends "base.html" %}
 {% block content %}
@@ -2887,7 +3712,7 @@ body {
             <div class="card border-0 shadow-sm bg-success bg-opacity-10">
                 <div class="card-body p-4">
                     <p class="text-success small fw-bold mb-1">TOTAL ENTRADAS</p>
-                    <h3 class="fw-bold text-success mb-0">R$ {{ "%.2f"|format(stats.income) }}</h3>
+                    <h3 class="fw-bold text-success mb-0">{{ current_user.church.currency_symbol if current_user.church else 'R$' }} {{ "%.2f"|format(stats.income) }}</h3>
                 </div>
             </div>
         </div>
@@ -2895,7 +3720,7 @@ body {
             <div class="card border-0 shadow-sm bg-danger bg-opacity-10">
                 <div class="card-body p-4">
                     <p class="text-danger small fw-bold mb-1">TOTAL SAÍDAS</p>
-                    <h3 class="fw-bold text-danger mb-0">R$ {{ "%.2f"|format(stats.expense) }}</h3>
+                    <h3 class="fw-bold text-danger mb-0">{{ current_user.church.currency_symbol if current_user.church else 'R$' }} {{ "%.2f"|format(stats.expense) }}</h3>
                 </div>
             </div>
         </div>
@@ -2903,7 +3728,7 @@ body {
             <div class="card border-0 shadow-sm bg-primary bg-opacity-10">
                 <div class="card-body p-4">
                     <p class="text-primary small fw-bold mb-1">SALDO ATUAL</p>
-                    <h3 class="fw-bold text-primary mb-0">R$ {{ "%.2f"|format(stats.balance) }}</h3>
+                    <h3 class="fw-bold text-primary mb-0">{{ current_user.church.currency_symbol if current_user.church else 'R$' }} {{ "%.2f"|format(stats.balance) }}</h3>
                 </div>
             </div>
         </div>
@@ -2938,7 +3763,7 @@ body {
                                         <div class="small text-muted mt-1">{{ tx.description or '-' }}</div>
                                     </td>
                                     <td class="text-end fw-bold {{ 'text-success' if tx.type == 'income' else 'text-danger' }}">
-                                        {{ '+' if tx.type == 'income' else '-' }} R$ {{ "%.2f"|format(tx.amount) }}
+                                        {{ '+' if tx.type == 'income' else '-' }} {{ tx.church.currency_symbol if tx.church else 'R$' }} {{ "%.2f"|format(tx.amount) }}
                                     </td>
                                     <td class="px-4 text-center">
                                         {% if tx.user_id %}
@@ -2981,7 +3806,7 @@ body {
                             <small class="text-muted">{{ asset.category }} | {{ asset.identifier or 'S/N' }}</small>
                         </div>
                         <div class="text-end">
-                            <div class="fw-bold">R$ {{ "%.2f"|format(asset.value) }}</div>
+                            <div class="fw-bold">{{ asset.church.currency_symbol if asset.church else 'R$' }} {{ "%.2f"|format(asset.value) }}</div>
                             <a href="{{ url_for('finance.add_maintenance', id=asset.id) }}" class="small text-primary text-decoration-none">Manutenção</a>
                         </div>
                     </div>
@@ -2989,6 +3814,212 @@ body {
                     <p class="text-center text-muted py-4">Nenhum bem cadastrado.</p>
                     {% endfor %}
                 </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+
+
+===== ./app/templates/finance/member_finance.html =====
+{% extends "base.html" %}
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="fw-bold">Minhas Contribuições</h2>
+    </div>
+
+    <div class="row g-4">
+        <!-- Recibos de Dízimos e Ofertas -->
+        <div class="col-lg-8">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-transparent border-0 p-4 pb-0">
+                    <h5 class="fw-bold mb-0">Histórico de Contribuições</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="bg-light">
+                                <tr>
+                                    <th class="px-4 py-3">Data</th>
+                                    <th class="py-3">Categoria</th>
+                                    <th class="py-3 text-end">Valor</th>
+                                    <th class="px-4 py-3 text-center">Recibo</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for tx in transactions %}
+                                <tr>
+                                    <td class="px-4">{{ tx.date.strftime('%d/%m/%Y') }}</td>
+                                    <td>
+                                        <span class="badge bg-success bg-opacity-10 text-success px-3 py-2">
+                                            {{ tx.category.capitalize() }}
+                                        </span>
+                                    </td>
+                                    <td class="text-end fw-bold text-success">
+                                        {{ tx.church.currency_symbol if tx.church else 'R$' }} {{ "%.2f"|format(tx.amount) }}
+                                    </td>
+                                    <td class="px-4 text-center">
+                                        <a href="{{ url_for('finance.download_receipt', tx_id=tx.id) }}" class="btn btn-sm btn-outline-primary rounded-pill px-3">
+                                            <i class="bi bi-download me-1"></i> PDF
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="4" class="text-center py-5 text-muted">
+                                        <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                                        Nenhuma contribuição registrada.
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Débitos Pendentes ("Põe na conta") -->
+        <div class="col-lg-4">
+            <div class="card border-0 shadow-sm border-start border-warning border-4">
+                <div class="card-header bg-transparent border-0 p-4 pb-0">
+                    <h5 class="fw-bold mb-0 text-warning">Pendências ("Põe na conta")</h5>
+                </div>
+                <div class="card-body p-4">
+                    {% for debt in debts %}
+                    <div class="d-flex justify-content-between align-items-center mb-3 pb-3 border-bottom">
+                        <div>
+                            <h6 class="fw-bold mb-0">{{ debt.category }}</h6>
+                            <small class="text-muted">{{ debt.ministry.name }} | {{ debt.date.strftime('%d/%m/%Y') }}</small>
+                        </div>
+                        <div class="text-end">
+                            <div class="fw-bold text-danger">{{ debt.ministry.church.currency_symbol if debt.ministry and debt.ministry.church else 'R$' }} {{ "%.2f"|format(debt.amount) }}</div>
+                            <span class="badge bg-warning text-dark small">Pendente</span>
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4">
+                        <i class="bi bi-check-circle text-success fs-1 d-block mb-2"></i>
+                        <p class="text-muted mb-0">Você não possui pendências financeiras.</p>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+
+
+===== ./app/templates/finance/ministry_finance.html =====
+{% extends "base.html" %}
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold mb-0">Financeiro: {{ ministry.name }}</h2>
+            <p class="text-muted">Gestão de arrecadações, cantinas e gastos do ministério.</p>
+        </div>
+        <a href="{{ url_for('finance.add_ministry_transaction', ministry_id=ministry.id) }}" class="btn btn-primary">
+            <i class="bi bi-plus-lg me-2"></i> Novo Lançamento
+        </a>
+    </div>
+
+    <!-- Estatísticas -->
+    <div class="row g-4 mb-5">
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm bg-success bg-opacity-10">
+                <div class="card-body p-4">
+                    <p class="text-success small fw-bold mb-1">ENTRADAS PAGAS</p>
+                    <h3 class="fw-bold text-success mb-0">{{ ministry.church.currency_symbol if ministry.church else 'R$' }} {{ "%.2f"|format(stats.income) }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm bg-danger bg-opacity-10">
+                <div class="card-body p-4">
+                    <p class="text-danger small fw-bold mb-1">TOTAL GASTOS</p>
+                    <h3 class="fw-bold text-danger mb-0">{{ ministry.church.currency_symbol if ministry.church else 'R$' }} {{ "%.2f"|format(stats.expense) }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm bg-warning bg-opacity-10">
+                <div class="card-body p-4">
+                    <p class="text-warning small fw-bold mb-1">PENDÊNCIAS (DÉBITOS)</p>
+                    <h3 class="fw-bold text-warning mb-0">{{ ministry.church.currency_symbol if ministry.church else 'R$' }} {{ "%.2f"|format(stats.pending_debts) }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm bg-primary bg-opacity-10">
+                <div class="card-body p-4">
+                    <p class="text-primary small fw-bold mb-1">SALDO EM CAIXA</p>
+                    <h3 class="fw-bold text-primary mb-0">{{ ministry.church.currency_symbol if ministry.church else 'R$' }} {{ "%.2f"|format(stats.balance) }}</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm">
+        <div class="card-header bg-transparent border-0 p-4 pb-0">
+            <h5 class="fw-bold mb-0">Histórico de Movimentações</h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="bg-light">
+                        <tr>
+                            <th class="px-4 py-3">Data</th>
+                            <th class="py-3">Tipo/Categoria</th>
+                            <th class="py-3">Descrição</th>
+                            <th class="py-3 text-end">Valor</th>
+                            <th class="px-4 py-3 text-center">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for tx in transactions %}
+                        <tr>
+                            <td class="px-4">{{ tx.date.strftime('%d/%m/%Y') }}</td>
+                            <td>
+                                <span class="badge bg-{{ 'success' if tx.type == 'income' else 'danger' }} bg-opacity-10 text-{{ 'success' if tx.type == 'income' else 'danger' }} px-3 py-2">
+                                    {{ tx.category }}
+                                </span>
+                            </td>
+                            <td>
+                                {{ tx.description or '-' }}
+                                {% if tx.is_debt %}
+                                <div class="small text-muted">Devedor: <strong>{{ tx.debtor.name }}</strong></div>
+                                {% endif %}
+                            </td>
+                            <td class="text-end fw-bold {{ 'text-success' if tx.type == 'income' else 'text-danger' }}">
+                                {{ '+' if tx.type == 'income' else '-' }} {{ ministry.church.currency_symbol if ministry.church else 'R$' }} {{ "%.2f"|format(tx.amount) }}
+                            </td>
+                            <td class="px-4 text-center">
+                                {% if tx.is_debt and not tx.is_paid %}
+                                <a href="{{ url_for('finance.pay_debt', tx_id=tx.id) }}" class="btn btn-sm btn-warning rounded-pill px-3">
+                                    Marcar Pago
+                                </a>
+                                {% elif tx.is_debt and tx.is_paid %}
+                                <span class="badge bg-success rounded-pill px-3">Pago</span>
+                                {% else %}
+                                <span class="text-muted small">-</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="5" class="text-center py-5 text-muted">
+                                <i class="bi bi-cash fs-1 d-block mb-2"></i>
+                                Nenhuma movimentação registrada para este ministério.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>
@@ -3068,103 +4099,109 @@ body {
 ===== ./app/templates/index.html =====
 {% extends "base.html" %}
 {% block content %}
-<div class="row align-items-center min-vh-75">
-    <div class="col-lg-6">
-        <span class="badge bg-primary bg-opacity-10 text-primary px-3 py-2 mb-3 fw-bold">Gestão Eclesiástica 2026</span>
-        <h1 class="display-3 fw-bold mb-4">Ecclesia <span class="text-primary">Master</span></h1>
-        <p class="lead text-muted mb-5">Uma plataforma completa e moderna para a gestão da sua igreja, congregações e ministérios. Focada em edificação, transparência e comunhão.</p>
-        
-        {% if not current_user.is_authenticated %}
-        <p class="text-muted mb-3 fw-bold">Novo aqui? Solicite seu cadastro ou faça login para acessar o painel.</p>
-        {% endif %}
-        
-        <div class="d-flex gap-3">
+<div class="container py-5">
+    <!-- Hero Section -->
+    <div class="row align-items-center mb-5">
+        <div class="col-lg-6 mb-4 mb-lg-0">
+            <span class="badge bg-primary bg-opacity-10 text-primary px-3 py-2 mb-3 fw-bold">Gestão Eclesiástica 2026</span>
+            <h1 class="display-3 fw-bold mb-4">Ecclesia <span class="text-primary">Master</span></h1>
+            <p class="lead text-muted mb-5">Uma plataforma completa e moderna para a gestão da sua igreja, congregações e ministérios. Focada em edificação, transparência e comunhão.</p>
+            
             {% if not current_user.is_authenticated %}
-            <a href="{{ url_for('auth.login') }}" class="btn btn-primary btn-lg px-5 py-3 fw-bold shadow">Entrar no Sistema</a>
-            <a href="{{ url_for('auth.register') }}" class="btn btn-outline-primary btn-lg px-5 py-3 fw-bold">Solicitar Cadastro</a>
-            {% else %}
-            <a href="{{ url_for('members.dashboard') }}" class="btn btn-primary btn-lg px-5 py-3 fw-bold shadow">Ir para o Painel</a>
+            <p class="text-muted mb-3 fw-bold">Novo aqui? Solicite seu cadastro ou faça login para acessar o painel.</p>
             {% endif %}
-        </div>
-    </div>
-    <div class="col-lg-6 d-none d-lg-block">
-        <div class="position-relative">
-            <div class="bg-primary bg-opacity-10 rounded-4 p-5">
-                <i class="bi bi-lightning-charge-fill text-primary display-1"></i>
-                <div class="mt-4">
-                    <h4 class="fw-bold">Multi-Congregação</h4>
-                    <p class="text-muted">Gerencie todas as suas filiais em um único lugar com relatórios consolidados.</p>
-                </div>
+            
+            <div class="d-flex flex-wrap gap-3">
+                {% if not current_user.is_authenticated %}
+                <a href="{{ url_for('auth.login') }}" class="btn btn-primary btn-lg px-5 py-3 fw-bold shadow">Entrar no Sistema</a>
+                <a href="{{ url_for('auth.register') }}" class="btn btn-outline-primary btn-lg px-5 py-3 fw-bold">Solicitar Cadastro</a>
+                {% else %}
+                <a href="{{ url_for('members.dashboard') }}" class="btn btn-primary btn-lg px-5 py-3 fw-bold shadow">Ir para o Painel</a>
+                {% endif %}
             </div>
         </div>
-    </div>
-</div>
-
-<!-- Nova seção: Eventos Públicos (cultos padrões, sem login) -->
-<div class="row justify-content-center mb-5">
-    <div class="col-lg-8">
-        <div class="card border-0 shadow-sm p-4">
-            <h4 class="fw-bold mb-4"><i class="bi bi-calendar-event me-2 text-primary"></i>Próximos Eventos e Cultos</h4>
-            <div class="list-group list-group-flush">
-                {% for event in public_events %}
-                <div class="list-group-item px-0 py-3 border-0 border-bottom">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <h6 class="fw-bold mb-1">{{ event.title }}</h6>
-                            <small class="text-muted">
-                                <i class="bi bi-clock me-1"></i> {{ event.start_time.strftime('%d/%m %H:%M') }}
-                                {% if event.recurrence != 'none' %}
-                                <span class="badge bg-warning bg-opacity-10 text-warning ms-2">{{ event.recurrence|capitalize }}</span>
-                                {% endif %}
-                                <span class="badge bg-secondary bg-opacity-10 text-secondary ms-2">Geral</span>
-                            </small>
-                        </div>
-                        <div class="text-end">
-                            <small class="d-block text-muted"><i class="bi bi-geo-alt"></i> {{ event.location }}</small>
-                        </div>
+        <div class="col-lg-6 d-none d-lg-block">
+            <div class="position-relative">
+                <div class="bg-primary bg-opacity-10 rounded-4 p-5 text-center">
+                    <i class="bi bi-lightning-charge-fill text-primary display-1"></i>
+                    <div class="mt-4">
+                        <h4 class="fw-bold">Multi-Congregação</h4>
+                        <p class="text-muted">Gerencie todas as suas filiais em um único lugar com relatórios consolidados.</p>
                     </div>
                 </div>
-                {% else %}
-                <p class="text-muted">Nenhum evento público agendado no momento.</p>
-                {% endfor %}
             </div>
         </div>
     </div>
-</div>
 
-<!-- Slides com midias públicas -->
+    <!-- Slides com midias públicas -->
     {% if public_media %}
-    <div class="carousel slide mb-4" data-bs-ride="carousel">
-        <div class="carousel-inner">
-            {% for media in public_media %}
-            <div class="carousel-item {{ 'active' if loop.first }}">
-                <img src="{{ url_for('static', filename=media.file_path) }}" class="d-block w-100" alt="{{ media.title }}" style="height: 400px; object-fit: cover;">
-                <div class="carousel-caption d-none d-md-block">
-                    <h5>{{ media.title }}</h5>
-                    <p>{{ media.description | truncate(50) }}</p>
+    <div class="row mb-5">
+        <div class="col-12">
+            <div id="publicCarousel" class="carousel slide shadow-sm rounded-4 overflow-hidden" data-bs-ride="carousel">
+                <div class="carousel-inner">
+                    {% for media in public_media %}
+                    <div class="carousel-item {{ 'active' if loop.first }}">
+                        <img src="{{ url_for('static', filename=media.file_path) }}" class="d-block w-100" alt="{{ media.title }}" style="height: 450px; object-fit: cover;">
+                        <div class="carousel-caption d-none d-md-block bg-dark bg-opacity-50 rounded-3 p-3">
+                            <h5 class="fw-bold">{{ media.title }}</h5>
+                            <p>{{ media.description | truncate(100) }}</p>
+                        </div>
+                    </div>
+                    {% endfor %}
                 </div>
+                <button class="carousel-control-prev" type="button" data-bs-target="#publicCarousel" data-bs-slide="prev">
+                    <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                    <span class="visually-hidden">Anterior</span>
+                </button>
+                <button class="carousel-control-next" type="button" data-bs-target="#publicCarousel" data-bs-slide="next">
+                    <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                    <span class="visually-hidden">Próximo</span>
+                </button>
             </div>
-            {% endfor %}
         </div>
-        <button class="carousel-control-prev" type="button" data-bs-target="#carouselExample" data-bs-slide="prev">
-            <span class="carousel-control-prev-icon" aria-hidden="true"></span>
-            <span class="visually-hidden">Previous</span>
-        </button>
-        <button class="carousel-control-next" type="button" data-bs-target="#carouselExample" data-bs-slide="next">
-            <span class="carousel-control-next-icon" aria-hidden="true"></span>
-            <span class="visually-hidden">Next</span>
-        </button>
-    </div>
-    {% else %}
-    <div class="alert alert-info">
-        Nenhuma mídia pública disponível no momento.
     </div>
     {% endif %}
 
-    <a href="{{ url_for('auth.login') }}" class="btn btn-primary">Login</a>
-    <a href="{{ url_for('auth.register') }}" class="btn btn-secondary">Registrar</a>
+    <!-- Eventos Públicos -->
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <div class="card border-0 shadow-sm p-4">
+                <h4 class="fw-bold mb-4"><i class="bi bi-calendar-event me-2 text-primary"></i>Próximos Eventos e Cultos</h4>
+                <div class="list-group list-group-flush">
+                    {% for event in public_events %}
+                    <div class="list-group-item px-0 py-3 border-0 border-bottom">
+                        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                            <div>
+                                <h6 class="fw-bold mb-1">{{ event.title }}</h6>
+                                <small class="text-muted">
+                                    <i class="bi bi-clock me-1"></i> {{ event.start_time.strftime('%d/%m %H:%M') }}
+                                    {% if event.recurrence != 'none' %}
+                                    <span class="badge bg-warning bg-opacity-10 text-warning ms-2">{{ event.recurrence|capitalize }}</span>
+                                    {% endif %}
+                                    <span class="badge bg-secondary bg-opacity-10 text-secondary ms-2">Geral</span>
+                                </small>
+                            </div>
+                            <div class="text-lg-end">
+                                <small class="d-block text-muted"><i class="bi bi-geo-alt me-1"></i> {{ event.location }}</small>
+                                {% if event.church %}
+                                <small class="d-block text-primary small fw-bold">{{ event.church.name }}</small>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4">
+                        <i class="bi bi-calendar-x fs-1 text-muted d-block mb-2"></i>
+                        <p class="text-muted mb-0">Nenhum evento público agendado no momento.</p>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 {% endblock %}
+
 
 
 ===== ./app/templates/members/add_event.html =====
@@ -3576,6 +4613,55 @@ body {
 {% endblock %}
 
 
+===== ./app/templates/members/edit_profile.html =====
+<!-- Arquivo completo: app/templates/members/edit_profile.html (form para usuário editar seu perfil) -->
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container py-5">
+    <h1 class="fw-bold text-primary mb-4">Editar Perfil</h1>
+    
+    <form method="POST" enctype="multipart/form-data">
+        <div class="mb-3">
+            <label for="name" class="form-label">Nome</label>
+            <input type="text" class="form-control" id="name" name="name" value="{{ current_user.name }}" required>
+        </div>
+        <div class="mb-3">
+            <label for="birth_date" class="form-label">Data de Nascimento</label>
+            <input type="date" class="form-control" id="birth_date" name="birth_date" value="{{ current_user.birth_date.strftime('%Y-%m-%d') if current_user.birth_date else '' }}">
+        </div>
+        <div class="mb-3">
+            <label for="gender" class="form-label">Gênero</label>
+            <select class="form-select" id="gender" name="gender">
+                <option value="">Selecionar</option>
+                <option value="Masculino" {{ 'selected' if current_user.gender == 'Masculino' }}>Masculino</option>
+                <option value="Feminino" {{ 'selected' if current_user.gender == 'Feminino' }}>Feminino</option>
+                <option value="Outro" {{ 'selected' if current_user.gender == 'Outro' }}>Outro</option>
+            </select>
+        </div>
+        <div class="mb-3">
+            <label for="documents" class="form-label">Documentos</label>
+            <input type="text" class="form-control" id="documents" name="documents" value="{{ current_user.documents }}">
+        </div>
+        <div class="mb-3">
+            <label for="address" class="form-label">Endereço</label>
+            <textarea class="form-control" id="address" name="address" rows="3">{{ current_user.address }}</textarea>
+        </div>
+        <div class="mb-3">
+            <label for="phone" class="form-label">Telefone</label>
+            <input type="tel" class="form-control" id="phone" name="phone" value="{{ current_user.phone }}">
+        </div>
+        <div class="mb-3">
+            <label for="profile_photo" class="form-label">Foto de Perfil (atual: {{ current_user.profile_photo if current_user.profile_photo else 'Nenhuma' }})</label>
+            <input type="file" class="form-control" id="profile_photo" name="profile_photo" accept="image/*">
+        </div>
+        <button type="submit" class="btn btn-primary">Salvar Alterações</button>
+        <a href="{{ url_for('members.profile') }}" class="btn btn-secondary">Cancelar</a>
+    </form>
+</div>
+{% endblock %}
+
+
 ===== ./app/templates/members/ministries.html =====
 {% extends "base.html" %}
 {% block content %}
@@ -3716,115 +4802,80 @@ body {
 
 
 ===== ./app/templates/members/ministry_manage_members.html =====
+<!-- Arquivo completo: app/templates/members/ministry_manage_members.html (adicionando endereço e phone para líderes) -->
 {% extends "base.html" %}
+
 {% block content %}
 <div class="container py-4">
-    <div class="d-flex justify-content-between align-items-center mb-5">
-        <div>
-            <h1 class="fw-bold text-primary"><i class="bi bi-people-fill me-2"></i>Gerenciar Membros - {{ ministry.name }}</h1>
-            <p class="text-muted">Adicione ou remova membros deste ministério (apenas da mesma congregação).</p>
-        </div>
-        <a href="{{ url_for('members.my_led_ministries') }}" class="btn btn-outline-secondary">
-            <i class="bi bi-arrow-left me-1"></i> Voltar aos Meus Ministérios
-        </a>
-    </div>
-
-    <!-- Estatísticas -->
-    <div class="row g-4 mb-5">
-        <div class="col-md-4">
-            <div class="card border-0 shadow-sm text-center p-4">
-                <h5 class="fw-bold mb-1">Total de Membros</h5>
-                <h2 class="display-5 fw-bold text-primary">{{ total_members }}</h2>
+    <h1 class="fw-bold text-primary mb-4">Gerenciar Membros do Ministério: {{ ministry.name }}</h1>
+    
+    <a href="{{ url_for('members.my_led_ministries') }}" class="btn btn-outline-secondary mb-3">
+        ← Voltar para Meus Ministérios Liderados
+    </a>
+    
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <h5>Estatísticas</h5>
+                    <p>Total de Membros: {{ total_members }}</p>
+                    <p>Distribuição por Gênero:</p>
+                    <ul>
+                        {% for gender, count in gender_count %}
+                        <li>{{ gender or 'Não informado' }}: {{ count }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
             </div>
         </div>
-        <div class="col-md-8">
-            <div class="card border-0 shadow-sm p-4">
-                <h5 class="fw-bold mb-3">Distribuição por Gênero</h5>
-                <div class="row g-3">
-                    {% for gender, count in gender_count %}
-                    <div class="col-md-4">
-                        <div class="border rounded p-3 text-center">
-                            <h6 class="mb-1">{{ gender or 'Não informado' }}</h6>
-                            <h5 class="fw-bold">{{ count }}</h5>
-                        </div>
-                    </div>
-                    {% endfor %}
-                    {% if gender_count|length == 0 %}
-                    <div class="col-12 text-center text-muted py-3">
-                        Ainda não há membros neste ministério.
-                    </div>
+    </div>
+    
+    <h5 class="mb-3">Membros Atuais</h5>
+    <div class="table-responsive mb-4">
+        <table class="table table-hover">
+            <thead>
+                <tr>
+                    <th>Nome</th>
+                    <th>E-mail</th>
+                    {% if is_leader %}
+                    <th>Endereço</th>
+                    <th>Telefone</th>
                     {% endif %}
-                </div>
-            </div>
-        </div>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for member in current_members %}
+                <tr>
+                    <td>{{ member.name }}</td>
+                    <td>{{ member.email }}</td>
+                    {% if is_leader %}
+                    <td>{{ member.address or 'Não informado' }}</td>
+                    <td>{{ member.phone or 'Não informado' }}</td>
+                    {% endif %}
+                    <td>
+                        <form method="POST" action="{{ url_for('members.ministry_remove_member', ministry_id=ministry.id, user_id=member.id) }}">
+                            <button type="submit" class="btn btn-sm btn-danger">Remover</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
-
-    <!-- Membros atuais -->
-    <div class="card border-0 shadow-sm mb-5">
-        <div class="card-header bg-light">
-            <h5 class="mb-0">Membros Atuais</h5>
+    
+    <h5 class="mb-3">Adicionar Membro</h5>
+    <form method="POST" action="{{ url_for('members.ministry_add_member', ministry_id=ministry.id) }}">
+        <div class="input-group">
+            <select name="user_id" class="form-select">
+                <option value="">Selecionar Membro</option>
+                {% for member in available_members %}
+                <option value="{{ member.id }}">{{ member.name }}</option>
+                {% endfor %}
+            </select>
+            <button type="submit" class="btn btn-primary">Adicionar</button>
         </div>
-        <div class="card-body p-0">
-            <div class="table-responsive">
-                <table class="table table-hover mb-0">
-                    <thead class="bg-light">
-                        <tr>
-                            <th>Nome</th>
-                            <th>Cargo</th>
-                            <th class="text-end">Ações</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for member in current_members %}
-                        <tr>
-                            <td class="fw-bold">{{ member.name }}</td>
-                            <td>{{ member.church_role.name if member.church_role else 'Sem cargo' }}</td>
-                            <td class="text-end">
-                                <a href="{{ url_for('members.ministry_remove_member', ministry_id=ministry.id, user_id=member.id) }}" 
-                                   class="btn btn-sm btn-outline-danger" 
-                                   onclick="return confirm('Tem certeza que deseja remover {{ member.name }} deste ministério?');">
-                                    <i class="bi bi-trash me-1"></i> Remover
-                                </a>
-                            </td>
-                        </tr>
-                        {% else %}
-                        <tr>
-                            <td colspan="3" class="text-center py-5 text-muted">
-                                <i class="bi bi-people fs-1 d-block mb-2"></i>
-                                Nenhum membro associado ainda.
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-
-    <!-- Form para adicionar membro -->
-    <div class="card border-0 shadow-sm">
-        <div class="card-header bg-light">
-            <h5 class="mb-0">Adicionar Membro ao Ministério</h5>
-        </div>
-        <div class="card-body">
-            <form method="POST" action="{{ url_for('members.ministry_add_member', ministry_id=ministry.id) }}">
-                <div class="mb-3">
-                    <label class="form-label small fw-bold">Selecione um membro da congregação</label>
-                    <select name="user_id" class="form-select bg-light border-0" required>
-                        <option value="">-- Escolha um membro --</option>
-                        {% for member in available_members %}
-                        <option value="{{ member.id }}">{{ member.name }} {% if member.church_role %}({{ member.church_role.name }}){% endif %}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div class="d-grid">
-                    <button type="submit" class="btn btn-success btn-lg py-3 fw-bold">
-                        <i class="bi bi-plus-circle me-2"></i> Adicionar ao Ministério
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
+    </form>
 </div>
 {% endblock %}
 
@@ -3925,6 +4976,9 @@ body {
                         <a href="{{ url_for('members.ministry_manage_members', ministry_id=ministry.id) }}" class="btn btn-outline-primary">
                             <i class="bi bi-people me-1"></i> Gerenciar Membros
                         </a>
+                        <a href="{{ url_for('finance.ministry_finance', ministry_id=ministry.id) }}" class="btn btn-outline-success">
+                            <i class="bi bi-cash-coin me-1"></i> Financeiro do Grupo
+                        </a>
                         <a href="{{ url_for('members.ministry_agenda', ministry_id=ministry.id) }}" class="btn btn-outline-info">
                             <i class="bi bi-calendar-event me-1"></i> Agenda do Ministério
                         </a>
@@ -3945,63 +4999,31 @@ body {
 
 ===== ./app/templates/members/profile.html =====
 {% extends "base.html" %}
+
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-lg-8">
-        <div class="card border-0 shadow-sm p-4 p-md-5">
-            <div class="text-center mb-4">
-                <div class="d-inline-block bg-primary bg-opacity-10 rounded-circle p-4 mb-3">
-                    <i class="bi bi-person-fill text-primary fs-1"></i>
-                </div>
-                <h2 class="fw-bold">{{ current_user.name }}</h2>
-                <span class="badge bg-primary px-3 py-2">{{ current_user.church_role.name if current_user.church_role else 'Sem cargo' }}</span>
-            </div>
-
-            <hr class="my-4 opacity-25">
-
-            <div class="row g-4">
-                <div class="col-md-6">
-                    <label class="form-label small fw-bold text-muted">E-MAIL</label>
-                    <p class="fs-5">{{ current_user.email }}</p>
-                </div>
-                <div class="col-md-6">
-                    <label class="form-label small fw-bold text-muted">TELEFONE</label>
-                    <p class="fs-5">{{ current_user.phone or 'Não informado' }}</p>
-                </div>
-                <div class="col-md-6">
-                    <label class="form-label small fw-bold text-muted">DATA DE NASCIMENTO</label>
-                    <p class="fs-5">{{ current_user.birth_date.strftime('%d/%m/%Y') if current_user.birth_date else 'Não informado' }}</p>
-                </div>
-                <div class="col-md-6">
-                    <label class="form-label small fw-bold text-muted">CONGREGAÇÃO</label>
-                    <p class="fs-5">{{ current_user.church.name if current_user.church else 'Não vinculada' }}</p>
-                </div>
-                <div class="col-12">
-                    <label class="form-label small fw-bold text-muted">ENDEREÇO</label>
-                    <p class="fs-5">{{ current_user.address or 'Não informado' }}</p>
-                </div>
-                <div class="col-12">
-                    <label class="form-label small fw-bold text-muted">DOCUMENTOS</label>
-                    <p class="fs-5">{{ current_user.documents or 'Não informado' }}</p>
-                </div>
-            </div>
-
-            <div class="mt-4 d-flex gap-2">
-                <a href="{{ url_for('auth.change_password') }}" class="btn btn-outline-primary btn-sm">
-                    <i class="bi bi-key me-1"></i> Alterar Minha Senha
-                </a>
-            </div>
-
-            <div class="mt-5 pt-4 border-top">
-                <h5 class="fw-bold mb-3">Meus Ministérios</h5>
-                <div class="d-flex flex-wrap gap-2">
-                    {% for ministry in current_user.ministries %}
-                    <span class="badge bg-info bg-opacity-10 text-info px-3 py-2">{{ ministry.name }}</span>
-                    {% else %}
-                    <p class="text-muted small">Você ainda não faz parte de nenhum ministério.</p>
-                    {% endfor %}
-                </div>
-            </div>
+<div class="container py-5">
+    <h1 class="fw-bold text-primary mb-4">Perfil</h1>
+    
+    <div class="card shadow-sm">
+        <div class="card-body">
+            {% if current_user.profile_photo %}
+            <img src="{{ url_for('static', filename=current_user.profile_photo) }}" alt="Foto de Perfil" class="rounded-circle mb-3" style="width: 150px; height: 150px; object-fit: cover;">
+            {% else %}
+            <i class="bi bi-person-circle display-1 mb-3"></i>
+            {% endif %}
+            <h5>{{ current_user.name }}</h5>
+            <p class="text-muted">{{ current_user.email }}</p>
+            <p>Data de Nascimento: {{ current_user.birth_date.strftime('%d/%m/%Y') if current_user.birth_date else 'Não informado' }}</p>
+            <p>Gênero: {{ current_user.gender or 'Não informado' }}</p>
+            <p>Documentos: {{ current_user.documents or 'Não informado' }}</p>
+            <p>Endereço: {{ current_user.address or 'Não informado' }}</p>
+            <p>Telefone: {{ current_user.phone or 'Não informado' }}</p>
+            <p>Congregação: {{ current_user.church.name if current_user.church else 'Não associado' }}</p>
+            <p>Cargo: {{ current_user.church_role.name if current_user.church_role else 'Nenhum' }}</p>
+            <p>Status: {{ current_user.status|capitalize }}</p>
+            
+            <a href="{{ url_for('members.edit_profile') }}" class="btn btn-primary mt-3">Editar Perfil</a>
+            <a href="{{ url_for('auth.change_password') }}" class="btn btn-secondary mt-3">Alterar Senha</a>
         </div>
     </div>
 </div>
@@ -10679,7 +11701,7 @@ if __name__ == '__main__':
 
 ===== ./seed.py =====
 from app import create_app
-from app.core.models import db, User, Church, Devotional, Study, Transaction, Ministry, Family, ChurchRole, Asset
+from app.core.models import db, User, Church, Devotional, Study, Transaction, Ministry, Family, ChurchRole, Asset, MinistryTransaction
 from datetime import datetime
 
 app = create_app()
@@ -10695,15 +11717,17 @@ with app.app_context():
         address="Rua Principal, 123",
         city="São Paulo",
         country="Brasil",
+        currency_symbol="R$",
         is_main=True
     )
-    filial1 = Church(
-        name="AD Jesus para as Nações - Filial Norte",
-        address="Av. Norte, 456",
-        city="São Paulo",
-        country="Brasil"
+    filial_pt = Church(
+        name="AD Jesus para as Nações - Lisboa",
+        address="Av. da Liberdade, 456",
+        city="Lisboa",
+        country="Portugal",
+        currency_symbol="€"
     )
-    db.session.add_all([sede, filial1])
+    db.session.add_all([sede, filial_pt])
     db.session.commit()
 
     # 2. Criar cargos para cada igreja
@@ -10779,12 +11803,17 @@ with app.app_context():
     dev = Devotional(title="Firmeza na Rocha", content="O Senhor é o meu pastor...", verse="Salmos 23:1")
     db.session.add_all([estudo, dev])
     
-    # 6. Financeiro
+    # 6. Financeiro Geral
     tx1 = Transaction(type='income', category='Dízimo', amount=500.0, description='Dízimo Mensal', user_id=membro_sede.id, church_id=sede.id)
     tx2 = Transaction(type='expense', category='Energia', amount=150.0, description='Conta de Luz', church_id=sede.id)
     db.session.add_all([tx1, tx2])
 
-    # 7. Patrimônio
+    # 7. Financeiro de Ministério e Débitos
+    mtx1 = MinistryTransaction(ministry_id=louvor.id, type='income', category='Cantina', amount=50.0, description='Venda de bolos', is_paid=True)
+    mtx2 = MinistryTransaction(ministry_id=louvor.id, type='income', category='Cantina', amount=15.0, description='Salgado pendente', is_debt=True, debtor_id=membro_sede.id, is_paid=False)
+    db.session.add_all([mtx1, mtx2])
+
+    # 8. Patrimônio
     som = Asset(name="Mesa de Som", category="Equipamento", identifier="SN-12345", value=2500.0, church_id=sede.id)
     db.session.add(som)
 

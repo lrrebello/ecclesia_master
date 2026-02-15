@@ -161,7 +161,7 @@ def add_kids_activity():
         flash('Atividade infantil adicionada!', 'success')
         return redirect(url_for('edification.kids'))
     
-    return render_template('edification/add_kids_activity.html')
+    return render_template('edification/add_kids.html')
 
 @edification_bp.route('/gallery')
 @login_required
@@ -183,7 +183,15 @@ def gallery():
     media_items = query.order_by(Media.created_at.desc()).all()
     ministries = Ministry.query.filter_by(church_id=current_user.church_id).all()
     
-    return render_template('edification/gallery.html', media_items=media_items, ministries=ministries)
+    # Agrupar por evento para exibição organizada
+    events_grouped = {}
+    for item in media_items:
+        evt = item.event_name or "Geral / Outros"
+        if evt not in events_grouped:
+            events_grouped[evt] = []
+        events_grouped[evt].append(item)
+    
+    return render_template('edification/gallery.html', events_grouped=events_grouped, ministries=ministries)
 
 @edification_bp.route('/upload_media', methods=['GET', 'POST'])
 @login_required
@@ -198,54 +206,65 @@ def upload_media():
         title = request.form.get('title')
         description = request.form.get('description')
         ministry_id = request.form.get('ministry_id')
-        file = request.files.get('file')
+        files = request.files.getlist('file')
         
-        if not file:
+        if not files or not files[0].filename:
             flash('Nenhum arquivo selecionado.', 'danger')
             return redirect(request.url)
         
-        filename = secure_filename(file.filename)
-        file_ext = os.path.splitext(filename)[1].lower()
-        
-        if file_ext == '.heic':
-            try:
-                img = Image.open(file)
-                new_filename = filename.replace('.heic', '.jpg', 1)
-                full_path = os.path.join(current_app.config['UPLOAD_FOLDER'], 'media', new_filename)
-                os.makedirs(os.path.dirname(full_path), exist_ok=True)
-                img.convert('RGB').save(full_path, 'JPEG', quality=95)
-                file_path = 'uploads/media/' + new_filename
-                media_type = 'image'
-            except Exception as e:
-                flash(f'Erro ao converter HEIC: {str(e)}', 'danger')
-                return redirect(request.url)
-        else:
-            full_path = os.path.join(current_app.config['UPLOAD_FOLDER'], 'media', filename)
-            os.makedirs(os.path.dirname(full_path), exist_ok=True)
-            file.save(full_path)
-            file_path = 'uploads/media/' + filename
+        count = 0
+        for file in files:
+            filename = secure_filename(file.filename)
+            if not filename: continue
             
-            if file_ext in ['.jpg', '.jpeg', '.png', '.gif']:
-                media_type = 'image'
-            elif file_ext in ['.mp4', '.mov']:
-                media_type = 'video'
-            elif file_ext == '.pdf':
-                media_type = 'pdf'
+            file_ext = os.path.splitext(filename)[1].lower()
+            
+            # Gerar nome único para evitar sobrescrita se múltiplos arquivos tiverem mesmo nome
+            unique_filename = f"{datetime.now().strftime('%Y%m%d%H%M%S')}_{count}_{filename}"
+            
+            if file_ext == '.heic':
+                try:
+                    img = Image.open(file)
+                    new_filename = unique_filename.replace('.heic', '.jpg', 1)
+                    full_path = os.path.join(current_app.config['UPLOAD_FOLDER'], 'media', new_filename)
+                    os.makedirs(os.path.dirname(full_path), exist_ok=True)
+                    img.convert('RGB').save(full_path, 'JPEG', quality=95)
+                    file_path = 'uploads/media/' + new_filename
+                    media_type = 'image'
+                except Exception as e:
+                    flash(f'Erro ao converter HEIC ({filename}): {str(e)}', 'danger')
+                    continue
             else:
-                flash('Formato de arquivo não suportado.', 'danger')
-                return redirect(request.url)
-        
-        new_media = Media(
-            title=title,
-            description=description,
-            file_path=file_path,
-            media_type=media_type,
-            church_id=current_user.church_id,
-            ministry_id=int(ministry_id) if ministry_id else None
-        )
-        db.session.add(new_media)
+                full_path = os.path.join(current_app.config['UPLOAD_FOLDER'], 'media', unique_filename)
+                os.makedirs(os.path.dirname(full_path), exist_ok=True)
+                file.save(full_path)
+                file_path = 'uploads/media/' + unique_filename
+                
+                if file_ext in ['.jpg', '.jpeg', '.png', '.gif']:
+                    media_type = 'image'
+                elif file_ext in ['.mp4', '.mov']:
+                    media_type = 'video'
+                elif file_ext == '.pdf':
+                    media_type = 'pdf'
+                else:
+                    continue # Pula formatos não suportados
+            
+            # Se for upload múltiplo, o título pode ser o mesmo ou incrementado
+            current_title = title if len(files) == 1 else f"{title} ({count + 1})"
+            
+            new_media = Media(
+                title=current_title,
+                description=description,
+                file_path=file_path,
+                media_type=media_type,
+                church_id=current_user.church_id,
+                ministry_id=int(ministry_id) if ministry_id else None
+            )
+            db.session.add(new_media)
+            count += 1
+            
         db.session.commit()
-        flash('Mídia adicionada com sucesso!', 'success')
+        flash(f'{count} mídias adicionadas com sucesso!', 'success')
         return redirect(url_for('edification.gallery'))
     
     return render_template('edification/add_media.html', ministries=ministries)
