@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body p-5">
+                    <h3 class="fw-bold mb-4">Novo Lançamento: {{ ministry.name }}</h3>
+                    
+                    <form method="POST">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Tipo de Movimentação</label>
+                                <select name="type" class="form-select" required onchange="toggleDebtFields(this.value)">
+                                    <option value="income">Entrada (Arrecadação/Venda)</option>
+                                    <option value="expense">Saída (Gasto/Pagamento)</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Categoria</label>
+                                <select name="category" class="form-select" required>
+                                    <option value="Cantina">Cantina</option>
+                                    <option value="Evento">Evento</option>
+                                    <option value="Doação">Doação</option>
+                                    <option value="Material">Material</option>
+                                    <option value="Outros">Outros</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Valor (R$)</label>
+                                <input type="number" step="0.01" name="amount" class="form-control" placeholder="0.00" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Data</label>
+                                <input type="date" name="date" class="form-control" value="{{ today }}" required>
+                            </div>
+                            
+                            <div class="col-12" id="debt_option_container">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" name="is_debt" id="is_debt" onchange="toggleDebtorSelect(this.checked)">
+                                    <label class="form-check-label fw-bold" for="is_debt">Põe na conta? (Débito pendente)</label>
+                                </div>
+                            </div>
+
+                            <div class="col-12 d-none" id="debtor_container">
+                                <label class="form-label fw-bold">Membro Devedor</label>
+                                <select name="debtor_id" class="form-select">
+                                    <option value="">Selecione o membro...</option>
+                                    {% for member in members %}
+                                    <option value="{{ member.id }}">{{ member.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <div class="col-12">
+                                <label class="form-label fw-bold">Descrição / Observação</label>
+                                <textarea name="description" class="form-control" rows="3" placeholder="Ex: Venda de salgados na cantina..."></textarea>
+                            </div>
+                        </div>
+
+                        <div class="mt-5 d-flex gap-2">
+                            <button type="submit" class="btn btn-primary px-5 fw-bold">Salvar Lançamento</button>
+                            <a href="{{ url_for('finance.ministry_finance', ministry_id=ministry.id) }}" class="btn btn-light px-4">Cancelar</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function toggleDebtFields(type) {
+    const container = document.getElementById('debt_option_container');
+    const debtorContainer = document.getElementById('debtor_container');
+    const isDebtCheckbox = document.getElementById('is_debt');
+    
+    if (type === 'expense') {
+        container.classList.add('d-none');
+        debtorContainer.classList.add('d-none');
+        isDebtCheckbox.checked = false;
+    } else {
+        container.classList.remove('d-none');
+    }
+}
+
+function toggleDebtorSelect(checked) {
+    const container = document.getElementById('debtor_container');
+    if (checked) {
+        container.classList.remove('d-none');
+    } else {
+        container.classList.add('d-none');
+    }
+}
+</script>
+{% endblock %}

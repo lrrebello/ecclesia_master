@@ -1,5 +1,5 @@
 from app import create_app
-from app.core.models import db, User, Church, Devotional, Study, Transaction, Ministry, Family, ChurchRole, Asset
+from app.core.models import db, User, Church, Devotional, Study, Transaction, Ministry, Family, ChurchRole, Asset, MinistryTransaction
 from datetime import datetime
 
 app = create_app()
@@ -99,12 +99,17 @@ with app.app_context():
     dev = Devotional(title="Firmeza na Rocha", content="O Senhor é o meu pastor...", verse="Salmos 23:1")
     db.session.add_all([estudo, dev])
     
-    # 6. Financeiro
+    # 6. Financeiro Geral
     tx1 = Transaction(type='income', category='Dízimo', amount=500.0, description='Dízimo Mensal', user_id=membro_sede.id, church_id=sede.id)
     tx2 = Transaction(type='expense', category='Energia', amount=150.0, description='Conta de Luz', church_id=sede.id)
     db.session.add_all([tx1, tx2])
 
-    # 7. Patrimônio
+    # 7. Financeiro de Ministério e Débitos
+    mtx1 = MinistryTransaction(ministry_id=louvor.id, type='income', category='Cantina', amount=50.0, description='Venda de bolos', is_paid=True)
+    mtx2 = MinistryTransaction(ministry_id=louvor.id, type='income', category='Cantina', amount=15.0, description='Salgado pendente', is_debt=True, debtor_id=membro_sede.id, is_paid=False)
+    db.session.add_all([mtx1, mtx2])
+
+    # 8. Patrimônio
     som = Asset(name="Mesa de Som", category="Equipamento", identifier="SN-12345", value=2500.0, church_id=sede.id)
     db.session.add(som)
 

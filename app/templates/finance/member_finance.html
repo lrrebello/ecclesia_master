@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="fw-bold">Minhas Contribuições</h2>
+    </div>
+
+    <div class="row g-4">
+        <!-- Recibos de Dízimos e Ofertas -->
+        <div class="col-lg-8">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-transparent border-0 p-4 pb-0">
+                    <h5 class="fw-bold mb-0">Histórico de Contribuições</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="bg-light">
+                                <tr>
+                                    <th class="px-4 py-3">Data</th>
+                                    <th class="py-3">Categoria</th>
+                                    <th class="py-3 text-end">Valor</th>
+                                    <th class="px-4 py-3 text-center">Recibo</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for tx in transactions %}
+                                <tr>
+                                    <td class="px-4">{{ tx.date.strftime('%d/%m/%Y') }}</td>
+                                    <td>
+                                        <span class="badge bg-success bg-opacity-10 text-success px-3 py-2">
+                                            {{ tx.category.capitalize() }}
+                                        </span>
+                                    </td>
+                                    <td class="text-end fw-bold text-success">
+                                        R$ {{ "%.2f"|format(tx.amount) }}
+                                    </td>
+                                    <td class="px-4 text-center">
+                                        <a href="{{ url_for('finance.download_receipt', tx_id=tx.id) }}" class="btn btn-sm btn-outline-primary rounded-pill px-3">
+                                            <i class="bi bi-download me-1"></i> PDF
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="4" class="text-center py-5 text-muted">
+                                        <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                                        Nenhuma contribuição registrada.
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Débitos Pendentes ("Põe na conta") -->
+        <div class="col-lg-4">
+            <div class="card border-0 shadow-sm border-start border-warning border-4">
+                <div class="card-header bg-transparent border-0 p-4 pb-0">
+                    <h5 class="fw-bold mb-0 text-warning">Pendências ("Põe na conta")</h5>
+                </div>
+                <div class="card-body p-4">
+                    {% for debt in debts %}
+                    <div class="d-flex justify-content-between align-items-center mb-3 pb-3 border-bottom">
+                        <div>
+                            <h6 class="fw-bold mb-0">{{ debt.category }}</h6>
+                            <small class="text-muted">{{ debt.ministry.name }} | {{ debt.date.strftime('%d/%m/%Y') }}</small>
+                        </div>
+                        <div class="text-end">
+                            <div class="fw-bold text-danger">R$ {{ "%.2f"|format(debt.amount) }}</div>
+                            <span class="badge bg-warning text-dark small">Pendente</span>
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4">
+                        <i class="bi bi-check-circle text-success fs-1 d-block mb-2"></i>
+                        <p class="text-muted mb-0">Você não possui pendências financeiras.</p>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

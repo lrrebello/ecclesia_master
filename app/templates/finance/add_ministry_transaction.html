@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container py-5">
+    <h1 class="fw-bold text-primary mb-4">Novo Lançamento - {{ ministry.name }}</h1>
+    
+    <form method="POST">
+        <div class="mb-3">
+            <label for="type" class="form-label">Tipo</label>
+            <select class="form-select" id="type" name="type" required>
+                <option value="income">Receita (arrecadação, oferta, cantina)</option>
+                <option value="expense">Despesa (custo de evento, material)</option>
+                <option value="debt">Põe na conta (adiantamento/dívida)</option>
+            </select>
+        </div>
+        <div class="mb-3">
+            <label for="category" class="form-label">Categoria</label>
+            <input type="text" class="form-control" id="category" name="category" required placeholder="ex: Cantina, Material de Som, Transporte">
+        </div>
+        <div class="mb-3">
+            <label for="amount" class="form-label">Valor (R$)</label>
+            <input type="number" step="0.01" class="form-control" id="amount" name="amount" required>
+        </div>
+        <div class="mb-3">
+            <label for="description" class="form-label">Descrição</label>
+            <textarea class="form-control" id="description" name="description" rows="3"></textarea>
+        </div>
+        <div class="mb-3" id="debt_user_field" style="display:none;">
+            <label for="debt_user_id" class="form-label">Devedor (para Põe na conta)</label>
+            <select class="form-select" id="debt_user_id" name="debt_user_id">
+                <option value="">Selecionar irmão</option>
+                {% for user in potential_debtors %}
+                <option value="{{ user.id }}">{{ user.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <button type="submit" class="btn btn-primary">Lançar</button>
+        <a href="{{ url_for('finance.ministry_finance', ministry_id=ministry.id) }}" class="btn btn-secondary">Cancelar</a>
+    </form>
+</div>
+
+<script>
+document.getElementById('type').addEventListener('change', function() {
+    var debtField = document.getElementById('debt_user_field');
+    if (this.value === 'debt') {
+        debtField.style.display = 'block';
+    } else {
+        debtField.style.display = 'none';
+    }
+});
+</script>
+{% endblock %}

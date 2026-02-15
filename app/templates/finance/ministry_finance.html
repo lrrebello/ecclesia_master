@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold mb-0">Financeiro: {{ ministry.name }}</h2>
+            <p class="text-muted">Gestão de arrecadações, cantinas e gastos do ministério.</p>
+        </div>
+        <a href="{{ url_for('finance.add_ministry_transaction', ministry_id=ministry.id) }}" class="btn btn-primary">
+            <i class="bi bi-plus-lg me-2"></i> Novo Lançamento
+        </a>
+    </div>
+
+    <!-- Estatísticas -->
+    <div class="row g-4 mb-5">
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm bg-success bg-opacity-10">
+                <div class="card-body p-4">
+                    <p class="text-success small fw-bold mb-1">ENTRADAS PAGAS</p>
+                    <h3 class="fw-bold text-success mb-0">R$ {{ "%.2f"|format(stats.income) }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm bg-danger bg-opacity-10">
+                <div class="card-body p-4">
+                    <p class="text-danger small fw-bold mb-1">TOTAL GASTOS</p>
+                    <h3 class="fw-bold text-danger mb-0">R$ {{ "%.2f"|format(stats.expense) }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm bg-warning bg-opacity-10">
+                <div class="card-body p-4">
+                    <p class="text-warning small fw-bold mb-1">PENDÊNCIAS (DÉBITOS)</p>
+                    <h3 class="fw-bold text-warning mb-0">R$ {{ "%.2f"|format(stats.pending_debts) }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm bg-primary bg-opacity-10">
+                <div class="card-body p-4">
+                    <p class="text-primary small fw-bold mb-1">SALDO EM CAIXA</p>
+                    <h3 class="fw-bold text-primary mb-0">R$ {{ "%.2f"|format(stats.balance) }}</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm">
+        <div class="card-header bg-transparent border-0 p-4 pb-0">
+            <h5 class="fw-bold mb-0">Histórico de Movimentações</h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="bg-light">
+                        <tr>
+                            <th class="px-4 py-3">Data</th>
+                            <th class="py-3">Tipo/Categoria</th>
+                            <th class="py-3">Descrição</th>
+                            <th class="py-3 text-end">Valor</th>
+                            <th class="px-4 py-3 text-center">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for tx in transactions %}
+                        <tr>
+                            <td class="px-4">{{ tx.date.strftime('%d/%m/%Y') }}</td>
+                            <td>
+                                <span class="badge bg-{{ 'success' if tx.type == 'income' else 'danger' }} bg-opacity-10 text-{{ 'success' if tx.type == 'income' else 'danger' }} px-3 py-2">
+                                    {{ tx.category }}
+                                </span>
+                            </td>
+                            <td>
+                                {{ tx.description or '-' }}
+                                {% if tx.is_debt %}
+                                <div class="small text-muted">Devedor: <strong>{{ tx.debtor.name }}</strong></div>
+                                {% endif %}
+                            </td>
+                            <td class="text-end fw-bold {{ 'text-success' if tx.type == 'income' else 'text-danger' }}">
+                                {{ '+' if tx.type == 'income' else '-' }} R$ {{ "%.2f"|format(tx.amount) }}
+                            </td>
+                            <td class="px-4 text-center">
+                                {% if tx.is_debt and not tx.is_paid %}
+                                <a href="{{ url_for('finance.pay_debt', tx_id=tx.id) }}" class="btn btn-sm btn-warning rounded-pill px-3">
+                                    Marcar Pago
+                                </a>
+                                {% elif tx.is_debt and tx.is_paid %}
+                                <span class="badge bg-success rounded-pill px-3">Pago</span>
+                                {% else %}
+                                <span class="text-muted small">-</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="5" class="text-center py-5 text-muted">
+                                <i class="bi bi-cash fs-1 d-block mb-2"></i>
+                                Nenhuma movimentação registrada para este ministério.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

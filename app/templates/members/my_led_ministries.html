@@ -29,6 +29,9 @@
                         <a href="{{ url_for('members.ministry_manage_members', ministry_id=ministry.id) }}" class="btn btn-outline-primary">
                             <i class="bi bi-people me-1"></i> Gerenciar Membros
                         </a>
+                        <a href="{{ url_for('finance.ministry_finance', ministry_id=ministry.id) }}" class="btn btn-outline-success">
+                            <i class="bi bi-cash-coin me-1"></i> Financeiro do Grupo
+                        </a>
                         <a href="{{ url_for('members.ministry_agenda', ministry_id=ministry.id) }}" class="btn btn-outline-info">
                             <i class="bi bi-calendar-event me-1"></i> Agenda do Ministério
                         </a>

@@ -23,8 +23,13 @@
                     <a class="nav-link {{ 'active' if request.endpoint == 'members.dashboard' }}" href="{{ url_for('members.dashboard') }}">
                         <i class="bi bi-speedometer2 me-2"></i> Dashboard
                     </a>
-                    <a class="nav-link {{ 'active' if 'finance' in request.endpoint }}" href="{{ url_for('finance.dashboard') }}">
-                        <i class="bi bi-cash-stack me-2"></i> Financeiro
+                    {% if current_user.can_manage_finance or (current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder', 'Tesoureiro']) %}
+                    <a class="nav-link {{ 'active' if request.endpoint == 'finance.dashboard' }}" href="{{ url_for('finance.dashboard') }}">
+                        <i class="bi bi-cash-stack me-2"></i> Gestão Financeira
+                    </a>
+                    {% endif %}
+                    <a class="nav-link {{ 'active' if request.endpoint == 'finance.member_finance' }}" href="{{ url_for('finance.member_finance') }}">
+                        <i class="bi bi-wallet2 me-2"></i> Minhas Contribuições
                     </a>
                     <a class="nav-link {{ 'active' if 'edification' in request.endpoint }}" href="{{ url_for('edification.studies') }}">
                         <i class="bi bi-book me-2"></i> Edificação
