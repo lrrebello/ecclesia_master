@@ -47,6 +47,7 @@ class User(db.Model, UserMixin):
     documents = db.Column(db.String(200)) # Flexível para diferentes países
     address = db.Column(db.Text)
     phone = db.Column(db.String(50))
+    profile_photo = db.Column(db.String(255), nullable=True)  # Novo campo para foto do usuário
     
     # Status e Permissões
     status = db.Column(db.String(20), default='pending') # pending, active, rejected

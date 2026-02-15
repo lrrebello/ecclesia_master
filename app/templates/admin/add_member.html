@@ -1,9 +1,8 @@
-<!-- Arquivo completo: app/templates/auth/register.html (adicionando foto no form de registro) -->
 {% extends "base.html" %}
 
 {% block content %}
 <div class="container py-5">
-    <h1 class="fw-bold text-primary mb-4">Registro</h1>
+    <h1 class="fw-bold text-primary mb-4">Adicionar Novo Membro</h1>
     
     <form method="POST" enctype="multipart/form-data">
         <div class="mb-3">
@@ -20,11 +19,11 @@
         </div>
         <div class="mb-3">
             <label for="birth_date" class="form-label">Data de Nascimento</label>
-            <input type="date" class="form-control" id="birth_date" name="birth_date" required>
+            <input type="date" class="form-control" id="birth_date" name="birth_date">
         </div>
         <div class="mb-3">
             <label for="gender" class="form-label">Gênero</label>
-            <select class="form-select" id="gender" name="gender" required>
+            <select class="form-select" id="gender" name="gender">
                 <option value="">Selecionar</option>
                 <option value="Masculino">Masculino</option>
                 <option value="Feminino">Feminino</option>
@@ -47,8 +46,24 @@
             <label for="profile_photo" class="form-label">Foto de Perfil (opcional)</label>
             <input type="file" class="form-control" id="profile_photo" name="profile_photo" accept="image/*">
         </div>
-        <button type="submit" class="btn btn-primary">Registrar</button>
-        <a href="{{ url_for('auth.login') }}" class="btn btn-secondary">Voltar para Login</a>
+        <div class="mb-3">
+            <label for="church_id" class="form-label">Congregação</label>
+            <select class="form-select" id="church_id" name="church_id" required>
+                {% for church in churches %}
+                <option value="{{ church.id }}">{{ church.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="mb-3">
+            <label for="status" class="form-label">Status</label>
+            <select class="form-select" id="status" name="status">
+                <option value="active">Ativo</option>
+                <option value="pending">Pendente</option>
+                <option value="rejected">Rejeitado</option>
+            </select>
+        </div>
+        <button type="submit" class="btn btn-primary">Criar Membro</button>
+        <a href="{{ url_for('admin.list_members') }}" class="btn btn-secondary">Cancelar</a>
     </form>
 </div>
 {% endblock %}

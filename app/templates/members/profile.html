@@ -1,61 +1,29 @@
 {% extends "base.html" %}
+
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-lg-8">
-        <div class="card border-0 shadow-sm p-4 p-md-5">
-            <div class="text-center mb-4">
-                <div class="d-inline-block bg-primary bg-opacity-10 rounded-circle p-4 mb-3">
-                    <i class="bi bi-person-fill text-primary fs-1"></i>
-                </div>
-                <h2 class="fw-bold">{{ current_user.name }}</h2>
-                <span class="badge bg-primary px-3 py-2">{{ current_user.church_role.name if current_user.church_role else 'Sem cargo' }}</span>
-            </div>
-
-            <hr class="my-4 opacity-25">
-
-            <div class="row g-4">
-                <div class="col-md-6">
-                    <label class="form-label small fw-bold text-muted">E-MAIL</label>
-                    <p class="fs-5">{{ current_user.email }}</p>
-                </div>
-                <div class="col-md-6">
-                    <label class="form-label small fw-bold text-muted">TELEFONE</label>
-                    <p class="fs-5">{{ current_user.phone or 'Não informado' }}</p>
-                </div>
-                <div class="col-md-6">
-                    <label class="form-label small fw-bold text-muted">DATA DE NASCIMENTO</label>
-                    <p class="fs-5">{{ current_user.birth_date.strftime('%d/%m/%Y') if current_user.birth_date else 'Não informado' }}</p>
-                </div>
-                <div class="col-md-6">
-                    <label class="form-label small fw-bold text-muted">CONGREGAÇÃO</label>
-                    <p class="fs-5">{{ current_user.church.name if current_user.church else 'Não vinculada' }}</p>
-                </div>
-                <div class="col-12">
-                    <label class="form-label small fw-bold text-muted">ENDEREÇO</label>
-                    <p class="fs-5">{{ current_user.address or 'Não informado' }}</p>
-                </div>
-                <div class="col-12">
-                    <label class="form-label small fw-bold text-muted">DOCUMENTOS</label>
-                    <p class="fs-5">{{ current_user.documents or 'Não informado' }}</p>
-                </div>
-            </div>
-
-            <div class="mt-4 d-flex gap-2">
-                <a href="{{ url_for('auth.change_password') }}" class="btn btn-outline-primary btn-sm">
-                    <i class="bi bi-key me-1"></i> Alterar Minha Senha
-                </a>
-            </div>
-
-            <div class="mt-5 pt-4 border-top">
-                <h5 class="fw-bold mb-3">Meus Ministérios</h5>
-                <div class="d-flex flex-wrap gap-2">
-                    {% for ministry in current_user.ministries %}
-                    <span class="badge bg-info bg-opacity-10 text-info px-3 py-2">{{ ministry.name }}</span>
-                    {% else %}
-                    <p class="text-muted small">Você ainda não faz parte de nenhum ministério.</p>
-                    {% endfor %}
-                </div>
-            </div>
+<div class="container py-5">
+    <h1 class="fw-bold text-primary mb-4">Perfil</h1>
+    
+    <div class="card shadow-sm">
+        <div class="card-body">
+            {% if current_user.profile_photo %}
+            <img src="{{ url_for('static', filename=current_user.profile_photo) }}" alt="Foto de Perfil" class="rounded-circle mb-3" style="width: 150px; height: 150px; object-fit: cover;">
+            {% else %}
+            <i class="bi bi-person-circle display-1 mb-3"></i>
+            {% endif %}
+            <h5>{{ current_user.name }}</h5>
+            <p class="text-muted">{{ current_user.email }}</p>
+            <p>Data de Nascimento: {{ current_user.birth_date.strftime('%d/%m/%Y') if current_user.birth_date else 'Não informado' }}</p>
+            <p>Gênero: {{ current_user.gender or 'Não informado' }}</p>
+            <p>Documentos: {{ current_user.documents or 'Não informado' }}</p>
+            <p>Endereço: {{ current_user.address or 'Não informado' }}</p>
+            <p>Telefone: {{ current_user.phone or 'Não informado' }}</p>
+            <p>Congregação: {{ current_user.church.name if current_user.church else 'Não associado' }}</p>
+            <p>Cargo: {{ current_user.church_role.name if current_user.church_role else 'Nenhum' }}</p>
+            <p>Status: {{ current_user.status|capitalize }}</p>
+            
+            <a href="{{ url_for('members.edit_profile') }}" class="btn btn-primary mt-3">Editar Perfil</a>
+            <a href="{{ url_for('auth.change_password') }}" class="btn btn-secondary mt-3">Alterar Senha</a>
         </div>
     </div>
 </div>

@@ -1,50 +1,74 @@
 {% extends "base.html" %}
+
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-md-6">
-        <div class="card border-0 shadow-sm p-4">
-            <h3 class="fw-bold mb-4">Editar Membro</h3>
-            <form method="POST">
-                <div class="mb-3">
-                    <label class="form-label small fw-bold">NOME COMPLETO</label>
-                    <input type="text" name="name" class="form-control bg-light border-0" value="{{ member.name }}" required>
-                </div>
-                <div class="mb-3">
-                    <label class="form-label small fw-bold">E-MAIL</label>
-                    <input type="email" name="email" class="form-control bg-light border-0" value="{{ member.email }}" required>
-                </div>
-                <div class="mb-3">
-                    <label class="form-label small fw-bold">CONGREGAÇÃO</label>
-                    <select name="church_id" class="form-select bg-light border-0">
-                        {% for church in churches %}
-                        <option value="{{ church.id }}" {{ 'selected' if member.church_id == church.id }}>{{ church.name }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div class="mb-3">
-                    <label class="form-label small fw-bold">CARGO</label>
-                    <select name="church_role_id" class="form-select bg-light border-0">
-                        <option value="">Sem cargo</option>
-                        {% for role in roles %}
-                        <option value="{{ role.id }}" {{ 'selected' if member.church_role_id == role.id }}>{{ role.name }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div class="mb-3">
-                    <label class="form-label small fw-bold">STATUS</label>
-                    <select name="status" class="form-select bg-light border-0">
-                        <option value="active" {{ 'selected' if member.status == 'active' }}>Ativo</option>
-                        <option value="pending" {{ 'selected' if member.status == 'pending' }}>Pendente</option>
-                        <option value="rejected" {{ 'selected' if member.status == 'rejected' }}>Rejeitado</option>
-                    </select>
-                </div>
-                <div class="d-grid mt-4">
-                    <button type="submit" class="btn btn-primary btn-lg py-3 fw-bold shadow-sm">
-                        Salvar Alterações
-                    </button>
-                </div>
-            </form>
+<div class="container py-5">
+    <h1 class="fw-bold text-primary mb-4">Editar Membro: {{ member.name }}</h1>
+    
+    <form method="POST" enctype="multipart/form-data">
+        <div class="mb-3">
+            <label for="name" class="form-label">Nome</label>
+            <input type="text" class="form-control" id="name" name="name" value="{{ member.name }}" required>
         </div>
-    </div>
+        <div class="mb-3">
+            <label for="email" class="form-label">E-mail</label>
+            <input type="email" class="form-control" id="email" name="email" value="{{ member.email }}" required>
+        </div>
+        <div class="mb-3">
+            <label for="birth_date" class="form-label">Data de Nascimento</label>
+            <input type="date" class="form-control" id="birth_date" name="birth_date" value="{{ member.birth_date.strftime('%Y-%m-%d') if member.birth_date else '' }}">
+        </div>
+        <div class="mb-3">
+            <label for="gender" class="form-label">Gênero</label>
+            <select class="form-select" id="gender" name="gender">
+                <option value="">Selecionar</option>
+                <option value="Masculino" {{ 'selected' if member.gender == 'Masculino' }}>Masculino</option>
+                <option value="Feminino" {{ 'selected' if member.gender == 'Feminino' }}>Feminino</option>
+                <option value="Outro" {{ 'selected' if member.gender == 'Outro' }}>Outro</option>
+            </select>
+        </div>
+        <div class="mb-3">
+            <label for="documents" class="form-label">Documentos</label>
+            <input type="text" class="form-control" id="documents" name="documents" value="{{ member.documents }}">
+        </div>
+        <div class="mb-3">
+            <label for="address" class="form-label">Endereço</label>
+            <textarea class="form-control" id="address" name="address" rows="3">{{ member.address }}</textarea>
+        </div>
+        <div class="mb-3">
+            <label for="phone" class="form-label">Telefone</label>
+            <input type="tel" class="form-control" id="phone" name="phone" value="{{ member.phone }}">
+        </div>
+        <div class="mb-3">
+            <label for="profile_photo" class="form-label">Foto de Perfil (atual: {{ member.profile_photo if member.profile_photo else 'Nenhuma' }})</label>
+            <input type="file" class="form-control" id="profile_photo" name="profile_photo" accept="image/*">
+        </div>
+        <div class="mb-3">
+            <label for="church_id" class="form-label">Congregação</label>
+            <select class="form-select" id="church_id" name="church_id">
+                {% for church in churches %}
+                <option value="{{ church.id }}" {{ 'selected' if member.church_id == church.id }}>{{ church.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="mb-3">
+            <label for="church_role_id" class="form-label">Cargo</label>
+            <select class="form-select" id="church_role_id" name="church_role_id">
+                <option value="">Nenhum</option>
+                {% for role in roles %}
+                <option value="{{ role.id }}" {{ 'selected' if member.church_role_id == role.id }}>{{ role.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="mb-3">
+            <label for="status" class="form-label">Status</label>
+            <select class="form-select" id="status" name="status">
+                <option value="active" {{ 'selected' if member.status == 'active' }}>Ativo</option>
+                <option value="pending" {{ 'selected' if member.status == 'pending' }}>Pendente</option>
+                <option value="rejected" {{ 'selected' if member.status == 'rejected' }}>Rejeitado</option>
+            </select>
+        </div>
+        <button type="submit" class="btn btn-primary">Salvar Alterações</button>
+        <a href="{{ url_for('admin.list_members') }}" class="btn btn-secondary">Cancelar</a>
+    </form>
 </div>
 {% endblock %}

@@ -1,7 +1,10 @@
-from flask import Blueprint, render_template, redirect, url_for, flash, request
+# Arquivo completo: app/modules/admin/routes.py (adicionando rota para add_user)
+from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app
 from flask_login import login_required, current_user
 from app.core.models import Church, db, User, ChurchRole
-from datetime import datetime  # se precisar em edit_member
+from werkzeug.utils import secure_filename
+import os
+from datetime import datetime
 
 admin_bp = Blueprint('admin', __name__)
 
@@ -67,7 +70,6 @@ def list_members():
         flash('Acesso negado.', 'danger')
         return redirect(url_for('members.dashboard'))
     
-    # Pega o filtro da URL (GET ?church_id=...)
     church_id = request.args.get('church_id', type=int)
     churches = Church.query.order_by(Church.name).all()
     
@@ -87,8 +89,58 @@ def list_members():
         members=members,
         churches=churches,
         selected_church=selected_church,
-        current_church_id=church_id  # para manter selecionado no select
+        current_church_id=church_id
     )
+
+@admin_bp.route('/member/add', methods=['GET', 'POST'])
+@login_required
+def add_member():
+    if not is_global_admin():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('admin.list_members'))
+    
+    churches = Church.query.all()
+    
+    if request.method == 'POST':
+        name = request.form.get('name')
+        email = request.form.get('email')
+        password = request.form.get('password')
+        birth_date = datetime.strptime(request.form.get('birth_date'), '%Y-%m-%d').date() if request.form.get('birth_date') else None
+        gender = request.form.get('gender')
+        documents = request.form.get('documents')
+        address = request.form.get('address')
+        phone = request.form.get('phone')
+        church_id = int(request.form.get('church_id')) if request.form.get('church_id') else None
+        status = request.form.get('status', 'active')
+        
+        file = request.files.get('profile_photo')
+        profile_photo = None
+        if file:
+            filename = secure_filename(file.filename)
+            full_path = os.path.join(current_app.config['UPLOAD_FOLDER'], 'profiles', filename)
+            os.makedirs(os.path.dirname(full_path), exist_ok=True)
+            file.save(full_path)
+            profile_photo = 'uploads/profiles/' + filename
+        
+        new_user = User(
+            name=name,
+            email=email,
+            birth_date=birth_date,
+            gender=gender,
+            documents=documents,
+            address=address,
+            phone=phone,
+            profile_photo=profile_photo,
+            church_id=church_id,
+            status=status
+        )
+        new_user.set_password(password)
+        db.session.add(new_user)
+        db.session.commit()
+        flash('Membro criado com sucesso!', 'success')
+        return redirect(url_for('admin.list_members'))
+    
+    return render_template('admin/add_member.html', churches=churches)
 
 @admin_bp.route('/member/edit/<int:id>', methods=['GET', 'POST'])
 @login_required
@@ -107,11 +159,27 @@ def edit_member(id):
         member.church_role_id = int(request.form.get('church_role_id')) if request.form.get('church_role_id') else None
         member.church_id = int(request.form.get('church_id')) if request.form.get('church_id') else None
         member.status = request.form.get('status')
+        member.birth_date = datetime.strptime(request.form.get('birth_date'), '%Y-%m-%d').date() if request.form.get('birth_date') else member.birth_date
+        member.gender = request.form.get('gender')
+        member.documents = request.form.get('documents')
+        member.address = request.form.get('address')
+        member.phone = request.form.get('phone')
+        
+        file = request.files.get('profile_photo')
+        if file:
+            filename = secure_filename(file.filename)
+            full_path = os.path.join(current_app.config['UPLOAD_FOLDER'], 'profiles', filename)
+            os.makedirs(os.path.dirname(full_path), exist_ok=True)
+            file.save(full_path)
+            member.profile_photo = 'uploads/profiles/' + filename
+        
         db.session.commit()
         flash('Membro atualizado com sucesso!', 'success')
         return redirect(url_for('admin.list_members'))
     
     return render_template('admin/edit_member.html', member=member, churches=churches, roles=roles)
+
+# ... (restante igual ao seu TXT)
 
 @admin_bp.route('/roles')
 @login_required

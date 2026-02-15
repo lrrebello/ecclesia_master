@@ -1,57 +1,72 @@
-from flask import Blueprint, render_template, redirect, url_for, flash, request
+# Arquivo completo: app/modules/members/routes.py (adicionando edição no profile, acesso a dados para líderes)
+from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app
 from flask_login import login_required, current_user
 from app.core.models import User, Church, Ministry, Event, db, Devotional, Study, ChurchRole
 from datetime import datetime
 from sqlalchemy import func
+from werkzeug.utils import secure_filename
+import os
 
 members_bp = Blueprint('members', __name__)
 
-
 def can_manage_members():
-    return current_user.can_approve_members or (
-        current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder']
-    )
-
+    return current_user.can_approve_members or (current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder'])
 
 def can_manage_ministries():
-    return current_user.can_manage_ministries or (
-        current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder']
-    )
-
+    return current_user.can_manage_ministries or (current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder'])
 
 @members_bp.route('/dashboard')
 @login_required
 def dashboard():
     latest_devotional = Devotional.query.order_by(Devotional.date.desc()).first()
     recent_studies = Study.query.order_by(Study.created_at.desc()).limit(3).all()
-
+    
     ministry_ids = [m.id for m in current_user.ministries]
     personal_agenda = Event.query.filter(
-        (Event.church_id == current_user.church_id) &
+        (Event.church_id == current_user.church_id) & 
         ((Event.ministry_id == None) | (Event.ministry_id.in_(ministry_ids)))
     ).order_by(Event.start_time.asc()).all()
-
+    
     pending_members = []
     if can_manage_members():
-        pending_members = User.query.filter_by(
-            church_id=current_user.church_id, status='pending'
-        ).all()
-
-    return render_template(
-        'members/dashboard.html',
-        devotional=latest_devotional,
-        studies=recent_studies,
-        agenda=personal_agenda,
-        pending_members=pending_members,
-        datetime=datetime
-    )
-
+        pending_members = User.query.filter_by(church_id=current_user.church_id, status='pending').all()
+        
+    return render_template('members/dashboard.html', 
+                           devotional=latest_devotional, 
+                           studies=recent_studies,
+                           agenda=personal_agenda,
+                           pending_members=pending_members,
+                           datetime=datetime)
 
 @members_bp.route('/profile')
 @login_required
 def profile():
     return render_template('members/profile.html')
 
+@members_bp.route('/profile/edit', methods=['GET', 'POST'])
+@login_required
+def edit_profile():
+    if request.method == 'POST':
+        current_user.name = request.form.get('name')
+        current_user.birth_date = datetime.strptime(request.form.get('birth_date'), '%Y-%m-%d').date() if request.form.get('birth_date') else current_user.birth_date
+        current_user.gender = request.form.get('gender')
+        current_user.documents = request.form.get('documents')
+        current_user.address = request.form.get('address')
+        current_user.phone = request.form.get('phone')
+        
+        file = request.files.get('profile_photo')
+        if file:
+            filename = secure_filename(file.filename)
+            full_path = os.path.join(current_app.config['UPLOAD_FOLDER'], 'profiles', filename)
+            os.makedirs(os.path.dirname(full_path), exist_ok=True)
+            file.save(full_path)
+            current_user.profile_photo = 'uploads/profiles/' + filename
+        
+        db.session.commit()
+        flash('Perfil atualizado com sucesso!', 'success')
+        return redirect(url_for('members.profile'))
+    
+    return render_template('members/edit_profile.html')
 
 @members_bp.route('/ministries')
 @login_required
@@ -62,8 +77,42 @@ def list_ministries():
         ministries = Ministry.query.filter_by(church_id=current_user.church_id).all()
     else:
         ministries = current_user.ministries
-
+    
     return render_template('members/ministries.html', ministries=ministries)
+
+# ... (o restante do arquivo continua igual ao seu TXT, incluindo add_ministry, edit_ministry, delete_ministry, add_ministry_event, add_general_event, church_members, promote_member, my_led_ministries, ministry_manage_members, ministry_add_member, ministry_remove_member)
+
+@members_bp.route('/ministry/<int:ministry_id>/manage-members')
+@login_required
+def ministry_manage_members(ministry_id):
+    ministry = Ministry.query.get_or_404(ministry_id)
+    
+    is_leader = ministry.leader_id == current_user.id
+    is_authorized = is_leader or can_manage_ministries()
+    
+    if not is_authorized:
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('members.my_led_ministries'))
+    
+    current_members = ministry.members.all()
+    available_members = User.query.filter(
+        User.church_id == current_user.church_id,
+        User.status == 'active',
+        ~User.ministries.any(Ministry.id == ministry_id)
+    ).order_by(User.name).all()
+    
+    total_members = len(current_members)
+    gender_count = db.session.query(User.gender, func.count(User.id)).filter(
+        User.id.in_([m.id for m in current_members])
+    ).group_by(User.gender).all()
+    
+    return render_template('members/ministry_manage_members.html',
+                           ministry=ministry,
+                           current_members=current_members,
+                           available_members=available_members,
+                           total_members=total_members,
+                           gender_count=gender_count,
+                           is_leader=is_leader)  # Passa is_leader para mostrar endereço/phone
 
 
 @members_bp.route('/ministry/add', methods=['GET', 'POST'])
@@ -266,42 +315,6 @@ def promote_member(id):
 def my_led_ministries():
     led_ministries = Ministry.query.filter_by(leader_id=current_user.id).all()
     return render_template('members/my_led_ministries.html', led_ministries=led_ministries)
-
-
-@members_bp.route('/ministry/<int:ministry_id>/manage-members')
-@login_required
-def ministry_manage_members(ministry_id):
-    ministry = Ministry.query.get_or_404(ministry_id)
-
-    is_leader = ministry.leader_id == current_user.id
-    is_authorized = is_leader or can_manage_ministries()
-
-    if not is_authorized:
-        flash('Acesso negado.', 'danger')
-        return redirect(url_for('members.my_led_ministries'))
-
-    current_members = ministry.members.all()
-    available_members = User.query.filter(
-        User.church_id == current_user.church_id,
-        User.status == 'active',
-        ~User.ministries.any(Ministry.id == ministry_id)
-    ).order_by(User.name).all()
-
-    total_members = len(current_members)
-    gender_count = db.session.query(
-        User.gender, func.count(User.id)
-    ).filter(
-        User.id.in_([m.id for m in current_members])
-    ).group_by(User.gender).all()
-
-    return render_template(
-        'members/ministry_manage_members.html',
-        ministry=ministry,
-        current_members=current_members,
-        available_members=available_members,
-        total_members=total_members,
-        gender_count=gender_count
-    )
 
 
 @members_bp.route('/ministry/<int:ministry_id>/add-member', methods=['POST'])
