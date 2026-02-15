@@ -1,18 +1,28 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="row justify-content-center">
+<div class="row justify-content-center py-5">
     <div class="col-md-6">
         <div class="card border-0 shadow-sm p-4">
-            <h3 class="fw-bold mb-4">Adicionar Mídia</h3>
+            <div class="d-flex align-items-center mb-4">
+                <a href="{{ url_for('edification.gallery') }}" class="btn btn-light rounded-circle me-3">
+                    <i class="bi bi-arrow-left"></i>
+                </a>
+                <h3 class="fw-bold mb-0">Adicionar Mídia</h3>
+            </div>
+            
             <form method="POST" enctype="multipart/form-data">
                 <div class="mb-3">
-                    <label class="form-label small fw-bold">TÍTULO</label>
-                    <input type="text" name="title" class="form-control bg-light border-0" required placeholder="Ex: Hinos do Ensaio - Fevereiro">
+                    <label class="form-label small fw-bold">TÍTULO DO ENVIO OU ÁLBUM</label>
+                    <input type="text" name="title" class="form-control bg-light border-0" required placeholder="Ex: Fotos do Retiro 2024">
+                    <div class="form-text">Este será o nome da pasta se você agrupar as imagens.</div>
                 </div>
+
                 <div class="mb-3">
-                    <label class="form-label small fw-bold">EVENTO / DATA</label>
+                    <label class="form-label small fw-bold">EVENTO / DATA (OPCIONAL)</label>
                     <input type="text" name="event_name" class="form-control bg-light border-0" placeholder="Ex: Culto de Jovens - 08/02">
+                    <div class="form-text">Usado para organizar mídias que não estão em álbuns.</div>
                 </div>
+                
                 <div class="mb-3">
                     <label class="form-label small fw-bold">MINISTÉRIO (OPCIONAL)</label>
                     <select name="ministry_id" class="form-select bg-light border-0">
@@ -22,18 +32,29 @@
                         {% endfor %}
                     </select>
                 </div>
+
                 <div class="mb-3">
-                    <label class="form-label small fw-bold">ARQUIVOS (imagem, PDF, vídeo mp4)</label>
-                    <input type="file" name="file" class="form-control bg-light border-0" accept="image/*,application/pdf,video/mp4" multiple required>
-                    <div class="form-text small">Você pode selecionar várias fotos de uma vez.</div>
+                    <label class="form-label small fw-bold">ARQUIVOS (Múltiplas imagens, PDFs ou vídeos)</label>
+                    <input type="file" name="file" class="form-control bg-light border-0" accept="image/*,application/pdf,video/mp4" required multiple>
+                    <div class="form-text">Você pode selecionar vários arquivos de uma vez.</div>
                 </div>
+
+                <div class="mb-4">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="group_as_album" name="group_as_album" checked>
+                        <label class="form-check-label fw-bold" for="group_as_album">Agrupar em uma "Pasta" (Álbum)</label>
+                    </div>
+                    <div class="form-text">Se marcado, as imagens aparecerão juntas em uma pasta na galeria.</div>
+                </div>
+
                 <div class="mb-3">
                     <label class="form-label small fw-bold">DESCRIÇÃO (opcional)</label>
-                    <textarea name="description" class="form-control bg-light border-0" rows="3" placeholder="Detalhes do arquivo..."></textarea>
+                    <textarea name="description" class="form-control bg-light border-0" rows="3" placeholder="Detalhes sobre este conjunto de mídias..."></textarea>
                 </div>
+
                 <div class="d-grid mt-4">
                     <button type="submit" class="btn btn-primary btn-lg py-3 fw-bold shadow-sm">
-                        <i class="bi bi-upload me-2"></i> Fazer Upload
+                        <i class="bi bi-upload me-2"></i> Iniciar Upload
                     </button>
                 </div>
             </form>

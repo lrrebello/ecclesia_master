@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container py-5">
+    <nav aria-label="breadcrumb" class="mb-4">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('edification.gallery') }}">Galeria</a></li>
+            <li class="breadcrumb-item active" aria-current="page">{{ album.title }}</li>
+        </ol>
+    </nav>
+
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
+        <div>
+            <h1 class="fw-bold text-primary mb-1"><i class="bi bi-folder2-open me-2"></i>{{ album.title }}</h1>
+            <p class="text-muted mb-0">{{ album.description or 'Sem descrição' }}</p>
+        </div>
+        
+        {% set lider_ministerios = current_user.ministries | selectattr("leader_id", "equalto", current_user.id) | list %}
+        {% set pode_gerenciar = current_user.can_manage_media 
+                             or (current_user.church_role and current_user.church_role.name in ["Administrador Global", "Pastor Líder"]) 
+                             or lider_ministerios | length > 0 %}
+
+        {% if pode_gerenciar %}
+        <a href="{{ url_for('edification.delete_album', id=album.id) }}" class="btn btn-outline-danger fw-bold" onclick="return confirm('Excluir este álbum e todas as suas imagens?');">
+            <i class="bi bi-trash me-1"></i> Excluir Álbum
+        </a>
+        {% endif %}
+    </div>
+
+    <!-- Mídias do Álbum -->
+    <div class="row g-4">
+        {% for item in media_items %}
+        <div class="col-sm-6 col-md-4 col-lg-3">
+            <div class="card h-100 border-0 shadow-sm overflow-hidden gallery-card">
+                <div class="position-relative">
+                    {% if item.media_type == 'image' %}
+                    <div class="gallery-img-container" data-bs-toggle="modal" data-bs-target="#imageModal{{ item.id }}" style="cursor: pointer;">
+                        <img src="{{ url_for('static', filename=item.file_path) }}" class="card-img-top" alt="{{ item.title }}" style="height: 200px; object-fit: cover;">
+                        <div class="gallery-overlay">
+                            <i class="bi bi-zoom-in text-white fs-2"></i>
+                        </div>
+                    </div>
+                    {% elif item.media_type == 'video' %}
+                    <div class="gallery-img-container" data-bs-toggle="modal" data-bs-target="#videoModal{{ item.id }}" style="cursor: pointer;">
+                        <video class="card-img-top" style="height: 200px; object-fit: cover;">
+                            <source src="{{ url_for('static', filename=item.file_path) }}" type="video/mp4">
+                        </video>
+                        <div class="position-absolute top-50 start-50 translate-middle">
+                            <i class="bi bi-play-circle-fill text-white display-4 opacity-75"></i>
+                        </div>
+                    </div>
+                    {% elif item.media_type == 'pdf' %}
+                    <a href="{{ url_for('static', filename=item.file_path) }}" target="_blank" class="text-decoration-none">
+                        <div class="d-flex align-items-center justify-content-center bg-light" style="height: 200px;">
+                            <i class="bi bi-file-earmark-pdf display-1 text-danger"></i>
+                        </div>
+                    </a>
+                    {% endif %}
+                </div>
+                
+                <div class="card-body p-3">
+                    <h6 class="fw-bold mb-1 text-truncate">{{ item.title }}</h6>
+                    <div class="d-flex justify-content-between align-items-center mt-3">
+                        <small class="text-muted">{{ item.created_at.strftime('%d/%m/%y') }}</small>
+                        <div class="btn-group">
+                            <a href="{{ url_for('static', filename=item.file_path) }}" download class="btn btn-sm btn-outline-primary">
+                                <i class="bi bi-download"></i>
+                            </a>
+                            {% if pode_gerenciar %}
+                            <button class="btn btn-sm btn-outline-secondary dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown"></button>
+                            <ul class="dropdown-menu dropdown-menu-end">
+                                <li><a class="dropdown-item" href="{{ url_for('edification.edit_media', id=item.id) }}"><i class="bi bi-pencil me-2"></i>Editar</a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item text-danger" href="{{ url_for('edification.delete_media', id=item.id) }}" onclick="return confirm('Excluir esta mídia?');"><i class="bi bi-trash me-2"></i>Excluir</a></li>
+                            </ul>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal para zoom de imagem -->
+            {% if item.media_type == 'image' %}
+            <div class="modal fade" id="imageModal{{ item.id }}" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog modal-dialog-centered modal-xl">
+                    <div class="modal-content bg-dark border-0">
+                        <div class="modal-header border-0 p-3">
+                            <h5 class="modal-title text-white">{{ item.title }}</h5>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body p-0 text-center">
+                            <img src="{{ url_for('static', filename=item.file_path) }}" class="img-fluid" style="max-height: 85vh; width: auto;" alt="{{ item.title }}">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<style>
+.gallery-card {
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+.gallery-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 20px rgba(0,0,0,0.1) !important;
+}
+.gallery-img-container {
+    position: relative;
+    overflow: hidden;
+}
+.gallery-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(79, 70, 229, 0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+.gallery-img-container:hover .gallery-overlay {
+    opacity: 1;
+}
+</style>
+{% endblock %}

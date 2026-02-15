@@ -1,7 +1,7 @@
 # Arquivo completo: app/modules/edification/routes.py (baseado no TXT, com filtro de midias por ministério do user, HEIC mantido, novas rotas para edit/delete media)
 from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app
 from flask_login import login_required, current_user
-from app.core.models import db, Devotional, Study, KidsActivity, StudyQuestion, Media, Ministry
+from app.core.models import db, Devotional, Study, KidsActivity, StudyQuestion, Media, Ministry, Album
 from datetime import datetime
 from werkzeug.utils import secure_filename
 import os
@@ -166,24 +166,32 @@ def add_kids_activity():
 @edification_bp.route('/gallery')
 @login_required
 def gallery():
-    query = Media.query.filter_by(church_id=current_user.church_id)
+    # Se houver um album_id, mostra apenas as mídias desse álbum
+    album_id = request.args.get('album_id')
+    if album_id:
+        album = Album.query.get_or_404(album_id)
+        media_items = Media.query.filter_by(album_id=album_id).order_by(Media.created_at.desc()).all()
+        return render_template('edification/gallery_album.html', album=album, media_items=media_items)
+
+    # Caso contrário, mostra os álbuns e mídias avulsas
+    query_albums = Album.query.filter_by(church_id=current_user.church_id)
+    query_media = Media.query.filter_by(church_id=current_user.church_id, album_id=None)
     
     # Filtro para midias gerais ou dos ministérios do user
     ministry_ids = [m.id for m in current_user.ministries]
-    query = query.filter((Media.ministry_id.is_(None)) | (Media.ministry_id.in_(ministry_ids)))
+    query_albums = query_albums.filter((Album.ministry_id.is_(None)) | (Album.ministry_id.in_(ministry_ids)))
+    query_media = query_media.filter((Media.ministry_id.is_(None)) | (Media.ministry_id.in_(ministry_ids)))
     
     ministry_id = request.args.get('ministry_id')
     if ministry_id:
-        query = query.filter_by(ministry_id=ministry_id)
+        query_albums = query_albums.filter_by(ministry_id=ministry_id)
+        query_media = query_media.filter_by(ministry_id=ministry_id)
     
-    media_type = request.args.get('media_type')
-    if media_type:
-        query = query.filter_by(media_type=media_type)
-    
-    media_items = query.order_by(Media.created_at.desc()).all()
+    albums = query_albums.order_by(Album.created_at.desc()).all()
+    media_items = query_media.order_by(Media.created_at.desc()).all()
     ministries = Ministry.query.filter_by(church_id=current_user.church_id).all()
     
-    # Agrupar por evento para exibição organizada
+    # Agrupar mídias avulsas por evento (mantendo a lógica que você já tinha para o que não for álbum)
     events_grouped = {}
     for item in media_items:
         evt = item.event_name or "Geral / Outros"
@@ -191,7 +199,7 @@ def gallery():
             events_grouped[evt] = []
         events_grouped[evt].append(item)
     
-    return render_template('edification/gallery.html', events_grouped=events_grouped, ministries=ministries)
+    return render_template('edification/gallery.html', albums=albums, events_grouped=events_grouped, ministries=ministries)
 
 @edification_bp.route('/upload_media', methods=['GET', 'POST'])
 @login_required
@@ -206,20 +214,31 @@ def upload_media():
         title = request.form.get('title')
         description = request.form.get('description')
         ministry_id = request.form.get('ministry_id')
+        event_name = request.form.get('event_name')
+        group_as_album = request.form.get('group_as_album') == 'on'
         files = request.files.getlist('file')
         
         if not files or not files[0].filename:
             flash('Nenhum arquivo selecionado.', 'danger')
             return redirect(request.url)
         
+        album = None
+        if group_as_album and len(files) > 0:
+            album = Album(
+                title=title,
+                description=description,
+                church_id=current_user.church_id,
+                ministry_id=int(ministry_id) if ministry_id else None
+            )
+            db.session.add(album)
+            db.session.flush() # Para pegar o ID do album
+            
         count = 0
         for file in files:
             filename = secure_filename(file.filename)
             if not filename: continue
             
             file_ext = os.path.splitext(filename)[1].lower()
-            
-            # Gerar nome único para evitar sobrescrita se múltiplos arquivos tiverem mesmo nome
             unique_filename = f"{datetime.now().strftime('%Y%m%d%H%M%S')}_{count}_{filename}"
             
             if file_ext == '.heic':
@@ -232,7 +251,6 @@ def upload_media():
                     file_path = 'uploads/media/' + new_filename
                     media_type = 'image'
                 except Exception as e:
-                    flash(f'Erro ao converter HEIC ({filename}): {str(e)}', 'danger')
                     continue
             else:
                 full_path = os.path.join(current_app.config['UPLOAD_FOLDER'], 'media', unique_filename)
@@ -247,18 +265,17 @@ def upload_media():
                 elif file_ext == '.pdf':
                     media_type = 'pdf'
                 else:
-                    continue # Pula formatos não suportados
-            
-            # Se for upload múltiplo, o título pode ser o mesmo ou incrementado
-            current_title = title if len(files) == 1 else f"{title} ({count + 1})"
+                    continue
             
             new_media = Media(
-                title=current_title,
+                title=title if not album else file.filename,
                 description=description,
                 file_path=file_path,
                 media_type=media_type,
+                event_name=event_name,
                 church_id=current_user.church_id,
-                ministry_id=int(ministry_id) if ministry_id else None
+                ministry_id=int(ministry_id) if ministry_id else None,
+                album_id=album.id if album else None
             )
             db.session.add(new_media)
             count += 1
@@ -268,6 +285,24 @@ def upload_media():
         return redirect(url_for('edification.gallery'))
     
     return render_template('edification/add_media.html', ministries=ministries)
+
+@edification_bp.route('/album/<int:id>/delete')
+@login_required
+def delete_album(id):
+    album = Album.query.get_or_404(id)
+    if not (current_user.can_manage_media or (current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder']) or (album.ministry and album.ministry.leader_id == current_user.id)):
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('edification.gallery'))
+    
+    for media in album.media_items:
+        if media.file_path and os.path.exists(current_app.config['UPLOAD_FOLDER'] + '/' + media.file_path.replace('uploads/', '')):
+            try: os.remove(current_app.config['UPLOAD_FOLDER'] + '/' + media.file_path.replace('uploads/', ''))
+            except: pass
+                
+    db.session.delete(album)
+    db.session.commit()
+    flash('Álbum e todas as suas mídias foram excluídos.', 'info')
+    return redirect(url_for('edification.gallery'))
 
 # Nova rota para editar mídia
 @edification_bp.route('/media/<int:id>/edit', methods=['GET', 'POST'])

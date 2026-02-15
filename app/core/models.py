@@ -184,6 +184,18 @@ class Devotional(db.Model):
     verse = db.Column(db.String(200))
     date = db.Column(db.Date, default=datetime.utcnow().date)
 
+class Album(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(200), nullable=False)
+    description = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    church_id = db.Column(db.Integer, db.ForeignKey('church.id'), nullable=False)
+    ministry_id = db.Column(db.Integer, db.ForeignKey('ministry.id'), nullable=True)
+    
+    media_items = db.relationship('Media', backref='album', lazy=True, cascade="all, delete-orphan")
+    church = db.relationship('Church', backref='albums')
+    ministry = db.relationship('Ministry', backref='albums')
+
 class Media(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(200), nullable=False)
@@ -194,6 +206,7 @@ class Media(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     church_id = db.Column(db.Integer, db.ForeignKey('church.id'), nullable=False)
     ministry_id = db.Column(db.Integer, db.ForeignKey('ministry.id'), nullable=True)
+    album_id = db.Column(db.Integer, db.ForeignKey('album.id'), nullable=True)
     
     church = db.relationship('Church', backref='media_items')
     ministry = db.relationship('Ministry', backref='media_items')
