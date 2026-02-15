@@ -1,0 +1,188 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container py-5">
+    <div class="d-flex justify-content-between align-items-center mb-5">
+        <div>
+            <h1 class="fw-bold text-warning"><i class="bi bi-gear-fill me-2"></i>Gerenciar Ecclesia Kids</h1>
+            <p class="text-muted">Adicione e edite histórias, quizzes e atividades.</p>
+        </div>
+        <a href="{{ url_for('edification.kids') }}" class="btn btn-outline-secondary rounded-pill">
+            <i class="bi bi-arrow-left me-2"></i> Voltar
+        </a>
+    </div>
+
+    <div class="row">
+        <!-- Coluna de Histórias -->
+        <div class="col-lg-7 mb-4">
+            <div class="card border-0 shadow-sm rounded-4">
+                <div class="card-header bg-white border-0 py-3 d-flex justify-content-between align-items-center">
+                    <h5 class="fw-bold mb-0">Bíblia Ilustrada (Histórias)</h5>
+                    <button class="btn btn-warning btn-sm fw-bold rounded-pill" data-bs-toggle="modal" data-bs-target="#addStoryModal">
+                        <i class="bi bi-plus-lg me-1"></i> Nova História
+                    </button>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="bg-light">
+                                <tr>
+                                    <th class="ps-4">Ordem</th>
+                                    <th>Título</th>
+                                    <th>Referência</th>
+                                    <th>Quizzes</th>
+                                    <th class="text-end pe-4">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for story in stories %}
+                                <tr>
+                                    <td class="ps-4">{{ story.order }}</td>
+                                    <td><span class="fw-bold">{{ story.title }}</span></td>
+                                    <td>{{ story.reference }}</td>
+                                    <td><span class="badge bg-info bg-opacity-10 text-info">{{ story.quizzes|length }}</span></td>
+                                    <td class="text-end pe-4">
+                                        <button class="btn btn-sm btn-light text-primary me-1" title="Adicionar Quiz" onclick="setStoryId('{{ story.id }}', '{{ story.title }}')" data-bs-toggle="modal" data-bs-target="#addQuizModal">
+                                            <i class="bi bi-patch-question"></i>
+                                        </button>
+                                        <a href="{{ url_for('edification.delete_bible_story', id=story.id) }}" class="btn btn-sm btn-light text-danger" onclick="return confirm('Excluir esta história e todos os seus quizzes?')">
+                                            <i class="bi bi-trash"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="5" class="text-center py-4 text-muted">Nenhuma história cadastrada.</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Coluna de Atividades -->
+        <div class="col-lg-5 mb-4">
+            <div class="card border-0 shadow-sm rounded-4">
+                <div class="card-header bg-white border-0 py-3 d-flex justify-content-between align-items-center">
+                    <h5 class="fw-bold mb-0">Atividades Gerais</h5>
+                    <a href="{{ url_for('edification.add_kids_activity') }}" class="btn btn-warning btn-sm fw-bold rounded-pill">
+                        <i class="bi bi-plus-lg me-1"></i> Nova Atividade
+                    </a>
+                </div>
+                <div class="card-body p-0">
+                    <div class="list-group list-group-flush">
+                        {% for act in activities %}
+                        <div class="list-group-item border-0 px-4 py-3">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="fw-bold mb-0">{{ act.title }}</h6>
+                                    <small class="text-muted">{{ act.age_group }} • {{ act.created_at.strftime('%d/%m/%y') }}</small>
+                                </div>
+                                <a href="#" class="text-danger"><i class="bi bi-trash"></i></a>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Adicionar História -->
+<div class="modal fade" id="addStoryModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <form action="{{ url_for('edification.add_bible_story') }}" method="POST" class="modal-content border-0 rounded-4">
+            <div class="modal-header border-0">
+                <h5 class="modal-title fw-bold">Nova História Bíblica</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row g-3">
+                    <div class="col-md-8">
+                        <label class="form-label small fw-bold">TÍTULO</label>
+                        <input type="text" name="title" class="form-control bg-light border-0" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small fw-bold">ORDEM</label>
+                        <input type="number" name="order" class="form-control bg-light border-0" value="{{ (stories|length + 1) }}">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label small fw-bold">REFERÊNCIA BÍBLICA</label>
+                        <input type="text" name="reference" class="form-control bg-light border-0" placeholder="Ex: Gênesis 1:1">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label small fw-bold">URL DA ILUSTRAÇÃO (OPCIONAL)</label>
+                        <input type="url" name="image_path" class="form-control bg-light border-0" placeholder="https://...">
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label small fw-bold">CONTEÚDO DA HISTÓRIA (HTML PERMITIDO)</label>
+                        <textarea name="content" class="form-control bg-light border-0" rows="6" required></textarea>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer border-0">
+                <button type="button" class="btn btn-light rounded-pill" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-warning fw-bold rounded-pill px-4">Salvar História</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal Adicionar Quiz -->
+<div class="modal fade" id="addQuizModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <form action="{{ url_for('edification.add_bible_quiz') }}" method="POST" class="modal-content border-0 rounded-4">
+            <input type="hidden" name="story_id" id="modal_story_id">
+            <div class="modal-header border-0">
+                <h5 class="modal-title fw-bold">Novo Quiz: <span id="modal_story_title" class="text-warning"></span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">PERGUNTA</label>
+                    <input type="text" name="question" class="form-control bg-light border-0" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">OPÇÃO A</label>
+                    <input type="text" name="option_a" class="form-control bg-light border-0" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">OPÇÃO B</label>
+                    <input type="text" name="option_b" class="form-control bg-light border-0" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">OPÇÃO C</label>
+                    <input type="text" name="option_c" class="form-control bg-light border-0" required>
+                </div>
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label class="form-label small fw-bold">CORRETA</label>
+                        <select name="correct_option" class="form-select bg-light border-0">
+                            <option value="A">A</option>
+                            <option value="B">B</option>
+                            <option value="C">C</option>
+                        </select>
+                    </div>
+                    <div class="col-md-8">
+                        <label class="form-label small fw-bold">EXPLICAÇÃO (OPCIONAL)</label>
+                        <input type="text" name="explanation" class="form-control bg-light border-0">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer border-0">
+                <button type="button" class="btn btn-light rounded-pill" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-warning fw-bold rounded-pill px-4">Salvar Quiz</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function setStoryId(id, title) {
+    document.getElementById('modal_story_id').value = id;
+    document.getElementById('modal_story_title').innerText = title;
+}
+</script>
+{% endblock %}

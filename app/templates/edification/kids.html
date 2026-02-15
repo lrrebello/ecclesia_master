@@ -1,41 +1,161 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="container-fluid">
+<div class="container py-5">
+    <!-- Cabeçalho -->
     <div class="d-flex justify-content-between align-items-center mb-5">
         <div>
-            <h1 class="fw-bold text-warning"><i class="bi bi-balloon-heart-fill me-2"></i>Ecclesia Kids</h1>
-            <p class="text-muted">Espaço especial para nossas crianças crescerem na Palavra!</p>
+            <h1 class="fw-bold text-warning display-4"><i class="bi bi-balloon-heart-fill me-2"></i>Ecclesia Kids</h1>
+            <p class="text-muted fs-5">Espaço especial para nossas crianças crescerem na Palavra!</p>
         </div>
-        {% if current_user.can_manage_kids or (current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder']) %}
-        <a href="{{ url_for('edification.add_kids_activity') }}" class="btn btn-warning fw-bold">
-            <i class="bi bi-plus-lg me-2"></i> Nova Atividade
-        </a>
-        {% endif %}
+        <div class="d-flex gap-2">
+            {% if current_user.can_manage_kids or (current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder']) %}
+            <a href="{{ url_for('edification.manage_kids') }}" class="btn btn-outline-dark btn-lg fw-bold rounded-pill shadow-sm">
+                <i class="bi bi-gear me-2"></i> Gerenciar
+            </a>
+            <a href="{{ url_for('edification.add_kids_activity') }}" class="btn btn-warning btn-lg fw-bold rounded-pill shadow-sm">
+                <i class="bi bi-plus-lg me-2"></i> Nova Atividade
+            </a>
+            {% endif %}
+        </div>
     </div>
 
-    <div class="row g-4">
-        {% for act in activities %}
-        <div class="col-md-6 col-lg-4">
-            <div class="card h-100 border-0 shadow-sm overflow-hidden" style="border-top: 5px solid #ffc107 !important;">
-                <div class="bg-warning bg-opacity-10 py-2 px-3 text-warning small fw-bold">
-                    {{ act.age_group }}
-                </div>
-                <div class="card-body p-4">
-                    <h5 class="fw-bold mb-3">{{ act.title }}</h5>
-                    <p class="text-muted small mb-4">{{ act.content|truncate(150) }}</p>
-                    <div class="d-flex justify-content-between align-items-center">
-                        <small class="text-muted">{{ act.created_at.strftime('%d/%m/%Y') }}</small>
-                        <button class="btn btn-sm btn-outline-warning rounded-pill px-3">Ver Atividade</button>
+    <!-- Alertas de Aniversário para Líderes -->
+    {% if birthday_alerts %}
+    <div class="alert alert-warning border-0 shadow-sm rounded-4 p-4 mb-5">
+        <div class="d-flex align-items-center mb-3">
+            <div class="bg-warning p-2 rounded-circle me-3">
+                <i class="bi bi-cake2-fill text-white fs-4"></i>
+            </div>
+            <h4 class="fw-bold mb-0">Aniversariantes do Mês nos seus Ministérios</h4>
+        </div>
+        <div class="row g-3">
+            {% for alert in birthday_alerts %}
+            <div class="col-md-4">
+                <div class="bg-white p-3 rounded-3 d-flex justify-content-between align-items-center">
+                    <div>
+                        <span class="fw-bold d-block">{{ alert.name }}</span>
+                        <small class="text-muted">{{ alert.ministry }} • Dia {{ alert.day }}</small>
                     </div>
+                    {% if alert.is_today %}
+                    <span class="badge bg-danger rounded-pill pulse">HOJE!</span>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Seção de Jogos -->
+    <div class="mb-5">
+        <h3 class="fw-bold mb-4"><i class="bi bi-controller me-2 text-warning"></i>Hora de Brincar e Aprender</h3>
+        <div class="row g-4">
+            <div class="col-md-6 col-lg-4">
+                <div class="card h-100 border-0 shadow-sm text-center p-4 card-hover-warning" style="background: linear-gradient(135deg, #fff 0%, #fff9e6 100%);">
+                    <div class="display-1 mb-3">🧩</div>
+                    <h4 class="fw-bold">Jogo da Memória</h4>
+                    <p class="text-muted small">Teste sua memória com os personagens da Bíblia!</p>
+                    <a href="{{ url_for('edification.memory_game') }}" class="btn btn-warning fw-bold rounded-pill mt-auto">Jogar Agora</a>
+                </div>
+            </div>
+            <div class="col-md-6 col-lg-4">
+                <div class="card h-100 border-0 shadow-sm text-center p-4 card-hover-warning" style="background: linear-gradient(135deg, #fff 0%, #e6f7ff 100%);">
+                    <div class="display-1 mb-3">👤</div>
+                    <h4 class="fw-bold">Quem Sou Eu?</h4>
+                    <p class="text-muted small">Adivinhe o personagem bíblico através das dicas!</p>
+                    <a href="{{ url_for('edification.who_am_i') }}" class="btn btn-info text-white fw-bold rounded-pill mt-auto">Jogar Agora</a>
+                </div>
+            </div>
+            <div class="col-md-6 col-lg-4">
+                <div class="card h-100 border-0 shadow-sm text-center p-4 opacity-75" style="background: #f8f9fa; border: 2px dashed #dee2e6 !important;">
+                    <div class="display-1 mb-3">🎨</div>
+                    <h4 class="fw-bold text-muted">Em Breve: Desenhos</h4>
+                    <p class="text-muted small">Espaço para colorir e soltar a imaginação!</p>
+                    <button class="btn btn-secondary disabled fw-bold rounded-pill mt-auto">Aguarde</button>
                 </div>
             </div>
         </div>
-        {% else %}
-        <div class="col-12 text-center py-5">
-            <i class="bi bi-emoji-smile fs-1 text-warning opacity-50 d-block mb-3"></i>
-            <p class="text-muted">Em breve teremos muitas atividades legais aqui!</p>
+    </div>
+
+    <!-- Bíblia Ilustrada -->
+    {% if stories %}
+    <div class="mb-5">
+        <h3 class="fw-bold mb-4"><i class="bi bi-book-half me-2 text-warning"></i>Bíblia Ilustrada</h3>
+        <div class="row g-4">
+            {% for story in stories %}
+            <div class="col-md-6 col-lg-4">
+                <div class="card h-100 border-0 shadow-sm overflow-hidden rounded-4">
+                    {% if story.image_path %}
+                    <img src="{{ story.image_path }}" class="card-img-top" alt="{{ story.title }}" style="height: 200px; object-fit: cover;">
+                    {% else %}
+                    <div class="bg-warning bg-opacity-10 text-center py-4">
+                        <i class="bi bi-book display-4 text-warning opacity-50"></i>
+                    </div>
+                    {% endif %}
+                    <div class="card-body p-4">
+                        <span class="badge bg-warning bg-opacity-10 text-warning mb-2">{{ story.reference }}</span>
+                        <h5 class="fw-bold">{{ story.title }}</h5>
+                        <p class="text-muted small">{{ story.content | striptags | truncate(100) }}</p>
+                        <a href="{{ url_for('edification.view_bible_story', id=story.id) }}" class="btn btn-outline-warning btn-sm rounded-pill px-4 fw-bold">Ler História</a>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
         </div>
-        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Atividades e Conteúdos -->
+    <div>
+        <h3 class="fw-bold mb-4"><i class="bi bi-journal-text me-2 text-warning"></i>Atividades e Lições</h3>
+        <div class="row g-4">
+            {% for act in activities %}
+            <div class="col-md-6 col-lg-4">
+                <div class="card h-100 border-0 shadow-sm overflow-hidden rounded-4" style="border-left: 5px solid #ffc107 !important;">
+                    <div class="card-body p-4">
+                        <div class="d-flex justify-content-between align-items-start mb-3">
+                            <h5 class="fw-bold mb-0">{{ act.title }}</h5>
+                            <span class="badge bg-light text-warning border border-warning x-small">{{ act.age_group }}</span>
+                        </div>
+                        <p class="text-muted small mb-4">{{ act.content|truncate(150) }}</p>
+                        <div class="d-flex justify-content-between align-items-center mt-auto">
+                            <small class="text-muted"><i class="bi bi-calendar3 me-1"></i>{{ act.created_at.strftime('%d/%m/%Y') }}</small>
+                            <button class="btn btn-sm btn-link text-warning fw-bold p-0 text-decoration-none">Ver Detalhes</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% else %}
+            {% if not stories %}
+            <div class="col-12 text-center py-5">
+                <i class="bi bi-emoji-smile fs-1 text-warning opacity-50 d-block mb-3"></i>
+                <p class="text-muted">Em breve teremos muitas atividades legais aqui!</p>
+            </div>
+            {% endif %}
+            {% endfor %}
+        </div>
     </div>
 </div>
+
+<style>
+.card-hover-warning {
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+.card-hover-warning:hover {
+    transform: translateY(-10px);
+    box-shadow: 0 15px 30px rgba(255, 193, 7, 0.15) !important;
+}
+.x-small {
+    font-size: 0.7rem;
+    font-weight: 800;
+}
+.pulse {
+    animation: pulse-animation 2s infinite;
+}
+@keyframes pulse-animation {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
+}
+</style>
 {% endblock %}

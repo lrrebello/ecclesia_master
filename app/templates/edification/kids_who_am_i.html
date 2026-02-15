@@ -1,0 +1,173 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container py-5 text-center">
+    <div class="mb-5">
+        <a href="{{ url_for('edification.kids') }}" class="btn btn-outline-warning rounded-pill mb-3">
+            <i class="bi bi-arrow-left me-2"></i> Voltar
+        </a>
+        <h1 class="fw-bold text-warning">Quem Sou Eu?</h1>
+        <p class="text-muted">Leia as dicas e adivinhe qual é o personagem bíblico!</p>
+    </div>
+
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6">
+            <div class="card border-0 shadow-lg rounded-4 overflow-hidden mb-4">
+                <div class="bg-warning py-3 text-white fw-bold">
+                    DICA <span id="hint-number">1</span> DE 3
+                </div>
+                <div class="card-body p-5">
+                    <h2 id="current-hint" class="fw-bold mb-4 text-dark">...</h2>
+                    
+                    <div id="options-grid" class="d-grid gap-3 mt-4">
+                        <!-- Opções geradas via JS -->
+                    </div>
+                </div>
+                <div class="card-footer bg-light border-0 py-3">
+                    <div class="progress" style="height: 10px;">
+                        <div id="game-progress" class="progress-bar bg-warning" role="progressbar" style="width: 0%"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="feedback" class="d-none p-4 rounded-4 mb-4">
+                <h4 id="feedback-title" class="fw-bold mb-2"></h4>
+                <p id="feedback-text" class="mb-0"></p>
+                <button id="next-btn" class="btn btn-dark rounded-pill mt-3 px-4 d-none" onclick="nextCharacter()">Próximo Personagem</button>
+            </div>
+            
+            <div class="p-3 bg-white rounded-4 shadow-sm d-flex justify-content-around align-items-center">
+                <div class="text-center">
+                    <small class="text-muted d-block">PONTOS</small>
+                    <span id="score" class="fs-3 fw-bold text-warning">0</span>
+                </div>
+                <div class="vr"></div>
+                <div class="text-center">
+                    <small class="text-muted d-block">PERSONAGEM</small>
+                    <span id="char-count" class="fs-3 fw-bold text-dark">1/5</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+const gameData = [
+    {
+        name: "Noé",
+        hints: ["Construí um barco gigante", "Salvei muitos animais do dilúvio", "Vi o primeiro arco-íris"],
+        options: ["Noé", "Moisés", "Jonas"]
+    },
+    {
+        name: "Davi",
+        hints: ["Eu era um pastor de ovelhas", "Derrubei um gigante com uma pedra", "Fui rei de Israel"],
+        options: ["Saul", "Davi", "Salomão"]
+    },
+    {
+        name: "Jonas",
+        hints: ["Tentei fugir de Deus em um navio", "Fui engolido por um grande peixe", "Fiquei três dias na barriga do peixe"],
+        options: ["Pedro", "Jonas", "Paulo"]
+    },
+    {
+        name: "Sansão",
+        hints: ["Eu era muito, muito forte", "Minha força vinha do meu cabelo", "Lutei contra um leão"],
+        options: ["Sansão", "Golias", "Gideão"]
+    },
+    {
+        name: "Daniel",
+        hints: ["Eu orava a Deus três vezes por dia", "Fui jogado em uma cova", "Deus fechou a boca dos leões"],
+        options: ["José", "Daniel", "Elias"]
+    }
+];
+
+let currentIndex = 0;
+let currentHintIndex = 0;
+let score = 0;
+let canPlay = true;
+
+function initGame() {
+    currentIndex = 0;
+    score = 0;
+    updateGame();
+}
+
+function updateGame() {
+    const char = gameData[currentIndex];
+    currentHintIndex = 0;
+    canPlay = true;
+    
+    document.getElementById('char-count').innerText = `${currentIndex + 1}/${gameData.length}`;
+    document.getElementById('hint-number').innerText = "1";
+    document.getElementById('current-hint').innerText = char.hints[0];
+    document.getElementById('game-progress').style.width = `${(currentIndex / gameData.length) * 100}%`;
+    
+    const optionsGrid = document.getElementById('options-grid');
+    optionsGrid.innerHTML = '';
+    
+    char.options.forEach(opt => {
+        const btn = document.createElement('button');
+        btn.className = 'btn btn-outline-warning btn-lg rounded-pill py-3 fw-bold';
+        btn.innerText = opt;
+        btn.onclick = () => checkAnswer(opt);
+        optionsGrid.appendChild(btn);
+    });
+    
+    document.getElementById('feedback').classList.add('d-none');
+    document.getElementById('next-btn').classList.add('d-none');
+}
+
+function checkAnswer(selected) {
+    if (!canPlay) return;
+    
+    const char = gameData[currentIndex];
+    const feedback = document.getElementById('feedback');
+    const feedbackTitle = document.getElementById('feedback-title');
+    const feedbackText = document.getElementById('feedback-text');
+    
+    canPlay = false;
+    feedback.classList.remove('d-none', 'bg-success', 'bg-danger', 'bg-opacity-10', 'text-success', 'text-danger');
+    
+    if (selected === char.name) {
+        score += (3 - currentHintIndex) * 10;
+        document.getElementById('score').innerText = score;
+        
+        feedback.classList.add('bg-success', 'bg-opacity-10', 'text-success');
+        feedbackTitle.innerText = "✨ Acertou!";
+        feedbackText.innerText = `Parabéns! Eu sou ${char.name}.`;
+        
+        document.getElementById('next-btn').classList.remove('d-none');
+    } else {
+        if (currentHintIndex < 2) {
+            currentHintIndex++;
+            document.getElementById('hint-number').innerText = currentHintIndex + 1;
+            document.getElementById('current-hint').innerText = char.hints[currentHintIndex];
+            
+            feedback.classList.add('bg-danger', 'bg-opacity-10', 'text-danger');
+            feedbackTitle.innerText = "❌ Quase!";
+            feedbackText.innerText = "Essa não é a resposta certa. Aqui vai mais uma dica...";
+            
+            setTimeout(() => {
+                feedback.classList.add('d-none');
+                canPlay = true;
+            }, 2000);
+        } else {
+            feedback.classList.add('bg-danger', 'bg-opacity-10', 'text-danger');
+            feedbackTitle.innerText = "😔 Não foi dessa vez";
+            feedbackText.innerText = `Eu era ${char.name}. Vamos para o próximo?`;
+            document.getElementById('next-btn').classList.remove('d-none');
+        }
+    }
+}
+
+function nextCharacter() {
+    currentIndex++;
+    if (currentIndex < gameData.length) {
+        updateGame();
+    } else {
+        alert(`Fim de jogo! Sua pontuação final: ${score}`);
+        initGame();
+    }
+}
+
+document.addEventListener('DOMContentLoaded', initGame);
+</script>
+{% endblock %}

@@ -1,7 +1,7 @@
 # Arquivo completo: app/modules/edification/routes.py (baseado no TXT, com filtro de midias por ministério do user, HEIC mantido, novas rotas para edit/delete media)
 from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app
 from flask_login import login_required, current_user
-from app.core.models import db, Devotional, Study, KidsActivity, StudyQuestion, Media, Ministry, Album
+from app.core.models import db, Devotional, Study, KidsActivity, StudyQuestion, Media, Ministry, Album, BibleStory, BibleQuiz
 from datetime import datetime
 from werkzeug.utils import secure_filename
 import os
@@ -141,7 +141,99 @@ def kids():
         return redirect(url_for('members.dashboard'))
     
     activities = KidsActivity.query.order_by(KidsActivity.created_at.desc()).all()
-    return render_template('edification/kids.html', activities=activities)
+    stories = BibleStory.query.order_by(BibleStory.order.asc()).all()
+    
+    # Lógica de Aniversariantes para Líderes de Ministério
+    birthday_alerts = []
+    if current_user.is_ministry_leader or (current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder']):
+        today = datetime.now()
+        # Busca ministérios onde o user é líder
+        led_ministries = Ministry.query.filter_by(leader_id=current_user.id).all()
+        if led_ministries:
+            for ministry in led_ministries:
+                for member in ministry.members:
+                    if member.birth_date and member.birth_date.month == today.month:
+                        birthday_alerts.append({
+                            'name': member.name,
+                            'day': member.birth_date.day,
+                            'ministry': ministry.name,
+                            'is_today': member.birth_date.day == today.day
+                        })
+    
+    return render_template('edification/kids.html', activities=activities, stories=stories, birthday_alerts=birthday_alerts)
+
+@edification_bp.route('/kids/manage')
+@login_required
+def manage_kids():
+    if not current_user.can_manage_kids and not (current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder']):
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('edification.kids'))
+    
+    stories = BibleStory.query.order_by(BibleStory.order.asc()).all()
+    activities = KidsActivity.query.order_by(KidsActivity.created_at.desc()).all()
+    return render_template('edification/manage_kids.html', stories=stories, activities=activities)
+
+@edification_bp.route('/kids/story/add', methods=['POST'])
+@login_required
+def add_bible_story():
+    if not current_user.can_manage_kids: return redirect(url_for('edification.kids'))
+    
+    new_story = BibleStory(
+        title=request.form.get('title'),
+        content=request.form.get('content'),
+        reference=request.form.get('reference'),
+        image_path=request.form.get('image_path'),
+        order=request.form.get('order', 0)
+    )
+    db.session.add(new_story)
+    db.session.commit()
+    flash('História adicionada!', 'success')
+    return redirect(url_for('edification.manage_kids'))
+
+@edification_bp.route('/kids/story/delete/<int:id>')
+@login_required
+def delete_bible_story(id):
+    if not current_user.can_manage_kids: return redirect(url_for('edification.kids'))
+    story = BibleStory.query.get_or_404(id)
+    db.session.delete(story)
+    db.session.commit()
+    flash('História removida.', 'info')
+    return redirect(url_for('edification.manage_kids'))
+
+@edification_bp.route('/kids/quiz/add', methods=['POST'])
+@login_required
+def add_bible_quiz():
+    if not current_user.can_manage_kids: return redirect(url_for('edification.kids'))
+    
+    new_quiz = BibleQuiz(
+        story_id=request.form.get('story_id'),
+        question=request.form.get('question'),
+        option_a=request.form.get('option_a'),
+        option_b=request.form.get('option_b'),
+        option_c=request.form.get('option_c'),
+        correct_option=request.form.get('correct_option'),
+        explanation=request.form.get('explanation')
+    )
+    db.session.add(new_quiz)
+    db.session.commit()
+    flash('Quiz adicionado!', 'success')
+    return redirect(url_for('edification.manage_kids'))
+
+@edification_bp.route('/kids/memory-game')
+@login_required
+def memory_game():
+    return render_template('edification/kids_memory_game.html')
+
+@edification_bp.route('/kids/who-am-i')
+@login_required
+def who_am_i():
+    return render_template('edification/kids_who_am_i.html')
+
+@edification_bp.route('/kids/bible-story/<int:id>')
+@login_required
+def view_bible_story(id):
+    story = BibleStory.query.get_or_404(id)
+    return render_template('edification/view_bible_story.html', story=story)
 
 @edification_bp.route('/kids/add', methods=['GET', 'POST'])
 @login_required

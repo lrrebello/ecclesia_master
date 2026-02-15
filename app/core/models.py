@@ -160,6 +160,27 @@ class KidsActivity(db.Model):
     age_group = db.Column(db.String(20))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
+class BibleStory(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(200), nullable=False)
+    content = db.Column(db.Text, nullable=False)
+    image_path = db.Column(db.String(255)) # URL ou caminho da ilustração
+    reference = db.Column(db.String(100)) # Ex: Gênesis 1
+    order = db.Column(db.Integer, default=0)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    quizzes = db.relationship('BibleQuiz', backref='story', lazy=True, cascade="all, delete-orphan")
+
+class BibleQuiz(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    story_id = db.Column(db.Integer, db.ForeignKey('bible_story.id'), nullable=False)
+    question = db.Column(db.String(500), nullable=False)
+    option_a = db.Column(db.String(200), nullable=False)
+    option_b = db.Column(db.String(200), nullable=False)
+    option_c = db.Column(db.String(200), nullable=False)
+    correct_option = db.Column(db.String(1)) # 'A', 'B' ou 'C'
+    explanation = db.Column(db.Text) # Breve explicação do porquê ser a correta
+
 class Study(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(200), nullable=False)
