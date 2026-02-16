@@ -143,24 +143,7 @@ def kids():
     activities = KidsActivity.query.order_by(KidsActivity.created_at.desc()).all()
     stories = BibleStory.query.order_by(BibleStory.order.asc()).all()
     
-    # Lógica de Aniversariantes para Líderes de Ministério
-    birthday_alerts = []
-    if current_user.is_ministry_leader or (current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder']):
-        today = datetime.now()
-        # Busca ministérios onde o user é líder
-        led_ministries = Ministry.query.filter_by(leader_id=current_user.id).all()
-        if led_ministries:
-            for ministry in led_ministries:
-                for member in ministry.members:
-                    if member.birth_date and member.birth_date.month == today.month:
-                        birthday_alerts.append({
-                            'name': member.name,
-                            'day': member.birth_date.day,
-                            'ministry': ministry.name,
-                            'is_today': member.birth_date.day == today.day
-                        })
-    
-    return render_template('edification/kids.html', activities=activities, stories=stories, birthday_alerts=birthday_alerts)
+    return render_template('edification/kids.html', activities=activities, stories=stories)
 
 @edification_bp.route('/kids/manage')
 @login_required

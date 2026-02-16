@@ -19,32 +19,7 @@
         </div>
     </div>
 
-    <!-- Alertas de Aniversário para Líderes -->
-    {% if birthday_alerts %}
-    <div class="alert alert-warning border-0 shadow-sm rounded-4 p-4 mb-5">
-        <div class="d-flex align-items-center mb-3">
-            <div class="bg-warning p-2 rounded-circle me-3">
-                <i class="bi bi-cake2-fill text-white fs-4"></i>
-            </div>
-            <h4 class="fw-bold mb-0">Aniversariantes do Mês nos seus Ministérios</h4>
-        </div>
-        <div class="row g-3">
-            {% for alert in birthday_alerts %}
-            <div class="col-md-4">
-                <div class="bg-white p-3 rounded-3 d-flex justify-content-between align-items-center">
-                    <div>
-                        <span class="fw-bold d-block">{{ alert.name }}</span>
-                        <small class="text-muted">{{ alert.ministry }} • Dia {{ alert.day }}</small>
-                    </div>
-                    {% if alert.is_today %}
-                    <span class="badge bg-danger rounded-pill pulse">HOJE!</span>
-                    {% endif %}
-                </div>
-            </div>
-            {% endfor %}
-        </div>
-    </div>
-    {% endif %}
+
 
     <!-- Seção de Jogos -->
     <div class="mb-5">

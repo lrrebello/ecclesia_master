@@ -30,12 +30,49 @@ def dashboard():
     pending_members = []
     if can_manage_members():
         pending_members = User.query.filter_by(church_id=current_user.church_id, status='pending').all()
+
+    # Lógica de Aniversariantes para Líderes de Ministério (Próximos 10 dias)
+    birthday_alerts = []
+    if current_user.is_ministry_leader or (current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder']):
+        from datetime import timedelta
+        today = datetime.now().date()
+        future_limit = today + timedelta(days=10)
+        
+        # Busca ministérios onde o user é líder
+        led_ministries = Ministry.query.filter_by(leader_id=current_user.id).all()
+        if led_ministries:
+            for ministry in led_ministries:
+                for member in ministry.members:
+                    if member.birth_date:
+                        try:
+                            bday_this_year = member.birth_date.replace(year=today.year)
+                        except ValueError:
+                            bday_this_year = member.birth_date.replace(year=today.year, day=28)
+                        
+                        if bday_this_year < today:
+                            try:
+                                bday_this_year = bday_this_year.replace(year=today.year + 1)
+                            except ValueError:
+                                bday_this_year = bday_this_year.replace(year=today.year + 1, day=28)
+
+                        if today <= bday_this_year <= future_limit:
+                            days_until = (bday_this_year - today).days
+                            birthday_alerts.append({
+                                'name': member.name,
+                                'day': member.birth_date.day,
+                                'month': member.birth_date.strftime('%m'),
+                                'ministry': ministry.name,
+                                'is_today': days_until == 0,
+                                'days_until': days_until
+                            })
+            birthday_alerts.sort(key=lambda x: x['days_until'])
         
     return render_template('members/dashboard.html', 
                            devotional=latest_devotional, 
                            studies=recent_studies,
                            agenda=personal_agenda,
                            pending_members=pending_members,
+                           birthday_alerts=birthday_alerts,
                            datetime=datetime)
 
 @members_bp.route('/profile')
