@@ -1,7 +1,7 @@
 # Arquivo completo: app/modules/auth/routes.py (adicionando foto no register)
 from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app
 from flask_login import login_user, logout_user, current_user, login_required
-from app.core.models import db, User
+from app.core.models import db, User, Church
 from werkzeug.utils import secure_filename
 from datetime import datetime
 import os
@@ -42,6 +42,7 @@ def register():
         documents = request.form.get('documents')
         address = request.form.get('address')
         phone = request.form.get('phone')
+        church_id = request.form.get('church_id')
         
         # Upload de foto
         file = request.files.get('profile_photo')
@@ -62,6 +63,7 @@ def register():
             address=address,
             phone=phone,
             profile_photo=profile_photo,
+            church_id=int(church_id) if church_id else None,
             status='pending'
         )
         new_user.set_password(password)
@@ -70,7 +72,9 @@ def register():
         flash('Solicitação de cadastro enviada! Aguarde aprovação.', 'success')
         return redirect(url_for('auth.login'))
     
-    return render_template('auth/register.html')
+    # Carrega todas as congregações para garantir que apareçam no registro
+    churches = Church.query.all()
+    return render_template('auth/register.html', churches=churches)
 
 @auth_bp.route('/logout')
 @login_required

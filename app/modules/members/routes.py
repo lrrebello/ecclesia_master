@@ -27,23 +27,48 @@ def dashboard():
         ((Event.ministry_id == None) | (Event.ministry_id.in_(ministry_ids)))
     ).order_by(Event.start_time.asc()).all()
     
-    pending_members = []
-    if can_manage_members():
-        pending_members = User.query.filter_by(church_id=current_user.church_id, status='pending').all()
+    # Lógica de Permissões Centralizada (Mesma lógica do menu lateral)
+    is_global_admin = current_user.church_role and current_user.church_role.name == 'Administrador Global'
+    is_pastor = current_user.church_role and current_user.church_role.name == 'Pastor Líder'
+    
+    # Identifica se o usuário é líder de algum ministério (Lógica do menu lateral)
+    led_ministries_list = [m for m in current_user.ministries if m.leader_id == current_user.id]
+    is_ministry_leader = len(led_ministries_list) > 0
+    
+    is_authorized_for_alerts = is_global_admin or is_pastor or is_ministry_leader
 
-    # Lógica de Aniversariantes para Líderes de Ministério (Próximos 10 dias)
+    # Buscar solicitações pendentes
+    pending_members = []
+    if current_user.can_approve_members or is_global_admin or is_pastor:
+        if is_global_admin:
+            pending_members = User.query.filter_by(status='pending').all()
+        else:
+            from sqlalchemy import or_
+            pending_members = User.query.filter(
+                (User.status == 'pending') & 
+                (or_(User.church_id == current_user.church_id, User.church_id == None))
+            ).all()
+
+    # Lógica de Aniversariantes para Líderes (Próximos 10 dias)
     birthday_alerts = []
-    if current_user.is_ministry_leader or (current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder']):
+    if is_authorized_for_alerts:
         from datetime import timedelta
         today = datetime.now().date()
         future_limit = today + timedelta(days=10)
         
-        # Busca ministérios onde o user é líder
-        led_ministries = Ministry.query.filter_by(leader_id=current_user.id).all()
-        if led_ministries:
-            for ministry in led_ministries:
+        # Determinar quais ministérios observar
+        if is_global_admin or is_pastor:
+            # Administradores e Pastores veem todos os ministérios da congregação
+            target_ministries = Ministry.query.filter_by(church_id=current_user.church_id).all()
+        else:
+            # Líderes de ministério veem apenas os que lideram (usando a lista já filtrada)
+            target_ministries = led_ministries_list
+            
+        if target_ministries:
+            seen_members = set()
+            for ministry in target_ministries:
                 for member in ministry.members:
-                    if member.birth_date:
+                    if member.birth_date and member.id not in seen_members:
                         try:
                             bday_this_year = member.birth_date.replace(year=today.year)
                         except ValueError:
@@ -65,6 +90,7 @@ def dashboard():
                                 'is_today': days_until == 0,
                                 'days_until': days_until
                             })
+                            seen_members.add(member.id)
             birthday_alerts.sort(key=lambda x: x['days_until'])
         
     return render_template('members/dashboard.html', 

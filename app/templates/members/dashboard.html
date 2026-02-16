@@ -4,12 +4,72 @@
     <!-- Seção de Alertas para Liderança -->
     {% if pending_members %}
     <div class="col-12">
-        <div class="alert alert-warning border-0 shadow-sm d-flex justify-content-between align-items-center">
-            <div>
-                <i class="bi bi-person-plus-fill me-2"></i>
-                Existem <strong>{{ pending_members|length }}</strong> solicitações de cadastro pendentes para sua filial.
+        <div class="card border-0 shadow-sm rounded-4 overflow-hidden mb-0">
+            <div class="card-body bg-warning bg-opacity-10 d-flex justify-content-between align-items-center py-3">
+                <div class="d-flex align-items-center">
+                    <div class="bg-warning p-2 rounded-circle me-3">
+                        <i class="bi bi-person-plus-fill text-white"></i>
+                    </div>
+                    <div>
+                        <h6 class="fw-bold mb-0">Solicitações Pendentes</h6>
+                        <p class="text-muted small mb-0">Existem <strong>{{ pending_members|length }}</strong> pessoas aguardando aprovação para entrar no sistema.</p>
+                    </div>
+                </div>
+                <button class="btn btn-warning fw-bold rounded-pill px-4" data-bs-toggle="modal" data-bs-target="#pendingModal">
+                    Ver e Aprovar
+                </button>
             </div>
-            <button class="btn btn-sm btn-warning fw-bold" data-bs-toggle="modal" data-bs-target="#pendingModal">Ver Solicitações</button>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Alertas de Aniversário para Líderes (Formato Tabela/Card) -->
+    {% if birthday_alerts %}
+    <div class="col-12">
+        <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+            <div class="card-header bg-white border-0 py-3 d-flex justify-content-between align-items-center">
+                <h5 class="fw-bold mb-0 text-primary"><i class="bi bi-cake2-fill me-2"></i>Próximos Aniversariantes (10 dias)</h5>
+                <span class="badge bg-primary bg-opacity-10 text-primary rounded-pill">{{ birthday_alerts|length }} membros</span>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="bg-light">
+                            <tr>
+                                <th class="ps-4 border-0 small text-muted">MEMBRO</th>
+                                <th class="border-0 small text-muted">MINISTÉRIO</th>
+                                <th class="border-0 small text-muted">DATA</th>
+                                <th class="text-end pe-4 border-0 small text-muted">STATUS</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for alert in birthday_alerts %}
+                            <tr class="{{ 'table-danger table-opacity-10' if alert.is_today else '' }}">
+                                <td class="ps-4">
+                                    <div class="d-flex align-items-center">
+                                        <div class="bg-primary bg-opacity-10 text-primary rounded-circle p-2 me-2 small">
+                                            <i class="bi bi-person"></i>
+                                        </div>
+                                        <span class="fw-bold text-dark">{{ alert.name }}</span>
+                                    </div>
+                                </td>
+                                <td><span class="text-muted small">{{ alert.ministry }}</span></td>
+                                <td><span class="fw-bold text-primary">{{ alert.day }}/{{ alert.month }}</span></td>
+                                <td class="text-end pe-4">
+                                    {% if alert.is_today %}
+                                    <span class="badge bg-danger rounded-pill pulse px-3 py-2">HOJE! 🎂</span>
+                                    {% else %}
+                                    <span class="badge bg-light text-primary border rounded-pill px-3 py-2">
+                                        Faltam {{ alert.days_until }} {{ 'dia' if alert.days_until == 1 else 'dias' }}
+                                    </span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </div>
     </div>
     {% endif %}
@@ -21,24 +81,24 @@
                 <span class="badge bg-white text-primary px-3 py-2 mb-3">Palavra do Dia</span>
                 {% if devotional and devotional.date == datetime.utcnow().date() %}
                     <h2 class="fw-bold mb-3">{{ devotional.title }}</h2>
-                    <p class="fs-5 opacity-90">{{ devotional.content | safe }}</p>
+                    <div class="fs-5 opacity-90">{{ devotional.content | safe }}</div>
                     {% if devotional.verse %}
                     <p class="fst-italic mt-3 mb-0">"{{ devotional.verse }}"</p>
                     {% endif %}
                 {% elif devotional %}
                     <h2 class="fw-bold mb-3">{{ devotional.title }}</h2>
-                    <p class="fs-5 opacity-90">{{ devotional.content | safe }}</p>
+                    <div class="fs-5 opacity-90">{{ devotional.content | safe }}</div>
                     {% if devotional.verse %}
                     <p class="fst-italic mt-3 mb-0">"{{ devotional.verse }}"</p>
                     {% endif %}
-                    <div class="alert alert-info mt-3">
+                    <div class="alert alert-info mt-3 border-0">
                         <i class="bi bi-info-circle me-2"></i>
                         Este é o devocional mais recente. O de hoje ainda não foi publicado.
                     </div>
                 {% else %}
                     <h2 class="fw-bold mb-3">Bem-vindo ao Ecclesia Master</h2>
                     <p class="fs-5 opacity-90">Que a graça do Senhor Jesus seja com todos.</p>
-                    <div class="alert alert-warning mt-3">
+                    <div class="alert alert-warning mt-3 border-0">
                         <i class="bi bi-exclamation-triangle me-2"></i>
                         Nenhum devocional publicado ainda.
                     </div>
@@ -135,31 +195,37 @@
 <!-- Modal de Solicitações Pendentes -->
 <div class="modal fade" id="pendingModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg">
-        <div class="modal-content border-0 shadow">
-            <div class="modal-header bg-light">
+        <div class="modal-content border-0 shadow-lg rounded-4">
+            <div class="modal-header border-0 bg-light">
                 <h5 class="modal-title fw-bold">Solicitações de Cadastro</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <div class="modal-body">
+            <div class="modal-body p-0">
                 <div class="table-responsive">
-                    <table class="table align-middle">
-                        <thead>
+                    <table class="table align-middle mb-0">
+                        <thead class="bg-light">
                             <tr>
-                                <th>Nome</th>
+                                <th class="ps-4">Nome</th>
                                 <th>E-mail</th>
-                                <th>Data Solicitada</th>
-                                <th class="text-end">Ações</th>
+                                <th>Data Nasc.</th>
+                                <th class="text-end pe-4">Ações</th>
                             </tr>
                         </thead>
                         <tbody>
                             {% for p in pending_members %}
                             <tr>
-                                <td>{{ p.name }}</td>
+                                <td class="ps-4 fw-bold">{{ p.name }}</td>
                                 <td>{{ p.email }}</td>
                                 <td>{{ p.birth_date.strftime('%d/%m/%Y') if p.birth_date else 'N/A' }}</td>
-                                <td class="text-end">
-                                    <a href="{{ url_for('auth.approve_member', user_id=p.id, action='approve') }}" class="btn btn-sm btn-success">Aprovar</a>
-                                    <a href="{{ url_for('auth.approve_member', user_id=p.id, action='reject') }}" class="btn btn-sm btn-danger">Rejeitar</a>
+                                <td class="text-end pe-4">
+                                    <form action="{{ url_for('auth.approve_member', user_id=p.id) }}" method="POST" class="d-inline">
+                                        <input type="hidden" name="action" value="approve">
+                                        <button type="submit" class="btn btn-sm btn-success rounded-pill px-3">Aprovar</button>
+                                    </form>
+                                    <form action="{{ url_for('auth.approve_member', user_id=p.id) }}" method="POST" class="d-inline">
+                                        <input type="hidden" name="action" value="reject">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger rounded-pill px-3">Rejeitar</button>
+                                    </form>
                                 </td>
                             </tr>
                             {% endfor %}
@@ -170,6 +236,7 @@
         </div>
     </div>
 </div>
+
 <style>
 .pulse {
     animation: pulse-animation 2s infinite;
@@ -179,6 +246,8 @@
     50% { transform: scale(1.05); }
     100% { transform: scale(1); }
 }
+.table-opacity-10 {
+    background-color: rgba(220, 53, 69, 0.05) !important;
+}
 </style>
 {% endblock %}
-

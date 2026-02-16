@@ -44,6 +44,16 @@
             <input type="tel" class="form-control" id="phone" name="phone">
         </div>
         <div class="mb-3">
+            <label for="church_id" class="form-label">Sua Congregação (Filial)</label>
+            <select class="form-select" id="church_id" name="church_id" required>
+                <option value="">Selecione sua congregação</option>
+                {% for church in churches %}
+                <option value="{{ church.id }}">{{ church.name }}</option>
+                {% endfor %}
+            </select>
+            <div class="form-text text-muted small">Escolha a filial onde você deseja ser membro.</div>
+        </div>
+        <div class="mb-3">
             <label for="profile_photo" class="form-label">Foto de Perfil (opcional)</label>
             <input type="file" class="form-control" id="profile_photo" name="profile_photo" accept="image/*">
         </div>
