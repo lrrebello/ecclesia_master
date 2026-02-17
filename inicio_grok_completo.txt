@@ -163,6 +163,27 @@ class KidsActivity(db.Model):
     age_group = db.Column(db.String(20))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
+class BibleStory(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(200), nullable=False)
+    content = db.Column(db.Text, nullable=False)
+    image_path = db.Column(db.String(255)) # URL ou caminho da ilustração
+    reference = db.Column(db.String(100)) # Ex: Gênesis 1
+    order = db.Column(db.Integer, default=0)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    quizzes = db.relationship('BibleQuiz', backref='story', lazy=True, cascade="all, delete-orphan")
+
+class BibleQuiz(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    story_id = db.Column(db.Integer, db.ForeignKey('bible_story.id'), nullable=False)
+    question = db.Column(db.String(500), nullable=False)
+    option_a = db.Column(db.String(200), nullable=False)
+    option_b = db.Column(db.String(200), nullable=False)
+    option_c = db.Column(db.String(200), nullable=False)
+    correct_option = db.Column(db.String(1)) # 'A', 'B' ou 'C'
+    explanation = db.Column(db.Text) # Breve explicação do porquê ser a correta
+
 class Study(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(200), nullable=False)
@@ -187,6 +208,18 @@ class Devotional(db.Model):
     verse = db.Column(db.String(200))
     date = db.Column(db.Date, default=datetime.utcnow().date)
 
+class Album(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(200), nullable=False)
+    description = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    church_id = db.Column(db.Integer, db.ForeignKey('church.id'), nullable=False)
+    ministry_id = db.Column(db.Integer, db.ForeignKey('ministry.id'), nullable=True)
+    
+    media_items = db.relationship('Media', backref='album', lazy=True, cascade="all, delete-orphan")
+    church = db.relationship('Church', backref='albums')
+    ministry = db.relationship('Ministry', backref='albums')
+
 class Media(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(200), nullable=False)
@@ -197,10 +230,10 @@ class Media(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     church_id = db.Column(db.Integer, db.ForeignKey('church.id'), nullable=False)
     ministry_id = db.Column(db.Integer, db.ForeignKey('ministry.id'), nullable=True)
+    album_id = db.Column(db.Integer, db.ForeignKey('album.id'), nullable=True)
     
     church = db.relationship('Church', backref='media_items')
     ministry = db.relationship('Ministry', backref='media_items')
-
 
 
 ===== ./app/__init__.py =====
@@ -528,7 +561,7 @@ def delete_role(id):
 # Arquivo completo: app/modules/auth/routes.py (adicionando foto no register)
 from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app
 from flask_login import login_user, logout_user, current_user, login_required
-from app.core.models import db, User
+from app.core.models import db, User, Church
 from werkzeug.utils import secure_filename
 from datetime import datetime
 import os
@@ -569,6 +602,7 @@ def register():
         documents = request.form.get('documents')
         address = request.form.get('address')
         phone = request.form.get('phone')
+        church_id = request.form.get('church_id')
         
         # Upload de foto
         file = request.files.get('profile_photo')
@@ -589,6 +623,7 @@ def register():
             address=address,
             phone=phone,
             profile_photo=profile_photo,
+            church_id=int(church_id) if church_id else None,
             status='pending'
         )
         new_user.set_password(password)
@@ -597,7 +632,9 @@ def register():
         flash('Solicitação de cadastro enviada! Aguarde aprovação.', 'success')
         return redirect(url_for('auth.login'))
     
-    return render_template('auth/register.html')
+    # Carrega todas as congregações para garantir que apareçam no registro
+    churches = Church.query.all()
+    return render_template('auth/register.html', churches=churches)
 
 @auth_bp.route('/logout')
 @login_required
@@ -649,7 +686,7 @@ def change_password():
 # Arquivo completo: app/modules/edification/routes.py (baseado no TXT, com filtro de midias por ministério do user, HEIC mantido, novas rotas para edit/delete media)
 from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app
 from flask_login import login_required, current_user
-from app.core.models import db, Devotional, Study, KidsActivity, StudyQuestion, Media, Ministry
+from app.core.models import db, Devotional, Study, KidsActivity, StudyQuestion, Media, Ministry, Album, BibleStory, BibleQuiz
 from datetime import datetime
 from werkzeug.utils import secure_filename
 import os
@@ -789,7 +826,82 @@ def kids():
         return redirect(url_for('members.dashboard'))
     
     activities = KidsActivity.query.order_by(KidsActivity.created_at.desc()).all()
-    return render_template('edification/kids.html', activities=activities)
+    stories = BibleStory.query.order_by(BibleStory.order.asc()).all()
+    
+    return render_template('edification/kids.html', activities=activities, stories=stories)
+
+@edification_bp.route('/kids/manage')
+@login_required
+def manage_kids():
+    if not current_user.can_manage_kids and not (current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder']):
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('edification.kids'))
+    
+    stories = BibleStory.query.order_by(BibleStory.order.asc()).all()
+    activities = KidsActivity.query.order_by(KidsActivity.created_at.desc()).all()
+    return render_template('edification/manage_kids.html', stories=stories, activities=activities)
+
+@edification_bp.route('/kids/story/add', methods=['POST'])
+@login_required
+def add_bible_story():
+    if not current_user.can_manage_kids: return redirect(url_for('edification.kids'))
+    
+    new_story = BibleStory(
+        title=request.form.get('title'),
+        content=request.form.get('content'),
+        reference=request.form.get('reference'),
+        image_path=request.form.get('image_path'),
+        order=request.form.get('order', 0)
+    )
+    db.session.add(new_story)
+    db.session.commit()
+    flash('História adicionada!', 'success')
+    return redirect(url_for('edification.manage_kids'))
+
+@edification_bp.route('/kids/story/delete/<int:id>')
+@login_required
+def delete_bible_story(id):
+    if not current_user.can_manage_kids: return redirect(url_for('edification.kids'))
+    story = BibleStory.query.get_or_404(id)
+    db.session.delete(story)
+    db.session.commit()
+    flash('História removida.', 'info')
+    return redirect(url_for('edification.manage_kids'))
+
+@edification_bp.route('/kids/quiz/add', methods=['POST'])
+@login_required
+def add_bible_quiz():
+    if not current_user.can_manage_kids: return redirect(url_for('edification.kids'))
+    
+    new_quiz = BibleQuiz(
+        story_id=request.form.get('story_id'),
+        question=request.form.get('question'),
+        option_a=request.form.get('option_a'),
+        option_b=request.form.get('option_b'),
+        option_c=request.form.get('option_c'),
+        correct_option=request.form.get('correct_option'),
+        explanation=request.form.get('explanation')
+    )
+    db.session.add(new_quiz)
+    db.session.commit()
+    flash('Quiz adicionado!', 'success')
+    return redirect(url_for('edification.manage_kids'))
+
+@edification_bp.route('/kids/memory-game')
+@login_required
+def memory_game():
+    return render_template('edification/kids_memory_game.html')
+
+@edification_bp.route('/kids/who-am-i')
+@login_required
+def who_am_i():
+    return render_template('edification/kids_who_am_i.html')
+
+@edification_bp.route('/kids/bible-story/<int:id>')
+@login_required
+def view_bible_story(id):
+    story = BibleStory.query.get_or_404(id)
+    return render_template('edification/view_bible_story.html', story=story)
 
 @edification_bp.route('/kids/add', methods=['GET', 'POST'])
 @login_required
@@ -814,24 +926,40 @@ def add_kids_activity():
 @edification_bp.route('/gallery')
 @login_required
 def gallery():
-    query = Media.query.filter_by(church_id=current_user.church_id)
+    # Se houver um album_id, mostra apenas as mídias desse álbum
+    album_id = request.args.get('album_id')
+    if album_id:
+        album = Album.query.get_or_404(album_id)
+        media_items = Media.query.filter_by(album_id=album_id).order_by(Media.created_at.desc()).all()
+        return render_template('edification/gallery_album.html', album=album, media_items=media_items)
+
+    # Caso contrário, mostra os álbuns e mídias avulsas
+    query_albums = Album.query.filter_by(church_id=current_user.church_id)
+    query_media = Media.query.filter_by(church_id=current_user.church_id, album_id=None)
     
     # Filtro para midias gerais ou dos ministérios do user
     ministry_ids = [m.id for m in current_user.ministries]
-    query = query.filter((Media.ministry_id.is_(None)) | (Media.ministry_id.in_(ministry_ids)))
+    query_albums = query_albums.filter((Album.ministry_id.is_(None)) | (Album.ministry_id.in_(ministry_ids)))
+    query_media = query_media.filter((Media.ministry_id.is_(None)) | (Media.ministry_id.in_(ministry_ids)))
     
     ministry_id = request.args.get('ministry_id')
     if ministry_id:
-        query = query.filter_by(ministry_id=ministry_id)
+        query_albums = query_albums.filter_by(ministry_id=ministry_id)
+        query_media = query_media.filter_by(ministry_id=ministry_id)
     
-    media_type = request.args.get('media_type')
-    if media_type:
-        query = query.filter_by(media_type=media_type)
-    
-    media_items = query.order_by(Media.created_at.desc()).all()
+    albums = query_albums.order_by(Album.created_at.desc()).all()
+    media_items = query_media.order_by(Media.created_at.desc()).all()
     ministries = Ministry.query.filter_by(church_id=current_user.church_id).all()
     
-    return render_template('edification/gallery.html', media_items=media_items, ministries=ministries)
+    # Agrupar mídias avulsas por evento (mantendo a lógica que você já tinha para o que não for álbum)
+    events_grouped = {}
+    for item in media_items:
+        evt = item.event_name or "Geral / Outros"
+        if evt not in events_grouped:
+            events_grouped[evt] = []
+        events_grouped[evt].append(item)
+    
+    return render_template('edification/gallery.html', albums=albums, events_grouped=events_grouped, ministries=ministries)
 
 @edification_bp.route('/upload_media', methods=['GET', 'POST'])
 @login_required
@@ -846,20 +974,31 @@ def upload_media():
         title = request.form.get('title')
         description = request.form.get('description')
         ministry_id = request.form.get('ministry_id')
+        event_name = request.form.get('event_name')
+        group_as_album = request.form.get('group_as_album') == 'on'
         files = request.files.getlist('file')
         
         if not files or not files[0].filename:
             flash('Nenhum arquivo selecionado.', 'danger')
             return redirect(request.url)
         
+        album = None
+        if group_as_album and len(files) > 0:
+            album = Album(
+                title=title,
+                description=description,
+                church_id=current_user.church_id,
+                ministry_id=int(ministry_id) if ministry_id else None
+            )
+            db.session.add(album)
+            db.session.flush() # Para pegar o ID do album
+            
         count = 0
         for file in files:
             filename = secure_filename(file.filename)
             if not filename: continue
             
             file_ext = os.path.splitext(filename)[1].lower()
-            
-            # Gerar nome único para evitar sobrescrita se múltiplos arquivos tiverem mesmo nome
             unique_filename = f"{datetime.now().strftime('%Y%m%d%H%M%S')}_{count}_{filename}"
             
             if file_ext == '.heic':
@@ -872,7 +1011,6 @@ def upload_media():
                     file_path = 'uploads/media/' + new_filename
                     media_type = 'image'
                 except Exception as e:
-                    flash(f'Erro ao converter HEIC ({filename}): {str(e)}', 'danger')
                     continue
             else:
                 full_path = os.path.join(current_app.config['UPLOAD_FOLDER'], 'media', unique_filename)
@@ -887,18 +1025,17 @@ def upload_media():
                 elif file_ext == '.pdf':
                     media_type = 'pdf'
                 else:
-                    continue # Pula formatos não suportados
-            
-            # Se for upload múltiplo, o título pode ser o mesmo ou incrementado
-            current_title = title if len(files) == 1 else f"{title} ({count + 1})"
+                    continue
             
             new_media = Media(
-                title=current_title,
+                title=title if not album else file.filename,
                 description=description,
                 file_path=file_path,
                 media_type=media_type,
+                event_name=event_name,
                 church_id=current_user.church_id,
-                ministry_id=int(ministry_id) if ministry_id else None
+                ministry_id=int(ministry_id) if ministry_id else None,
+                album_id=album.id if album else None
             )
             db.session.add(new_media)
             count += 1
@@ -908,6 +1045,24 @@ def upload_media():
         return redirect(url_for('edification.gallery'))
     
     return render_template('edification/add_media.html', ministries=ministries)
+
+@edification_bp.route('/album/<int:id>/delete')
+@login_required
+def delete_album(id):
+    album = Album.query.get_or_404(id)
+    if not (current_user.can_manage_media or (current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder']) or (album.ministry and album.ministry.leader_id == current_user.id)):
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('edification.gallery'))
+    
+    for media in album.media_items:
+        if media.file_path and os.path.exists(current_app.config['UPLOAD_FOLDER'] + '/' + media.file_path.replace('uploads/', '')):
+            try: os.remove(current_app.config['UPLOAD_FOLDER'] + '/' + media.file_path.replace('uploads/', ''))
+            except: pass
+                
+    db.session.delete(album)
+    db.session.commit()
+    flash('Álbum e todas as suas mídias foram excluídos.', 'info')
+    return redirect(url_for('edification.gallery'))
 
 # Nova rota para editar mídia
 @edification_bp.route('/media/<int:id>/edit', methods=['GET', 'POST'])
@@ -1274,15 +1429,78 @@ def dashboard():
         ((Event.ministry_id == None) | (Event.ministry_id.in_(ministry_ids)))
     ).order_by(Event.start_time.asc()).all()
     
+    # Lógica de Permissões Centralizada (Mesma lógica do menu lateral)
+    is_global_admin = current_user.church_role and current_user.church_role.name == 'Administrador Global'
+    is_pastor = current_user.church_role and current_user.church_role.name == 'Pastor Líder'
+    
+    # Identifica se o usuário é líder de algum ministério (Lógica do menu lateral)
+    led_ministries_list = [m for m in current_user.ministries if m.leader_id == current_user.id]
+    is_ministry_leader = len(led_ministries_list) > 0
+    
+    is_authorized_for_alerts = is_global_admin or is_pastor or is_ministry_leader
+
+    # Buscar solicitações pendentes
     pending_members = []
-    if can_manage_members():
-        pending_members = User.query.filter_by(church_id=current_user.church_id, status='pending').all()
+    if current_user.can_approve_members or is_global_admin or is_pastor:
+        if is_global_admin:
+            pending_members = User.query.filter_by(status='pending').all()
+        else:
+            from sqlalchemy import or_
+            pending_members = User.query.filter(
+                (User.status == 'pending') & 
+                (or_(User.church_id == current_user.church_id, User.church_id == None))
+            ).all()
+
+    # Lógica de Aniversariantes para Líderes (Próximos 10 dias)
+    birthday_alerts = []
+    if is_authorized_for_alerts:
+        from datetime import timedelta
+        today = datetime.now().date()
+        future_limit = today + timedelta(days=10)
+        
+        # Determinar quais ministérios observar
+        if is_global_admin or is_pastor:
+            # Administradores e Pastores veem todos os ministérios da congregação
+            target_ministries = Ministry.query.filter_by(church_id=current_user.church_id).all()
+        else:
+            # Líderes de ministério veem apenas os que lideram (usando a lista já filtrada)
+            target_ministries = led_ministries_list
+            
+        if target_ministries:
+            seen_members = set()
+            for ministry in target_ministries:
+                for member in ministry.members:
+                    if member.birth_date and member.id not in seen_members:
+                        try:
+                            bday_this_year = member.birth_date.replace(year=today.year)
+                        except ValueError:
+                            bday_this_year = member.birth_date.replace(year=today.year, day=28)
+                        
+                        if bday_this_year < today:
+                            try:
+                                bday_this_year = bday_this_year.replace(year=today.year + 1)
+                            except ValueError:
+                                bday_this_year = bday_this_year.replace(year=today.year + 1, day=28)
+
+                        if today <= bday_this_year <= future_limit:
+                            days_until = (bday_this_year - today).days
+                            birthday_alerts.append({
+                                'name': member.name,
+                                'day': member.birth_date.day,
+                                'month': member.birth_date.strftime('%m'),
+                                'ministry': ministry.name,
+                                'is_today': days_until == 0,
+                                'days_until': days_until
+                            })
+                            seen_members.add(member.id)
+            birthday_alerts.sort(key=lambda x: x['days_until'])
         
     return render_template('members/dashboard.html', 
                            devotional=latest_devotional, 
                            studies=recent_studies,
                            agenda=personal_agenda,
                            pending_members=pending_members,
+                           birthday_alerts=birthday_alerts,
                            datetime=datetime)
 
 @members_bp.route('/profile')
@@ -2446,6 +2664,16 @@ body {
             <input type="tel" class="form-control" id="phone" name="phone">
         </div>
         <div class="mb-3">
+            <label for="church_id" class="form-label">Sua Congregação (Filial)</label>
+            <select class="form-select" id="church_id" name="church_id" required>
+                <option value="">Selecione sua congregação</option>
+                {% for church in churches %}
+                <option value="{{ church.id }}">{{ church.name }}</option>
+                {% endfor %}
+            </select>
+            <div class="form-text text-muted small">Escolha a filial onde você deseja ser membro.</div>
+        </div>
+        <div class="mb-3">
             <label for="profile_photo" class="form-label">Foto de Perfil (opcional)</label>
             <input type="file" class="form-control" id="profile_photo" name="profile_photo" accept="image/*">
         </div>
@@ -2467,150 +2695,223 @@ body {
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/premium.css') }}">
+    <style>
+        :root {
+            --sidebar-width: 260px;
+        }
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background-color: var(--bg-main); 
+            color: var(--text-main);
+            transition: background-color 0.3s, color 0.3s;
+        }
+        
+        /* Sidebar Desktop */
+        .sidebar {
+            width: var(--sidebar-width);
+            height: 100vh;
+            position: fixed;
+            left: 0;
+            top: 0;
+            z-index: 1000;
+            background-color: var(--sidebar-bg);
+            color: var(--sidebar-text);
+            border-right: 1px solid var(--border);
+            padding: 1.5rem;
+            overflow-y: auto;
+            transition: background-color 0.3s;
+        }
+        
+        .main-content {
+            margin-left: var(--sidebar-width);
+            padding: 2rem;
+            min-height: 100vh;
+            background-color: var(--bg-main);
+        }
+        
+        .nav-link {
+            padding: 0.8rem 1rem;
+            border-radius: 10px;
+            color: var(--sidebar-text);
+            opacity: 0.75;
+            margin-bottom: 0.3rem;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            text-decoration: none;
+        }
+        
+        .nav-link:hover, .nav-link.active {
+            opacity: 1;
+            background-color: rgba(255, 255, 255, 0.15);
+            color: #fff;
+            font-weight: 600;
+        }
+        
+        [data-theme="dark"] .nav-link:hover, [data-theme="dark"] .nav-link.active {
+            background-color: var(--primary);
+        }
+
+        /* Mobile Navbar */
+        .mobile-navbar {
+            display: none;
+            background-color: var(--bg-card);
+            padding: 0.8rem 1.2rem;
+            border-bottom: 1px solid var(--border);
+            position: sticky;
+            top: 0;
+            z-index: 1001;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+
+        /* Offcanvas / Mobile Menu */
+        .offcanvas {
+            background-color: var(--sidebar-bg);
+            color: var(--sidebar-text);
+        }
+        .offcanvas-header {
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        .offcanvas-title { color: #fff; }
+        .btn-close-white { filter: invert(1) grayscale(100%) brightness(200%); }
+
+        /* Ajustes de Contraste */
+        .card {
+            border: 1px solid var(--border);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        }
+        [data-theme="dark"] .card {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+
+        @media (max-width: 991.98px) {
+            .sidebar { display: none !important; }
+            .main-content { margin-left: 0; padding: 1.2rem; }
+            .mobile-navbar { display: flex; justify-content: space-between; align-items: center; }
+        }
+
+        /* Theme Toggle Button Polishing */
+        .theme-toggle {
+            cursor: pointer;
+            padding: 0.6rem;
+            border-radius: 12px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 42px;
+            height: 42px;
+            transition: all 0.3s;
+        }
+        .theme-toggle:hover {
+            transform: rotate(15deg);
+            background: var(--border);
+        }
+    </style>
 </head>
 <body>
-    <div class="container-fluid">
-        <div class="row">
-            {% if current_user.is_authenticated %}
-            <!-- Sidebar -->
-            <div class="col-md-3 col-lg-2 sidebar d-none d-md-block">
-                <div class="d-flex align-items-center mb-4 px-2">
-                    <i class="bi bi-lightning-charge-fill text-primary fs-3 me-2"></i>
-                    <h4 class="mb-0 fw-bold">Ecclesia</h4>
-                </div>
-                <nav class="nav flex-column">
-                    <a class="nav-link {{ 'active' if request.endpoint == 'members.dashboard' }}" href="{{ url_for('members.dashboard') }}">
-                        <i class="bi bi-speedometer2 me-2"></i> Dashboard
-                    </a>
-                    {% if current_user.can_manage_finance or (current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder', 'Tesoureiro']) %}
-                    <a class="nav-link {{ 'active' if request.endpoint == 'finance.dashboard' }}" href="{{ url_for('finance.dashboard') }}">
-                        <i class="bi bi-cash-stack me-2"></i> Gestão Financeira
-                    </a>
-                    {% endif %}
-                    <a class="nav-link {{ 'active' if request.endpoint == 'finance.member_finance' }}" href="{{ url_for('finance.member_finance') }}">
-                        <i class="bi bi-wallet2 me-2"></i> Minhas Contribuições
-                    </a>
-                    <a class="nav-link {{ 'active' if request.endpoint == 'edification.studies' }}" href="{{ url_for('edification.studies') }}">
-                        <i class="bi bi-book me-2"></i> Estudos Bíblicos
-                    </a>
-                    <a class="nav-link {{ 'active' if request.endpoint == 'edification.devotionals' }}" href="{{ url_for('edification.devotionals') }}">
-                        <i class="bi bi-journal-text me-2"></i> Devocionais
-                    </a>
-                    {% if current_user.can_manage_kids or (current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder']) %}
-                    <a class="nav-link {{ 'active' if request.endpoint == 'edification.kids' }}" href="{{ url_for('edification.kids') }}">
-                        <i class="bi bi-balloon-heart me-2"></i> Ecclesia Kids
-                    </a>
-                    {% endif %}
-                    <a class="nav-link {{ 'active' if 'gallery' in request.endpoint }}" href="{{ url_for('edification.gallery') }}">
-                        <i class="bi bi-images me-2"></i> Galeria
-                    </a>
-                    <a class="nav-link {{ 'active' if 'ministries' in request.endpoint }}" href="{{ url_for('members.list_ministries') }}">
-                        <i class="bi bi-diagram-3 me-2"></i> Ministérios
-                    </a>
-                    {% if current_user.can_approve_members or (current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder']) %}
-                    <a class="nav-link {{ 'active' if 'church_members' in request.endpoint }}" href="{{ url_for('members.church_members') }}">
-                        <i class="bi bi-people me-2"></i> Membros da Filial
-                    </a>
-                    {% endif %}
-
-                    <!-- Link "Meus Ministérios Liderados" - aparece se o usuário é líder de algum ministério -->
-                    {% if current_user.is_authenticated %}
-                        {% set has_led_ministries = namespace(value=false) %}
-                        {% for ministry in current_user.ministries %}
-                            {% if ministry.leader_id == current_user.id %}
-                                {% set has_led_ministries.value = true %}
-                            {% endif %}
-                        {% endfor %}
-                        {% if has_led_ministries.value %}
-                        <a class="nav-link {{ 'active' if 'my_led_ministries' in request.endpoint }}" href="{{ url_for('members.my_led_ministries') }}">
-                            <i class="bi bi-star-fill me-2"></i> Meus Ministérios Liderados
-                        </a>
-                        {% endif %}
-                    {% endif %}
-
-                    {% if current_user.can_approve_members or (current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder']) %}
-                    <a class="nav-link {{ 'active' if 'roles' in request.endpoint }}" href="{{ url_for('admin.list_roles') }}">
-                        <i class="bi bi-person-badge me-2"></i> Cargos da Congregação
-                    </a>
-                    {% endif %}
-
-                    {% if current_user.church_role and current_user.church_role.name == 'Administrador Global' %}
-                    <hr class="my-3 opacity-25">
-                    <label class="small text-muted px-3 mb-2">ADMINISTRAÇÃO</label>
-                    <a class="nav-link {{ 'active' if 'admin.list_churches' in request.endpoint }}" href="{{ url_for('admin.list_churches') }}">
-                        <i class="bi bi-building me-2"></i> Congregações
-                    </a>
-                    <a class="nav-link {{ 'active' if 'admin.list_members' in request.endpoint }}" href="{{ url_for('admin.list_members') }}">
-                        <i class="bi bi-globe me-2"></i> Gestão Global
-                    </a>
-                    {% endif %}
-
-                    <a class="nav-link" href="{{ url_for('members.profile') }}">
-                        <i class="bi bi-person me-2"></i> Meu Perfil
-                    </a>
-                    <hr class="my-3 opacity-25">
-                    <a class="nav-link text-danger" href="{{ url_for('auth.logout') }}">
-                        <i class="bi bi-box-arrow-right me-2"></i> Sair
-                    </a>
-                </nav>
-            </div>
-            {% endif %}
-
-            <!-- Main Content -->
-            <div class="col-md-9 col-lg-10 main-content {{ 'mx-auto' if not current_user.is_authenticated }}">
-                <header class="d-flex justify-content-between align-items-center mb-4">
-                    <div>
-                        {% if current_user.is_authenticated %}
-                        <h5 class="text-muted mb-0">Bem-vindo,</h5>
-                        <h3 class="fw-bold">{{ current_user.name }}</h3>
-                        {% endif %}
-                    </div>
-                    <div class="d-flex align-items-center gap-3">
-                        <div class="theme-toggle" onclick="toggleTheme()">
-                            <i class="bi bi-moon-stars" id="theme-icon"></i>
-                        </div>
-                    </div>
-                </header>
-
-                {% with messages = get_flashed_messages(with_categories=true) %}
-                    {% if messages %}
-                        {% for category, message in messages %}
-                            <div class="alert alert-{{ category }} alert-dismissible fade show rounded-3" role="alert">
-                                {{ message }}
-                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                            </div>
-                        {% endfor %}
-                    {% endif %}
-                {% endwith %}
-
-                {% block content %}{% endblock %}
-            </div>
+    {% if current_user.is_authenticated %}
+    <!-- Mobile Navbar -->
+    <div class="mobile-navbar">
+        <div class="d-flex align-items-center">
+            <i class="bi bi-lightning-charge-fill text-primary fs-4 me-2"></i>
+            <span class="fw-bold h5 mb-0" style="color: var(--text-main)">Ecclesia</span>
         </div>
+        <div class="d-flex align-items-center gap-2">
+            <div class="theme-toggle" onclick="toggleTheme()">
+                <i class="bi bi-moon-stars" id="theme-icon-mobile"></i>
+            </div>
+            <button class="btn btn-primary btn-sm rounded-3 px-2" type="button" data-bs-toggle="offcanvas" data-bs-target="#mobileMenu">
+                <i class="bi bi-list fs-4"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Sidebar Desktop -->
+    <div class="sidebar d-none d-lg-block">
+        <div class="d-flex align-items-center mb-4 px-2">
+            <i class="bi bi-lightning-charge-fill text-primary fs-3 me-2"></i>
+            <h4 class="mb-0 fw-bold text-white">Ecclesia</h4>
+        </div>
+        {% include 'includes/_nav_links.html' %}
+    </div>
+
+    <!-- Offcanvas Mobile Menu -->
+    <div class="offcanvas offcanvas-start" tabindex="-1" id="mobileMenu" aria-labelledby="mobileMenuLabel">
+        <div class="offcanvas-header">
+            <h5 class="offcanvas-title fw-bold" id="mobileMenuLabel">Menu Principal</h5>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+        </div>
+        <div class="offcanvas-body">
+            {% include 'includes/_nav_links.html' %}
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="main-content {{ 'mx-auto' if not current_user.is_authenticated }}">
+        {% if current_user.is_authenticated %}
+        <header class="d-flex justify-content-between align-items-center mb-4 d-none d-lg-flex">
+            <div>
+                <h5 class="text-muted mb-0 small">Bem-vindo,</h5>
+                <h3 class="fw-bold mb-0">{{ current_user.name }}</h3>
+            </div>
+            <div class="theme-toggle shadow-sm" onclick="toggleTheme()">
+                <i class="bi bi-moon-stars" id="theme-icon"></i>
+            </div>
+        </header>
+        {% endif %}
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }} alert-dismissible fade show rounded-4 shadow-sm border-0" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+        function updateIcons(theme) {
+            const iconDesktop = document.getElementById('theme-icon');
+            const iconMobile = document.getElementById('theme-icon-mobile');
+            const className = theme === 'dark' ? 'bi bi-sun' : 'bi bi-moon-stars';
+            if(iconDesktop) iconDesktop.className = className;
+            if(iconMobile) iconMobile.className = className;
+        }
+
         function toggleTheme() {
             const html = document.documentElement;
-            const icon = document.getElementById('theme-icon');
             if (html.getAttribute('data-theme') === 'dark') {
                 html.removeAttribute('data-theme');
-                icon.className = 'bi bi-moon-stars';
+                updateIcons('light');
                 localStorage.setItem('theme', 'light');
             } else {
                 html.setAttribute('data-theme', 'dark');
-                icon.className = 'bi bi-sun';
+                updateIcons('dark');
                 localStorage.setItem('theme', 'dark');
             }
         }
 
-        if (localStorage.getItem('theme') === 'dark') {
+        // Initialize theme
+        const savedTheme = localStorage.getItem('theme') || 'light';
+        if (savedTheme === 'dark') {
             document.documentElement.setAttribute('data-theme', 'dark');
-            document.getElementById('theme-icon').className = 'bi bi-sun';
+            updateIcons('dark');
+        } else {
+            updateIcons('light');
         }
     </script>
 </body>
 </html>
+
 
 
 ===== ./app/templates/edification/add_devotional.html =====
@@ -2690,19 +2991,29 @@ body {
 ===== ./app/templates/edification/add_media.html =====
 {% extends "base.html" %}
 {% block content %}
-<div class="row justify-content-center">
+<div class="row justify-content-center py-5">
     <div class="col-md-6">
         <div class="card border-0 shadow-sm p-4">
-            <h3 class="fw-bold mb-4">Adicionar Mídia</h3>
+            <div class="d-flex align-items-center mb-4">
+                <a href="{{ url_for('edification.gallery') }}" class="btn btn-light rounded-circle me-3">
+                    <i class="bi bi-arrow-left"></i>
+                </a>
+                <h3 class="fw-bold mb-0">Adicionar Mídia</h3>
+            </div>
+            
             <form method="POST" enctype="multipart/form-data">
                 <div class="mb-3">
-                    <label class="form-label small fw-bold">TÍTULO</label>
-                    <input type="text" name="title" class="form-control bg-light border-0" required placeholder="Ex: Hinos do Ensaio - Fevereiro">
+                    <label class="form-label small fw-bold">TÍTULO DO ENVIO OU ÁLBUM</label>
+                    <input type="text" name="title" class="form-control bg-light border-0" required placeholder="Ex: Fotos do Retiro 2024">
+                    <div class="form-text">Este será o nome da pasta se você agrupar as imagens.</div>
                 </div>
+
                 <div class="mb-3">
-                    <label class="form-label small fw-bold">EVENTO / DATA</label>
+                    <label class="form-label small fw-bold">EVENTO / DATA (OPCIONAL)</label>
                     <input type="text" name="event_name" class="form-control bg-light border-0" placeholder="Ex: Culto de Jovens - 08/02">
+                    <div class="form-text">Usado para organizar mídias que não estão em álbuns.</div>
                 </div>
+                
                 <div class="mb-3">
                     <label class="form-label small fw-bold">MINISTÉRIO (OPCIONAL)</label>
                     <select name="ministry_id" class="form-select bg-light border-0">
@@ -2712,18 +3023,29 @@ body {
                         {% endfor %}
                     </select>
                 </div>
+
                 <div class="mb-3">
-                    <label class="form-label small fw-bold">ARQUIVOS (imagem, PDF, vídeo mp4)</label>
-                    <input type="file" name="file" class="form-control bg-light border-0" accept="image/*,application/pdf,video/mp4" multiple required>
-                    <div class="form-text small">Você pode selecionar várias fotos de uma vez.</div>
+                    <label class="form-label small fw-bold">ARQUIVOS (Múltiplas imagens, PDFs ou vídeos)</label>
+                    <input type="file" name="file" class="form-control bg-light border-0" accept="image/*,application/pdf,video/mp4" required multiple>
+                    <div class="form-text">Você pode selecionar vários arquivos de uma vez.</div>
                 </div>
+
+                <div class="mb-4">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="group_as_album" name="group_as_album" checked>
+                        <label class="form-check-label fw-bold" for="group_as_album">Agrupar em uma "Pasta" (Álbum)</label>
+                    </div>
+                    <div class="form-text">Se marcado, as imagens aparecerão juntas em uma pasta na galeria.</div>
+                </div>
+
                 <div class="mb-3">
                     <label class="form-label small fw-bold">DESCRIÇÃO (opcional)</label>
-                    <textarea name="description" class="form-control bg-light border-0" rows="3" placeholder="Detalhes do arquivo..."></textarea>
+                    <textarea name="description" class="form-control bg-light border-0" rows="3" placeholder="Detalhes sobre este conjunto de mídias..."></textarea>
                 </div>
+
                 <div class="d-grid mt-4">
                     <button type="submit" class="btn btn-primary btn-lg py-3 fw-bold shadow-sm">
-                        <i class="bi bi-upload me-2"></i> Fazer Upload
+                        <i class="bi bi-upload me-2"></i> Iniciar Upload
                     </button>
                 </div>
             </form>
@@ -2922,6 +3244,142 @@ body {
 {% endblock %}
 
 
+===== ./app/templates/edification/gallery_album.html =====
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container py-5">
+    <nav aria-label="breadcrumb" class="mb-4">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('edification.gallery') }}">Galeria</a></li>
+            <li class="breadcrumb-item active" aria-current="page">{{ album.title }}</li>
+        </ol>
+    </nav>
+
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
+        <div>
+            <h1 class="fw-bold text-primary mb-1"><i class="bi bi-folder2-open me-2"></i>{{ album.title }}</h1>
+            <p class="text-muted mb-0">{{ album.description or 'Sem descrição' }}</p>
+        </div>
+        
+        {% set lider_ministerios = current_user.ministries | selectattr("leader_id", "equalto", current_user.id) | list %}
+        {% set pode_gerenciar = current_user.can_manage_media 
+                             or (current_user.church_role and current_user.church_role.name in ["Administrador Global", "Pastor Líder"]) 
+                             or lider_ministerios | length > 0 %}
+
+        {% if pode_gerenciar %}
+        <a href="{{ url_for('edification.delete_album', id=album.id) }}" class="btn btn-outline-danger fw-bold" onclick="return confirm('Excluir este álbum e todas as suas imagens?');">
+            <i class="bi bi-trash me-1"></i> Excluir Álbum
+        </a>
+        {% endif %}
+    </div>
+
+    <!-- Mídias do Álbum -->
+    <div class="row g-4">
+        {% for item in media_items %}
+        <div class="col-sm-6 col-md-4 col-lg-3">
+            <div class="card h-100 border-0 shadow-sm overflow-hidden gallery-card">
+                <div class="position-relative">
+                    {% if item.media_type == 'image' %}
+                    <div class="gallery-img-container" data-bs-toggle="modal" data-bs-target="#imageModal{{ item.id }}" style="cursor: pointer;">
+                        <img src="{{ url_for('static', filename=item.file_path) }}" class="card-img-top" alt="{{ item.title }}" style="height: 200px; object-fit: cover;">
+                        <div class="gallery-overlay">
+                            <i class="bi bi-zoom-in text-white fs-2"></i>
+                        </div>
+                    </div>
+                    {% elif item.media_type == 'video' %}
+                    <div class="gallery-img-container" data-bs-toggle="modal" data-bs-target="#videoModal{{ item.id }}" style="cursor: pointer;">
+                        <video class="card-img-top" style="height: 200px; object-fit: cover;">
+                            <source src="{{ url_for('static', filename=item.file_path) }}" type="video/mp4">
+                        </video>
+                        <div class="position-absolute top-50 start-50 translate-middle">
+                            <i class="bi bi-play-circle-fill text-white display-4 opacity-75"></i>
+                        </div>
+                    </div>
+                    {% elif item.media_type == 'pdf' %}
+                    <a href="{{ url_for('static', filename=item.file_path) }}" target="_blank" class="text-decoration-none">
+                        <div class="d-flex align-items-center justify-content-center bg-light" style="height: 200px;">
+                            <i class="bi bi-file-earmark-pdf display-1 text-danger"></i>
+                        </div>
+                    </a>
+                    {% endif %}
+                </div>
+                
+                <div class="card-body p-3">
+                    <h6 class="fw-bold mb-1 text-truncate">{{ item.title }}</h6>
+                    <div class="d-flex justify-content-between align-items-center mt-3">
+                        <small class="text-muted">{{ item.created_at.strftime('%d/%m/%y') }}</small>
+                        <div class="btn-group">
+                            <a href="{{ url_for('static', filename=item.file_path) }}" download class="btn btn-sm btn-outline-primary">
+                                <i class="bi bi-download"></i>
+                            </a>
+                            {% if pode_gerenciar %}
+                            <button class="btn btn-sm btn-outline-secondary dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown"></button>
+                            <ul class="dropdown-menu dropdown-menu-end">
+                                <li><a class="dropdown-item" href="{{ url_for('edification.edit_media', id=item.id) }}"><i class="bi bi-pencil me-2"></i>Editar</a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item text-danger" href="{{ url_for('edification.delete_media', id=item.id) }}" onclick="return confirm('Excluir esta mídia?');"><i class="bi bi-trash me-2"></i>Excluir</a></li>
+                            </ul>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal para zoom de imagem -->
+            {% if item.media_type == 'image' %}
+            <div class="modal fade" id="imageModal{{ item.id }}" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog modal-dialog-centered modal-xl">
+                    <div class="modal-content bg-dark border-0">
+                        <div class="modal-header border-0 p-3">
+                            <h5 class="modal-title text-white">{{ item.title }}</h5>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body p-0 text-center">
+                            <img src="{{ url_for('static', filename=item.file_path) }}" class="img-fluid" style="max-height: 85vh; width: auto;" alt="{{ item.title }}">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<style>
+.gallery-card {
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+.gallery-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 20px rgba(0,0,0,0.1) !important;
+}
+.gallery-img-container {
+    position: relative;
+    overflow: hidden;
+}
+.gallery-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(79, 70, 229, 0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+.gallery-img-container:hover .gallery-overlay {
+    opacity: 1;
+}
+</style>
+{% endblock %}
+
+
+
 ===== ./app/templates/edification/gallery.html =====
 {% extends "base.html" %}
 
@@ -2971,121 +3429,192 @@ body {
         </div>
     </div>
 
-    <!-- Galeria -->
-    {% if media_items %}
-    <div class="row g-4">
-        {% for item in media_items %}
-        <div class="col-sm-6 col-md-4 col-lg-3">
-            <div class="card h-100 border-0 shadow-sm overflow-hidden gallery-card">
-                <div class="position-relative">
-                    {% if item.media_type == 'image' %}
-                    <div class="gallery-img-container" data-bs-toggle="modal" data-bs-target="#imageModal{{ item.id }}" style="cursor: pointer;">
-                        <img src="{{ url_for('static', filename=item.file_path) }}" class="card-img-top" alt="{{ item.title }}" style="height: 200px; object-fit: cover;">
-                        <div class="gallery-overlay">
-                            <i class="bi bi-zoom-in text-white fs-2"></i>
+    <!-- Seção de Álbuns (Pastas) -->
+    {% if albums %}
+    <div class="mb-5">
+        <div class="d-flex align-items-center mb-3">
+            <h4 class="fw-bold mb-0 text-dark"><i class="bi bi-folder2-open me-2"></i>Álbuns / Pastas</h4>
+            <div class="flex-grow-1 ms-3 border-bottom opacity-25"></div>
+        </div>
+        <div class="row g-4">
+            {% for album in albums %}
+            <div class="col-sm-6 col-md-4 col-lg-3">
+                <div class="card h-100 border-0 shadow-sm album-card position-relative">
+                    <a href="{{ url_for('edification.gallery', album_id=album.id) }}" class="text-decoration-none">
+                        <div class="album-folder-icon d-flex align-items-center justify-content-center bg-warning bg-opacity-10 text-warning" style="height: 150px; border-radius: 10px 10px 0 0;">
+                            <div class="position-relative">
+                                <i class="bi bi-folder-fill" style="font-size: 5rem;"></i>
+                                <span class="position-absolute top-50 start-50 translate-middle text-white fw-bold" style="font-size: 1.2rem; margin-top: 5px;">
+                                    {{ album.media_items|length }}
+                                </span>
+                            </div>
                         </div>
-                    </div>
-                    {% elif item.media_type == 'video' %}
-                    <video class="card-img-top" style="height: 200px; object-fit: cover;">
-                        <source src="{{ url_for('static', filename=item.file_path) }}" type="video/mp4">
-                    </video>
-                    <div class="position-absolute top-50 start-50 translate-middle">
-                        <i class="bi bi-play-circle-fill text-white display-4 opacity-75"></i>
-                    </div>
-                    {% elif item.media_type == 'pdf' %}
-                    <div class="d-flex align-items-center justify-content-center bg-light" style="height: 200px;">
-                        <i class="bi bi-file-earmark-pdf display-1 text-danger"></i>
+                        <div class="card-body p-3 text-center">
+                            <h6 class="fw-bold mb-1 text-dark text-truncate">{{ album.title }}</h6>
+                            <p class="small text-muted mb-0">{{ album.created_at.strftime('%d/%m/%Y') }}</p>
+                        </div>
+                    </a>
+                    {% if pode_gerenciar %}
+                    <div class="position-absolute top-0 end-0 p-2">
+                        <a href="{{ url_for('edification.delete_album', id=album.id) }}" class="btn btn-sm btn-light rounded-circle shadow-sm text-danger" onclick="return confirm('Excluir este álbum e todas as suas imagens?');">
+                            <i class="bi bi-trash"></i>
+                        </a>
                     </div>
                     {% endif %}
                 </div>
-                
-                <div class="card-body p-3">
-                    <h6 class="fw-bold mb-1 text-truncate">{{ item.title }}</h6>
-                    <div class="mb-2">
-                        <span class="badge bg-secondary bg-opacity-10 text-secondary x-small">{{ item.media_type|upper }}</span>
-                        {% if item.ministry %}
-                        <span class="badge bg-info bg-opacity-10 text-info x-small">{{ item.ministry.name }}</span>
-                        {% endif %}
-                    </div>
-                    <p class="card-text small text-muted mb-3" style="height: 40px; overflow: hidden;">
-                        {{ item.description or 'Sem descrição' }}
-                    </p>
-                    
-                    <div class="d-flex justify-content-between align-items-center mt-auto">
-                        <small class="text-muted">{{ item.created_at.strftime('%d/%m/%y') }}</small>
-                        <div class="btn-group">
-                            {% if item.media_type == 'video' %}
-                            <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#videoModal{{ item.id }}">Ver</button>
-                            {% elif item.media_type == 'pdf' %}
-                            <a href="{{ url_for('static', filename=item.file_path) }}" target="_blank" class="btn btn-sm btn-outline-primary">Abrir</a>
-                            {% endif %}
-                            
-                            {% if pode_gerenciar %}
-                            <button class="btn btn-sm btn-outline-secondary dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown"></button>
-                            <ul class="dropdown-menu dropdown-menu-end">
-                                <li><a class="dropdown-item" href="{{ url_for('edification.edit_media', id=item.id) }}"><i class="bi bi-pencil me-2"></i>Editar</a></li>
-                                <li><hr class="dropdown-divider"></li>
-                                <li><a class="dropdown-item text-danger" href="{{ url_for('edification.delete_media', id=item.id) }}" onclick="return confirm('Excluir esta mídia?');"><i class="bi bi-trash me-2"></i>Excluir</a></li>
-                            </ul>
-                            {% endif %}
-                        </div>
-                    </div>
-                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Galeria Agrupada (Mídias Avulsas) -->
+    {% if events_grouped %}
+        {% for event_name, items in events_grouped.items() %}
+        <div class="mb-5">
+            <div class="d-flex align-items-center mb-3">
+                <h4 class="fw-bold mb-0 text-dark">{{ event_name }}</h4>
+                <span class="badge bg-primary bg-opacity-10 text-primary ms-3">{{ items|length }} itens</span>
+                <div class="flex-grow-1 ms-3 border-bottom opacity-25"></div>
             </div>
             
-            <!-- Modal para zoom de imagem (Responsivo) -->
-            {% if item.media_type == 'image' %}
-            <div class="modal fade" id="imageModal{{ item.id }}" tabindex="-1" aria-hidden="true">
-                <div class="modal-dialog modal-dialog-centered modal-xl">
-                    <div class="modal-content bg-transparent border-0">
-                        <div class="modal-header border-0 p-0 mb-2">
-                            <h5 class="modal-title text-white">{{ item.title }}</h5>
-                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-                        </div>
-                        <div class="modal-body p-0 text-center">
-                            <img src="{{ url_for('static', filename=item.file_path) }}" class="img-fluid rounded shadow-lg" style="max-height: 85vh; width: auto;" alt="{{ item.title }}">
-                            {% if item.description %}
-                            <div class="bg-dark bg-opacity-75 text-white p-3 mt-2 rounded">
-                                {{ item.description }}
+            <div class="row g-4">
+                {% for item in items %}
+                <div class="col-sm-6 col-md-4 col-lg-3">
+                    <div class="card h-100 border-0 shadow-sm overflow-hidden gallery-card">
+                        <div class="position-relative">
+                            {% if item.media_type == 'image' %}
+                            <div class="gallery-img-container" data-bs-toggle="modal" data-bs-target="#imageModal{{ item.id }}" style="cursor: pointer;">
+                                <img src="{{ url_for('static', filename=item.file_path) }}" class="card-img-top" alt="{{ item.title }}" style="height: 200px; object-fit: cover;">
+                                <div class="gallery-overlay">
+                                    <i class="bi bi-zoom-in text-white fs-2"></i>
+                                </div>
                             </div>
+                            {% elif item.media_type == 'video' %}
+                            <div class="gallery-img-container" data-bs-toggle="modal" data-bs-target="#videoModal{{ item.id }}" style="cursor: pointer;">
+                                <video class="card-img-top" style="height: 200px; object-fit: cover;">
+                                    <source src="{{ url_for('static', filename=item.file_path) }}" type="video/mp4">
+                                </video>
+                                <div class="position-absolute top-50 start-50 translate-middle">
+                                    <i class="bi bi-play-circle-fill text-white display-4 opacity-75"></i>
+                                </div>
+                                <div class="gallery-overlay">
+                                    <i class="bi bi-play-fill text-white fs-2"></i>
+                                </div>
+                            </div>
+                            {% elif item.media_type == 'pdf' %}
+                            <a href="{{ url_for('static', filename=item.file_path) }}" target="_blank" class="text-decoration-none">
+                                <div class="d-flex align-items-center justify-content-center bg-light" style="height: 200px;">
+                                    <i class="bi bi-file-earmark-pdf display-1 text-danger"></i>
+                                </div>
+                            </a>
                             {% endif %}
                         </div>
+                        
+                        <div class="card-body p-3">
+                            <h6 class="fw-bold mb-1 text-truncate">{{ item.title }}</h6>
+                            <div class="mb-2">
+                                <span class="badge bg-secondary bg-opacity-10 text-secondary x-small">{{ item.media_type|upper }}</span>
+                                {% if item.ministry %}
+                                <span class="badge bg-info bg-opacity-10 text-info x-small">{{ item.ministry.name }}</span>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="d-flex justify-content-between align-items-center mt-3">
+                                <small class="text-muted">{{ item.created_at.strftime('%d/%m/%y') }}</small>
+                                <div class="btn-group">
+                                    <a href="{{ url_for('static', filename=item.file_path) }}" download class="btn btn-sm btn-outline-primary" title="Baixar">
+                                        <i class="bi bi-download"></i>
+                                    </a>
+                                    
+                                    {% if pode_gerenciar %}
+                                    <button class="btn btn-sm btn-outline-secondary dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown"></button>
+                                    <ul class="dropdown-menu dropdown-menu-end">
+                                        <li><a class="dropdown-item" href="{{ url_for('edification.edit_media', id=item.id) }}"><i class="bi bi-pencil me-2"></i>Editar</a></li>
+                                        <li><hr class="dropdown-divider"></li>
+                                        <li><a class="dropdown-item text-danger" href="{{ url_for('edification.delete_media', id=item.id) }}" onclick="return confirm('Excluir esta mídia?');"><i class="bi bi-trash me-2"></i>Excluir</a></li>
+                                    </ul>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                </div>
-            </div>
-            {% endif %}
+                    
+                    <!-- Modal para zoom de imagem -->
+                    {% if item.media_type == 'image' %}
+                    <div class="modal fade" id="imageModal{{ item.id }}" tabindex="-1" aria-hidden="true">
+                        <div class="modal-dialog modal-dialog-centered modal-xl">
+                            <div class="modal-content bg-dark border-0">
+                                <div class="modal-header border-0 p-3">
+                                    <h5 class="modal-title text-white">{{ item.title }}</h5>
+                                    <div class="ms-auto">
+                                        <a href="{{ url_for('static', filename=item.file_path) }}" download class="btn btn-primary btn-sm me-2">
+                                            <i class="bi bi-download me-1"></i> Baixar
+                                        </a>
+                                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                                    </div>
+                                </div>
+                                <div class="modal-body p-0 text-center">
+                                    <img src="{{ url_for('static', filename=item.file_path) }}" class="img-fluid" style="max-height: 80vh;" alt="{{ item.title }}">
+                                    {% if item.description %}
+                                    <div class="p-3 text-white-50 small">
+                                        {{ item.description }}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
 
-            <!-- Modal para Vídeo -->
-            {% if item.media_type == 'video' %}
-            <div class="modal fade" id="videoModal{{ item.id }}" tabindex="-1" aria-hidden="true">
-                <div class="modal-dialog modal-dialog-centered modal-lg">
-                    <div class="modal-content bg-dark border-0">
-                        <div class="modal-header border-0">
-                            <h5 class="modal-title text-white">{{ item.title }}</h5>
-                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-                        </div>
-                        <div class="modal-body p-0">
-                            <video controls class="w-100">
-                                <source src="{{ url_for('static', filename=item.file_path) }}" type="video/mp4">
-                            </video>
+                    <!-- Modal para Vídeo -->
+                    {% if item.media_type == 'video' %}
+                    <div class="modal fade" id="videoModal{{ item.id }}" tabindex="-1" aria-hidden="true">
+                        <div class="modal-dialog modal-dialog-centered modal-lg">
+                            <div class="modal-content bg-dark border-0">
+                                <div class="modal-header border-0 p-3">
+                                    <h5 class="modal-title text-white">{{ item.title }}</h5>
+                                    <div class="ms-auto">
+                                        <a href="{{ url_for('static', filename=item.file_path) }}" download class="btn btn-primary btn-sm me-2">
+                                            <i class="bi bi-download me-1"></i> Baixar
+                                        </a>
+                                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                                    </div>
+                                </div>
+                                <div class="modal-body p-0">
+                                    <video controls class="w-100">
+                                        <source src="{{ url_for('static', filename=item.file_path) }}" type="video/mp4">
+                                    </video>
+                                </div>
+                            </div>
                         </div>
                     </div>
+                    {% endif %}
                 </div>
+                {% endfor %}
             </div>
-            {% endif %}
         </div>
         {% endfor %}
-    </div>
     {% else %}
-    <div class="text-center py-5">
-        <i class="bi bi-images display-1 text-muted opacity-25 d-block mb-3"></i>
-        <h4 class="text-muted">Nenhuma mídia encontrada</h4>
-        <p class="text-muted">Tente ajustar os filtros ou adicione novos conteúdos.</p>
-    </div>
+        {% if not albums %}
+        <div class="text-center py-5">
+            <i class="bi bi-images display-1 text-muted opacity-25 d-block mb-3"></i>
+            <h4 class="text-muted">Nenhuma mídia encontrada</h4>
+            <p class="text-muted">Tente ajustar os filtros ou adicione novos conteúdos.</p>
+        </div>
+        {% endif %}
     {% endif %}
 </div>
 
 <style>
+.album-card {
+    transition: all 0.3s ease;
+    border-radius: 15px;
+}
+.album-card:hover {
+    transform: scale(1.02);
+    box-shadow: 0 10px 20px rgba(0,0,0,0.1) !important;
+}
 .gallery-card {
     transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
@@ -3122,48 +3651,634 @@ body {
 {% endblock %}
 
 
+===== ./app/templates/edification/kids_bible_story.html =====
+{% extends "base.html" %}
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <nav aria-label="breadcrumb" class="mb-4">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ url_for('edification.kids') }}">Ecclesia Kids</a></li>
+                    <li class="breadcrumb-item active">{{ story.title }}</li>
+                </ol>
+            </nav>
+
+            <div class="card border-0 shadow-sm overflow-hidden rounded-4 mb-5">
+                {% if story.image_path %}
+                <img src="{{ story.image_path }}" class="card-img-top" alt="{{ story.title }}" style="max-height: 400px; object-fit: cover;">
+                {% else %}
+                <div class="bg-warning bg-opacity-10 text-center py-5">
+                    <i class="bi bi-book-half display-1 text-warning opacity-50"></i>
+                </div>
+                {% endif %}
+                
+                <div class="card-body p-4 p-md-5">
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <h1 class="fw-bold text-warning mb-0">{{ story.title }}</h1>
+                        <span class="badge bg-warning bg-opacity-10 text-warning px-3 py-2 rounded-pill">{{ story.reference }}</span>
+                    </div>
+                    
+                    <div class="story-content fs-5 text-muted lh-lg mb-5">
+                        {{ story.content | safe }}
+                    </div>
+
+                    <hr class="my-5 opacity-10">
+
+                    <!-- Seção de Quiz -->
+                    {% if story.quizzes %}
+                    <div id="quiz-section">
+                        <h3 class="fw-bold mb-4 text-dark"><i class="bi bi-patch-question me-2 text-warning"></i>O que você aprendeu?</h3>
+                        
+                        {% for quiz in story.quizzes %}
+                        <div class="quiz-card mb-4 p-4 border rounded-4 bg-light bg-opacity-50" id="quiz-{{ quiz.id }}">
+                            <p class="fw-bold fs-5 mb-4">{{ loop.index }}. {{ quiz.question }}</p>
+                            
+                            <div class="d-grid gap-3">
+                                <button class="btn btn-outline-dark text-start p-3 rounded-3 quiz-option" onclick="checkAnswer('{{ quiz.id }}', 'A', '{{ quiz.correct_option }}', '{{ quiz.explanation }}')">
+                                    <span class="fw-bold me-2">A)</span> {{ quiz.option_a }}
+                                </button>
+                                <button class="btn btn-outline-dark text-start p-3 rounded-3 quiz-option" onclick="checkAnswer('{{ quiz.id }}', 'B', '{{ quiz.correct_option }}', '{{ quiz.explanation }}')">
+                                    <span class="fw-bold me-2">B)</span> {{ quiz.option_b }}
+                                </button>
+                                <button class="btn btn-outline-dark text-start p-3 rounded-3 quiz-option" onclick="checkAnswer('{{ quiz.id }}', 'C', '{{ quiz.correct_option }}', '{{ quiz.explanation }}')">
+                                    <span class="fw-bold me-2">C)</span> {{ quiz.option_c }}
+                                </button>
+                            </div>
+                            
+                            <div class="mt-4 d-none feedback-area p-3 rounded-3">
+                                <p class="mb-0 fw-bold feedback-text"></p>
+                                <p class="small mb-0 mt-2 explanation-text"></p>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.story-content p {
+    margin-bottom: 1.5rem;
+}
+.quiz-option {
+    transition: all 0.2s ease;
+    border-width: 2px;
+}
+.quiz-option:hover {
+    background-color: #fff;
+    border-color: #ffc107;
+}
+.correct-answer {
+    background-color: #d1e7dd !important;
+    border-color: #0f5132 !important;
+    color: #0f5132 !important;
+}
+.wrong-answer {
+    background-color: #f8d7da !important;
+    border-color: #842029 !important;
+    color: #842029 !important;
+}
+</style>
+
+<script>
+function checkAnswer(quizId, selected, correct, explanation) {
+    const card = document.getElementById('quiz-' + quizId);
+    const options = card.querySelectorAll('.quiz-option');
+    const feedback = card.querySelector('.feedback-area');
+    const feedbackText = card.querySelector('.feedback-text');
+    const explanationText = card.querySelector('.explanation-text');
+    
+    // Desabilitar opções
+    options.forEach(opt => opt.disabled = true);
+    
+    feedback.classList.remove('d-none');
+    
+    if (selected === correct) {
+        feedback.classList.add('bg-success', 'bg-opacity-10', 'text-success');
+        feedbackText.innerHTML = '✨ Parabéns! Você acertou!';
+        explanationText.innerText = explanation;
+        
+        // Destacar a correta
+        options.forEach(opt => {
+            if (opt.innerText.trim().startsWith(selected)) {
+                opt.classList.add('correct-answer');
+            }
+        });
+    } else {
+        feedback.classList.add('bg-danger', 'bg-opacity-10', 'text-danger');
+        feedbackText.innerHTML = '❌ Quase lá! Tente prestar atenção na próxima.';
+        explanationText.innerText = 'A resposta correta era a ' + correct + '.';
+        
+        // Destacar a selecionada errada e a correta
+        options.forEach(opt => {
+            if (opt.innerText.trim().startsWith(selected)) {
+                opt.classList.add('wrong-answer');
+            }
+            if (opt.innerText.trim().startsWith(correct)) {
+                opt.classList.add('correct-answer');
+            }
+        });
+    }
+}
+</script>
+{% endblock %}
+
+
 
 ===== ./app/templates/edification/kids.html =====
 {% extends "base.html" %}
 {% block content %}
-<div class="container-fluid">
+<div class="container py-5">
+    <!-- Cabeçalho -->
     <div class="d-flex justify-content-between align-items-center mb-5">
         <div>
-            <h1 class="fw-bold text-warning"><i class="bi bi-balloon-heart-fill me-2"></i>Ecclesia Kids</h1>
-            <p class="text-muted">Espaço especial para nossas crianças crescerem na Palavra!</p>
+            <h1 class="fw-bold text-warning display-4"><i class="bi bi-balloon-heart-fill me-2"></i>Ecclesia Kids</h1>
+            <p class="text-muted fs-5">Espaço especial para nossas crianças crescerem na Palavra!</p>
         </div>
-        {% if current_user.can_manage_kids or (current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder']) %}
-        <a href="{{ url_for('edification.add_kids_activity') }}" class="btn btn-warning fw-bold">
-            <i class="bi bi-plus-lg me-2"></i> Nova Atividade
-        </a>
-        {% endif %}
+        <div class="d-flex gap-2">
+            {% if current_user.can_manage_kids or (current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder']) %}
+            <a href="{{ url_for('edification.manage_kids') }}" class="btn btn-outline-dark btn-lg fw-bold rounded-pill shadow-sm">
+                <i class="bi bi-gear me-2"></i> Gerenciar
+            </a>
+            <a href="{{ url_for('edification.add_kids_activity') }}" class="btn btn-warning btn-lg fw-bold rounded-pill shadow-sm">
+                <i class="bi bi-plus-lg me-2"></i> Nova Atividade
+            </a>
+            {% endif %}
+        </div>
     </div>
 
-    <div class="row g-4">
-        {% for act in activities %}
-        <div class="col-md-6 col-lg-4">
-            <div class="card h-100 border-0 shadow-sm overflow-hidden" style="border-top: 5px solid #ffc107 !important;">
-                <div class="bg-warning bg-opacity-10 py-2 px-3 text-warning small fw-bold">
-                    {{ act.age_group }}
+
+
+    <!-- Seção de Jogos -->
+    <div class="mb-5">
+        <h3 class="fw-bold mb-4"><i class="bi bi-controller me-2 text-warning"></i>Hora de Brincar e Aprender</h3>
+        <div class="row g-4">
+            <div class="col-md-6 col-lg-4">
+                <div class="card h-100 border-0 shadow-sm text-center p-4 card-hover-warning" style="background: linear-gradient(135deg, #fff 0%, #fff9e6 100%);">
+                    <div class="display-1 mb-3">🧩</div>
+                    <h4 class="fw-bold">Jogo da Memória</h4>
+                    <p class="text-muted small">Teste sua memória com os personagens da Bíblia!</p>
+                    <a href="{{ url_for('edification.memory_game') }}" class="btn btn-warning fw-bold rounded-pill mt-auto">Jogar Agora</a>
                 </div>
-                <div class="card-body p-4">
-                    <h5 class="fw-bold mb-3">{{ act.title }}</h5>
-                    <p class="text-muted small mb-4">{{ act.content|truncate(150) }}</p>
-                    <div class="d-flex justify-content-between align-items-center">
-                        <small class="text-muted">{{ act.created_at.strftime('%d/%m/%Y') }}</small>
-                        <button class="btn btn-sm btn-outline-warning rounded-pill px-3">Ver Atividade</button>
+            </div>
+            <div class="col-md-6 col-lg-4">
+                <div class="card h-100 border-0 shadow-sm text-center p-4 card-hover-warning" style="background: linear-gradient(135deg, #fff 0%, #e6f7ff 100%);">
+                    <div class="display-1 mb-3">👤</div>
+                    <h4 class="fw-bold">Quem Sou Eu?</h4>
+                    <p class="text-muted small">Adivinhe o personagem bíblico através das dicas!</p>
+                    <a href="{{ url_for('edification.who_am_i') }}" class="btn btn-info text-white fw-bold rounded-pill mt-auto">Jogar Agora</a>
+                </div>
+            </div>
+            <div class="col-md-6 col-lg-4">
+                <div class="card h-100 border-0 shadow-sm text-center p-4 opacity-75" style="background: #f8f9fa; border: 2px dashed #dee2e6 !important;">
+                    <div class="display-1 mb-3">🎨</div>
+                    <h4 class="fw-bold text-muted">Em Breve: Desenhos</h4>
+                    <p class="text-muted small">Espaço para colorir e soltar a imaginação!</p>
+                    <button class="btn btn-secondary disabled fw-bold rounded-pill mt-auto">Aguarde</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bíblia Ilustrada -->
+    {% if stories %}
+    <div class="mb-5">
+        <h3 class="fw-bold mb-4"><i class="bi bi-book-half me-2 text-warning"></i>Bíblia Ilustrada</h3>
+        <div class="row g-4">
+            {% for story in stories %}
+            <div class="col-md-6 col-lg-4">
+                <div class="card h-100 border-0 shadow-sm overflow-hidden rounded-4">
+                    {% if story.image_path %}
+                    <img src="{{ story.image_path }}" class="card-img-top" alt="{{ story.title }}" style="height: 200px; object-fit: cover;">
+                    {% else %}
+                    <div class="bg-warning bg-opacity-10 text-center py-4">
+                        <i class="bi bi-book display-4 text-warning opacity-50"></i>
+                    </div>
+                    {% endif %}
+                    <div class="card-body p-4">
+                        <span class="badge bg-warning bg-opacity-10 text-warning mb-2">{{ story.reference }}</span>
+                        <h5 class="fw-bold">{{ story.title }}</h5>
+                        <p class="text-muted small">{{ story.content | striptags | truncate(100) }}</p>
+                        <a href="{{ url_for('edification.view_bible_story', id=story.id) }}" class="btn btn-outline-warning btn-sm rounded-pill px-4 fw-bold">Ler História</a>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Atividades e Conteúdos -->
+    <div>
+        <h3 class="fw-bold mb-4"><i class="bi bi-journal-text me-2 text-warning"></i>Atividades e Lições</h3>
+        <div class="row g-4">
+            {% for act in activities %}
+            <div class="col-md-6 col-lg-4">
+                <div class="card h-100 border-0 shadow-sm overflow-hidden rounded-4" style="border-left: 5px solid #ffc107 !important;">
+                    <div class="card-body p-4">
+                        <div class="d-flex justify-content-between align-items-start mb-3">
+                            <h5 class="fw-bold mb-0">{{ act.title }}</h5>
+                            <span class="badge bg-light text-warning border border-warning x-small">{{ act.age_group }}</span>
+                        </div>
+                        <p class="text-muted small mb-4">{{ act.content|truncate(150) }}</p>
+                        <div class="d-flex justify-content-between align-items-center mt-auto">
+                            <small class="text-muted"><i class="bi bi-calendar3 me-1"></i>{{ act.created_at.strftime('%d/%m/%Y') }}</small>
+                            <button class="btn btn-sm btn-link text-warning fw-bold p-0 text-decoration-none">Ver Detalhes</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% else %}
+            {% if not stories %}
+            <div class="col-12 text-center py-5">
+                <i class="bi bi-emoji-smile fs-1 text-warning opacity-50 d-block mb-3"></i>
+                <p class="text-muted">Em breve teremos muitas atividades legais aqui!</p>
+            </div>
+            {% endif %}
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<style>
+.card-hover-warning {
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+.card-hover-warning:hover {
+    transform: translateY(-10px);
+    box-shadow: 0 15px 30px rgba(255, 193, 7, 0.15) !important;
+}
+.x-small {
+    font-size: 0.7rem;
+    font-weight: 800;
+}
+.pulse {
+    animation: pulse-animation 2s infinite;
+}
+@keyframes pulse-animation {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
+}
+</style>
+{% endblock %}
+
+
+
+===== ./app/templates/edification/kids_memory_game.html =====
+{% extends "base.html" %}
+{% block content %}
+<div class="container py-5 text-center">
+    <div class="mb-4">
+        <a href="{{ url_for('edification.kids') }}" class="btn btn-outline-warning rounded-pill mb-3">
+            <i class="bi bi-arrow-left me-2"></i> Voltar para Ecclesia Kids
+        </a>
+        <h1 class="fw-bold text-warning">Jogo da Memória Bíblico</h1>
+        <p class="text-muted">Encontre os pares dos personagens da Bíblia!</p>
+    </div>
+
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6">
+            <div id="game-board" class="memory-grid">
+                <!-- Cards will be generated by JavaScript -->
+            </div>
+            
+            <div class="mt-5 p-4 bg-light rounded-4 shadow-sm">
+                <div class="row align-items-center">
+                    <div class="col">
+                        <h4 class="mb-0 fw-bold">Tentativas: <span id="moves">0</span></h4>
+                    </div>
+                    <div class="col">
+                        <button onclick="resetGame()" class="btn btn-warning btn-lg fw-bold px-4 rounded-pill">
+                            <i class="bi bi-arrow-clockwise me-2"></i> Reiniciar
+                        </button>
                     </div>
                 </div>
             </div>
         </div>
-        {% else %}
-        <div class="col-12 text-center py-5">
-            <i class="bi bi-emoji-smile fs-1 text-warning opacity-50 d-block mb-3"></i>
-            <p class="text-muted">Em breve teremos muitas atividades legais aqui!</p>
-        </div>
-        {% endfor %}
     </div>
 </div>
+
+<style>
+.memory-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 15px;
+    perspective: 1000px;
+}
+
+.memory-card {
+    aspect-ratio: 1/1;
+    position: relative;
+    transform-style: preserve-3d;
+    transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    cursor: pointer;
+}
+
+.memory-card.flipped {
+    transform: rotateY(180deg);
+}
+
+.card-front, .card-back {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    backface-visibility: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 15px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    font-size: 2.5rem;
+}
+
+.card-back {
+    background: linear-gradient(135deg, #ffc107, #ffdb6e);
+    color: white;
+}
+
+.card-front {
+    background: white;
+    transform: rotateY(180deg);
+}
+
+.memory-card.matched .card-front {
+    background-color: #e8f5e9;
+    border: 3px solid #4caf50;
+}
+
+@media (max-width: 576px) {
+    .memory-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+</style>
+
+<script>
+const characters = [
+    { name: 'Arca', icon: '🚢' },
+    { name: 'Davi', icon: '👑' },
+    { name: 'Golias', icon: '⚔️' },
+    { name: 'Moisés', icon: '📜' },
+    { name: 'Leão', icon: '🦁' },
+    { name: 'Peixe', icon: '🐟' },
+    { name: 'Pomba', icon: '🕊️' },
+    { name: 'Estrela', icon: '⭐' }
+];
+
+let cards = [];
+let flippedCards = [];
+let matchedPairs = 0;
+let moves = 0;
+let canFlip = true;
+
+function initGame() {
+    const gameBoard = document.getElementById('game-board');
+    gameBoard.innerHTML = '';
+    
+    // Create pairs and shuffle
+    const deck = [...characters, ...characters]
+        .sort(() => Math.random() - 0.5);
+    
+    deck.forEach((char, index) => {
+        const card = document.createElement('div');
+        card.className = 'memory-card';
+        card.dataset.name = char.name;
+        card.innerHTML = `
+            <div class="card-back"><i class="bi bi-question-lg"></i></div>
+            <div class="card-front">${char.icon}</div>
+        `;
+        card.onclick = () => flipCard(card);
+        gameBoard.appendChild(card);
+    });
+}
+
+function flipCard(card) {
+    if (!canFlip || card.classList.contains('flipped') || card.classList.contains('matched')) return;
+    
+    card.classList.add('flipped');
+    flippedCards.push(card);
+    
+    if (flippedCards.length === 2) {
+        moves++;
+        document.getElementById('moves').innerText = moves;
+        checkMatch();
+    }
+}
+
+function checkMatch() {
+    canFlip = false;
+    const [card1, card2] = flippedCards;
+    
+    if (card1.dataset.name === card2.dataset.name) {
+        card1.classList.add('matched');
+        card2.classList.add('matched');
+        matchedPairs++;
+        flippedCards = [];
+        canFlip = true;
+        
+        if (matchedPairs === characters.length) {
+            setTimeout(() => alert(`Parabéns! Você completou em ${moves} tentativas!`), 500);
+        }
+    } else {
+        setTimeout(() => {
+            card1.classList.remove('flipped');
+            card2.classList.remove('flipped');
+            flippedCards = [];
+            canFlip = true;
+        }, 1000);
+    }
+}
+
+function resetGame() {
+    moves = 0;
+    matchedPairs = 0;
+    document.getElementById('moves').innerText = '0';
+    initGame();
+}
+
+document.addEventListener('DOMContentLoaded', initGame);
+</script>
+{% endblock %}
+
+
+===== ./app/templates/edification/kids_who_am_i.html =====
+{% extends "base.html" %}
+{% block content %}
+<div class="container py-5 text-center">
+    <div class="mb-5">
+        <a href="{{ url_for('edification.kids') }}" class="btn btn-outline-warning rounded-pill mb-3">
+            <i class="bi bi-arrow-left me-2"></i> Voltar
+        </a>
+        <h1 class="fw-bold text-warning">Quem Sou Eu?</h1>
+        <p class="text-muted">Leia as dicas e adivinhe qual é o personagem bíblico!</p>
+    </div>
+
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6">
+            <div class="card border-0 shadow-lg rounded-4 overflow-hidden mb-4">
+                <div class="bg-warning py-3 text-white fw-bold">
+                    DICA <span id="hint-number">1</span> DE 3
+                </div>
+                <div class="card-body p-5">
+                    <h2 id="current-hint" class="fw-bold mb-4 text-dark">...</h2>
+                    
+                    <div id="options-grid" class="d-grid gap-3 mt-4">
+                        <!-- Opções geradas via JS -->
+                    </div>
+                </div>
+                <div class="card-footer bg-light border-0 py-3">
+                    <div class="progress" style="height: 10px;">
+                        <div id="game-progress" class="progress-bar bg-warning" role="progressbar" style="width: 0%"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="feedback" class="d-none p-4 rounded-4 mb-4">
+                <h4 id="feedback-title" class="fw-bold mb-2"></h4>
+                <p id="feedback-text" class="mb-0"></p>
+                <button id="next-btn" class="btn btn-dark rounded-pill mt-3 px-4 d-none" onclick="nextCharacter()">Próximo Personagem</button>
+            </div>
+            
+            <div class="p-3 bg-white rounded-4 shadow-sm d-flex justify-content-around align-items-center">
+                <div class="text-center">
+                    <small class="text-muted d-block">PONTOS</small>
+                    <span id="score" class="fs-3 fw-bold text-warning">0</span>
+                </div>
+                <div class="vr"></div>
+                <div class="text-center">
+                    <small class="text-muted d-block">PERSONAGEM</small>
+                    <span id="char-count" class="fs-3 fw-bold text-dark">1/5</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+const gameData = [
+    {
+        name: "Noé",
+        hints: ["Construí um barco gigante", "Salvei muitos animais do dilúvio", "Vi o primeiro arco-íris"],
+        options: ["Noé", "Moisés", "Jonas"]
+    },
+    {
+        name: "Davi",
+        hints: ["Eu era um pastor de ovelhas", "Derrubei um gigante com uma pedra", "Fui rei de Israel"],
+        options: ["Saul", "Davi", "Salomão"]
+    },
+    {
+        name: "Jonas",
+        hints: ["Tentei fugir de Deus em um navio", "Fui engolido por um grande peixe", "Fiquei três dias na barriga do peixe"],
+        options: ["Pedro", "Jonas", "Paulo"]
+    },
+    {
+        name: "Sansão",
+        hints: ["Eu era muito, muito forte", "Minha força vinha do meu cabelo", "Lutei contra um leão"],
+        options: ["Sansão", "Golias", "Gideão"]
+    },
+    {
+        name: "Daniel",
+        hints: ["Eu orava a Deus três vezes por dia", "Fui jogado em uma cova", "Deus fechou a boca dos leões"],
+        options: ["José", "Daniel", "Elias"]
+    }
+];
+
+let currentIndex = 0;
+let currentHintIndex = 0;
+let score = 0;
+let canPlay = true;
+
+function initGame() {
+    currentIndex = 0;
+    score = 0;
+    updateGame();
+}
+
+function updateGame() {
+    const char = gameData[currentIndex];
+    currentHintIndex = 0;
+    canPlay = true;
+    
+    document.getElementById('char-count').innerText = `${currentIndex + 1}/${gameData.length}`;
+    document.getElementById('hint-number').innerText = "1";
+    document.getElementById('current-hint').innerText = char.hints[0];
+    document.getElementById('game-progress').style.width = `${(currentIndex / gameData.length) * 100}%`;
+    
+    const optionsGrid = document.getElementById('options-grid');
+    optionsGrid.innerHTML = '';
+    
+    char.options.forEach(opt => {
+        const btn = document.createElement('button');
+        btn.className = 'btn btn-outline-warning btn-lg rounded-pill py-3 fw-bold';
+        btn.innerText = opt;
+        btn.onclick = () => checkAnswer(opt);
+        optionsGrid.appendChild(btn);
+    });
+    
+    document.getElementById('feedback').classList.add('d-none');
+    document.getElementById('next-btn').classList.add('d-none');
+}
+
+function checkAnswer(selected) {
+    if (!canPlay) return;
+    
+    const char = gameData[currentIndex];
+    const feedback = document.getElementById('feedback');
+    const feedbackTitle = document.getElementById('feedback-title');
+    const feedbackText = document.getElementById('feedback-text');
+    
+    canPlay = false;
+    feedback.classList.remove('d-none', 'bg-success', 'bg-danger', 'bg-opacity-10', 'text-success', 'text-danger');
+    
+    if (selected === char.name) {
+        score += (3 - currentHintIndex) * 10;
+        document.getElementById('score').innerText = score;
+        
+        feedback.classList.add('bg-success', 'bg-opacity-10', 'text-success');
+        feedbackTitle.innerText = "✨ Acertou!";
+        feedbackText.innerText = `Parabéns! Eu sou ${char.name}.`;
+        
+        document.getElementById('next-btn').classList.remove('d-none');
+    } else {
+        if (currentHintIndex < 2) {
+            currentHintIndex++;
+            document.getElementById('hint-number').innerText = currentHintIndex + 1;
+            document.getElementById('current-hint').innerText = char.hints[currentHintIndex];
+            
+            feedback.classList.add('bg-danger', 'bg-opacity-10', 'text-danger');
+            feedbackTitle.innerText = "❌ Quase!";
+            feedbackText.innerText = "Essa não é a resposta certa. Aqui vai mais uma dica...";
+            
+            setTimeout(() => {
+                feedback.classList.add('d-none');
+                canPlay = true;
+            }, 2000);
+        } else {
+            feedback.classList.add('bg-danger', 'bg-opacity-10', 'text-danger');
+            feedbackTitle.innerText = "😔 Não foi dessa vez";
+            feedbackText.innerText = `Eu era ${char.name}. Vamos para o próximo?`;
+            document.getElementById('next-btn').classList.remove('d-none');
+        }
+    }
+}
+
+function nextCharacter() {
+    currentIndex++;
+    if (currentIndex < gameData.length) {
+        updateGame();
+    } else {
+        alert(`Fim de jogo! Sua pontuação final: ${score}`);
+        initGame();
+    }
+}
+
+document.addEventListener('DOMContentLoaded', initGame);
+</script>
 {% endblock %}
 
 
@@ -3220,6 +4335,198 @@ body {
     {% endif %}
 </div>
 {% endblock %}
+
+
+===== ./app/templates/edification/manage_kids.html =====
+{% extends "base.html" %}
+{% block content %}
+<div class="container py-5">
+    <div class="d-flex justify-content-between align-items-center mb-5">
+        <div>
+            <h1 class="fw-bold text-warning"><i class="bi bi-gear-fill me-2"></i>Gerenciar Ecclesia Kids</h1>
+            <p class="text-muted">Adicione e edite histórias, quizzes e atividades.</p>
+        </div>
+        <a href="{{ url_for('edification.kids') }}" class="btn btn-outline-secondary rounded-pill">
+            <i class="bi bi-arrow-left me-2"></i> Voltar
+        </a>
+    </div>
+
+    <div class="row">
+        <!-- Coluna de Histórias -->
+        <div class="col-lg-7 mb-4">
+            <div class="card border-0 shadow-sm rounded-4">
+                <div class="card-header bg-white border-0 py-3 d-flex justify-content-between align-items-center">
+                    <h5 class="fw-bold mb-0">Bíblia Ilustrada (Histórias)</h5>
+                    <button class="btn btn-warning btn-sm fw-bold rounded-pill" data-bs-toggle="modal" data-bs-target="#addStoryModal">
+                        <i class="bi bi-plus-lg me-1"></i> Nova História
+                    </button>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="bg-light">
+                                <tr>
+                                    <th class="ps-4">Ordem</th>
+                                    <th>Título</th>
+                                    <th>Referência</th>
+                                    <th>Quizzes</th>
+                                    <th class="text-end pe-4">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for story in stories %}
+                                <tr>
+                                    <td class="ps-4">{{ story.order }}</td>
+                                    <td><span class="fw-bold">{{ story.title }}</span></td>
+                                    <td>{{ story.reference }}</td>
+                                    <td><span class="badge bg-info bg-opacity-10 text-info">{{ story.quizzes|length }}</span></td>
+                                    <td class="text-end pe-4">
+                                        <button class="btn btn-sm btn-light text-primary me-1" title="Adicionar Quiz" onclick="setStoryId('{{ story.id }}', '{{ story.title }}')" data-bs-toggle="modal" data-bs-target="#addQuizModal">
+                                            <i class="bi bi-patch-question"></i>
+                                        </button>
+                                        <a href="{{ url_for('edification.delete_bible_story', id=story.id) }}" class="btn btn-sm btn-light text-danger" onclick="return confirm('Excluir esta história e todos os seus quizzes?')">
+                                            <i class="bi bi-trash"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="5" class="text-center py-4 text-muted">Nenhuma história cadastrada.</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Coluna de Atividades -->
+        <div class="col-lg-5 mb-4">
+            <div class="card border-0 shadow-sm rounded-4">
+                <div class="card-header bg-white border-0 py-3 d-flex justify-content-between align-items-center">
+                    <h5 class="fw-bold mb-0">Atividades Gerais</h5>
+                    <a href="{{ url_for('edification.add_kids_activity') }}" class="btn btn-warning btn-sm fw-bold rounded-pill">
+                        <i class="bi bi-plus-lg me-1"></i> Nova Atividade
+                    </a>
+                </div>
+                <div class="card-body p-0">
+                    <div class="list-group list-group-flush">
+                        {% for act in activities %}
+                        <div class="list-group-item border-0 px-4 py-3">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="fw-bold mb-0">{{ act.title }}</h6>
+                                    <small class="text-muted">{{ act.age_group }} • {{ act.created_at.strftime('%d/%m/%y') }}</small>
+                                </div>
+                                <a href="#" class="text-danger"><i class="bi bi-trash"></i></a>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Adicionar História -->
+<div class="modal fade" id="addStoryModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <form action="{{ url_for('edification.add_bible_story') }}" method="POST" class="modal-content border-0 rounded-4">
+            <div class="modal-header border-0">
+                <h5 class="modal-title fw-bold">Nova História Bíblica</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row g-3">
+                    <div class="col-md-8">
+                        <label class="form-label small fw-bold">TÍTULO</label>
+                        <input type="text" name="title" class="form-control bg-light border-0" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small fw-bold">ORDEM</label>
+                        <input type="number" name="order" class="form-control bg-light border-0" value="{{ (stories|length + 1) }}">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label small fw-bold">REFERÊNCIA BÍBLICA</label>
+                        <input type="text" name="reference" class="form-control bg-light border-0" placeholder="Ex: Gênesis 1:1">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label small fw-bold">URL DA ILUSTRAÇÃO (OPCIONAL)</label>
+                        <input type="url" name="image_path" class="form-control bg-light border-0" placeholder="https://...">
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label small fw-bold">CONTEÚDO DA HISTÓRIA (HTML PERMITIDO)</label>
+                        <textarea name="content" class="form-control bg-light border-0" rows="6" required></textarea>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer border-0">
+                <button type="button" class="btn btn-light rounded-pill" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-warning fw-bold rounded-pill px-4">Salvar História</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal Adicionar Quiz -->
+<div class="modal fade" id="addQuizModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <form action="{{ url_for('edification.add_bible_quiz') }}" method="POST" class="modal-content border-0 rounded-4">
+            <input type="hidden" name="story_id" id="modal_story_id">
+            <div class="modal-header border-0">
+                <h5 class="modal-title fw-bold">Novo Quiz: <span id="modal_story_title" class="text-warning"></span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">PERGUNTA</label>
+                    <input type="text" name="question" class="form-control bg-light border-0" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">OPÇÃO A</label>
+                    <input type="text" name="option_a" class="form-control bg-light border-0" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">OPÇÃO B</label>
+                    <input type="text" name="option_b" class="form-control bg-light border-0" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">OPÇÃO C</label>
+                    <input type="text" name="option_c" class="form-control bg-light border-0" required>
+                </div>
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label class="form-label small fw-bold">CORRETA</label>
+                        <select name="correct_option" class="form-select bg-light border-0">
+                            <option value="A">A</option>
+                            <option value="B">B</option>
+                            <option value="C">C</option>
+                        </select>
+                    </div>
+                    <div class="col-md-8">
+                        <label class="form-label small fw-bold">EXPLICAÇÃO (OPCIONAL)</label>
+                        <input type="text" name="explanation" class="form-control bg-light border-0">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer border-0">
+                <button type="button" class="btn btn-light rounded-pill" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-warning fw-bold rounded-pill px-4">Salvar Quiz</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function setStoryId(id, title) {
+    document.getElementById('modal_story_id').value = id;
+    document.getElementById('modal_story_title').innerText = title;
+}
+</script>
+{% endblock %}
+
 
 
 ===== ./app/templates/edification/studies.html =====
@@ -4096,6 +5403,85 @@ function toggleDebtorSelect(checked) {
 
 
 
+===== ./app/templates/includes/_nav_links.html =====
+<nav class="nav flex-column">
+    <a class="nav-link {{ 'active' if request.endpoint == 'members.dashboard' }}" href="{{ url_for('members.dashboard') }}">
+        <i class="bi bi-speedometer2 me-2"></i> Dashboard
+    </a>
+    {% if current_user.can_manage_finance or (current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder', 'Tesoureiro']) %}
+    <a class="nav-link {{ 'active' if request.endpoint == 'finance.dashboard' }}" href="{{ url_for('finance.dashboard') }}">
+        <i class="bi bi-cash-stack me-2"></i> Gestão Financeira
+    </a>
+    {% endif %}
+    <a class="nav-link {{ 'active' if request.endpoint == 'finance.member_finance' }}" href="{{ url_for('finance.member_finance') }}">
+        <i class="bi bi-wallet2 me-2"></i> Minhas Contribuições
+    </a>
+    <a class="nav-link {{ 'active' if request.endpoint == 'edification.studies' }}" href="{{ url_for('edification.studies') }}">
+        <i class="bi bi-book me-2"></i> Estudos Bíblicos
+    </a>
+    <a class="nav-link {{ 'active' if request.endpoint == 'edification.devotionals' }}" href="{{ url_for('edification.devotionals') }}">
+        <i class="bi bi-journal-text me-2"></i> Devocionais
+    </a>
+    {% if current_user.can_manage_kids or (current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder']) %}
+    <a class="nav-link {{ 'active' if request.endpoint == 'edification.kids' }}" href="{{ url_for('edification.kids') }}">
+        <i class="bi bi-balloon-heart me-2"></i> Ecclesia Kids
+    </a>
+    {% endif %}
+    <a class="nav-link {{ 'active' if 'gallery' in request.endpoint }}" href="{{ url_for('edification.gallery') }}">
+        <i class="bi bi-images me-2"></i> Galeria
+    </a>
+    <a class="nav-link {{ 'active' if 'ministries' in request.endpoint }}" href="{{ url_for('members.list_ministries') }}">
+        <i class="bi bi-diagram-3 me-2"></i> Ministérios
+    </a>
+    {% if current_user.can_approve_members or (current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder']) %}
+    <a class="nav-link {{ 'active' if 'church_members' in request.endpoint }}" href="{{ url_for('members.church_members') }}">
+        <i class="bi bi-people me-2"></i> Membros da Filial
+    </a>
+    {% endif %}
+
+    <!-- Link "Meus Ministérios Liderados" -->
+    {% if current_user.is_authenticated %}
+        {% set has_led_ministries = namespace(value=false) %}
+        {% for ministry in current_user.ministries %}
+            {% if ministry.leader_id == current_user.id %}
+                {% set has_led_ministries.value = true %}
+            {% endif %}
+        {% endfor %}
+        {% if has_led_ministries.value %}
+        <a class="nav-link {{ 'active' if 'my_led_ministries' in request.endpoint }}" href="{{ url_for('members.my_led_ministries') }}">
+            <i class="bi bi-star-fill me-2"></i> Meus Ministérios Liderados
+        </a>
+        {% endif %}
+    {% endif %}
+
+    {% if current_user.can_approve_members or (current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder']) %}
+    <a class="nav-link {{ 'active' if 'roles' in request.endpoint }}" href="{{ url_for('admin.list_roles') }}">
+        <i class="bi bi-person-badge me-2"></i> Cargos da Congregação
+    </a>
+    {% endif %}
+
+    {% if current_user.church_role and current_user.church_role.name == 'Administrador Global' %}
+    <hr class="my-3 opacity-25">
+    <label class="small text-muted px-3 mb-2">ADMINISTRAÇÃO</label>
+    <a class="nav-link {{ 'active' if 'admin.list_churches' in request.endpoint }}" href="{{ url_for('admin.list_churches') }}">
+        <i class="bi bi-building me-2"></i> Congregações
+    </a>
+    <a class="nav-link {{ 'active' if 'admin.list_members' in request.endpoint }}" href="{{ url_for('admin.list_members') }}">
+        <i class="bi bi-globe me-2"></i> Gestão Global
+    </a>
+    {% endif %}
+
+    <a class="nav-link" href="{{ url_for('members.profile') }}">
+        <i class="bi bi-person me-2"></i> Meu Perfil
+    </a>
+    <hr class="my-3 opacity-25">
+    <a class="nav-link text-danger" href="{{ url_for('auth.logout') }}">
+        <i class="bi bi-box-arrow-right me-2"></i> Sair
+    </a>
+</nav>
+
+
+
 ===== ./app/templates/index.html =====
 {% extends "base.html" %}
 {% block content %}
@@ -4391,165 +5777,211 @@ function toggleDebtorSelect(checked) {
 {% extends "base.html" %}
 {% block content %}
 <div class="row g-4">
-    <!-- Seção de Alertas para Liderança -->
-    {% if pending_members %}
-    <div class="col-12">
-        <div class="alert alert-warning border-0 shadow-sm d-flex justify-content-between align-items-center">
-            <div>
-                <i class="bi bi-person-plus-fill me-2"></i>
-                Existem <strong>{{ pending_members|length }}</strong> solicitações de cadastro pendentes para sua filial.
-            </div>
-            <button class="btn btn-sm btn-warning fw-bold" data-bs-toggle="modal" data-bs-target="#pendingModal">Ver Solicitações</button>
-        </div>
-    </div>
-    {% endif %}
-
     <!-- Devocional e Agenda -->
     <div class="col-lg-8">
-        <div class="card devotional-card border-0 p-4 mb-4">
-            <div class="card-body">
-                <span class="badge bg-white text-primary px-3 py-2 mb-3">Palavra do Dia</span>
-                {% if devotional and devotional.date == datetime.utcnow().date() %}
-                    <h2 class="fw-bold mb-3">{{ devotional.title }}</h2>
-                    <p class="fs-5 opacity-90">{{ devotional.content | safe }}</p>
+        <!-- Seção de Alertas Críticos (Solicitações) -->
+        {% if pending_members %}
+        <div class="alert alert-warning border-0 shadow-sm d-flex justify-content-between align-items-center mb-4 rounded-4 p-3" style="border-left: 5px solid #ffc107 !important;">
+            <div class="d-flex align-items-center">
+                <div class="bg-warning bg-opacity-20 p-2 rounded-3 me-3">
+                    <i class="bi bi-person-plus-fill text-dark fs-4"></i>
+                </div>
+                <div>
+                    <strong class="text-dark">Novos Candidatos</strong>
+                    <div class="small text-dark opacity-75">{{ pending_members|length }} solicitações aguardando sua aprovação.</div>
+                </div>
+            </div>
+            <button class="btn btn-dark btn-sm fw-bold rounded-pill px-4" data-bs-toggle="modal" data-bs-target="#pendingModal">Gerenciar</button>
+        </div>
+        {% endif %}
+
+        <!-- Card Devocional -->
+        <div class="card devotional-card border-0 p-4 mb-4 shadow-lg overflow-hidden position-relative">
+            <div class="card-body position-relative z-1">
+                <span class="badge bg-white text-primary px-3 py-2 mb-3 shadow-sm">Palavra do Dia</span>
+                {% if devotional %}
+                    <h2 class="fw-bold mb-3 text-white">{{ devotional.title }}</h2>
+                    <div class="fs-5 text-white opacity-95 mb-3">{{ devotional.content | safe }}</div>
                     {% if devotional.verse %}
-                    <p class="fst-italic mt-3 mb-0">"{{ devotional.verse }}"</p>
-                    {% endif %}
-                {% elif devotional %}
-                    <h2 class="fw-bold mb-3">{{ devotional.title }}</h2>
-                    <p class="fs-5 opacity-90">{{ devotional.content | safe }}</p>
-                    {% if devotional.verse %}
-                    <p class="fst-italic mt-3 mb-0">"{{ devotional.verse }}"</p>
-                    {% endif %}
-                    <div class="alert alert-info mt-3">
-                        <i class="bi bi-info-circle me-2"></i>
-                        Este é o devocional mais recente. O de hoje ainda não foi publicado.
+                    <div class="p-3 bg-white bg-opacity-10 rounded-3 border border-white border-opacity-10">
+                        <p class="fst-italic mb-0 text-white">"{{ devotional.verse }}"</p>
                     </div>
+                    {% endif %}
+                    {% if devotional.date != datetime.utcnow().date() %}
+                    <div class="mt-3 small text-white opacity-75">
+                        <i class="bi bi-info-circle me-1"></i> Devocional de {{ devotional.date.strftime('%d/%m') }}
+                    </div>
+                    {% endif %}
                 {% else %}
-                    <h2 class="fw-bold mb-3">Bem-vindo ao Ecclesia Master</h2>
-                    <p class="fs-5 opacity-90">Que a graça do Senhor Jesus seja com todos.</p>
-                    <div class="alert alert-warning mt-3">
-                        <i class="bi bi-exclamation-triangle me-2"></i>
-                        Nenhum devocional publicado ainda.
-                    </div>
+                    <h2 class="fw-bold mb-3 text-white">Bem-vindo ao Ecclesia Master</h2>
+                    <p class="fs-5 text-white opacity-90">"Tudo o que fizerem, façam de todo o coração, como para o Senhor."</p>
                 {% endif %}
+            </div>
+            <!-- Decoração de fundo -->
+            <div class="position-absolute bottom-0 end-0 opacity-10 mb-n4 me-n4">
+                <i class="bi bi-book-half" style="font-size: 10rem;"></i>
             </div>
         </div>
 
-        <div class="card border-0 shadow-sm p-4">
-            <h4 class="fw-bold mb-4"><i class="bi bi-calendar-event me-2 text-primary"></i>Minha Agenda</h4>
+        <!-- Card Agenda -->
+        <div class="card border-0 shadow-sm p-4 rounded-4">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h4 class="fw-bold mb-0"><i class="bi bi-calendar-check me-2 text-primary"></i>Minha Agenda</h4>
+                <a href="{{ url_for('members.list_ministries') }}" class="btn btn-light btn-sm rounded-pill">Ver todos</a>
+            </div>
             <div class="list-group list-group-flush">
                 {% for event in agenda %}
                 <div class="list-group-item px-0 py-3 border-0 border-bottom">
                     <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <h6 class="fw-bold mb-1">{{ event.title }}</h6>
-                            <small class="text-muted">
-                                <i class="bi bi-clock me-1"></i> {{ event.start_time.strftime('%d/%m %H:%M') }}
-                                {% if event.ministry %}
-                                <span class="badge bg-info bg-opacity-10 text-info ms-2">{{ event.ministry.name }}</span>
-                                {% else %}
-                                <span class="badge bg-secondary bg-opacity-10 text-secondary ms-2">Geral</span>
-                                {% endif %}
-                            </small>
+                        <div class="d-flex align-items-start">
+                            <div class="bg-primary bg-opacity-10 text-primary p-2 rounded-3 me-3 text-center" style="min-width: 50px;">
+                                <div class="fw-bold small">{{ event.start_time.strftime('%d') }}</div>
+                                <div class="extra-small text-uppercase">{{ event.start_time.strftime('%b') }}</div>
+                            </div>
+                            <div>
+                                <h6 class="fw-bold mb-1">{{ event.title }}</h6>
+                                <div class="d-flex gap-2 align-items-center">
+                                    <small class="text-muted"><i class="bi bi-clock me-1"></i> {{ event.start_time.strftime('%H:%M') }}</small>
+                                    {% if event.ministry %}
+                                    <span class="badge bg-info bg-opacity-10 text-info border border-info border-opacity-25">{{ event.ministry.name }}</span>
+                                    {% endif %}
+                                </div>
+                            </div>
                         </div>
-                        <div class="text-end">
-                            <small class="d-block text-muted"><i class="bi bi-geo-alt"></i> {{ event.location }}</small>
+                        <div class="text-end d-none d-sm-block">
+                            <small class="text-muted"><i class="bi bi-geo-alt me-1"></i> {{ event.location }}</small>
                         </div>
                     </div>
                 </div>
                 {% else %}
-                <p class="text-muted">Nenhum evento agendado para você.</p>
+                <div class="text-center py-4">
+                    <i class="bi bi-calendar-x text-muted fs-1 opacity-25"></i>
+                    <p class="text-muted mt-2">Nenhum evento agendado para os próximos dias.</p>
+                </div>
                 {% endfor %}
             </div>
         </div>
     </div>
 
-    <!-- Sidebar de Ações e Família -->
+    <!-- Sidebar -->
     <div class="col-lg-4">
-        <div class="card border-0 shadow-sm p-4 mb-4">
-            <h5 class="fw-bold mb-3">Painel de Liderança</h5>
+        <!-- Alertas de Aniversário -->
+        {% if birthday_alerts %}
+        <div class="card border-0 shadow-sm rounded-4 mb-4 overflow-hidden border-top border-primary border-4">
+            <div class="card-header bg-white border-0 py-3 d-flex align-items-center">
+                <div class="bg-primary bg-opacity-10 p-2 rounded-3 me-2">
+                    <i class="bi bi-cake2-fill text-primary"></i>
+                </div>
+                <h6 class="fw-bold mb-0 text-primary">Aniversariantes (10 dias)</h6>
+            </div>
+            <div class="card-body p-0">
+                <div class="list-group list-group-flush">
+                    {% for alert in birthday_alerts %}
+                    <div class="list-group-item border-0 border-bottom px-3 py-3 {{ 'bg-danger bg-opacity-10' if alert.is_today else '' }}">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div class="text-truncate" style="max-width: 70%;">
+                                <span class="fw-bold small d-block mb-1 {{ 'text-danger' if alert.is_today else 'text-main' }}">{{ alert.name }}</span>
+                                <span class="badge bg-secondary bg-opacity-10 text-muted extra-small">{{ alert.ministry }}</span>
+                            </div>
+                            <div class="text-end">
+                                <span class="fw-bold text-primary small d-block">{{ alert.day }}/{{ alert.month }}</span>
+                                {% if alert.is_today %}
+                                <span class="badge bg-danger extra-small pulse shadow-sm mt-1">HOJE! 🎂</span>
+                                {% else %}
+                                <span class="extra-small text-muted fw-medium">{{ alert.days_until }}d restantes</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Ações Rápidas -->
+        <div class="card border-0 shadow-sm p-4 mb-4 rounded-4">
+            <h6 class="fw-bold mb-3 text-muted text-uppercase small letter-spacing-1">Ações Rápidas</h6>
             <div class="d-grid gap-2">
                 {% if current_user.can_manage_ministries %}
-                <a href="{{ url_for('members.add_ministry') }}" class="btn btn-outline-primary text-start">
+                <a href="{{ url_for('members.add_ministry') }}" class="btn btn-outline-primary text-start border-2 fw-semibold py-2">
                     <i class="bi bi-plus-circle me-2"></i> Criar Ministério
                 </a>
                 {% endif %}
 
                 {% if current_user.can_manage_events or current_user.can_manage_ministries %}
-                <a href="{{ url_for('members.add_general_event') }}" class="btn btn-outline-success text-start">
-                    <i class="bi bi-calendar-plus me-2"></i> Criar Evento Geral da Igreja
+                <a href="{{ url_for('members.add_general_event') }}" class="btn btn-outline-success text-start border-2 fw-semibold py-2">
+                    <i class="bi bi-calendar-plus me-2"></i> Novo Evento
                 </a>
                 {% endif %}
 
                 {% if current_user.can_manage_finance %}
-                <a href="{{ url_for('finance.add_transaction') }}" class="btn btn-outline-success text-start">
+                <a href="{{ url_for('finance.add_transaction') }}" class="btn btn-outline-success text-start border-2 fw-semibold py-2">
                     <i class="bi bi-cash-coin me-2"></i> Lançar Financeiro
                 </a>
-                <a href="{{ url_for('finance.add_asset') }}" class="btn btn-outline-info text-start">
-                    <i class="bi bi-box-seam me-2"></i> Cadastrar Patrimônio
-                </a>
                 {% endif %}
 
-                {% if current_user.can_manage_media %}
-                <a href="{{ url_for('edification.upload_media') }}" class="btn btn-outline-info text-start">
-                    <i class="bi bi-images me-2"></i> Adicionar Mídia à Galeria
-                </a>
-                {% endif %}
-
-                <a href="{{ url_for('edification.kids') }}" class="btn btn-outline-warning text-start">
+                <a href="{{ url_for('edification.kids') }}" class="btn btn-outline-warning text-start border-2 fw-semibold py-2 text-dark">
                     <i class="bi bi-balloon me-2"></i> Ecclesia Kids
                 </a>
             </div>
         </div>
 
-        <div class="card border-0 shadow-sm p-4">
-            <h5 class="fw-bold mb-3"><i class="bi bi-people me-2 text-primary"></i>Minha Família</h5>
+        <!-- Minha Família -->
+        <div class="card border-0 shadow-sm p-4 rounded-4 bg-light bg-opacity-50">
+            <h6 class="fw-bold mb-3 text-muted text-uppercase small letter-spacing-1"><i class="bi bi-people me-2"></i>Minha Família</h6>
             {% if current_user.family_group %}
-                <p class="text-muted small mb-3">Grupo: <strong>{{ current_user.family_group.name }}</strong></p>
-                <div class="list-group list-group-flush">
+                <div class="d-flex flex-wrap gap-2">
                     {% for member in current_user.family_group.users %}
-                    <div class="list-group-item px-0 py-2 border-0 small">
-                        <i class="bi bi-person-circle me-2"></i> {{ member.name }}
-                        {% if member.id == current_user.id %}<span class="badge bg-light text-dark ms-1">Você</span>{% endif %}
+                    <div class="bg-white border rounded-pill px-3 py-1 small shadow-xs">
+                        <i class="bi bi-person-circle text-primary me-1"></i> {{ member.name.split(' ')[0] }}
                     </div>
                     {% endfor %}
                 </div>
             {% else %}
-                <p class="text-muted small">Você ainda não está vinculado a um grupo familiar.</p>
+                <div class="text-center py-3 opacity-50">
+                    <i class="bi bi-house-heart fs-2"></i>
+                    <p class="extra-small mt-2 mb-0">Nenhum grupo familiar vinculado.</p>
+                </div>
             {% endif %}
         </div>
     </div>
 </div>
 
-<!-- Modal de Solicitações Pendentes -->
+<!-- Modal de Solicitações -->
 <div class="modal fade" id="pendingModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content border-0 shadow">
-            <div class="modal-header bg-light">
-                <h5 class="modal-title fw-bold">Solicitações de Cadastro</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+            <div class="modal-header border-0 bg-dark text-white p-4">
+                <div class="d-flex align-items-center">
+                    <i class="bi bi-person-check-fill fs-3 me-3"></i>
+                    <h5 class="modal-title fw-bold mb-0">Solicitações de Cadastro</h5>
+                </div>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <div class="modal-body">
+            <div class="modal-body p-0">
                 <div class="table-responsive">
-                    <table class="table align-middle">
-                        <thead>
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="bg-light">
                             <tr>
-                                <th>Nome</th>
-                                <th>E-mail</th>
-                                <th>Data Solicitada</th>
-                                <th class="text-end">Ações</th>
+                                <th class="ps-4 py-3 border-0">Candidato</th>
+                                <th class="py-3 border-0">E-mail</th>
+                                <th class="text-end pe-4 py-3 border-0">Ação</th>
                             </tr>
                         </thead>
                         <tbody>
                             {% for p in pending_members %}
                             <tr>
-                                <td>{{ p.name }}</td>
-                                <td>{{ p.email }}</td>
-                                <td>{{ p.birth_date.strftime('%d/%m/%Y') if p.birth_date else 'N/A' }}</td>
-                                <td class="text-end">
-                                    <a href="{{ url_for('auth.approve_member', user_id=p.id, action='approve') }}" class="btn btn-sm btn-success">Aprovar</a>
-                                    <a href="{{ url_for('auth.approve_member', user_id=p.id, action='reject') }}" class="btn btn-sm btn-danger">Rejeitar</a>
+                                <td class="ps-4">
+                                    <div class="fw-bold text-main">{{ p.name }}</div>
+                                    <small class="text-muted">Inscrito em {{ p.created_at.strftime('%d/%m/%Y') if p.created_at else 'Recente' }}</small>
+                                </td>
+                                <td class="small">{{ p.email }}</td>
+                                <td class="text-end pe-4">
+                                    <form action="{{ url_for('auth.approve_member', user_id=p.id) }}" method="POST" class="d-inline">
+                                        <input type="hidden" name="action" value="approve">
+                                        <button type="submit" class="btn btn-success rounded-pill px-3 fw-bold shadow-sm">Aprovar</button>
+                                    </form>
                                 </td>
                             </tr>
                             {% endfor %}
@@ -4560,8 +5992,26 @@ function toggleDebtorSelect(checked) {
         </div>
     </div>
 </div>
-{% endblock %}
 
+<style>
+.extra-small { font-size: 0.7rem; }
+.letter-spacing-1 { letter-spacing: 1px; }
+.shadow-xs { box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+.text-main { color: var(--text-main); }
+.pulse { animation: pulse-animation 2s infinite; }
+@keyframes pulse-animation {
+    0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+    70% { transform: scale(1.05); box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+    100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+}
+
+/* Dark Mode Overrides */
+[data-theme="dark"] .card-header { background-color: rgba(255,255,255,0.05) !important; }
+[data-theme="dark"] .bg-light { background-color: rgba(255,255,255,0.05) !important; }
+[data-theme="dark"] .btn-light { background-color: rgba(255,255,255,0.1); color: white; border: 0; }
+[data-theme="dark"] .list-group-item { border-color: rgba(255,255,255,0.05) !important; }
+</style>
+{% endblock %}
 
 
 
@@ -11626,12 +13076,14 @@ Flask-WTF==1.2.2
 fonttools==4.61.1
 fpdf2==2.8.5
 greenlet==3.3.1
+gunicorn==25.1.0
 idna==3.11
 itsdangerous==2.2.0
 Jinja2==3.1.6
 Mako==1.3.10
 Markdown==3.10.1
 MarkupSafe==3.0.3
+packaging==26.0
 pillow==12.1.0
 pillow_heif==1.2.0
 python-dotenv==1.2.1
@@ -11648,7 +13100,7 @@ from app import create_app
 app = create_app()
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(host='0.0.0.0', port=5000, debug=True)
 
 
 
@@ -11697,6 +13149,77 @@ def seed_devotionals():
 
 if __name__ == '__main__':
     seed_devotionals()
+
+
+===== ./seed_kids.py =====
+from app import create_app
+from app.core.models import db, BibleStory, BibleQuiz
+
+app = create_app()
+
+def seed_kids():
+    with app.app_context():
+        # Limpar dados antigos se necessário
+        # BibleStory.query.delete()
+        
+        # Adicionar História: A Criação
+        story1 = BibleStory(
+            title="A Criação do Mundo",
+            content="<p>No princípio, Deus criou o céu e a terra. Tudo estava escuro e vazio, mas o Espírito de Deus estava lá.</p><p>Deus disse: 'Haja luz!', e a luz apareceu. Ele viu que a luz era boa e a separou da escuridão.</p><p>Em seis dias, Deus criou as plantas, o sol, a lua, as estrelas, os peixes, os pássaros e todos os animais. Por último, Ele criou o homem e a mulher à Sua imagem.</p><p>No sétimo dia, Deus descansou e abençoou esse dia, porque tinha terminado toda a Sua obra maravilhosa.</p>",
+            reference="Gênesis 1",
+            order=1,
+            image_path="https://img.freepik.com/vetores-gratis/ilustracao-da-historia-da-criacao-da-biblia-desenhada-a-mao_23-2149451000.jpg"
+        )
+        db.session.add(story1)
+        db.session.flush()
+        
+        # Adicionar Quizzes para a Criação
+        db.session.add(BibleQuiz(
+            story_id=story1.id,
+            question="O que Deus criou no primeiro dia?",
+            option_a="Os animais",
+            option_b="A luz",
+            option_c="As estrelas",
+            correct_option="B",
+            explanation="Deus disse 'Haja luz' logo no início da criação."
+        ))
+        
+        db.session.add(BibleQuiz(
+            story_id=story1.id,
+            question="Quantos dias Deus levou para criar tudo antes de descansar?",
+            option_a="7 dias",
+            option_b="10 dias",
+            option_c="6 dias",
+            correct_option="C",
+            explanation="Deus trabalhou por 6 dias e descansou no 7º dia."
+        ))
+
+        # Adicionar História: Arca de Noé
+        story2 = BibleStory(
+            title="Noé e o Grande Barco",
+            content="<p>Deus viu que o mundo estava muito bagunçado e as pessoas não eram mais gentis. Mas Noé era um homem bom e obediente.</p><p>Deus disse a Noé para construir uma arca gigante, um barco enorme feito de madeira. Noé obedeceu, mesmo que as pessoas rissem dele.</p><p>Ele colocou sua família e dois de cada tipo de animal dentro da arca. Então, começou a chover muito por 40 dias e 40 noites.</p><p>Quando a chuva parou, Deus colocou um lindo arco-íris no céu como uma promessa de que nunca mais inundaria a terra inteira.</p>",
+            reference="Gênesis 6-9",
+            order=2,
+            image_path="https://img.freepik.com/vetores-gratis/ilustracao-da-arca-de-noe-desenhada-a-mao_23-2149445474.jpg"
+        )
+        db.session.add(story2)
+        db.session.flush()
+        
+        db.session.add(BibleQuiz(
+            story_id=story2.id,
+            question="Qual foi o sinal da promessa de Deus após o dilúvio?",
+            option_a="Uma pomba",
+            option_b="Um arco-íris",
+            option_c="Uma estrela",
+            correct_option="B",
+            explanation="O arco-íris representa a aliança de Deus com a humanidade."
+        ))
+
+        db.session.commit()
+        print("Dados do Ecclesia Kids semeados com sucesso!")
+
+if __name__ == "__main__":
+    seed_kids()
 
 
 ===== ./seed.py =====
