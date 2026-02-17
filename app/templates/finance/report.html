@@ -2,19 +2,49 @@
 {% block content %}
 <div class="container-fluid">
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2 class="fw-bold">Relatório Consolidado (30 dias)</h2>
-        <button onclick="window.print()" class="btn btn-outline-primary d-print-none">
-            <i class="bi bi-printer me-2"></i> Imprimir
-        </button>
+        <div>
+            <h2 class="fw-bold mb-0">Relatórios Financeiros</h2>
+            <p class="text-muted">Análise consolidada por categorias e período.</p>
+        </div>
+        <div class="d-flex gap-2">
+            <button onclick="window.print()" class="btn btn-outline-primary d-print-none">
+                <i class="bi bi-printer me-2"></i> Imprimir
+            </button>
+            <a href="{{ url_for('finance.dashboard') }}" class="btn btn-outline-secondary d-print-none">
+                <i class="bi bi-arrow-left me-2"></i> Voltar
+            </a>
+        </div>
+    </div>
+
+    <!-- Filtro de Período -->
+    <div class="card border-0 shadow-sm mb-4 d-print-none">
+        <div class="card-body p-4">
+            <form method="GET" class="row g-3 align-items-end">
+                <div class="col-md-4">
+                    <label class="form-label small fw-bold">DATA INICIAL</label>
+                    <input type="date" name="start_date" class="form-control" value="{{ start_date or '' }}">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label small fw-bold">DATA FINAL</label>
+                    <input type="date" name="end_date" class="form-control" value="{{ end_date or '' }}">
+                </div>
+                <div class="col-md-4">
+                    <button type="submit" class="btn btn-primary w-100">Atualizar Relatório</button>
+                </div>
+            </form>
+        </div>
     </div>
 
     <div class="row g-4">
+        <!-- Entradas -->
         <div class="col-md-6">
             <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-success bg-opacity-10 border-0 p-4">
+                    <h5 class="fw-bold text-success mb-0">Entradas por Categoria</h5>
+                </div>
                 <div class="card-body p-4">
-                    <h5 class="fw-bold mb-4 text-success">Entradas por Categoria</h5>
                     <div class="table-responsive">
-                        <table class="table table-sm">
+                        <table class="table table-hover align-middle">
                             <thead>
                                 <tr>
                                     <th>Categoria</th>
@@ -22,24 +52,36 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                {% for cat, type, total in results if type == 'income' %}
+                                {% set ns = namespace(income_total=0) %}
+                                {% for cat_name, type, amount in results if type == 'income' %}
                                 <tr>
-                                    <td>{{ cat.capitalize() }}</td>
-                                    <td class="text-end fw-bold text-success">R$ {{ "%.2f"|format(total) }}</td>
+                                    <td>{{ cat_name or 'Geral' }}</td>
+                                    <td class="text-end fw-bold text-success">R$ {{ "%.2f"|format(amount) }}</td>
                                 </tr>
+                                {% set ns.income_total = ns.income_total + amount %}
                                 {% endfor %}
                             </tbody>
+                            <tfoot class="table-light">
+                                <tr>
+                                    <th class="fw-bold">TOTAL GERAL</th>
+                                    <th class="text-end text-success">R$ {{ "%.2f"|format(ns.income_total) }}</th>
+                                </tr>
+                            </tfoot>
                         </table>
                     </div>
                 </div>
             </div>
         </div>
+
+        <!-- Saídas -->
         <div class="col-md-6">
             <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-danger bg-opacity-10 border-0 p-4">
+                    <h5 class="fw-bold text-danger mb-0">Saídas por Categoria</h5>
+                </div>
                 <div class="card-body p-4">
-                    <h5 class="fw-bold mb-4 text-danger">Saídas por Categoria</h5>
                     <div class="table-responsive">
-                        <table class="table table-sm">
+                        <table class="table table-hover align-middle">
                             <thead>
                                 <tr>
                                     <th>Categoria</th>
@@ -47,13 +89,21 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                {% for cat, type, total in results if type == 'expense' %}
+                                {% set ns = namespace(expense_total=0) %}
+                                {% for cat_name, type, amount in results if type == 'expense' %}
                                 <tr>
-                                    <td>{{ cat.capitalize() }}</td>
-                                    <td class="text-end fw-bold text-danger">R$ {{ "%.2f"|format(total) }}</td>
+                                    <td>{{ cat_name or 'Geral' }}</td>
+                                    <td class="text-end fw-bold text-danger">R$ {{ "%.2f"|format(amount) }}</td>
                                 </tr>
+                                {% set ns.expense_total = ns.expense_total + amount %}
                                 {% endfor %}
                             </tbody>
+                            <tfoot class="table-light">
+                                <tr>
+                                    <th class="fw-bold">TOTAL GERAL</th>
+                                    <th class="text-end text-danger">R$ {{ "%.2f"|format(ns.expense_total) }}</th>
+                                </tr>
+                            </tfoot>
                         </table>
                     </div>
                 </div>

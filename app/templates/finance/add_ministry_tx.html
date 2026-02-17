@@ -11,28 +11,37 @@
                         <div class="row g-3">
                             <div class="col-md-6">
                                 <label class="form-label fw-bold">Tipo de Movimentação</label>
-                                <select name="type" class="form-select" required onchange="toggleDebtFields(this.value)">
+                                <select name="type" id="type_select" class="form-select" required onchange="filterCategories(); toggleDebtFields(this.value)">
                                     <option value="income">Entrada (Arrecadação/Venda)</option>
                                     <option value="expense">Saída (Gasto/Pagamento)</option>
                                 </select>
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label fw-bold">Categoria</label>
-                                <select name="category" class="form-select" required>
-                                    <option value="Cantina">Cantina</option>
-                                    <option value="Evento">Evento</option>
-                                    <option value="Doação">Doação</option>
-                                    <option value="Material">Material</option>
-                                    <option value="Outros">Outros</option>
+                                <select name="category_id" id="category_select" class="form-select" required>
+                                    <option value="">Selecione...</option>
+                                    {% for cat in categories %}
+                                    <option value="{{ cat.id }}" data-type="{{ cat.type }}">{{ cat.name }}</option>
+                                    {% endfor %}
                                 </select>
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label fw-bold">Valor (R$)</label>
+                                <label class="form-label fw-bold">Valor ({{ current_user.church.currency_symbol if current_user.church else 'R$' }})</label>
                                 <input type="number" step="0.01" name="amount" class="form-control" placeholder="0.00" required>
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label fw-bold">Data</label>
                                 <input type="date" name="date" class="form-control" value="{{ today }}" required>
+                            </div>
+
+                            <div class="col-md-12">
+                                <label class="form-label fw-bold">Meio de Pagamento</label>
+                                <select name="payment_method_id" class="form-select" required>
+                                    <option value="">Selecione o meio...</option>
+                                    {% for method in payment_methods %}
+                                    <option value="{{ method.id }}">{{ method.name }}</option>
+                                    {% endfor %}
+                                </select>
                             </div>
                             
                             <div class="col-12" id="debt_option_container">
@@ -41,7 +50,7 @@
                                     <label class="form-check-label fw-bold" for="is_debt">Põe na conta? (Débito pendente)</label>
                                 </div>
                             </div>
-
+    
                             <div class="col-12 d-none" id="debtor_container">
                                 <label class="form-label fw-bold">Membro Devedor</label>
                                 <select name="debtor_id" class="form-select">
@@ -51,13 +60,13 @@
                                     {% endfor %}
                                 </select>
                             </div>
-
+    
                             <div class="col-12">
                                 <label class="form-label fw-bold">Descrição / Observação</label>
                                 <textarea name="description" class="form-control" rows="3" placeholder="Ex: Venda de salgados na cantina..."></textarea>
                             </div>
                         </div>
-
+    
                         <div class="mt-5 d-flex gap-2">
                             <button type="submit" class="btn btn-primary px-5 fw-bold">Salvar Lançamento</button>
                             <a href="{{ url_for('finance.ministry_finance', ministry_id=ministry.id) }}" class="btn btn-light px-4">Cancelar</a>
@@ -70,6 +79,17 @@
 </div>
 
 <script>
+function filterCategories() {
+    const type = document.getElementById('type_select').value;
+    const catSelect = document.getElementById('category_select');
+    const options = catSelect.querySelectorAll('option');
+    catSelect.value = ""; 
+    options.forEach(opt => {
+        if (opt.value === "") return;
+        opt.style.display = (opt.getAttribute('data-type') === type) ? "block" : "none";
+    });
+}
+
 function toggleDebtFields(type) {
     const container = document.getElementById('debt_option_container');
     const debtorContainer = document.getElementById('debtor_container');
@@ -92,5 +112,7 @@ function toggleDebtorSelect(checked) {
         container.classList.add('d-none');
     }
 }
+
+document.addEventListener('DOMContentLoaded', filterCategories);
 </script>
 {% endblock %}

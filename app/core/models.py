@@ -17,6 +17,8 @@ class Church(db.Model):
     address = db.Column(db.String(200))
     city = db.Column(db.String(100))
     country = db.Column(db.String(100))
+    nif = db.Column(db.String(20)) # Número de Contribuinte
+    email = db.Column(db.String(120))
     currency_symbol = db.Column(db.String(5), default='R$')
     is_main = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -125,10 +127,31 @@ class Family(db.Model):
     name = db.Column(db.String(100), nullable=False)
     users = db.relationship('User', backref='family_group', lazy=True)
 
+class TransactionCategory(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    type = db.Column(db.String(10), nullable=False) # income, expense
+    church_id = db.Column(db.Integer, db.ForeignKey('church.id'), nullable=False)
+    is_active = db.Column(db.Boolean, default=True)
+    
+    church = db.relationship('Church', backref='transaction_categories')
+
+class PaymentMethod(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    is_electronic = db.Column(db.Boolean, default=False) # Tag para lógica fiscal
+    church_id = db.Column(db.Integer, db.ForeignKey('church.id'), nullable=False)
+    is_active = db.Column(db.Boolean, default=True)
+    
+    church = db.relationship('Church', backref='payment_methods')
+
 class Transaction(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     type = db.Column(db.String(10)) # income, expense
-    category = db.Column(db.String(50))
+    category_id = db.Column(db.Integer, db.ForeignKey('transaction_category.id'), nullable=True)
+    category_name = db.Column(db.String(100))
+    payment_method_id = db.Column(db.Integer, db.ForeignKey('payment_method.id'), nullable=True)
+    payment_method_name = db.Column(db.String(100))
     amount = db.Column(db.Float, nullable=False)
     date = db.Column(db.DateTime, default=datetime.utcnow)
     description = db.Column(db.Text)
@@ -136,6 +159,8 @@ class Transaction(db.Model):
     church_id = db.Column(db.Integer, db.ForeignKey('church.id'))
     receipt_path = db.Column(db.String(255))
     
+    category = db.relationship('TransactionCategory', backref='transactions')
+    payment_method = db.relationship('PaymentMethod', backref='transactions')
     church = db.relationship('Church', backref='transactions')
     user = db.relationship('User', backref='transactions')
 
@@ -143,7 +168,10 @@ class MinistryTransaction(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     ministry_id = db.Column(db.Integer, db.ForeignKey('ministry.id'), nullable=False)
     type = db.Column(db.String(10)) # income, expense
-    category = db.Column(db.String(50)) # Cantina, Evento, Doação, etc.
+    category_id = db.Column(db.Integer, db.ForeignKey('transaction_category.id'), nullable=True)
+    category_name = db.Column(db.String(100))
+    payment_method_id = db.Column(db.Integer, db.ForeignKey('payment_method.id'), nullable=True)
+    payment_method_name = db.Column(db.String(100))
     amount = db.Column(db.Float, nullable=False)
     date = db.Column(db.DateTime, default=datetime.utcnow)
     description = db.Column(db.Text)
@@ -151,6 +179,8 @@ class MinistryTransaction(db.Model):
     debtor_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
     is_paid = db.Column(db.Boolean, default=True) # Se for débito, marca se já foi pago
     
+    category = db.relationship('TransactionCategory')
+    payment_method = db.relationship('PaymentMethod')
     debtor = db.relationship('User', backref='debts')
 
 class KidsActivity(db.Model):

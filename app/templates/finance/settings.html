@@ -1,0 +1,174 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold mb-0">Configurações Financeiras</h2>
+            <p class="text-muted">Personalize as categorias e meios de pagamento da sua congregação.</p>
+        </div>
+        <a href="{{ url_for('finance.dashboard') }}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-2"></i> Voltar ao Dashboard
+        </a>
+    </div>
+
+    <div class="row g-4">
+        <!-- Coluna de Categorias -->
+        <div class="col-lg-7">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white p-4 border-0 d-flex justify-content-between align-items-center">
+                    <h5 class="fw-bold mb-0">Categorias de Transação</h5>
+                    <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#addCategoryModal">
+                        <i class="bi bi-plus-lg me-1"></i> Nova Categoria
+                    </button>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="bg-light">
+                                <tr>
+                                    <th class="px-4">Nome</th>
+                                    <th>Tipo</th>
+                                    <th class="text-end px-4">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for cat in categories %}
+                                <tr>
+                                    <td class="px-4 fw-bold">{{ cat.name }}</td>
+                                    <td>
+                                        <span class="badge bg-{{ 'success' if cat.type == 'income' else 'danger' }} bg-opacity-10 text-{{ 'success' if cat.type == 'income' else 'danger' }}">
+                                            {{ 'Entrada' if cat.type == 'income' else 'Saída' }}
+                                        </span>
+                                    </td>
+                                    <td class="text-end px-4">
+                                        <form action="{{ url_for('finance.delete_category', id=cat.id) }}" method="POST" class="d-inline">
+                                            <button type="submit" class="btn btn-sm btn-outline-danger border-0" onclick="return confirm('Desativar esta categoria?')">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </form>
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr><td colspan="3" class="text-center py-4 text-muted">Nenhuma categoria cadastrada.</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Coluna de Meios de Pagamento -->
+        <div class="col-lg-5">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white p-4 border-0 d-flex justify-content-between align-items-center">
+                    <h5 class="fw-bold mb-0">Meios de Pagamento</h5>
+                    <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#addPaymentModal">
+                        <i class="bi bi-plus-lg me-1"></i> Novo Meio
+                    </button>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="bg-light">
+                                <tr>
+                                    <th class="px-4">Nome</th>
+                                    <th>Eletrônico</th>
+                                    <th class="text-end px-4">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for method in payment_methods %}
+                                <tr>
+                                    <td class="px-4 fw-bold">{{ method.name }}</td>
+                                    <td>
+                                        {% if method.is_electronic %}
+                                        <span class="badge bg-info bg-opacity-10 text-info"><i class="bi bi-cpu me-1"></i> Sim</span>
+                                        {% else %}
+                                        <span class="badge bg-secondary bg-opacity-10 text-secondary">Não</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-end px-4">
+                                        <form action="{{ url_for('finance.delete_payment_method', id=method.id) }}" method="POST" class="d-inline">
+                                            <button type="submit" class="btn btn-sm btn-outline-danger border-0" onclick="return confirm('Desativar este meio de pagamento?')">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </form>
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr><td colspan="3" class="text-center py-4 text-muted">Nenhum meio de pagamento cadastrado.</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Categoria -->
+<div class="modal fade" id="addCategoryModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header border-0">
+                <h5 class="modal-title fw-bold">Nova Categoria</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form action="{{ url_for('finance.manage_settings') }}" method="POST">
+                <input type="hidden" name="form_type" value="category">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">NOME</label>
+                        <input type="text" name="name" class="form-control" placeholder="Ex: Dízimos, Aluguel..." required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">TIPO</label>
+                        <select name="type" class="form-select" required>
+                            <option value="income">Entrada (Receita)</option>
+                            <option value="expense">Saída (Despesa)</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer border-0">
+                    <button type="submit" class="btn btn-primary w-100 py-2">Salvar Categoria</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Meio de Pagamento -->
+<div class="modal fade" id="addPaymentModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header border-0">
+                <h5 class="modal-title fw-bold">Novo Meio de Pagamento</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form action="{{ url_for('finance.manage_settings') }}" method="POST">
+                <input type="hidden" name="form_type" value="payment_method">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">NOME</label>
+                        <input type="text" name="name" class="form-control" placeholder="Ex: PIX, MB WAY, Dinheiro..." required>
+                    </div>
+                    <div class="form-check form-switch mb-3">
+                        <input class="form-check-input" type="checkbox" name="is_electronic" id="is_electronic">
+                        <label class="form-check-label fw-bold small" for="is_electronic">MEIO ELETRÔNICO (EXIGE DADOS FISCAIS)</label>
+                        <div class="form-text extra-small">Marque para meios que exigem identificação do cliente para fins fiscais.</div>
+                    </div>
+                </div>
+                <div class="modal-footer border-0">
+                    <button type="submit" class="btn btn-primary w-100 py-2">Salvar Meio de Pagamento</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<style>
+.extra-small { font-size: 0.7rem; }
+</style>
+{% endblock %}

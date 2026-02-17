@@ -21,6 +21,16 @@
                     <label class="form-label small fw-bold">PAÍS</label>
                     <input type="text" name="country" class="form-control bg-light border-0" value="{{ church.country or '' }}">
                 </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label small fw-bold">NIF / Nº CONTRIBUINTE</label>
+                        <input type="text" name="nif" class="form-control bg-light border-0" value="{{ church.nif or '' }}" placeholder="Ex: 517760010">
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label small fw-bold">E-MAIL FISCAL / CONTATO</label>
+                        <input type="email" name="email" class="form-control bg-light border-0" value="{{ church.email or '' }}" placeholder="Ex: financeiro@igreja.com">
+                    </div>
+                </div>
                 <div class="form-check mb-3">
                     <input type="checkbox" name="is_main" class="form-check-input" id="is_main" {{ 'checked' if church.is_main }}>
                     <label class="form-check-label" for="is_main">É a congregação principal (sede)</label>

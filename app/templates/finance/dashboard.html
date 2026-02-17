@@ -2,16 +2,65 @@
 {% block content %}
 <div class="container-fluid">
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2 class="fw-bold">Gestão Financeira</h2>
+        <div>
+            <h2 class="fw-bold mb-0">Gestão Financeira</h2>
+            <p class="text-muted">Visão geral das finanças da congregação.</p>
+        </div>
         <div class="d-flex gap-2">
-            {% if current_user.can_manage_finance or (current_user.church_role and current_user.church_role.name in ["Administrador Global", "Pastor Líder", "Tesoureiro"]) %}
+            <a href="{{ url_for('finance.manage_settings') }}" class="btn btn-outline-secondary">
+                <i class="bi bi-gear me-2"></i> Configurações
+            </a>
             <a href="{{ url_for('finance.report') }}" class="btn btn-outline-primary">
                 <i class="bi bi-file-earmark-bar-graph me-2"></i> Relatórios
             </a>
             <a href="{{ url_for('finance.add_transaction') }}" class="btn btn-primary">
                 <i class="bi bi-plus-lg me-2"></i> Novo Lançamento
             </a>
-            {% endif %}
+        </div>
+    </div>
+
+    <!-- Filtros e Busca -->
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body p-4">
+            <form method="GET" action="{{ url_for('finance.dashboard') }}" class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label small fw-bold">BUSCA</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-transparent border-end-0"><i class="bi bi-search"></i></span>
+                        <input type="text" name="search" class="form-control border-start-0" placeholder="Descrição, categoria..." value="{{ filters.search or '' }}">
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small fw-bold">INÍCIO</label>
+                    <input type="date" name="start_date" class="form-control" value="{{ filters.start_date or '' }}">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small fw-bold">FIM</label>
+                    <input type="date" name="end_date" class="form-control" value="{{ filters.end_date or '' }}">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small fw-bold">CATEGORIA</label>
+                    <select name="category_id" class="form-select">
+                        <option value="">Todas</option>
+                        {% for cat in categories %}
+                        <option value="{{ cat.id }}" {{ 'selected' if filters.category_id|int == cat.id else '' }}>{{ cat.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small fw-bold">MEIO PGTO</label>
+                    <select name="payment_method_id" class="form-select">
+                        <option value="">Todos</option>
+                        {% for method in payment_methods %}
+                        <option value="{{ method.id }}" {{ 'selected' if filters.payment_method_id|int == method.id else '' }}>{{ method.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-1 d-flex align-items-end gap-1">
+                    <button type="submit" class="btn btn-primary w-100"><i class="bi bi-funnel"></i></button>
+                    <a href="{{ url_for('finance.dashboard') }}" class="btn btn-light" title="Limpar"><i class="bi bi-x-lg"></i></a>
+                </div>
+            </form>
         </div>
     </div>
 
@@ -19,24 +68,24 @@
     <div class="row g-4 mb-5">
         <div class="col-md-4">
             <div class="card border-0 shadow-sm bg-success bg-opacity-10">
-                <div class="card-body p-4">
-                    <p class="text-success small fw-bold mb-1">TOTAL ENTRADAS</p>
+                <div class="card-body p-4 text-center">
+                    <p class="text-success small fw-bold mb-1 text-uppercase">Total Entradas</p>
                     <h3 class="fw-bold text-success mb-0">{{ current_user.church.currency_symbol if current_user.church else 'R$' }} {{ "%.2f"|format(stats.income) }}</h3>
                 </div>
             </div>
         </div>
         <div class="col-md-4">
             <div class="card border-0 shadow-sm bg-danger bg-opacity-10">
-                <div class="card-body p-4">
-                    <p class="text-danger small fw-bold mb-1">TOTAL SAÍDAS</p>
+                <div class="card-body p-4 text-center">
+                    <p class="text-danger small fw-bold mb-1 text-uppercase">Total Saídas</p>
                     <h3 class="fw-bold text-danger mb-0">{{ current_user.church.currency_symbol if current_user.church else 'R$' }} {{ "%.2f"|format(stats.expense) }}</h3>
                 </div>
             </div>
         </div>
         <div class="col-md-4">
             <div class="card border-0 shadow-sm bg-primary bg-opacity-10">
-                <div class="card-body p-4">
-                    <p class="text-primary small fw-bold mb-1">SALDO ATUAL</p>
+                <div class="card-body p-4 text-center">
+                    <p class="text-primary small fw-bold mb-1 text-uppercase">Saldo no Período</p>
                     <h3 class="fw-bold text-primary mb-0">{{ current_user.church.currency_symbol if current_user.church else 'R$' }} {{ "%.2f"|format(stats.balance) }}</h3>
                 </div>
             </div>
@@ -45,10 +94,10 @@
     {% endif %}
 
     <div class="row g-4">
-        <div class="col-lg-8">
+        <div class="col-lg-12">
             <div class="card border-0 shadow-sm">
                 <div class="card-header bg-transparent border-0 p-4 pb-0">
-                    <h5 class="fw-bold mb-0">Últimas Transações</h5>
+                    <h5 class="fw-bold mb-0">Extrato de Transações</h5>
                 </div>
                 <div class="card-body p-0">
                     <div class="table-responsive">
@@ -57,19 +106,34 @@
                                 <tr>
                                     <th class="px-4 py-3">Data</th>
                                     <th class="py-3">Categoria</th>
+                                    <th class="py-3">Meio de Pgto</th>
+                                    <th class="py-3">Descrição</th>
                                     <th class="py-3 text-end">Valor</th>
-                                    <th class="px-4 py-3 text-center">Recibo</th>
+                                    <th class="px-4 py-3 text-center">Ações</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {% for tx in transactions %}
                                 <tr>
-                                    <td class="px-4">{{ tx.date.strftime('%d/%m/%Y') }}</td>
+                                    <td class="px-4 small">{{ tx.date.strftime('%d/%m/%Y') }}</td>
                                     <td>
                                         <span class="badge bg-{{ 'success' if tx.type == 'income' else 'danger' }} bg-opacity-10 text-{{ 'success' if tx.type == 'income' else 'danger' }} px-3 py-2">
-                                            {{ tx.category.capitalize() }}
+                                            {{ tx.category_name or 'Geral' }}
                                         </span>
-                                        <div class="small text-muted mt-1">{{ tx.description or '-' }}</div>
+                                    </td>
+                                    <td>
+                                        <span class="small text-muted">
+                                            {% if tx.payment_method and tx.payment_method.is_electronic %}
+                                            <i class="bi bi-cpu me-1"></i>
+                                            {% endif %}
+                                            {{ tx.payment_method_name or 'Dinheiro' }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <div class="small fw-medium">{{ tx.description or '-' }}</div>
+                                        {% if tx.user %}
+                                        <div class="extra-small text-primary">Membro: {{ tx.user.name }}</div>
+                                        {% endif %}
                                     </td>
                                     <td class="text-end fw-bold {{ 'text-success' if tx.type == 'income' else 'text-danger' }}">
                                         {{ '+' if tx.type == 'income' else '-' }} {{ tx.church.currency_symbol if tx.church else 'R$' }} {{ "%.2f"|format(tx.amount) }}
@@ -77,16 +141,16 @@
                                     <td class="px-4 text-center">
                                         {% if tx.user_id %}
                                         <a href="{{ url_for('finance.download_receipt', tx_id=tx.id) }}" class="btn btn-sm btn-outline-primary rounded-pill px-3">
-                                            <i class="bi bi-download me-1"></i> PDF
+                                            <i class="bi bi-download me-1"></i> Recibo
                                         </a>
                                         {% else %}
-                                        <span class="text-muted small">N/A</span>
+                                        <span class="text-muted small">-</span>
                                         {% endif %}
                                     </td>
                                 </tr>
                                 {% else %}
                                 <tr>
-                                    <td colspan="4" class="text-center py-5 text-muted">
+                                    <td colspan="6" class="text-center py-5 text-muted">
                                         <i class="bi bi-inbox fs-1 d-block mb-2"></i>
                                         Nenhuma transação encontrada.
                                     </td>
@@ -98,33 +162,9 @@
                 </div>
             </div>
         </div>
-        
-        <div class="col-lg-4">
-            <div class="card border-0 shadow-sm">
-                <div class="card-header bg-transparent border-0 p-4 pb-0 d-flex justify-content-between align-items-center">
-                    <h5 class="fw-bold mb-0">Patrimônio</h5>
-                    {% if current_user.can_manage_finance or (current_user.church_role and current_user.church_role.name in ["Administrador Global", "Tesoureiro"]) %}
-                    <a href="{{ url_for('finance.add_asset') }}" class="btn btn-sm btn-primary">Novo</a>
-                    {% endif %}
-                </div>
-                <div class="card-body p-4">
-                    {% for asset in assets %}
-                    <div class="d-flex justify-content-between align-items-center mb-3 pb-3 border-bottom">
-                        <div>
-                            <h6 class="fw-bold mb-0">{{ asset.name }}</h6>
-                            <small class="text-muted">{{ asset.category }} | {{ asset.identifier or 'S/N' }}</small>
-                        </div>
-                        <div class="text-end">
-                            <div class="fw-bold">{{ asset.church.currency_symbol if asset.church else 'R$' }} {{ "%.2f"|format(asset.value) }}</div>
-                            <a href="{{ url_for('finance.add_maintenance', id=asset.id) }}" class="small text-primary text-decoration-none">Manutenção</a>
-                        </div>
-                    </div>
-                    {% else %}
-                    <p class="text-center text-muted py-4">Nenhum bem cadastrado.</p>
-                    {% endfor %}
-                </div>
-            </div>
-        </div>
     </div>
 </div>
+<style>
+.extra-small { font-size: 0.75rem; }
+</style>
 {% endblock %}

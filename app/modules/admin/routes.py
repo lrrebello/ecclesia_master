@@ -33,6 +33,8 @@ def add_church():
             address=request.form.get('address'),
             city=request.form.get('city'),
             country=request.form.get('country'),
+            nif=request.form.get('nif'),
+            email=request.form.get('email'),
             is_main=True if request.form.get('is_main') else False
         )
         db.session.add(new_church)
@@ -56,6 +58,8 @@ def edit_church(id):
         church.address = request.form.get('address')
         church.city = request.form.get('city')
         church.country = request.form.get('country')
+        church.nif = request.form.get('nif')
+        church.email = request.form.get('email')
         church.is_main = 'is_main' in request.form
         db.session.commit()
         flash('Congregação atualizada!', 'success')
