@@ -48,6 +48,7 @@ class User(db.Model, UserMixin):
     birth_date = db.Column(db.Date)
     gender = db.Column(db.String(20))
     documents = db.Column(db.String(200)) # Flexível para diferentes países
+    tax_id = db.Column(db.String(20), nullable=True)  # NIF (PT), CPF/CNPJ (BR), etc.
     address = db.Column(db.Text)
     phone = db.Column(db.String(50))
     profile_photo = db.Column(db.String(255), nullable=True)

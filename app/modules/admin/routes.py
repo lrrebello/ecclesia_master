@@ -177,6 +177,7 @@ def edit_member(id):
         member.birth_date = datetime.strptime(request.form.get('birth_date'), '%Y-%m-%d').date() if request.form.get('birth_date') else member.birth_date
         member.gender = request.form.get('gender')
         member.documents = request.form.get('documents')
+        member.tax_id = request.form.get('tax_id')
         member.address = request.form.get('address')
         member.phone = request.form.get('phone')
         

@@ -31,6 +31,11 @@
             <input type="text" class="form-control" id="documents" name="documents" value="{{ member.documents }}">
         </div>
         <div class="mb-3">
+            <label for="tax_id" class="form-label">Identificação Fiscal (NIF / CPF / CNPJ)</label>
+            <input type="text" class="form-control" id="tax_id" name="tax_id" value="{{ member.tax_id }}" placeholder="Ex: 123456789">
+            <small class="form-text text-muted">Necessário para emissão de relatórios fiscais (como o Modelo 25 em Portugal). No Brasil, use CPF ou CNPJ.</small>
+        </div>
+        <div class="mb-3">
             <label for="address" class="form-label">Endereço</label>
             <textarea class="form-control" id="address" name="address" rows="3">{{ member.address }}</textarea>
         </div>

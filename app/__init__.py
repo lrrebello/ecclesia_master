@@ -26,11 +26,13 @@ def create_app():
     from app.modules.auth.routes import auth_bp
     from app.modules.members.routes import members_bp
     from app.modules.finance.routes import finance_bp
+    from app.modules.finance.modelo25 import modelo25_bp
     from app.modules.edification.routes import edification_bp
     from app.modules.admin.routes import admin_bp
     app.register_blueprint(auth_bp)
     app.register_blueprint(members_bp, url_prefix='/members')
     app.register_blueprint(finance_bp, url_prefix='/finance')
+    app.register_blueprint(modelo25_bp)
     app.register_blueprint(edification_bp, url_prefix='/edification')
     app.register_blueprint(admin_bp, url_prefix='/admin')
 

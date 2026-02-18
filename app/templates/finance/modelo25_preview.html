@@ -1,0 +1,273 @@
+{% extends "base.html" %}
+
+{% block title %}Modelo 25 - Pré-visualização {{ year }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-12">
+            <h2><i class="fas fa-file-invoice"></i> Modelo 25 - Pré-visualização</h2>
+            <p class="text-muted">Ano Fiscal: <strong>{{ year }}</strong></p>
+            <hr>
+        </div>
+    </div>
+
+    <!-- Erros -->
+    {% if errors %}
+    <div class="row">
+        <div class="col-md-12">
+            <div class="alert alert-danger">
+                <h5><i class="fas fa-times-circle"></i> Erros Encontrados</h5>
+                <ul class="mb-0">
+                    {% for error in errors %}
+                    <li>{{ error }}</li>
+                    {% endfor %}
+                </ul>
+                <hr>
+                <p class="mb-0">
+                    <strong>Ação necessária:</strong> Corrija os erros acima antes de gerar o relatório.
+                    <a href="{{ url_for('admin.list_members') }}" class="btn btn-sm btn-danger">
+                        <i class="fas fa-edit"></i> Editar Membros
+                    </a>
+                </p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Avisos -->
+    {% if warnings %}
+    <div class="row">
+        <div class="col-md-12">
+            <div class="alert alert-warning">
+                <h5><i class="fas fa-exclamation-triangle"></i> Avisos</h5>
+                <ul class="mb-0">
+                    {% for warning in warnings %}
+                    <li>{{ warning }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Dados da Igreja -->
+    <div class="row mb-3">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="fas fa-church"></i> Entidade Beneficiária</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <p><strong>Nome:</strong> {{ church.name }}</p>
+                            <p><strong>NIF:</strong> {{ church.nif }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <p><strong>Morada:</strong> {{ church.address }}, {{ church.city }}</p>
+                            <p><strong>País:</strong> {{ church.country }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Estatísticas -->
+    <div class="row mb-3">
+        <div class="col-md-3">
+            <div class="card text-white bg-success">
+                <div class="card-body">
+                    <h6 class="card-title">Doadores Incluídos</h6>
+                    <h3 class="mb-0">{{ stats.total_donors }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-white bg-info">
+                <div class="card-body">
+                    <h6 class="card-title">Valor Total</h6>
+                    <h3 class="mb-0">€ {{ "%.2f"|format(stats.total_amount) }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-white bg-primary">
+                <div class="card-body">
+                    <h6 class="card-title">Total de Donativos</h6>
+                    <h3 class="mb-0">{{ stats.total_donations }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-white bg-warning">
+                <div class="card-body">
+                    <h6 class="card-title">Excluídos (sem NIF)</h6>
+                    <h3 class="mb-0">{{ stats.excluded_donors }}</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabela de Doadores Incluídos -->
+    {% if donations %}
+    <div class="row mb-3">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0"><i class="fas fa-check-circle"></i> Doadores Incluídos no Relatório</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover">
+                            <thead>
+                                <tr>
+                                    <th>ID Fiscal</th>
+                                    <th>Nome</th>
+                                    <th>Morada</th>
+                                    <th class="text-center">Nº Donativos</th>
+                                    <th class="text-right">Valor Total</th>
+                                    <th class="text-center">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for donation in donations %}
+                                <tr>
+                                    <td>{{ donation.tax_id }}</td>
+                                    <td>{{ donation.name }}</td>
+                                    <td>{{ donation.address or '-' }}</td>
+                                    <td class="text-center">{{ donation.num_donations }}</td>
+                                    <td class="text-right">€ {{ "%.2f"|format(donation.total_amount) }}</td>
+                                    <td class="text-center">
+                                        <a href="{{ url_for('modelo25.comprovativo', user_id=donation.user_id, year=year) }}" 
+                                           class="btn btn-sm btn-info" title="Gerar Comprovativo">
+                                            <i class="fas fa-file-pdf"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                            <tfoot>
+                                <tr class="font-weight-bold">
+                                    <td colspan="4" class="text-right">TOTAL:</td>
+                                    <td class="text-right">€ {{ "%.2f"|format(stats.total_amount) }}</td>
+                                    <td></td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Tabela de Doadores Excluídos -->
+    {% if invalid_donations %}
+    <div class="row mb-3">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header bg-warning">
+                    <h5 class="mb-0"><i class="fas fa-exclamation-triangle"></i> Doadores Excluídos (NIF inválido ou ausente)</h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted">
+                        Os doadores abaixo não serão incluídos no relatório porque não possuem identificação fiscal válida cadastrada para o país da igreja.
+                        Para incluí-los, atualize a identificação fiscal e gere o relatório novamente.
+                    </p>
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Nome</th>
+                                    <th>ID Fiscal Cadastrado</th>
+                                    <th class="text-center">Nº Donativos</th>
+                                    <th class="text-right">Valor Total</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for donation in invalid_donations %}
+                                <tr>
+                                    <td>{{ donation.name }}</td>
+                                    <td>{{ donation.tax_id or '(não cadastrado)' }}</td>
+                                    <td class="text-center">{{ donation.num_donations }}</td>
+                                    <td class="text-right">€ {{ "%.2f"|format(donation.total_amount) }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                            <tfoot>
+                                <tr class="font-weight-bold">
+                                    <td colspan="3" class="text-right">TOTAL EXCLUÍDO:</td>
+                                    <td class="text-right">€ {{ "%.2f"|format(stats.excluded_amount) }}</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Mensagem se não houver donativos -->
+    {% if not donations and not invalid_donations %}
+    <div class="row">
+        <div class="col-md-12">
+            <div class="alert alert-info">
+                <h5><i class="fas fa-info-circle"></i> Nenhum Donativo Encontrado</h5>
+                <p class="mb-0">
+                    Não foram encontrados donativos para o ano de {{ year }}.
+                    Verifique se as transações foram registradas corretamente e se os doadores estão identificados.
+                </p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Botões de Ação -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <a href="{{ url_for('modelo25.index') }}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Voltar
+            </a>
+            
+            {% if donations and not errors %}
+            <div class="btn-group">
+                <a href="{{ url_for('modelo25.generate', year=year) }}" class="btn btn-success">
+                    <i class="fas fa-file-excel"></i> Baixar Excel (Submissão)
+                </a>
+                <a href="{{ url_for('modelo25.report_pdf', year=year) }}" class="btn btn-danger">
+                    <i class="fas fa-file-pdf"></i> Baixar Relatório PDF
+                </a>
+            </div>
+            {% else %}
+            <button class="btn btn-success" disabled title="Corrija os erros antes de gerar o relatório">
+                <i class="fas fa-file-excel"></i> Gerar Relatório Excel
+            </button>
+            {% endif %}
+            
+            <a href="{{ url_for('admin.list_members') }}" class="btn btn-primary">
+                <i class="fas fa-edit"></i> Atualizar IDs Fiscais dos Membros
+            </a>
+        </div>
+    </div>
+
+    <!-- Informações Adicionais -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="alert alert-info">
+                <h6><i class="fas fa-lightbulb"></i> Próximos Passos</h6>
+                <ol class="mb-0">
+                    <li>Clique em "Gerar Relatório Excel" para baixar o arquivo</li>
+                    <li>Acesse o <a href="https://www.portaldasfinancas.gov.pt" target="_blank">Portal das Finanças</a></li>
+                    <li>Entre na área de "Declarações > Obrigações Acessórias > Modelo 25"</li>
+                    <li>Importe ou preencha os dados manualmente usando o relatório gerado</li>
+                    <li>Submeta a declaração até 28 de fevereiro</li>
+                    <li>Gere e envie os comprovativos individuais aos doadores (clique no ícone <i class="fas fa-file-pdf"></i> na tabela acima)</li>
+                </ol>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

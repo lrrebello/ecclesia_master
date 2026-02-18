@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+
+{% block title %}Modelo 25 - Donativos Recebidos{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-12">
+            <h2><i class="fas fa-file-invoice"></i> Modelo 25 - Donativos Recebidos</h2>
+            <p class="text-muted">Declaração anual de donativos para a Autoridade Tributária</p>
+            <hr>
+        </div>
+    </div>
+
+    <!-- Informações sobre o Modelo 25 -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="alert alert-info">
+                <h5><i class="fas fa-info-circle"></i> O que é o Modelo 25?</h5>
+                <p>
+                    O Modelo 25 é uma declaração fiscal obrigatória em Portugal para entidades que recebem donativos,
+                    incluindo igrejas. A declaração deve ser enviada eletronicamente ao Portal das Finanças
+                    <strong>até o final de fevereiro de cada ano</strong>, reportando os donativos recebidos no ano anterior.
+                </p>
+                <p class="mb-0">
+                    <strong>Benefício para os doadores:</strong> Os contribuintes podem deduzir 25% do valor dos donativos
+                    na coleta do IRS (limite de 15% da coleta total), conforme o artigo 63.º do Estatuto dos Benefícios Fiscais.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Seleção de Ano -->
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="fas fa-calendar-alt"></i> Gerar Relatório</h5>
+                </div>
+                <div class="card-body">
+                    <form method="get" action="{{ url_for('modelo25.preview', year=0) }}" id="yearForm">
+                        <div class="form-group">
+                            <label for="year">Selecione o ano fiscal:</label>
+                            <select class="form-control" id="year" name="year" required>
+                                {% for year in available_years %}
+                                <option value="{{ year }}" {% if year == current_year %}selected{% endif %}>
+                                    {{ year }}
+                                    {% if year == current_year %}(ano anterior - recomendado){% endif %}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            <small class="form-text text-muted">
+                                Normalmente, o Modelo 25 é gerado em fevereiro para o ano anterior.
+                            </small>
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-block" onclick="updateAction()">
+                            <i class="fas fa-search"></i> Pré-visualizar Dados
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Instruções -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-secondary text-white">
+                    <h5 class="mb-0"><i class="fas fa-list-ol"></i> Como Usar</h5>
+                </div>
+                <div class="card-body">
+                    <ol class="mb-0">
+                        <li>Selecione o ano fiscal desejado</li>
+                        <li>Clique em "Pré-visualizar Dados" para revisar</li>
+                        <li>Verifique se todos os doadores têm NIF válido</li>
+                        <li>Gere o relatório em Excel</li>
+                        <li>Importe os dados no software oficial do Portal das Finanças</li>
+                        <li>Emita comprovativos individuais para os doadores</li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Requisitos -->
+    <div class="row mt-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header bg-warning">
+                    <h5 class="mb-0"><i class="fas fa-exclamation-triangle"></i> Requisitos Importantes</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6><i class="fas fa-church"></i> Dados da Igreja</h6>
+                            <ul>
+                                <li>ID Fiscal (NIF/CPF/CNPJ) da igreja deve estar cadastrado</li>
+                                <li>Endereço completo deve estar atualizado</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h6><i class="fas fa-users"></i> Dados dos Membros</h6>
+                            <ul>
+                                <li>Apenas doadores com ID Fiscal válido para o país serão incluídos</li>
+                                <li>Donativos devem estar vinculados ao membro</li>
+                                <li>Recomenda-se atualizar os IDs Fiscais antes de gerar o relatório</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Links Úteis -->
+    <div class="row mt-4 mb-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0"><i class="fas fa-link"></i> Links Úteis</h5>
+                </div>
+                <div class="card-body">
+                    <ul class="mb-0">
+                        <li>
+                            <a href="https://www.portaldasfinancas.gov.pt" target="_blank">
+                                Portal das Finanças - Submissão do Modelo 25
+                            </a>
+                        </li>
+                        <li>
+                            <a href="https://info.portaldasfinancas.gov.pt/pt/apoio_contribuinte/questoes_frequentes/Pages/faqs-001007.aspx" target="_blank">
+                                Perguntas Frequentes sobre Modelo 25
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{{ url_for('admin.list_members') }}">
+                                Atualizar IDs Fiscais dos Membros
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function updateAction() {
+    const year = document.getElementById('year').value;
+    const form = document.getElementById('yearForm');
+    form.action = "{{ url_for('modelo25.preview', year=0) }}".replace('/0', '/' + year);
+}
+</script>
+{% endblock %}
