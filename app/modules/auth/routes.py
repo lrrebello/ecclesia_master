@@ -68,37 +68,70 @@ def login():
 
 @auth_bp.route('/register', methods=['GET', 'POST'])
 def register():
+    if current_user.is_authenticated:
+        return redirect(url_for('members.dashboard'))  # ou sua rota de dashboard
+
+    churches = Church.query.all()  # Carrega para o template (GET e POST)
+
     if request.method == 'POST':
         name = request.form.get('name')
         email = request.form.get('email')
         password = request.form.get('password')
-        birth_date = datetime.strptime(request.form.get('birth_date'), '%Y-%m-%d').date()
+        birth_date_str = request.form.get('birth_date')
         gender = request.form.get('gender')
         documents = request.form.get('documents')
         address = request.form.get('address')
         phone = request.form.get('phone')
-        church_id = request.form.get('church_id')
+        church_id_str = request.form.get('church_id')
         
-        # Consentimento RGPD/LGPD
-        data_consent = True if request.form.get('data_consent') else False
-        marketing_consent = True if request.form.get('marketing_consent') else False
+        # Consentimentos
+        data_consent = 'data_consent' in request.form
+        marketing_consent = 'marketing_consent' in request.form
         
         if not data_consent:
             flash('Você deve aceitar os termos de tratamento de dados para se cadastrar.', 'danger')
-            return redirect(url_for('auth.register'))
+            return render_template('auth/register.html', churches=churches)
+
+        # Validação básica antes de prosseguir
+        if not name or not email or not password:
+            flash('Preencha os campos obrigatórios: nome, e-mail e senha.', 'danger')
+            return render_template('auth/register.html', churches=churches)
+
+        # Normaliza e-mail
+        email = email.lower().strip()
+
+        # Verifica duplicidade ANTES de criar o objeto
+        if User.query.filter_by(email=email).first():
+            flash('Este e-mail já está cadastrado. Faça login ou use outro e-mail.', 'danger')
+            return render_template('auth/register.html', churches=churches)
+
+        # Processa data de nascimento (com try/except para evitar crash)
+        birth_date = None
+        if birth_date_str:
+            try:
+                birth_date = datetime.strptime(birth_date_str, '%Y-%m-%d').date()
+            except ValueError:
+                flash('Data de nascimento inválida. Use o formato correto (YYYY-MM-DD).', 'danger')
+                return render_template('auth/register.html', churches=churches)
+
+        # Processa igreja
+        church_id = None
+        if church_id_str and church_id_str.isdigit():
+            church_id = int(church_id_str)
 
         # Upload de foto
-        file = request.files.get('profile_photo')
         profile_photo = None
-        if file:
+        file = request.files.get('profile_photo')
+        if file and file.filename:
             filename = secure_filename(file.filename)
             full_path = os.path.join(current_app.config['UPLOAD_FOLDER'], 'profiles', filename)
             os.makedirs(os.path.dirname(full_path), exist_ok=True)
             file.save(full_path)
             profile_photo = 'uploads/profiles/' + filename
-        
+
+        # Cria o usuário
         new_user = User(
-            name=name,
+            name=name.strip(),
             email=email,
             birth_date=birth_date,
             gender=gender,
@@ -106,27 +139,43 @@ def register():
             address=address,
             phone=phone,
             profile_photo=profile_photo,
-            church_id=int(church_id) if church_id else None,
+            church_id=church_id,
             status='pending',
+            is_email_verified=False,
             data_consent=data_consent,
             data_consent_date=datetime.utcnow(),
             marketing_consent=marketing_consent
         )
         new_user.set_password(password)
-        db.session.add(new_user)
-        db.session.commit()
-        
-        # Enviar e-mail de verificação
-        token = send_verification_email(new_user)
-        
-        flash('Cadastro realizado! Por favor, verifique seu e-mail para ativar sua conta.', 'info')
-        # Em ambiente de desenvolvimento, vamos facilitar o teste:
-        flash(f'DEBUG: Clique aqui para verificar (Simulação): {url_for("auth.verify_email", token=token, _external=True)}', 'warning')
-        
-        return redirect(url_for('auth.login'))
-    
-    # Carrega todas as congregações para o formulário de registro
-    churches = Church.query.all()
+
+        try:
+            db.session.add(new_user)
+            db.session.commit()
+
+            # Enviar e-mail de verificação
+            token = send_verification_email(new_user)  # assume que esta função existe e retorna o token
+
+            flash('Cadastro realizado! Por favor, verifique seu e-mail para ativar sua conta.', 'success')
+            
+            # Debug em dev (mantenho como você tinha)
+            if current_app.config.get('DEBUG'):
+                flash(f'DEBUG: Clique aqui para verificar (Simulação): {url_for("auth.verify_email", token=token, _external=True)}', 'warning')
+
+            return redirect(url_for('auth.login'))
+
+        except IntegrityError as e:
+            db.session.rollback()
+            current_app.logger.error(f"IntegrityError no registro: {str(e)} - Email duplicado?")
+            flash('Este e-mail já está em uso. Por favor escolha outro.', 'danger')
+            return render_template('auth/register.html', churches=churches)
+
+        except Exception as e:
+            db.session.rollback()
+            current_app.logger.error(f"Erro inesperado no registro: {str(e)}")
+            flash('Ocorreu um erro ao criar sua conta. Tente novamente ou contate o suporte.', 'danger')
+            return render_template('auth/register.html', churches=churches)
+
+    # GET: apenas renderiza o form
     return render_template('auth/register.html', churches=churches)
 
 @auth_bp.route('/verify-email/<token>')
