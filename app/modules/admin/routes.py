@@ -28,13 +28,19 @@ def add_church():
         return redirect(url_for('members.dashboard'))
     
     if request.method == 'POST':
+        country = request.form.get('country', '')
+        # Mapeamento robusto de moedas
+        euro_countries = ['Portugal', 'Espanha', 'França', 'Alemanha', 'Itália', 'Bélgica', 'Holanda', 'Luxemburgo', 'Irlanda', 'Grécia', 'Áustria', 'Finlândia']
+        currency = '€' if country in euro_countries else 'R$'
+        
         new_church = Church(
             name=request.form.get('name'),
             address=request.form.get('address'),
             city=request.form.get('city'),
-            country=request.form.get('country'),
+            country=country,
             nif=request.form.get('nif'),
             email=request.form.get('email'),
+            currency_symbol=currency,
             is_main=True if request.form.get('is_main') else False
         )
         db.session.add(new_church)
@@ -54,10 +60,15 @@ def edit_church(id):
     church = Church.query.get_or_404(id)
     
     if request.method == 'POST':
+        country = request.form.get('country', '')
+        # Atualiza a moeda se o país mudar
+        euro_countries = ['Portugal', 'Espanha', 'França', 'Alemanha', 'Itália', 'Bélgica', 'Holanda', 'Luxemburgo', 'Irlanda', 'Grécia', 'Áustria', 'Finlândia']
+        church.currency_symbol = '€' if country in euro_countries else 'R$'
+        
         church.name = request.form.get('name')
         church.address = request.form.get('address')
         church.city = request.form.get('city')
-        church.country = request.form.get('country')
+        church.country = country
         church.nif = request.form.get('nif')
         church.email = request.form.get('email')
         church.is_main = 'is_main' in request.form

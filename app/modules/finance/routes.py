@@ -181,6 +181,15 @@ def add_transaction():
         if payment_method and payment_method.is_electronic and not user_id:
             flash('Para pagamentos eletrônicos, a identificação do membro é obrigatória para fins fiscais.', 'danger')
             return redirect(url_for('finance.add_transaction'))
+            
+        # Trava Fiscal Portugal: Donativos em numerário > 200€ (EBF Artigo 63º)
+        amount = float(request.form.get('amount') or 0)
+        is_cash = payment_method and payment_method.name.lower() in ['dinheiro', 'numerário', 'cash']
+        is_portugal = current_user.church and current_user.church.country.lower() == 'portugal'
+        
+        if is_portugal and is_cash and amount > 200:
+            flash('Conforme o Artigo 63º do EBF (Portugal), donativos superiores a 200€ não podem ser efetuados em numerário. Por favor, utilize um meio de pagamento eletrônico (Transferência, MB WAY, etc).', 'danger')
+            return redirect(url_for('finance.add_transaction'))
 
         new_tx = Transaction(
             type=request.form.get('type'),

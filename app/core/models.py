@@ -54,6 +54,14 @@ class User(db.Model, UserMixin):
     
     # Status e Permissões
     status = db.Column(db.String(20), default='pending') # pending, active, rejected
+    is_email_verified = db.Column(db.Boolean, default=False)
+    email_verification_token = db.Column(db.String(100), unique=True, nullable=True)
+    
+    # Consentimento RGPD/LGPD
+    data_consent = db.Column(db.Boolean, default=False)
+    data_consent_date = db.Column(db.DateTime)
+    marketing_consent = db.Column(db.Boolean, default=False)
+    
     is_ministry_leader = db.Column(db.Boolean, default=False)
     
     church_id = db.Column(db.Integer, db.ForeignKey('church.id'))

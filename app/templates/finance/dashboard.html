@@ -70,7 +70,7 @@
             <div class="card border-0 shadow-sm bg-success bg-opacity-10">
                 <div class="card-body p-4 text-center">
                     <p class="text-success small fw-bold mb-1 text-uppercase">Total Entradas</p>
-                    <h3 class="fw-bold text-success mb-0">{{ current_user.church.currency_symbol if current_user.church else 'R$' }} {{ "%.2f"|format(stats.income) }}</h3>
+                    <h3 class="fw-bold text-success mb-0">{{ (current_user.church.currency_symbol if current_user.church else 'R$') if current_user.church else 'R$' }} {{ "%.2f"|format(stats.income) }}</h3>
                 </div>
             </div>
         </div>
@@ -78,7 +78,7 @@
             <div class="card border-0 shadow-sm bg-danger bg-opacity-10">
                 <div class="card-body p-4 text-center">
                     <p class="text-danger small fw-bold mb-1 text-uppercase">Total Saídas</p>
-                    <h3 class="fw-bold text-danger mb-0">{{ current_user.church.currency_symbol if current_user.church else 'R$' }} {{ "%.2f"|format(stats.expense) }}</h3>
+                    <h3 class="fw-bold text-danger mb-0">{{ (current_user.church.currency_symbol if current_user.church else 'R$') if current_user.church else 'R$' }} {{ "%.2f"|format(stats.expense) }}</h3>
                 </div>
             </div>
         </div>
@@ -86,7 +86,7 @@
             <div class="card border-0 shadow-sm bg-primary bg-opacity-10">
                 <div class="card-body p-4 text-center">
                     <p class="text-primary small fw-bold mb-1 text-uppercase">Saldo no Período</p>
-                    <h3 class="fw-bold text-primary mb-0">{{ current_user.church.currency_symbol if current_user.church else 'R$' }} {{ "%.2f"|format(stats.balance) }}</h3>
+                    <h3 class="fw-bold text-primary mb-0">{{ (current_user.church.currency_symbol if current_user.church else 'R$') if current_user.church else 'R$' }} {{ "%.2f"|format(stats.balance) }}</h3>
                 </div>
             </div>
         </div>

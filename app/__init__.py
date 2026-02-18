@@ -1,11 +1,13 @@
 # Arquivo completo: app/__init__.py (baseado no TXT, com context processor para public_media adicionado)
 from flask import Flask, render_template, request, current_app
 from flask_login import LoginManager, current_user
+from flask_mail import Mail
 from app.core.models import db, User, Event, Ministry, Media  # Adicionado Media para o context processor
 from config import Config
 from datetime import datetime
 
 login_manager = LoginManager()
+mail = Mail()
 
 def create_app():
     app = Flask(__name__)
@@ -13,6 +15,7 @@ def create_app():
     
     db.init_app(app)
     login_manager.init_app(app)
+    mail.init_app(app)
     login_manager.login_view = 'auth.login'
     
     @login_manager.user_loader

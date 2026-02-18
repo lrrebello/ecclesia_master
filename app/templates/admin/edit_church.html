@@ -19,7 +19,17 @@
                 </div>
                 <div class="mb-3">
                     <label class="form-label small fw-bold">PAÍS</label>
-                    <input type="text" name="country" class="form-control bg-light border-0" value="{{ church.country or '' }}">
+                    <select name="country" class="form-select bg-light border-0" required>
+                        <option value="Portugal" {{ 'selected' if church.country == 'Portugal' }}>Portugal</option>
+                        <option value="Brasil" {{ 'selected' if church.country == 'Brasil' }}>Brasil</option>
+                        <option value="Espanha" {{ 'selected' if church.country == 'Espanha' }}>Espanha</option>
+                        <option value="França" {{ 'selected' if church.country == 'França' }}>França</option>
+                        <option value="Alemanha" {{ 'selected' if church.country == 'Alemanha' }}>Alemanha</option>
+                        <option value="Itália" {{ 'selected' if church.country == 'Itália' }}>Itália</option>
+                        <option value="Irlanda" {{ 'selected' if church.country == 'Irlanda' }}>Irlanda</option>
+                        <option value="Bélgica" {{ 'selected' if church.country == 'Bélgica' }}>Bélgica</option>
+                        <option value="Outro" {{ 'selected' if church.country == 'Outro' }}>Outro</option>
+                    </select>
                 </div>
                 <div class="row">
                     <div class="col-md-6 mb-3">
