@@ -18,26 +18,56 @@ def send_verification_email(user):
     
     # Busca a filial do usuário para pegar o e-mail oficial
     church = Church.query.get(user.church_id) if user.church_id else None
-    sender_email = church.email if church and church.email else current_app.config.get('MAIL_DEFAULT_SENDER')
+    sender_email = current_app.config.get('MAIL_DEFAULT_SENDER')
+    # Se a igreja tiver um e-mail configurado, usamos ele como remetente visual (Reply-To) 
+    # mas o remetente técnico deve ser o MAIL_USERNAME para evitar bloqueios de SMTP
     church_name = church.name if church else "Ecclesia Master"
 
     # Se o servidor de e-mail estiver configurado, tenta enviar
     if current_app.config.get('MAIL_USERNAME'):
         try:
             msg = Message(f'Verifique seu e-mail - {church_name}',
-                          sender=sender_email,
+                          sender=(church_name, current_app.config.get('MAIL_USERNAME')),
                           recipients=[user.email])
+            if church and church.email:
+                msg.reply_to = church.email
+                
             link = url_for('auth.verify_email', token=token, _external=True)
             msg.body = f"Olá {user.name},\n\nBem-vindo à {church_name}!\n\nFicamos muito felizes com seu interesse em se juntar a nós. Por favor, clique no link abaixo para verificar seu e-mail e ativar sua conta no sistema Ecclesia Master:\n\n{link}\n\nQue Deus te abençoe ricamente!"
             mail.send(msg)
+            current_app.logger.info(f"E-mail de verificação enviado para {user.email}")
         except Exception as e:
-            print(f"Erro ao enviar e-mail via {sender_email}: {e}")
+            current_app.logger.error(f"Erro SMTP ao enviar e-mail para {user.email}: {str(e)}")
+            print(f"Erro ao enviar e-mail: {e}")
             # Se falhar, ainda mostramos o token no console para debug
             print(f"DEBUG: Token de verificação para {user.email}: {token}")
     else:
-        print(f"DEBUG: E-mail de verificação para {user.email} (Remetente: {sender_email}). Token: {token}")
+        print(f"DEBUG: E-mail de verificação para {user.email} (Simulação). Token: {token}")
     
     return token
+
+@auth_bp.route('/resend-verification', methods=['GET', 'POST'])
+def resend_verification():
+    if request.method == 'POST':
+        email = request.form.get('email')
+        user = User.query.filter_by(email=email.lower().strip()).first()
+        
+        if user:
+            if user.is_email_verified:
+                flash('Este e-mail já foi verificado. Por favor, faça login.', 'info')
+                return redirect(url_for('auth.login'))
+            
+            token = send_verification_email(user)
+            flash('Um novo e-mail de verificação foi enviado. Verifique sua caixa de entrada.', 'success')
+            
+            if current_app.config.get('DEBUG'):
+                flash(f'DEBUG: Link de verificação: {url_for("auth.verify_email", token=token, _external=True)}', 'warning')
+                
+            return redirect(url_for('auth.login'))
+        else:
+            flash('E-mail não encontrado no sistema.', 'danger')
+            
+    return render_template('auth/resend_verification.html')
 
 @auth_bp.route('/login', methods=['GET', 'POST'])
 def login():
