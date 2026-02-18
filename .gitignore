@@ -8,4 +8,4 @@ venv/
 *.db
 *.sqlite3
 *.log
-static/uploads/
+static/uploads/*
