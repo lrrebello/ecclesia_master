@@ -185,3 +185,23 @@ def approve_member(user_id):
         flash('Solicitação de membro rejeitada.', 'info')
     db.session.commit()
     return redirect(request.referrer or url_for('members.dashboard'))
+
+@auth_bp.route('/change-password', methods=['GET', 'POST'])
+@login_required
+def change_password():
+    if request.method == 'POST':
+        old_password = request.form.get('old_password')
+        new_password = request.form.get('new_password')
+        confirm_password = request.form.get('confirm_password')
+        
+        if not current_user.check_password(old_password):
+            flash('Senha atual incorreta.', 'danger')
+        elif new_password != confirm_password:
+            flash('As novas senhas não coincidem.', 'danger')
+        else:
+            current_user.set_password(new_password)
+            db.session.commit()
+            flash('Senha alterada com sucesso!', 'success')
+            return redirect(url_for('members.profile'))
+            
+    return render_template('auth/change_password.html')

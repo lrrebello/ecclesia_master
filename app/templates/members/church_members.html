@@ -8,35 +8,74 @@
         </div>
     </div>
 
-    <div class="card border-0 shadow-sm">
+    <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
         <div class="table-responsive">
             <table class="table table-hover align-middle mb-0">
                 <thead class="bg-light">
                     <tr>
-                        <th class="ps-4">Nome</th>
-                        <th>E-mail</th>
-                        <th>Cargo Atual</th>
-                        <th>Status</th>
-                        <th class="text-end pe-4">Ações</th>
+                        <th class="ps-4 py-3">Nome</th>
+                        <th class="py-3">E-mail</th>
+                        <th class="py-3">Cargo Atual</th>
+                        <th class="py-3">Status</th>
+                        <th class="text-end pe-4 py-3">Ações</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for member in members %}
                     <tr>
-                        <td class="ps-4 fw-bold">{{ member.name }}</td>
+                        <td class="ps-4">
+                            <div class="fw-bold">{{ member.name }}</div>
+                            <small class="text-muted">{{ member.phone if member.phone else '' }}</small>
+                        </td>
                         <td>{{ member.email }}</td>
-                        <td><span class="badge bg-info bg-opacity-10 text-info">{{ member.church_role.name if member.church_role else 'Sem cargo' }}</span></td>
+                        <td>
+                            <span class="badge bg-info bg-opacity-10 text-info border border-info border-opacity-25">
+                                {{ member.church_role.name if member.church_role else 'Membro' }}
+                            </span>
+                        </td>
                         <td>
                             {% if member.status == 'active' %}
-                            <span class="badge bg-success">Ativo</span>
+                            <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25">Ativo</span>
                             {% elif member.status == 'pending' %}
-                            <span class="badge bg-warning">Pendente</span>
+                            <span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25">Pendente</span>
                             {% else %}
-                            <span class="badge bg-danger">Inativo</span>
+                            <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25">Inativo</span>
                             {% endif %}
                         </td>
                         <td class="text-end pe-4">
-                            <a href="{{ url_for('members.promote_member', id=member.id) }}" class="btn btn-sm btn-outline-primary">Alterar Cargo</a>
+                            <div class="d-flex justify-content-end gap-2">
+                                <a href="{{ url_for('members.promote_member', id=member.id) }}" class="btn btn-sm btn-outline-primary rounded-pill px-3">
+                                    <i class="bi bi-person-badge me-1"></i> Cargo
+                                </a>
+                                
+                                {% if member.id != current_user.id %}
+                                <button type="button" class="btn btn-sm btn-outline-danger rounded-pill px-3" data-bs-toggle="modal" data-bs-target="#deleteMemberModal{{ member.id }}">
+                                    <i class="bi bi-trash me-1"></i> Excluir
+                                </button>
+
+                                <!-- Modal de Confirmação de Exclusão -->
+                                <div class="modal fade text-start" id="deleteMemberModal{{ member.id }}" tabindex="-1" aria-hidden="true">
+                                    <div class="modal-dialog modal-dialog-centered">
+                                        <div class="modal-content border-0 shadow-lg rounded-4">
+                                            <div class="modal-header border-0">
+                                                <h5 class="modal-title fw-bold">Confirmar Exclusão</h5>
+                                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                            </div>
+                                            <div class="modal-body">
+                                                Tem certeza que deseja excluir o membro <strong>{{ member.name }}</strong>? 
+                                                <p class="text-danger small mt-2 mb-0"><i class="bi bi-exclamation-triangle me-1"></i> Esta ação removerá permanentemente o acesso deste usuário ao sistema.</p>
+                                            </div>
+                                            <div class="modal-footer border-0">
+                                                <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">Cancelar</button>
+                                                <form action="{{ url_for('members.delete_member', id=member.id) }}" method="POST" class="d-inline">
+                                                    <button type="submit" class="btn btn-danger rounded-pill px-4">Excluir Membro</button>
+                                                </form>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endif %}
+                            </div>
                         </td>
                     </tr>
                     {% endfor %}

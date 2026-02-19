@@ -1,4 +1,4 @@
-# Arquivo completo: app/modules/members/routes.py
+# Arquivo completo: app/modules/members/routes.py (adicionando edição no profile, acesso a dados para líderes)
 from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app
 from flask_login import login_required, current_user, logout_user
 from app.core.models import User, Church, Ministry, Event, db, Devotional, Study, ChurchRole
@@ -28,12 +28,17 @@ def dashboard():
         (Event.start_time >= datetime.now())
     ).order_by(Event.start_time.asc()).limit(5).all()
     
+    # Lógica de Permissões Centralizada (Mesma lógica do menu lateral)
     is_global_admin = current_user.church_role and current_user.church_role.name == 'Administrador Global'
     is_pastor = current_user.church_role and current_user.church_role.name == 'Pastor Líder'
+    
+    # Identifica se o usuário é líder de algum ministério (Lógica do menu lateral)
     led_ministries_list = [m for m in current_user.ministries if m.leader_id == current_user.id]
     is_ministry_leader = len(led_ministries_list) > 0
+    
     is_authorized_for_alerts = is_global_admin or is_pastor or is_ministry_leader
 
+    # Buscar solicitações pendentes
     pending_members = []
     if current_user.can_approve_members or is_global_admin or is_pastor:
         if is_global_admin:
@@ -45,14 +50,18 @@ def dashboard():
                 (or_(User.church_id == current_user.church_id, User.church_id == None))
             ).all()
 
+    # Lógica de Aniversariantes para Líderes (Próximos 10 dias)
     birthday_alerts = []
     if is_authorized_for_alerts:
         today = datetime.now().date()
         future_limit = today + timedelta(days=10)
         
+        # Determinar quais ministérios observar
         if is_global_admin or is_pastor:
+            # Administradores e Pastores veem todos os ministérios da congregação
             target_ministries = Ministry.query.filter_by(church_id=current_user.church_id).all()
         else:
+            # Líderes de ministério veem apenas os que lideram (usando a lista já filtrada)
             target_ministries = led_ministries_list
             
         if target_ministries:
@@ -134,6 +143,38 @@ def list_ministries():
     
     return render_template('members/ministries.html', ministries=ministries)
 
+@members_bp.route('/ministry/<int:ministry_id>/manage-members')
+@login_required
+def ministry_manage_members(ministry_id):
+    ministry = Ministry.query.get_or_404(ministry_id)
+    
+    is_leader = ministry.leader_id == current_user.id
+    is_authorized = is_leader or can_manage_ministries()
+    
+    if not is_authorized:
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('members.my_led_ministries'))
+    
+    current_members = ministry.members.all()
+    available_members = User.query.filter(
+        User.church_id == current_user.church_id,
+        User.status == 'active',
+        ~User.ministries.any(Ministry.id == ministry_id)
+    ).order_by(User.name).all()
+    
+    total_members = len(current_members)
+    gender_count = db.session.query(User.gender, func.count(User.id)).filter(
+        User.id.in_([m.id for m in current_members])
+    ).group_by(User.gender).all()
+    
+    return render_template('members/ministry_manage_members.html',
+                           ministry=ministry,
+                           current_members=current_members,
+                           available_members=available_members,
+                           total_members=total_members,
+                           gender_count=gender_count,
+                           is_leader=is_leader)
+
 @members_bp.route('/ministry/add', methods=['GET', 'POST'])
 @login_required
 def add_ministry():
@@ -169,6 +210,7 @@ def add_ministry():
 @login_required
 def edit_ministry(id):
     ministry = Ministry.query.get_or_404(id)
+
     if not can_manage_ministries():
         flash('Acesso negado.', 'danger')
         return redirect(url_for('members.list_ministries'))
@@ -177,12 +219,47 @@ def edit_ministry(id):
         ministry.name = request.form.get('name')
         ministry.description = request.form.get('description')
         ministry.leader_id = request.form.get('leader_id')
+
+        if current_user.church_role and current_user.church_role.name == 'Administrador Global':
+            church_id = request.form.get('church_id')
+            if church_id:
+                ministry.church_id = int(church_id)
+
         db.session.commit()
+
+        if ministry.leader_id:
+            leader = User.query.get(ministry.leader_id)
+            if leader and leader not in ministry.members:
+                ministry.members.append(leader)
+                db.session.commit()
+
         flash('Ministério atualizado!', 'success')
         return redirect(url_for('members.list_ministries'))
 
+    churches = Church.query.all() if (
+        current_user.church_role and current_user.church_role.name == 'Administrador Global'
+    ) else None
     potential_leaders = User.query.filter_by(church_id=current_user.church_id, status='active').all()
-    return render_template('members/edit_ministry.html', ministry=ministry, leaders=potential_leaders)
+    return render_template(
+        'members/edit_ministry.html',
+        ministry=ministry,
+        leaders=potential_leaders,
+        churches=churches
+    )
+
+@members_bp.route('/ministry/<int:id>/delete')
+@login_required
+def delete_ministry(id):
+    ministry = Ministry.query.get_or_404(id)
+
+    if not can_manage_ministries():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('members.list_ministries'))
+
+    db.session.delete(ministry)
+    db.session.commit()
+    flash('Ministério excluído com sucesso!', 'success')
+    return redirect(url_for('members.list_ministries'))
 
 @members_bp.route('/agenda')
 @login_required
@@ -202,7 +279,6 @@ def create_recurring_events(base_event, recurrence_type, count=12):
         if recurrence_type == 'weekly':
             new_time = base_event.start_time + timedelta(weeks=i)
         elif recurrence_type == 'monthly':
-            # Aproximação simples para mensal
             new_time = base_event.start_time + timedelta(days=30*i)
         else:
             break
@@ -222,6 +298,7 @@ def create_recurring_events(base_event, recurrence_type, count=12):
 @members_bp.route('/ministry/<int:id>/event/add', methods=['GET', 'POST'])
 @login_required
 def add_event(id=None):
+    # Suporta tanto criação geral quanto por ministério
     ministry = Ministry.query.get(id) if id else None
     
     is_authorized = current_user.can_manage_events or (
@@ -256,7 +333,11 @@ def add_event(id=None):
 
     return render_template('members/add_event.html', ministry=ministry)
 
-# Aliases para compatibilidade com templates antigos
+# Aliases para compatibilidade
+@members_bp.route('/ministry/<int:id>/event/add_legacy')
+def add_ministry_event(id):
+    return redirect(url_for('members.add_event', id=id))
+
 @members_bp.route('/event/add_general')
 def add_general_event():
     return redirect(url_for('members.add_event'))
@@ -308,8 +389,136 @@ def church_members():
     if not can_manage_members():
         flash('Acesso negado.', 'danger')
         return redirect(url_for('members.dashboard'))
+
     members = User.query.filter_by(church_id=current_user.church_id).all()
     return render_template('members/church_members.html', members=members)
+
+@members_bp.route('/member/promote/<int:id>', methods=['GET', 'POST'])
+@login_required
+def promote_member(id):
+    if not can_manage_members():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('members.dashboard'))
+
+    member = User.query.get_or_404(id)
+    if member.church_id != current_user.church_id and not (
+        current_user.church_role and current_user.church_role.name == 'Administrador Global'
+    ):
+        flash('Este membro não pertence à sua congregação.', 'danger')
+        return redirect(url_for('members.church_members'))
+
+    if request.method == 'POST':
+        new_role_id = request.form.get('church_role_id')
+        member.church_role_id = int(new_role_id) if new_role_id else None
+
+        member.can_manage_ministries = 'can_manage_ministries' in request.form
+        member.can_manage_media = 'can_manage_media' in request.form
+        member.can_publish_devotionals = 'can_publish_devotionals' in request.form
+        member.can_manage_finance = 'can_manage_finance' in request.form
+        member.can_manage_events = 'can_manage_events' in request.form
+
+        db.session.commit()
+        flash(f'Cargo e permissões de {member.name} atualizados!', 'success')
+        return redirect(url_for('members.church_members'))
+
+    roles = ChurchRole.query.filter_by(
+        church_id=member.church_id
+    ).order_by(ChurchRole.order, ChurchRole.name).all()
+    return render_template('members/promote_member.html', member=member, roles=roles)
+
+@members_bp.route('/member/<int:id>/delete', methods=['POST'])
+@login_required
+def delete_member(id):
+    if not can_manage_members():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('members.church_members'))
+    member = User.query.get_or_404(id)
+    if member.id == current_user.id:
+        flash('Você não pode excluir sua própria conta.', 'warning')
+        return redirect(url_for('members.church_members'))
+    member.ministries = []
+    db.session.delete(member)
+    db.session.commit()
+    flash(f'Membro {member.name} excluído!', 'success')
+    return redirect(url_for('members.church_members'))
+
+@members_bp.route('/ministries/led-by-me')
+@login_required
+def my_led_ministries():
+    led_ministries = Ministry.query.filter_by(leader_id=current_user.id).all()
+    return render_template('members/my_led_ministries.html', led_ministries=led_ministries)
+
+@members_bp.route('/ministry/<int:ministry_id>/add-member', methods=['POST'])
+@login_required
+def ministry_add_member(ministry_id):
+    ministry = Ministry.query.get_or_404(ministry_id)
+
+    is_leader = ministry.leader_id == current_user.id
+    is_authorized = is_leader or can_manage_ministries()
+
+    if not is_authorized:
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('members.ministry_manage_members', ministry_id=ministry_id))
+
+    user_id = request.form.get('user_id')
+    if not user_id:
+        flash('Selecione um membro.', 'warning')
+        return redirect(url_for('members.ministry_manage_members', ministry_id=ministry_id))
+
+    member = User.query.get_or_404(int(user_id))
+    if member.church_id != ministry.church_id:
+        flash('Membro não pertence a esta congregação.', 'danger')
+    elif member not in ministry.members:
+        ministry.members.append(member)
+        db.session.commit()
+        flash(f'{member.name} adicionado ao ministério!', 'success')
+
+    return redirect(url_for('members.ministry_manage_members', ministry_id=ministry_id))
+
+@members_bp.route('/ministry/<int:ministry_id>/remove-member/<int:user_id>')
+@login_required
+def ministry_remove_member(ministry_id, user_id):
+    ministry = Ministry.query.get_or_404(ministry_id)
+
+    is_leader = ministry.leader_id == current_user.id
+    is_authorized = is_leader or can_manage_ministries()
+
+    if not is_authorized:
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('members.ministry_manage_members', ministry_id=ministry_id))
+
+    member = User.query.get_or_404(user_id)
+    if member in ministry.members:
+        ministry.members.remove(member)
+        db.session.commit()
+        flash(f'{member.name} removido do ministério.', 'info')
+
+    return redirect(url_for('members.ministry_manage_members', ministry_id=ministry_id))
+
+@members_bp.route('/ministry/<int:ministry_id>/agenda')
+@login_required
+def ministry_agenda(ministry_id):
+    ministry = Ministry.query.get_or_404(ministry_id)
+    
+    is_leader = ministry.leader_id == current_user.id
+    is_authorized = is_leader or current_user.can_manage_events or (
+        current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder']
+    )
+    
+    if not is_authorized:
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('members.my_led_ministries'))
+    
+    events = Event.query.filter(
+        Event.ministry_id == ministry_id,
+        Event.start_time >= datetime.utcnow()
+    ).order_by(Event.start_time.asc()).all()
+    
+    return render_template(
+        'members/ministry_agenda.html',
+        ministry=ministry,
+        events=events
+    )
 
 @members_bp.route('/logout')
 @login_required

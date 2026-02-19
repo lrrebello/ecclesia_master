@@ -261,3 +261,32 @@ def delete_role(id):
     db.session.commit()
     flash('Cargo excluído com sucesso!', 'success')
     return redirect(url_for('admin.list_roles'))
+
+@admin_bp.route('/church/delete/<int:id>', methods=['POST'])
+@login_required
+def delete_church(id):
+    if not is_global_admin():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('members.dashboard'))
+    
+    church = Church.query.get_or_404(id)
+    
+    # Impede excluir a igreja principal se houver apenas uma
+    if church.is_main and Church.query.filter_by(is_main=True).count() <= 1:
+        # Se for a única igreja, não permite excluir
+        if Church.query.count() <= 1:
+            flash('Não é possível excluir a única congregação do sistema.', 'warning')
+            return redirect(url_for('admin.list_churches'))
+
+    try:
+        # Remove vínculos de membros para evitar erro de chave estrangeira
+        User.query.filter_by(church_id=id).update({User.church_id: None})
+        
+        db.session.delete(church)
+        db.session.commit()
+        flash(f'Congregação {church.name} excluída com sucesso!', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Erro ao excluir congregação: {str(e)}', 'danger')
+        
+    return redirect(url_for('admin.list_churches'))
