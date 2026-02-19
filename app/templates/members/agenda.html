@@ -15,7 +15,7 @@
         <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center py-3">
             <h5 class="mb-0">Próximos Eventos</h5>
             {% if current_user.can_manage_events or (current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder']) %}
-            <a href="{{ url_for('members.add_general_event') }}" class="btn btn-light btn-sm fw-bold">
+            <a href="{{ url_for('members.add_event') }}" class="btn btn-light btn-sm fw-bold">
                 <i class="bi bi-plus-circle me-1"></i> Novo Evento Geral
             </a>
             {% endif %}
@@ -25,14 +25,22 @@
                 {% for event in events %}
                 <div class="list-group-item px-4 py-4 border-bottom">
                     <div class="d-flex justify-content-between align-items-start">
-                        <div class="d-flex align-items-start">
+                        <div class="d-flex align-items-start flex-grow-1">
                             <div class="bg-primary bg-opacity-10 text-primary p-3 rounded-4 me-4 text-center" style="min-width: 70px;">
                                 <div class="fw-bold fs-4">{{ event.start_time.strftime('%d') }}</div>
                                 <div class="text-uppercase small fw-bold">{{ event.start_time.strftime('%b') }}</div>
                                 <div class="extra-small opacity-75">{{ event.start_time.strftime('%Y') }}</div>
                             </div>
-                            <div>
-                                <h5 class="fw-bold mb-2">{{ event.title }}</h5>
+                            <div class="flex-grow-1">
+                                <div class="d-flex align-items-center gap-2 mb-1">
+                                    <h5 class="fw-bold mb-0">{{ event.title }}</h5>
+                                    {% if event.recurrence != 'none' %}
+                                    <span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25 extra-small">
+                                        <i class="bi bi-arrow-repeat me-1"></i> 
+                                        {{ 'Semanal' if event.recurrence == 'weekly' else 'Mensal' }}
+                                    </span>
+                                    {% endif %}
+                                </div>
                                 <div class="d-flex flex-wrap gap-3 align-items-center text-muted">
                                     <span><i class="bi bi-clock me-1"></i> {{ event.start_time.strftime('%H:%M') }}</span>
                                     <span><i class="bi bi-geo-alt me-1"></i> {{ event.location or 'Local não definido' }}</span>
@@ -51,6 +59,41 @@
                                 {% endif %}
                             </div>
                         </div>
+                        
+                        {# Lógica de Permissão para Ações #}
+                        {% set is_admin = current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder'] %}
+                        {% set is_leader = event.ministry and event.ministry.leader_id == current_user.id %}
+                        {% if is_admin or is_leader or current_user.can_manage_events %}
+                        <div class="ms-3 d-flex gap-2">
+                            <a href="{{ url_for('members.edit_event', id=event.id) }}" class="btn btn-outline-primary btn-sm rounded-pill px-3">
+                                <i class="bi bi-pencil me-1"></i> Editar
+                            </a>
+                            <button type="button" class="btn btn-outline-danger btn-sm rounded-pill px-3" data-bs-toggle="modal" data-bs-target="#deleteModal{{ event.id }}">
+                                <i class="bi bi-trash me-1"></i> Excluir
+                            </button>
+                        </div>
+
+                        <!-- Modal de Confirmação de Exclusão -->
+                        <div class="modal fade" id="deleteModal{{ event.id }}" tabindex="-1" aria-hidden="true">
+                            <div class="modal-dialog modal-dialog-centered">
+                                <div class="modal-content border-0 shadow rounded-4">
+                                    <div class="modal-header border-0">
+                                        <h5 class="modal-title fw-bold">Confirmar Exclusão</h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        Tem certeza que deseja excluir o evento <strong>{{ event.title }}</strong>? Esta ação não pode ser desfeita.
+                                    </div>
+                                    <div class="modal-footer border-0">
+                                        <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">Cancelar</button>
+                                        <form action="{{ url_for('members.delete_event', id=event.id) }}" method="POST" class="d-inline">
+                                            <button type="submit" class="btn btn-danger rounded-pill px-4">Excluir Evento</button>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
                     </div>
                 </div>
                 {% else %}

@@ -4,16 +4,16 @@
     <div class="col-md-6">
         <div class="card border-0 shadow-sm p-4 rounded-4">
             <div class="d-flex align-items-center mb-4">
-                <div class="bg-primary bg-opacity-10 p-3 rounded-3 me-3">
-                    <i class="bi bi-calendar-plus text-primary fs-4"></i>
+                <div class="bg-warning bg-opacity-10 p-3 rounded-3 me-3">
+                    <i class="bi bi-pencil-square text-warning fs-4"></i>
                 </div>
                 <div>
-                    <h3 class="fw-bold mb-0">Agendar Evento</h3>
+                    <h3 class="fw-bold mb-0">Editar Evento</h3>
                     <p class="text-muted mb-0">
-                        {% if ministry %}
-                            Ministério: <strong>{{ ministry.name }}</strong>
+                        {% if event.ministry %}
+                            Ministério: <strong>{{ event.ministry.name }}</strong>
                         {% else %}
-                            <strong>Evento Geral da Congregação</strong>
+                            <strong>Evento Geral</strong>
                         {% endif %}
                     </p>
                 </div>
@@ -22,37 +22,38 @@
             <form method="POST">
                 <div class="mb-3">
                     <label class="form-label small fw-bold text-uppercase opacity-75">Título do Evento</label>
-                    <input type="text" name="title" class="form-control bg-light border-0 py-2" placeholder="Ex: Culto de Celebração, Ensaio..." required>
+                    <input type="text" name="title" class="form-control bg-light border-0 py-2" value="{{ event.title }}" required>
                 </div>
                 
                 <div class="row">
                     <div class="col-md-6 mb-3">
                         <label class="form-label small fw-bold text-uppercase opacity-75">Data e Hora</label>
-                        <input type="datetime-local" name="start_time" class="form-control bg-light border-0 py-2" required>
+                        <input type="datetime-local" name="start_time" class="form-control bg-light border-0 py-2" value="{{ event.start_time.strftime('%Y-%m-%dT%H:%M') }}" required>
                     </div>
                     <div class="col-md-6 mb-3">
                         <label class="form-label small fw-bold text-uppercase opacity-75">Repetição</label>
                         <select name="recurrence" class="form-select bg-light border-0 py-2">
-                            <option value="none">Não se repete</option>
-                            <option value="weekly">Toda semana (Próximos 3 meses)</option>
-                            <option value="monthly">Todo mês (Próximo ano)</option>
+                            <option value="none" {{ 'selected' if event.recurrence == 'none' }}>Não se repete</option>
+                            <option value="weekly" {{ 'selected' if event.recurrence == 'weekly' }}>Toda semana</option>
+                            <option value="monthly" {{ 'selected' if event.recurrence == 'monthly' }}>Todo mês</option>
                         </select>
+                        <small class="text-muted extra-small">Nota: Alterar a repetição aqui não criará novos eventos automaticamente.</small>
                     </div>
                 </div>
 
                 <div class="mb-3">
                     <label class="form-label small fw-bold text-uppercase opacity-75">Local</label>
-                    <input type="text" name="location" class="form-control bg-light border-0 py-2" placeholder="Ex: Templo Sede, Sala 02" required>
+                    <input type="text" name="location" class="form-control bg-light border-0 py-2" value="{{ event.location }}" required>
                 </div>
 
                 <div class="mb-3">
                     <label class="form-label small fw-bold text-uppercase opacity-75">Descrição / Observações</label>
-                    <textarea name="description" class="form-control bg-light border-0 py-2" rows="3" placeholder="Detalhes adicionais sobre o evento..."></textarea>
+                    <textarea name="description" class="form-control bg-light border-0 py-2" rows="3">{{ event.description }}</textarea>
                 </div>
 
                 <div class="d-grid mt-4 gap-2">
-                    <button type="submit" class="btn btn-primary btn-lg py-3 fw-bold shadow-sm rounded-3">
-                        Confirmar Agendamento
+                    <button type="submit" class="btn btn-warning btn-lg py-3 fw-bold shadow-sm rounded-3">
+                        Salvar Alterações
                     </button>
                     <a href="{{ url_for('members.agenda') }}" class="btn btn-light py-2 rounded-3">Cancelar</a>
                 </div>
@@ -60,4 +61,8 @@
         </div>
     </div>
 </div>
+
+<style>
+.extra-small { font-size: 0.7rem; }
+</style>
 {% endblock %}

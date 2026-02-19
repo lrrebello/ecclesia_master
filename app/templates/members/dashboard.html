@@ -134,7 +134,7 @@
                 {% endif %}
 
                 {% if current_user.can_manage_events or current_user.can_manage_ministries %}
-                <a href="{{ url_for('members.add_general_event') }}" class="btn btn-outline-success text-start border-2 fw-semibold py-2">
+                <a href="{{ url_for('members.add_event') }}" class="btn btn-outline-success text-start border-2 fw-semibold py-2">
                     <i class="bi bi-calendar-plus me-2"></i> Novo Evento
                 </a>
                 {% endif %}
