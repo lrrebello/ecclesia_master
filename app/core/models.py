@@ -97,6 +97,7 @@ class Ministry(db.Model):
     description = db.Column(db.Text)
     church_id = db.Column(db.Integer, db.ForeignKey('church.id'))
     leader_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    is_kids_ministry = db.Column(db.Boolean, default=False)
     
     events = db.relationship('Event', backref='ministry', lazy=True)
     leader = db.relationship('User', foreign_keys=[leader_id])

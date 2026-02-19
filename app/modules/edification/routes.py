@@ -136,8 +136,12 @@ def add_study():
 @edification_bp.route('/kids')
 @login_required
 def kids():
-    if not current_user.can_manage_kids and not (current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder']):
-        flash('Acesso negado.', 'danger')
+    # Verifica se é admin, pastor, tem permissão específica ou faz parte de um ministério marcado como Kids
+    is_kids_ministry_member = any(m.is_kids_ministry for m in current_user.ministries)
+    has_permission = current_user.can_manage_kids or (current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder'])
+    
+    if not has_permission and not is_kids_ministry_member:
+        flash('Acesso negado. Espaço restrito ao Ministério Kids.', 'danger')
         return redirect(url_for('members.dashboard'))
     
     activities = KidsActivity.query.order_by(KidsActivity.created_at.desc()).all()
@@ -148,8 +152,9 @@ def kids():
 @edification_bp.route('/kids/manage')
 @login_required
 def manage_kids():
+    # Apenas quem tem permissão explícita ou é admin/pastor pode gerenciar (criar/editar)
     if not current_user.can_manage_kids and not (current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder']):
-        flash('Acesso negado.', 'danger')
+        flash('Acesso negado. Você não tem permissão para gerenciar este conteúdo.', 'danger')
         return redirect(url_for('edification.kids'))
     
     stories = BibleStory.query.order_by(BibleStory.order.asc()).all()
@@ -159,13 +164,17 @@ def manage_kids():
 @edification_bp.route('/kids/story/add', methods=['POST'])
 @login_required
 def add_bible_story():
-    if not current_user.can_manage_kids: return redirect(url_for('edification.kids'))
+    if not current_user.can_manage_kids and not (current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder']): 
+        return redirect(url_for('edification.kids'))
     
+    image_path = request.form.get('image_path')
+    # Se for um link do Bible For Children que não termina em .pdf, podemos tentar ajustar
+    # mas por agora vamos apenas garantir que o campo seja salvo.
     new_story = BibleStory(
         title=request.form.get('title'),
         content=request.form.get('content'),
         reference=request.form.get('reference'),
-        image_path=request.form.get('image_path'),
+        image_path=image_path,
         order=request.form.get('order', 0)
     )
     db.session.add(new_story)
@@ -176,7 +185,8 @@ def add_bible_story():
 @edification_bp.route('/kids/story/delete/<int:id>')
 @login_required
 def delete_bible_story(id):
-    if not current_user.can_manage_kids: return redirect(url_for('edification.kids'))
+    if not current_user.can_manage_kids and not (current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder']): 
+        return redirect(url_for('edification.kids'))
     story = BibleStory.query.get_or_404(id)
     db.session.delete(story)
     db.session.commit()
@@ -186,7 +196,8 @@ def delete_bible_story(id):
 @edification_bp.route('/kids/quiz/add', methods=['POST'])
 @login_required
 def add_bible_quiz():
-    if not current_user.can_manage_kids: return redirect(url_for('edification.kids'))
+    if not current_user.can_manage_kids and not (current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder']): 
+        return redirect(url_for('edification.kids'))
     
     new_quiz = BibleQuiz(
         story_id=request.form.get('story_id'),
@@ -222,7 +233,7 @@ def view_bible_story(id):
 @login_required
 def add_kids_activity():
     if not current_user.can_manage_kids and not (current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder']):
-        flash('Acesso negado.', 'danger')
+        flash('Acesso negado. Você não tem permissão para adicionar atividades.', 'danger')
         return redirect(url_for('edification.kids'))
     
     if request.method == 'POST':

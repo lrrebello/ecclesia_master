@@ -188,7 +188,8 @@ def add_ministry():
             name=request.form.get('name'),
             description=request.form.get('description'),
             church_id=current_user.church_id,
-            leader_id=int(leader_id) if leader_id else None
+            leader_id=int(leader_id) if leader_id else None,
+            is_kids_ministry='is_kids_ministry' in request.form
         )
         db.session.add(new_min)
         db.session.commit()
@@ -219,6 +220,7 @@ def edit_ministry(id):
         ministry.name = request.form.get('name')
         ministry.description = request.form.get('description')
         ministry.leader_id = request.form.get('leader_id')
+        ministry.is_kids_ministry = 'is_kids_ministry' in request.form
 
         if current_user.church_role and current_user.church_role.name == 'Administrador Global':
             church_id = request.form.get('church_id')
@@ -416,6 +418,7 @@ def promote_member(id):
         member.can_publish_devotionals = 'can_publish_devotionals' in request.form
         member.can_manage_finance = 'can_manage_finance' in request.form
         member.can_manage_events = 'can_manage_events' in request.form
+        member.can_manage_kids = 'can_manage_kids' in request.form
 
         db.session.commit()
         flash(f'Cargo e permissões de {member.name} atualizados!', 'success')
