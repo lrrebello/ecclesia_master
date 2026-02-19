@@ -2,6 +2,9 @@
     <a class="nav-link {{ 'active' if request.endpoint == 'members.dashboard' }}" href="{{ url_for('members.dashboard') }}">
         <i class="bi bi-speedometer2 me-2"></i> Dashboard
     </a>
+    <a class="nav-link {{ 'active' if request.endpoint == 'members.agenda' }}" href="{{ url_for('members.agenda') }}">
+        <i class="bi bi-calendar-week me-2"></i> Minha Agenda
+    </a>
     {% if current_user.can_manage_finance or (current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder', 'Tesoureiro']) %}
     <a class="nav-link {{ 'active' if request.endpoint == 'finance.dashboard' }}" href="{{ url_for('finance.dashboard') }}">
         <i class="bi bi-cash-stack me-2"></i> Gestão Financeira

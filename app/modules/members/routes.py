@@ -454,3 +454,14 @@ def ministry_agenda(ministry_id):
         ministry=ministry,
         events=events
     )
+@members_bp.route('/agenda')
+@login_required
+def agenda():
+    ministry_ids = [m.id for m in current_user.ministries]
+    # Busca todos os eventos da congregação do usuário (gerais e dos ministérios que ele participa)
+    events = Event.query.filter(
+        (Event.church_id == current_user.church_id) & 
+        ((Event.ministry_id == None) | (Event.ministry_id.in_(ministry_ids)))
+    ).order_by(Event.start_time.asc()).all()
+    
+    return render_template('members/agenda.html', events=events)
