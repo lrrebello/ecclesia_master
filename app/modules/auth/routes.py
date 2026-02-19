@@ -18,25 +18,32 @@ def send_verification_email(user):
     user.email_verification_token = token
     db.session.commit()
     
-    # Busca a filial do usuário para pegar o e-mail oficial
+    # Busca apenas o nome da igreja para o assunto do e-mail
     church = Church.query.get(user.church_id) if user.church_id else None
-    sender_email = church.email if church and church.email else current_app.config.get('MAIL_DEFAULT_SENDER')
     church_name = church.name if church else "Ecclesia Master"
+
+    # Pega o remetente padrão configurado no .env
+    default_sender = current_app.config.get('MAIL_DEFAULT_SENDER') or current_app.config.get('MAIL_USERNAME')
 
     # Se o servidor de e-mail estiver configurado, tenta enviar
     if current_app.config.get('MAIL_USERNAME'):
         try:
             msg = Message(f'Verifique seu e-mail - {church_name}',
-                          sender=sender_email,
+                          sender=default_sender,
                           recipients=[user.email])
+            
             link = url_for('auth.verify_email', token=token, _external=True)
             msg.body = f"Olá {user.name},\n\nBem-vindo à {church_name}!\n\nFicamos muito felizes com seu interesse em se juntar a nós. Por favor, clique no link abaixo para verificar seu e-mail e ativar sua conta no sistema Ecclesia Master:\n\n{link}\n\nQue Deus te abençoe ricamente!"
+            
             mail.send(msg)
+            print(f"✓ E-mail enviado com sucesso para {user.email} via {default_sender}")
         except Exception as e:
-            print(f"Erro ao enviar e-mail via {sender_email}: {e}")
+            print(f"✗ Erro crítico ao enviar e-mail: {str(e)}")
+            # Em desenvolvimento, mostramos o token no console caso o e-mail falhe
             print(f"DEBUG: Token de verificação para {user.email}: {token}")
     else:
-        print(f"DEBUG: E-mail de verificação para {user.email} (Remetente: {sender_email}). Token: {token}")
+        print(f"AVISO: MAIL_USERNAME não configurado. Simulando envio.")
+        print(f"DEBUG: E-mail de verificação para {user.email}. Token: {token}")
     
     return token
 
@@ -73,7 +80,10 @@ def register():
         name = request.form.get('name')
         email = request.form.get('email')
         password = request.form.get('password')
-        birth_date = datetime.strptime(request.form.get('birth_date'), '%Y-%m-%d').date()
+        
+        birth_date_str = request.form.get('birth_date')
+        birth_date = datetime.strptime(birth_date_str, '%Y-%m-%d').date() if birth_date_str else None
+        
         gender = request.form.get('gender')
         documents = request.form.get('documents')
         address = request.form.get('address')
@@ -121,6 +131,7 @@ def register():
         token = send_verification_email(new_user)
         
         flash('Cadastro realizado! Por favor, verifique seu e-mail para ativar sua conta.', 'info')
+        # Em produção, você pode remover a linha abaixo que mostra o link de simulação
         flash(f'DEBUG: Clique aqui para verificar (Simulação): {url_for("auth.verify_email", token=token, _external=True)}', 'warning')
         
         return redirect(url_for('auth.login'))
