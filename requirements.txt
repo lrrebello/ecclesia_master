@@ -34,3 +34,4 @@ SQLAlchemy==2.0.46
 typing_extensions==4.15.0
 Werkzeug==3.1.5
 WTForms==3.2.1
+sendgrid==6.11.0

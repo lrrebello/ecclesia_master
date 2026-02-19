@@ -1,51 +1,80 @@
-# Arquivo completo: app/modules/auth/routes.py
+# app/modules/auth/routes.py
 from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app
 from flask_login import login_user, logout_user, current_user, login_required
-from flask_mail import Message
 from app.core.models import db, User, Church
 from werkzeug.utils import secure_filename
 from datetime import datetime
 import os
 import uuid
 
+# SendGrid imports
+from sendgrid import SendGridAPIClient
+from sendgrid.helpers.mail import Mail
+
 auth_bp = Blueprint('auth', __name__)
 
 def send_verification_email(user):
-    # Importação local para evitar ciclo
-    from app import mail
-    
-    token = str(uuid.uuid4())
-    user.email_verification_token = token
-    db.session.commit()
-    
-    # Busca apenas o nome da igreja para o assunto do e-mail
+    """
+    Envia email de verificação usando SendGrid API (não SMTP).
+    Retorna o token gerado ou None em caso de erro.
+    """
+    # Gera novo token se necessário (mas você já gera antes de chamar)
+    token = user.email_verification_token
+    if not token:
+        token = str(uuid.uuid4())
+        user.email_verification_token = token
+        db.session.commit()
+
+    # Busca nome da igreja para personalizar
     church = Church.query.get(user.church_id) if user.church_id else None
     church_name = church.name if church else "Ecclesia Master"
 
-    # Pega o remetente padrão configurado no .env
-    default_sender = current_app.config.get('MAIL_DEFAULT_SENDER') or current_app.config.get('MAIL_USERNAME')
+    # URL de verificação
+    verification_url = url_for('auth.verify_email', token=token, _external=True)
 
-    # Se o servidor de e-mail estiver configurado, tenta enviar
-    if current_app.config.get('MAIL_USERNAME'):
-        try:
-            msg = Message(f'Verifique seu e-mail - {church_name}',
-                          sender=default_sender,
-                          recipients=[user.email])
-            
-            link = url_for('auth.verify_email', token=token, _external=True)
-            msg.body = f"Olá {user.name},\n\nBem-vindo à {church_name}!\n\nFicamos muito felizes com seu interesse em se juntar a nós. Por favor, clique no link abaixo para verificar seu e-mail e ativar sua conta no sistema Ecclesia Master:\n\n{link}\n\nQue Deus te abençoe ricamente!"
-            
-            mail.send(msg)
-            print(f"✓ E-mail enviado com sucesso para {user.email} via {default_sender}")
-        except Exception as e:
-            print(f"✗ Erro crítico ao enviar e-mail: {str(e)}")
-            # Em desenvolvimento, mostramos o token no console caso o e-mail falhe
-            print(f"DEBUG: Token de verificação para {user.email}: {token}")
-    else:
-        print(f"AVISO: MAIL_USERNAME não configurado. Simulando envio.")
-        print(f"DEBUG: E-mail de verificação para {user.email}. Token: {token}")
-    
-    return token
+    # Mensagem HTML bonita e simples
+    html_content = f"""
+    <html>
+    <body style="font-family: Arial, sans-serif; line-height: 1.6;">
+        <h2>Olá {user.name},</h2>
+        <p>Bem-vindo à <strong>{church_name}</strong>!</p>
+        <p>Ficamos muito felizes com seu interesse em se juntar a nós.</p>
+        <p>Para ativar sua conta no sistema Ecclesia Master, clique no botão abaixo:</p>
+        <p style="text-align: center; margin: 30px 0;">
+            <a href="{verification_url}" 
+               style="background-color: #4CAF50; color: white; padding: 12px 24px; 
+                      text-decoration: none; border-radius: 5px; font-size: 16px;">
+                Verificar Meu Email Agora
+            </a>
+        </p>
+        <p>Se o botão não funcionar, copie e cole este link no navegador:</p>
+        <p><a href="{verification_url}">{verification_url}</a></p>
+        <p>Este link expira em 24 horas.</p>
+        <p>Que Deus te abençoe ricamente!</p>
+        <p>Atenciosamente,<br>Equipe {church_name}</p>
+    </body>
+    </html>
+    """
+
+    message = Mail(
+        from_email='adjesus.sede@gmail.com',  # Seu email verificado no SendGrid
+        to_emails=user.email,
+        subject=f'Verifique seu e-mail - {church_name}',
+        html_content=html_content
+    )
+
+    try:
+        sg = SendGridAPIClient(current_app.config.get('SENDGRID_API_KEY'))
+        response = sg.send(message)
+        current_app.logger.info(f"Email de verificação enviado para {user.email} - Status: {response.status_code}")
+        print(f"✓ Email enviado com sucesso para {user.email} via SendGrid")
+        return token
+    except Exception as e:
+        current_app.logger.error(f"Erro ao enviar email via SendGrid: {str(e)}")
+        print(f"✗ Erro ao enviar email: {str(e)}")
+        # Em dev, mostra o link de simulação
+        flash(f'DEBUG (envio falhou): Clique aqui para verificar: {verification_url}', 'warning')
+        return token  # Retorna token mesmo com erro para debug
 
 @auth_bp.route('/login', methods=['GET', 'POST'])
 def login():
@@ -91,17 +120,17 @@ def register():
         church_id = request.form.get('church_id')
         
         # Consentimento RGPD/LGPD
-        data_consent = True if request.form.get('data_consent') else False
-        marketing_consent = True if request.form.get('marketing_consent') else False
+        data_consent = 'data_consent' in request.form
+        marketing_consent = 'marketing_consent' in request.form
         
         if not data_consent:
             flash('Você deve aceitar os termos de tratamento de dados para se cadastrar.', 'danger')
-            return redirect(url_for('auth.register'))
+            return render_template('auth/register.html', churches=Church.query.all())
 
         # Upload de foto
-        file = request.files.get('profile_photo')
         profile_photo = None
-        if file:
+        file = request.files.get('profile_photo')
+        if file and file.filename:
             filename = secure_filename(file.filename)
             upload_path = os.path.join(current_app.config['UPLOAD_FOLDER'], 'profiles')
             os.makedirs(upload_path, exist_ok=True)
@@ -109,30 +138,36 @@ def register():
             profile_photo = 'uploads/profiles/' + filename
         
         new_user = User(
-            name=name,
-            email=email,
+            name=name.strip() if name else '',
+            email=email.lower().strip() if email else '',
             birth_date=birth_date,
             gender=gender,
             documents=documents,
             address=address,
             phone=phone,
             profile_photo=profile_photo,
-            church_id=int(church_id) if church_id else None,
+            church_id=int(church_id) if church_id and church_id.isdigit() else None,
             status='pending',
             data_consent=data_consent,
             data_consent_date=datetime.utcnow(),
-            marketing_consent=marketing_consent
+            marketing_consent=marketing_consent,
+            is_email_verified=False
         )
         new_user.set_password(password)
+
+        # Gera token antes de commit
+        token = str(uuid.uuid4())
+        new_user.email_verification_token = token
+
         db.session.add(new_user)
         db.session.commit()
         
-        # Enviar e-mail de verificação
-        token = send_verification_email(new_user)
+        # Enviar e-mail de verificação via SendGrid
+        sent_token = send_verification_email(new_user)
         
         flash('Cadastro realizado! Por favor, verifique seu e-mail para ativar sua conta.', 'info')
-        # Em produção, você pode remover a linha abaixo que mostra o link de simulação
-        flash(f'DEBUG: Clique aqui para verificar (Simulação): {url_for("auth.verify_email", token=token, _external=True)}', 'warning')
+        # Debug flash (remova em produção ou deixe condicional)
+        flash(f'DEBUG: Clique aqui para verificar (Simulação): {url_for("auth.verify_email", token=sent_token, _external=True)}', 'warning')
         
         return redirect(url_for('auth.login'))
     
