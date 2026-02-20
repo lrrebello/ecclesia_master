@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, redirect, url_for, flash, request, send_file, current_app
+from flask import Blueprint, render_template, redirect, url_for, flash, request, send_from_directory, current_app, jsonify, send_file
 from flask_login import login_required, current_user
 from app.core.models import Transaction, User, Church, db
 from datetime import datetime
@@ -10,6 +10,9 @@ from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
 from reportlab.lib.units import cm
 from reportlab.lib import colors
+
+# Se você estiver usando fill_modelo25_pdf de outro arquivo:
+from app.utils.pdf_modelo25 import fill_modelo25_pdf
 
 modelo25_bp = Blueprint('modelo25', __name__, url_prefix='/finance/modelo25')
 
@@ -98,6 +101,36 @@ def generate(year):
         ws.append([d['tax_id'], '01', d['total_amount']])
     wb.save(filepath)
     return send_file(filepath, as_attachment=True, download_name=filename)
+
+@modelo25_bp.route('/generate-pdf/<int:year>')
+@login_required
+def generate_pdf(year):
+    church = Church.query.get(current_user.church_id)
+    donations = get_modelo25_data(current_user.church_id, year)
+    valid_donations = [d for d in donations if d['tax_id'] and validate_tax_id(d['tax_id'], church.country)]
+    
+    data = {
+        'nif_declarante': church.nif or '',
+        'nome_declarante': church.name or '',
+        'ano': year,
+        'operacoes': [
+            {
+                'nif': d['tax_id'],
+                'nome': d['name'],
+                'codigo': '01',  # Donativos em dinheiro ou espécie
+                'valor': d['total_amount']
+            } for d in valid_donations
+        ]
+    }
+    
+    pdf_path = fill_modelo25_pdf(data)
+    if pdf_path:
+        filename = os.path.basename(pdf_path)
+        return send_from_directory(os.path.dirname(pdf_path), filename, as_attachment=True)
+    else:
+        flash('Erro ao gerar PDF oficial do Modelo 25.', 'danger')
+        return redirect(url_for('modelo25.preview', year=year))
+    
 
 @modelo25_bp.route('/report_pdf/<int:year>')
 @login_required

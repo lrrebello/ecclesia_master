@@ -240,6 +240,10 @@
                 <a href="{{ url_for('modelo25.report_pdf', year=year) }}" class="btn btn-danger">
                     <i class="fas fa-file-pdf"></i> Baixar Relatório PDF
                 </a>
+                <a href="{{ url_for('modelo25.generate_pdf', year=year) }}" class="btn btn-danger">
+                    <i class="fas fa-file-pdf"></i> Baixar PDF Oficial (Página 3 preenchida)
+                </a>
+
             </div>
             {% else %}
             <button class="btn btn-success" disabled title="Corrija os erros antes de gerar o relatório">
