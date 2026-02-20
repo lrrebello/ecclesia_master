@@ -12,3 +12,6 @@ static/uploads/media/
 static/uploads/profiles/
 static/uploads/receipts/
 static/uploads/
+uploads/
+*.upload
+*.tmp
