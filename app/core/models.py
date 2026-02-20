@@ -46,6 +46,7 @@ class User(db.Model, UserMixin):
     
     # Dados Pessoais Expandidos
     birth_date = db.Column(db.Date)
+    baptism_date = db.Column(db.Date, nullable=True)
     gender = db.Column(db.String(20))
     documents = db.Column(db.String(200)) # Flexível para diferentes países
     tax_id = db.Column(db.String(20), nullable=True)  # NIF (PT), CPF/CNPJ (BR), etc.

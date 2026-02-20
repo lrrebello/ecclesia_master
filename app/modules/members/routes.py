@@ -112,6 +112,7 @@ def edit_profile():
     if request.method == 'POST':
         current_user.name = request.form.get('name')
         current_user.birth_date = datetime.strptime(request.form.get('birth_date'), '%Y-%m-%d').date() if request.form.get('birth_date') else current_user.birth_date
+        current_user.baptism_date = datetime.strptime(request.form.get('baptism_date'), '%Y-%m-%d').date() if request.form.get('baptism_date') else current_user.baptism_date
         current_user.gender = request.form.get('gender')
         current_user.documents = request.form.get('documents')
         current_user.address = request.form.get('address')

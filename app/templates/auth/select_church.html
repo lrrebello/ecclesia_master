@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="text-center mb-5">
+        <h1 class="fw-bold text-primary">Bem-vindo ao Ecclesia Master</h1>
+        <p class="text-muted fs-5">Para começar seu cadastro, selecione a congregação (filial) que você deseja se tornar membro.</p>
+    </div>
+
+    <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4 justify-content-center">
+        {% for church in churches %}
+        <div class="col">
+            <div class="card h-100 border-0 shadow-sm rounded-4 card-hover-primary transition-all">
+                <div class="card-body p-4 text-center">
+                    <div class="display-4 mb-3 text-primary">
+                        <i class="bi bi-house-heart"></i>
+                    </div>
+                    <h4 class="fw-bold mb-2">{{ church.name }}</h4>
+                    <p class="text-muted small mb-3">
+                        <i class="bi bi-geo-alt-fill me-1"></i> {{ church.city }}, {{ church.country }}
+                    </p>
+                    <div class="badge bg-light text-dark rounded-pill px-3 py-2 mb-4">
+                        {{ 'Brasil' if church.country == 'Brasil' else 'Portugal' if church.country == 'Portugal' else church.country }}
+                    </div>
+                    <a href="{{ url_for('auth.register', church_id=church.id) }}" class="btn btn-primary w-100 rounded-pill fw-bold py-2">
+                        Selecionar esta Filial
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="col-12 text-center">
+            <div class="alert alert-info rounded-4">
+                Nenhuma filial cadastrada no momento. Por favor, entre em contato com o administrador.
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <div class="text-center mt-5">
+        <p class="text-muted">Já possui uma conta? <a href="{{ url_for('auth.login') }}" class="text-primary fw-bold text-decoration-none">Faça login aqui</a></p>
+    </div>
+</div>
+
+<style>
+.card-hover-primary:hover {
+    transform: translateY(-10px);
+    box-shadow: 0 1rem 3rem rgba(0,0,0,.175)!important;
+    border-bottom: 4px solid var(--bs-primary)!important;
+}
+.transition-all {
+    transition: all 0.3s ease;
+}
+</style>
+{% endblock %}

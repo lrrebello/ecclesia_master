@@ -86,16 +86,17 @@ def login():
         password = request.form.get('password')
         user = User.query.filter_by(email=email).first()
         if user and user.check_password(password):
-            if not user.is_email_verified:
-                flash('Por favor, verifique seu e-mail antes de fazer login.', 'warning')
-                return redirect(url_for('auth.login'))
+            # Verificação de e-mail desativada temporariamente conforme solicitado
+            # if not user.is_email_verified:
+            #     flash('Por favor, verifique seu e-mail antes de fazer login.', 'warning')
+            #     return redirect(url_for('auth.login'))
             
             if user.status == 'active':
                 login_user(user)
                 flash('Login bem-sucedido!', 'success')
                 return redirect(url_for('members.dashboard'))
             elif user.status == 'pending':
-                flash('Sua conta está aguardando aprovação.', 'warning')
+                flash('Sua conta está aguardando aprovação da liderança.', 'warning')
             else:
                 flash('Sua solicitação de conta foi rejeitada.', 'danger')
         else:
@@ -103,8 +104,20 @@ def login():
     
     return render_template('auth/login.html')
 
+@auth_bp.route('/register/select-church')
+def select_church():
+    churches = Church.query.all()
+    return render_template('auth/select_church.html', churches=churches)
+
 @auth_bp.route('/register', methods=['GET', 'POST'])
 def register():
+    church_id = request.args.get('church_id') or request.form.get('church_id')
+    
+    if not church_id:
+        return redirect(url_for('auth.select_church'))
+    
+    church = Church.query.get_or_404(church_id)
+    
     if request.method == 'POST':
         name = request.form.get('name')
         email = request.form.get('email')
@@ -113,11 +126,13 @@ def register():
         birth_date_str = request.form.get('birth_date')
         birth_date = datetime.strptime(birth_date_str, '%Y-%m-%d').date() if birth_date_str else None
         
+        baptism_date_str = request.form.get('baptism_date')
+        baptism_date = datetime.strptime(baptism_date_str, '%Y-%m-%d').date() if baptism_date_str else None
+        
         gender = request.form.get('gender')
-        documents = request.form.get('documents')
+        tax_id = request.form.get('tax_id') # CPF ou NIF
         address = request.form.get('address')
         phone = request.form.get('phone')
-        church_id = request.form.get('church_id')
         
         # Consentimento RGPD/LGPD
         data_consent = 'data_consent' in request.form
@@ -125,7 +140,7 @@ def register():
         
         if not data_consent:
             flash('Você deve aceitar os termos de tratamento de dados para se cadastrar.', 'danger')
-            return render_template('auth/register.html', churches=Church.query.all())
+            return render_template('auth/register.html', church=church)
 
         # Upload de foto
         profile_photo = None
@@ -141,38 +156,35 @@ def register():
             name=name.strip() if name else '',
             email=email.lower().strip() if email else '',
             birth_date=birth_date,
+            baptism_date=baptism_date,
             gender=gender,
-            documents=documents,
+            tax_id=tax_id,
             address=address,
             phone=phone,
             profile_photo=profile_photo,
-            church_id=int(church_id) if church_id and church_id.isdigit() else None,
+            church_id=church.id,
             status='pending',
             data_consent=data_consent,
             data_consent_date=datetime.utcnow(),
             marketing_consent=marketing_consent,
-            is_email_verified=False
+            is_email_verified=True # Definido como True por padrão enquanto a verificação está desativada
         )
         new_user.set_password(password)
 
-        # Gera token antes de commit
+        # Gera token antes de commit (mantido para compatibilidade futura)
         token = str(uuid.uuid4())
         new_user.email_verification_token = token
 
         db.session.add(new_user)
         db.session.commit()
         
-        # Enviar e-mail de verificação via SendGrid
-        sent_token = send_verification_email(new_user)
+        # Envio de e-mail desativado temporariamente conforme solicitado
+        # send_verification_email(new_user)
         
-        flash('Cadastro realizado! Por favor, verifique seu e-mail para ativar sua conta.', 'info')
-        # Debug flash (remova em produção ou deixe condicional)
-        flash(f'DEBUG: Clique aqui para verificar (Simulação): {url_for("auth.verify_email", token=sent_token, _external=True)}', 'warning')
-        
+        flash('Cadastro realizado com sucesso! Agora aguarde a aprovação da liderança para acessar o sistema.', 'success')
         return redirect(url_for('auth.login'))
     
-    churches = Church.query.all()
-    return render_template('auth/register.html', churches=churches)
+    return render_template('auth/register.html', church=church)
 
 @auth_bp.route('/verify-email/<token>')
 def verify_email(token):
@@ -192,9 +204,8 @@ def resend_verification():
             if user.is_email_verified:
                 flash('Este e-mail já foi verificado. Faça login normalmente.', 'info')
             else:
-                token = send_verification_email(user)
-                flash('Novo e-mail de verificação enviado!', 'success')
-                flash(f'DEBUG: Clique aqui para verificar (Simulação): {url_for("auth.verify_email", token=token, _external=True)}', 'warning')
+                # token = send_verification_email(user)
+                flash('A verificação de e-mail está desativada no momento.', 'info')
         else:
             flash('E-mail não encontrado.', 'danger')
         return redirect(url_for('auth.login'))

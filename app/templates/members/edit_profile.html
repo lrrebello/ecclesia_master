@@ -15,6 +15,10 @@
             <input type="date" class="form-control" id="birth_date" name="birth_date" value="{{ current_user.birth_date.strftime('%Y-%m-%d') if current_user.birth_date else '' }}">
         </div>
         <div class="mb-3">
+            <label for="baptism_date" class="form-label">Data de Batismo</label>
+            <input type="date" class="form-control" id="baptism_date" name="baptism_date" value="{{ current_user.baptism_date.strftime('%Y-%m-%d') if current_user.baptism_date else '' }}">
+        </div>
+        <div class="mb-3">
             <label for="gender" class="form-label">Gênero</label>
             <select class="form-select" id="gender" name="gender">
                 <option value="">Selecionar</option>

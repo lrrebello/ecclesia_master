@@ -1,86 +1,141 @@
-<!-- Arquivo completo: app/templates/auth/register.html (adicionando foto no form de registro) -->
 {% extends "base.html" %}
 
 {% block content %}
 <div class="container py-5">
-    <h1 class="fw-bold text-primary mb-4">Registro</h1>
-    
-    <form method="POST" enctype="multipart/form-data">
-        <div class="mb-3">
-            <label for="name" class="form-label">Nome</label>
-            <input type="text" class="form-control" id="name" name="name" required>
-        </div>
-        <div class="mb-3">
-            <label for="email" class="form-label">E-mail</label>
-            <input type="email" class="form-control" id="email" name="email" required>
-        </div>
-        <div class="mb-3">
-            <label for="password" class="form-label">Senha</label>
-            <input type="password" class="form-control" id="password" name="password" required>
-        </div>
-        <div class="mb-3">
-            <label for="birth_date" class="form-label">Data de Nascimento</label>
-            <input type="date" class="form-control" id="birth_date" name="birth_date" required>
-        </div>
-        <div class="mb-3">
-            <label for="gender" class="form-label">Gênero</label>
-            <select class="form-select" id="gender" name="gender" required>
-                <option value="">Selecionar</option>
-                <option value="Masculino">Masculino</option>
-                <option value="Feminino">Feminino</option>
-                <!--<option value="Outro">Outro</option>-->
-            </select>
-        </div>
-        <div class="mb-3">
-            <label for="documents" class="form-label">Documentos</label>
-            <input type="text" class="form-control" id="documents" name="documents">
-        </div>
-        <div class="mb-3">
-            <label for="address" class="form-label">Endereço</label>
-            <textarea class="form-control" id="address" name="address" rows="3"></textarea>
-        </div>
-        <div class="mb-3">
-            <label for="phone" class="form-label">Telefone</label>
-            <input type="tel" class="form-control" id="phone" name="phone">
-        </div>
-        <div class="mb-3">
-            <label for="church_id" class="form-label">Sua Congregação (Filial)</label>
-            <select class="form-select" id="church_id" name="church_id" required>
-                <option value="">Selecione sua congregação</option>
-                {% for church in churches %}
-                <option value="{{ church.id }}">{{ church.name }}</option>
-                {% endfor %}
-            </select>
-            <div class="form-text text-muted small">Escolha a filial onde você deseja ser membro.</div>
-        </div>
-        <div class="mb-3">
-            <label for="profile_photo" class="form-label">Foto de Perfil (opcional)</label>
-            <input type="file" class="form-control" id="profile_photo" name="profile_photo" accept="image/*">
-        </div>
-
-        <hr class="my-4">
-        
-        <div class="card border-info mb-4">
-            <div class="card-header bg-info text-white small fw-bold">PROTEÇÃO DE DADOS (RGPD/LGPD)</div>
-            <div class="card-body">
-                <div class="form-check mb-3">
-                    <input class="form-check-input" type="checkbox" id="data_consent" name="data_consent" required>
-                    <label class="form-check-label small" for="data_consent">
-                        Eu aceito que meus dados pessoais sejam processados pela Igreja para fins de gestão de membros, 
-                        atividades ministeriais e conformidade legal, conforme a Política de Privacidade.
-                    </label>
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card border-0 shadow-lg rounded-4 overflow-hidden">
+                <div class="card-header bg-primary text-white py-4 text-center">
+                    <h2 class="fw-bold mb-0">Cadastro de Membro</h2>
+                    <p class="mb-0 opacity-75">Filial: {{ church.name }} ({{ church.country }})</p>
                 </div>
-                <div class="form-check">
-                    <input class="form-check-input" type="checkbox" id="marketing_consent" name="marketing_consent">
-                    <label class="form-check-label small" for="marketing_consent">
-                        Eu aceito receber comunicações, avisos de eventos e materiais edificantes via e-mail ou telefone. (Opcional)
-                    </label>
+                <div class="card-body p-4 p-md-5">
+                    <form method="POST" enctype="multipart/form-data" id="registerForm">
+                        <input type="hidden" name="church_id" value="{{ church.id }}">
+                        
+                        <h5 class="fw-bold text-primary mb-4 border-bottom pb-2">
+                            <i class="bi bi-person-circle me-2"></i>Dados Pessoais
+                        </h5>
+                        
+                        <div class="row g-3 mb-4">
+                            <div class="col-md-12">
+                                <label for="name" class="form-label fw-bold">Nome Completo</label>
+                                <input type="text" class="form-control rounded-pill" id="name" name="name" required placeholder="Seu nome completo">
+                            </div>
+                            <div class="col-md-6">
+                                <label for="email" class="form-label fw-bold">E-mail</label>
+                                <input type="email" class="form-control rounded-pill" id="email" name="email" required placeholder="exemplo@email.com">
+                            </div>
+                            <div class="col-md-6">
+                                <label for="password" class="form-label fw-bold">Senha</label>
+                                <input type="password" class="form-control rounded-pill" id="password" name="password" required placeholder="Mínimo 6 caracteres">
+                            </div>
+                            <div class="col-md-6">
+                                <label for="birth_date" class="form-label fw-bold">Data de Nascimento</label>
+                                <input type="date" class="form-control rounded-pill" id="birth_date" name="birth_date" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="gender" class="form-label fw-bold">Gênero</label>
+                                <select class="form-select rounded-pill" id="gender" name="gender" required>
+                                    <option value="">Selecionar</option>
+                                    <option value="Masculino">Masculino</option>
+                                    <option value="Feminino">Feminino</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <h5 class="fw-bold text-primary mb-4 border-bottom pb-2">
+                            <i class="bi bi-geo-alt-fill me-2"></i>Localização e Documentos
+                        </h5>
+
+                        <div class="row g-3 mb-4">
+                            <div class="col-md-6">
+                                <label for="tax_id" class="form-label fw-bold" id="label_tax_id">
+                                    {{ 'CPF' if church.country == 'Brasil' else 'NIF' if church.country == 'Portugal' else 'Documento de Identificação' }}
+                                </label>
+                                <input type="text" class="form-control rounded-pill" id="tax_id" name="tax_id" 
+                                       placeholder="{{ '000.000.000-00' if church.country == 'Brasil' else '000 000 000' if church.country == 'Portugal' else '' }}">
+                            </div>
+                            <div class="col-md-6">
+                                <label for="phone" class="form-label fw-bold">Telefone / WhatsApp</label>
+                                <input type="tel" class="form-control rounded-pill" id="phone" name="phone" 
+                                       placeholder="{{ '(00) 00000-0000' if church.country == 'Brasil' else '900 000 000' if church.country == 'Portugal' else '' }}">
+                            </div>
+                            <div class="col-md-12">
+                                <label for="address" class="form-label fw-bold">Endereço Completo</label>
+                                <textarea class="form-control rounded-4" id="address" name="address" rows="2" placeholder="Rua, número, bairro, cidade e {{ 'CEP' if church.country == 'Brasil' else 'Código Postal' }}"></textarea>
+                            </div>
+                        </div>
+
+                        <h5 class="fw-bold text-primary mb-4 border-bottom pb-2">
+                            <i class="bi bi-droplets-fill me-2"></i>Vida Cristã
+                        </h5>
+
+                        <div class="row g-3 mb-4">
+                            <div class="col-md-6">
+                                <label for="baptism_date" class="form-label fw-bold">Data de Batismo (se houver)</label>
+                                <input type="date" class="form-control rounded-pill" id="baptism_date" name="baptism_date">
+                                <div class="form-text small">Deixe em branco se ainda não for batizado.</div>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="profile_photo" class="form-label fw-bold">Foto de Perfil</label>
+                                <input type="file" class="form-control rounded-pill" id="profile_photo" name="profile_photo" accept="image/*">
+                            </div>
+                        </div>
+
+                        <div class="card border-0 bg-light rounded-4 mb-4">
+                            <div class="card-body">
+                                <h6 class="fw-bold mb-3"><i class="bi bi-shield-check me-2"></i>Termos e Privacidade</h6>
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input" type="checkbox" id="data_consent" name="data_consent" required>
+                                    <label class="form-check-label small" for="data_consent">
+                                        Eu aceito que meus dados sejam processados pela <strong>{{ church.name }}</strong> para fins de gestão de membros e atividades ministeriais, conforme a {{ 'LGPD' if church.country == 'Brasil' else 'RGPD' }}.
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="marketing_consent" name="marketing_consent">
+                                    <label class="form-check-label small" for="marketing_consent">
+                                        Desejo receber avisos de eventos e materiais de edificação.
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary btn-lg rounded-pill fw-bold">Finalizar Cadastro</button>
+                            <a href="{{ url_for('auth.select_church') }}" class="btn btn-link text-muted text-decoration-none">Voltar e escolher outra filial</a>
+                        </div>
+                    </form>
                 </div>
             </div>
         </div>
-
-        <button type="submit" class="btn btn-primary">Registrar</button>
-        <a href="{{ url_for('auth.login') }}" class="btn btn-secondary">Voltar para Login</a>
-    </form>
+    </div>
 </div>
+
+<!-- Scripts para Máscaras -->
+<script src="https://unpkg.com/imask"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const country = "{{ church.country }}";
+    const phoneInput = document.getElementById('phone');
+    const taxIdInput = document.getElementById('tax_id');
+
+    if (country === 'Brasil') {
+        // Máscara de Telefone BR
+        IMask(phoneInput, {
+            mask: [
+                { mask: '(00) 0000-0000' },
+                { mask: '(00) 00000-0000' }
+            ]
+        });
+        // Máscara de CPF
+        IMask(taxIdInput, { mask: '000.000.000-00' });
+    } else if (country === 'Portugal') {
+        // Máscara de Telefone PT
+        IMask(phoneInput, { mask: '000 000 000' });
+        // Máscara de NIF
+        IMask(taxIdInput, { mask: '000 000 000' });
+    }
+});
+</script>
 {% endblock %}

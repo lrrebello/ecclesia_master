@@ -16,6 +16,7 @@
                         <th class="ps-4 py-3">Nome</th>
                         <th class="py-3">E-mail</th>
                         <th class="py-3">Cargo Atual</th>
+                        <th class="py-3">Batismo</th>
                         <th class="py-3">Status</th>
                         <th class="text-end pe-4 py-3">Ações</th>
                     </tr>
@@ -32,6 +33,9 @@
                             <span class="badge bg-info bg-opacity-10 text-info border border-info border-opacity-25">
                                 {{ member.church_role.name if member.church_role else 'Membro' }}
                             </span>
+                        </td>
+                        <td>
+                            <small class="text-muted">{{ member.baptism_date.strftime('%d/%m/%Y') if member.baptism_date else 'Não batizado' }}</small>
                         </td>
                         <td>
                             {% if member.status == 'active' %}
