@@ -8,6 +8,7 @@ venv/
 *.db
 *.sqlite3
 *.log
-static/uploads/
+static/uploads/media/
 static/uploads/profiles/
 static/uploads/receipts/
+static/uploads/
