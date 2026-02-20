@@ -39,7 +39,15 @@
                                     <td class="ps-4">{{ story.order }}</td>
                                     <td><span class="fw-bold">{{ story.title }}</span></td>
                                     <td>{{ story.reference }}</td>
-                                    <td><span class="badge bg-info bg-opacity-10 text-info">{{ story.quizzes|length }}</span></td>
+                                    <td>
+                                        <span class="badge bg-info bg-opacity-10 text-info">{{ story.quizzes|length }}</span>
+                                        {% set pending = story.quizzes|selectattr('is_published', 'equalto', false)|list|length %}
+                                        {% if pending > 0 %}
+                                        <a href="{{ url_for('edification.review_kids_questions', story_id=story.id) }}" class="badge bg-warning text-dark text-decoration-none">
+                                            {{ pending }} pendentes
+                                        </a>
+                                        {% endif %}
+                                    </td>
                                     <td class="text-end pe-4">
                                         <button class="btn btn-sm btn-light text-primary me-1" title="Adicionar Quiz" onclick="setStoryId('{{ story.id }}', '{{ story.title }}')" data-bs-toggle="modal" data-bs-target="#addQuizModal">
                                             <i class="bi bi-patch-question"></i>
@@ -93,7 +101,7 @@
 <!-- Modal Adicionar História -->
 <div class="modal fade" id="addStoryModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg">
-        <form action="{{ url_for('edification.add_bible_story') }}" method="POST" class="modal-content border-0 rounded-4">
+        <form action="{{ url_for('edification.add_bible_story') }}" method="POST" enctype="multipart/form-data" class="modal-content border-0 rounded-4">
             <div class="modal-header border-0">
                 <h5 class="modal-title fw-bold">Nova História Bíblica</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
@@ -117,8 +125,18 @@
                         <input type="url" name="image_path" class="form-control bg-light border-0" placeholder="https://...">
                     </div>
                     <div class="col-12">
-                        <label class="form-label small fw-bold">CONTEÚDO DA HISTÓRIA (HTML PERMITIDO)</label>
-                        <textarea name="content" class="form-control bg-light border-0" rows="6" required></textarea>
+                        <label class="form-label small fw-bold">UPLOAD DE ARQUIVO (PDF, DOCX, PPTX)</label>
+                        <input type="file" name="story_file" class="form-control bg-light border-0" accept=".pdf,.docx,.pptx,.txt">
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label small fw-bold">CONTEÚDO DA HISTÓRIA (OU DEIXE EM BRANCO SE USAR ARQUIVO)</label>
+                        <textarea name="content" class="form-control bg-light border-0" rows="6"></textarea>
+                    </div>
+                    <div class="col-12">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" name="generate_ai_questions" id="aiKidsSwitch" checked>
+                            <label class="form-check-label fw-bold" for="aiKidsSwitch">Gerar 7 questões automaticamente com DeepSeek AI</label>
+                        </div>
                     </div>
                 </div>
             </div>

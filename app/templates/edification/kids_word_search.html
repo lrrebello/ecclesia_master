@@ -1,0 +1,246 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container py-5 text-center">
+    <div class="mb-4">
+        <a href="{{ url_for('edification.kids') }}" class="btn btn-outline-success rounded-pill mb-3">
+            <i class="bi bi-arrow-left me-2"></i> Voltar para Ecclesia Kids
+        </a>
+        <h1 class="fw-bold text-success">Caça-Palavras Bíblico</h1>
+        <p class="text-muted">Encontre as palavras escondidas na grade!</p>
+    </div>
+
+    <div class="row justify-content-center">
+        <div class="col-md-10">
+            <div class="card border-0 shadow-sm rounded-4 p-4 mb-4">
+                <div class="row g-3 align-items-center mb-4">
+                    <div class="col-md-6">
+                        <label class="form-label small fw-bold">NÍVEL DE DIFICULDADE</label>
+                        <select id="difficulty" class="form-select bg-light border-0 rounded-pill" onchange="initGame()">
+                            <option value="easy">Fácil (5 palavras)</option>
+                            <option value="medium" selected>Médio (8 palavras)</option>
+                            <option value="hard">Difícil (12 palavras)</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <h5 class="fw-bold mb-0">História: <span class="text-success">{{ story.title if story else 'Geral' }}</span></h5>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-lg-8">
+                        <div id="grid-container" class="word-search-grid mx-auto mb-4"></div>
+                    </div>
+                    <div class="col-lg-4">
+                        <div class="bg-light p-3 rounded-4">
+                            <h6 class="fw-bold text-success mb-3">PALAVRAS PARA ENCONTRAR</h6>
+                            <div id="word-list" class="list-unstyled text-start"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="victory-msg" class="mt-4 alert alert-success d-none rounded-pill fw-bold">
+                    <i class="bi bi-trophy-fill me-2"></i> Parabéns! Você encontrou todas as palavras!
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .word-search-grid {
+        display: grid;
+        gap: 5px;
+        user-select: none;
+        touch-action: none;
+    }
+    .grid-cell {
+        aspect-ratio: 1/1;
+        background: white;
+        border: 2px solid #e9ecef;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        font-size: 1.2rem;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    .grid-cell.selected {
+        background-color: #d1e7dd;
+        border-color: #198754;
+        color: #198754;
+    }
+    .grid-cell.found {
+        background-color: #198754;
+        color: white;
+        border-color: #198754;
+    }
+    .word-item {
+        padding: 5px 10px;
+        margin-bottom: 5px;
+        border-radius: 5px;
+        font-weight: bold;
+    }
+    .word-item.found {
+        text-decoration: line-through;
+        color: #198754;
+        background-color: #d1e7dd;
+    }
+</style>
+
+<script>
+const allWords = {{ (story.game_data|from_json if story and story.game_data else [
+    {"word": "JESUS", "hint": ""}, {"word": "MARIA", "hint": ""}, {"word": "JOSE", "hint": ""},
+    {"word": "ARCA", "hint": ""}, {"word": "NOE", "hint": ""}, {"word": "DAVI", "hint": ""},
+    {"word": "GOLIAS", "hint": ""}, {"word": "MOISES", "hint": ""}, {"word": "AMOR", "hint": ""},
+    {"word": "FE", "hint": ""}, {"word": "PAZ", "hint": ""}, {"word": "BIBLIA", "hint": ""}
+]) | tojson }};
+
+let selectedWords = [];
+let grid = [];
+let gridSize = 12;
+let isSelecting = false;
+let selectionStart = null;
+let currentSelection = [];
+let foundWordsCount = 0;
+
+function initGame() {
+    const difficulty = document.getElementById('difficulty').value;
+    let wordCount = 8;
+    if (difficulty === 'easy') { wordCount = 5; gridSize = 10; }
+    else if (difficulty === 'medium') { wordCount = 8; gridSize = 12; }
+    else { wordCount = 12; gridSize = 15; }
+
+    selectedWords = allWords.slice(0, wordCount).map(w => w.word.toUpperCase());
+    foundWordsCount = 0;
+    document.getElementById('victory-msg').classList.add('d-none');
+    
+    generateGrid();
+    renderGrid();
+    renderWordList();
+}
+
+function generateGrid() {
+    grid = Array(gridSize).fill().map(() => Array(gridSize).fill(''));
+    
+    selectedWords.forEach(word => {
+        let placed = false;
+        while (!placed) {
+            const direction = Math.floor(Math.random() * 2); // 0: Horizontal, 1: Vertical
+            const row = Math.floor(Math.random() * gridSize);
+            const col = Math.floor(Math.random() * gridSize);
+            
+            if (canPlace(word, row, col, direction)) {
+                for (let i = 0; i < word.length; i++) {
+                    if (direction === 0) grid[row][col + i] = word[i];
+                    else grid[row + i][col] = word[i];
+                }
+                placed = true;
+            }
+        }
+    });
+
+    const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    for (let r = 0; r < gridSize; r++) {
+        for (let c = 0; c < gridSize; c++) {
+            if (grid[r][c] === '') grid[r][c] = letters[Math.floor(Math.random() * letters.length)];
+        }
+    }
+}
+
+function canPlace(word, row, col, dir) {
+    if (dir === 0 && col + word.length > gridSize) return false;
+    if (dir === 1 && row + word.length > gridSize) return false;
+    
+    for (let i = 0; i < word.length; i++) {
+        const r = dir === 1 ? row + i : row;
+        const c = dir === 0 ? col + i : col;
+        if (grid[r][c] !== '' && grid[r][c] !== word[i]) return false;
+    }
+    return true;
+}
+
+function renderGrid() {
+    const container = document.getElementById('grid-container');
+    container.style.gridTemplateColumns = `repeat(${gridSize}, 1fr)`;
+    container.innerHTML = '';
+    
+    for (let r = 0; r < gridSize; r++) {
+        for (let c = 0; c < gridSize; c++) {
+            const cell = document.createElement('div');
+            cell.className = 'grid-cell';
+            cell.innerText = grid[r][c];
+            cell.dataset.row = r;
+            cell.dataset.col = c;
+            
+            cell.onmousedown = () => startSelection(r, c);
+            cell.onmouseover = () => updateSelection(r, c);
+            container.appendChild(cell);
+        }
+    }
+    document.onmouseup = endSelection;
+}
+
+function renderWordList() {
+    const list = document.getElementById('word-list');
+    list.innerHTML = selectedWords.map(w => `<div class="word-item" id="word-${w}">${w}</div>`).join('');
+}
+
+function startSelection(r, c) {
+    isSelecting = true;
+    selectionStart = { r, c };
+    updateSelection(r, c);
+}
+
+function updateSelection(r, c) {
+    if (!isSelecting) return;
+    
+    // Limitar a horizontal ou vertical
+    if (r !== selectionStart.r && c !== selectionStart.c) return;
+    
+    document.querySelectorAll('.grid-cell.selected').forEach(el => el.classList.remove('selected'));
+    currentSelection = [];
+    
+    const startR = Math.min(r, selectionStart.r);
+    const endR = Math.max(r, selectionStart.r);
+    const startC = Math.min(c, selectionStart.c);
+    const endC = Math.max(c, selectionStart.c);
+    
+    for (let i = startR; i <= endR; i++) {
+        for (let j = startC; j <= endC; j++) {
+            const cell = document.querySelector(`.grid-cell[data-row="${i}"][data-col="${j}"]`);
+            cell.classList.add('selected');
+            currentSelection.push({ r: i, c: j, letter: grid[i][j] });
+        }
+    }
+}
+
+function endSelection() {
+    if (!isSelecting) return;
+    isSelecting = false;
+    
+    const selectedWord = currentSelection.map(s => s.letter).join('');
+    const reversedWord = selectedWord.split('').reverse().join('');
+    
+    if (selectedWords.includes(selectedWord) || selectedWords.includes(reversedWord)) {
+        const word = selectedWords.includes(selectedWord) ? selectedWord : reversedWord;
+        const wordEl = document.getElementById(`word-${word}`);
+        if (!wordEl.classList.contains('found')) {
+            wordEl.classList.add('found');
+            currentSelection.forEach(s => {
+                document.querySelector(`.grid-cell[data-row="${s.r}"][data-col="${s.c}"]`).classList.add('found');
+            });
+            foundWordsCount++;
+            if (foundWordsCount === selectedWords.length) {
+                document.getElementById('victory-msg').classList.remove('d-none');
+            }
+        }
+    }
+    
+    document.querySelectorAll('.grid-cell.selected').forEach(el => el.classList.remove('selected'));
+}
+
+document.addEventListener('DOMContentLoaded', initGame);
+</script>
+{% endblock %}

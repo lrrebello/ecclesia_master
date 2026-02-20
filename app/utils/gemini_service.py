@@ -1,0 +1,137 @@
+import os
+import json
+import time
+from google import genai
+from google.genai import types
+from dotenv import load_dotenv
+
+load_dotenv()
+
+def get_gemini_client():
+    api_key = os.environ.get("GEMINI_API_KEY")
+    if not api_key:
+        return None
+    return genai.Client(api_key=api_key)
+
+def generate_questions(content_or_path, type='adult', count=10, is_file=False):
+    client = get_gemini_client()
+    if not client:
+        return {"error": "GEMINI_API_KEY não configurada no ambiente."}
+
+    # Modelo recomendado para 2026
+    model_name = 'gemini-2.5-flash'
+    contents = []
+
+    # Se for um arquivo, fazemos o upload para a Files API
+    if is_file and os.path.exists(content_or_path):
+        try:
+            ext = os.path.splitext(content_or_path)[1].lower()
+            mime_type = "application/pdf"
+            if ext == ".docx": mime_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            elif ext == ".pptx": mime_type = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+            elif ext == ".txt": mime_type = "text/plain"
+
+            # Upload usando o SDK novo - sintaxe corrigida
+            # O parâmetro 'file' aceita o caminho do arquivo diretamente
+            uploaded_file = client.files.upload(
+                file=content_or_path,
+                config=types.UploadFileConfig(mime_type=mime_type)
+            )
+            
+            # Aguarda indexação
+            time.sleep(5)
+            
+            # Adiciona a referência do arquivo usando a estrutura correta
+            contents.append(types.Part(
+                file_data=types.FileData(
+                    file_uri=uploaded_file.uri,
+                    mime_type=mime_type
+                )
+            ))
+        except Exception as e:
+            print(f"Erro no upload Gemini: {e}")
+            # Fallback: tenta extrair texto localmente se o upload falhar
+            try:
+                from .text_extractor import extract_text
+                text = extract_text(content_or_path)
+                contents.append(types.Part(text=text[:15000]))
+            except:
+                return {"error": f"Falha no processamento do arquivo: {str(e)}"}
+    else:
+        # Se for apenas texto
+        contents.append(types.Part(text=content_or_path[:15000]))
+
+    # Configuração do Prompt
+    if type == 'kids':
+        prompt_text = f"""
+        Você é um educador infantil especializado em criar atividades bíblicas divertidas.
+        Com base no conteúdo fornecido:
+        
+        1. Crie {count} perguntas de múltipla escolha para crianças de 5 a 10 anos.
+        Para cada pergunta, forneça 3 opções (A, B, C).
+        Indique a resposta correta e uma breve explicação alegre.
+
+        2. Extraia 12 palavras-chave importantes da história para jogos de Caça-Palavras e Palavras Cruzadas.
+        As palavras devem ser substantivos simples (sem espaços ou hífens). Para cada palavra, forneça uma dica curta.
+
+        Responda APENAS em formato JSON seguindo EXATAMENTE esta estrutura:
+        {{
+            "questions": [
+                {{
+                    "question": "Texto da pergunta",
+                    "options": {{
+                        "A": "Opção A",
+                        "B": "Opção B",
+                        "C": "Opção C"
+                    }},
+                    "correct_option": "A",
+                    "explanation": "Explicação curta"
+                }}
+            ],
+            "game_words": [
+                {{ "word": "PALAVRA", "hint": "Dica da palavra" }}
+            ]
+        }}
+        """
+    else:
+        prompt_text = f"""
+        Você é um teólogo e educador especializado em estudos bíblicos para adultos.
+        Com base no conteúdo fornecido:
+        
+        Crie {count} perguntas de múltipla escolha para adultos.
+        Para cada pergunta, forneça 4 opções (A, B, C, D).
+        Indique a resposta correta e uma breve explicação/fonte de onde foi tirada no texto.
+        
+        Responda APENAS em formato JSON seguindo EXATAMENTE esta estrutura:
+        {{
+            "questions": [
+                {{
+                    "question": "Texto da pergunta",
+                    "options": {{
+                        "A": "Opção A",
+                        "B": "Opção B",
+                        "C": "Opção C",
+                        "D": "Opção D"
+                    }},
+                    "correct_option": "A",
+                    "explanation": "Explicação/Fonte"
+                }}
+            ]
+        }}
+        """
+
+    contents.append(types.Part(text=prompt_text))
+
+    try:
+        response = client.models.generate_content(
+            model=model_name,
+            contents=contents,
+            config=types.GenerateContentConfig(
+                response_mime_type='application/json',
+                temperature=0.3
+            )
+        )
+        return json.loads(response.text)
+    except Exception as e:
+        print(f"Erro na API do Gemini: {e}")
+        return {"error": f"Falha na geração de conteúdo: {str(e)}"}

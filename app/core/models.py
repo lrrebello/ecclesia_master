@@ -207,6 +207,7 @@ class BibleStory(db.Model):
     image_path = db.Column(db.String(255)) # URL ou caminho da ilustração
     reference = db.Column(db.String(100)) # Ex: Gênesis 1
     order = db.Column(db.Integer, default=0)
+    game_data = db.Column(db.Text) # JSON com palavras e dicas para jogos
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
     quizzes = db.relationship('BibleQuiz', backref='story', lazy=True, cascade="all, delete-orphan")
@@ -218,8 +219,10 @@ class BibleQuiz(db.Model):
     option_a = db.Column(db.String(200), nullable=False)
     option_b = db.Column(db.String(200), nullable=False)
     option_c = db.Column(db.String(200), nullable=False)
-    correct_option = db.Column(db.String(1)) # 'A', 'B' ou 'C'
+    option_d = db.Column(db.String(200), nullable=True)
+    correct_option = db.Column(db.String(1)) # 'A', 'B', 'C' ou 'D'
     explanation = db.Column(db.Text) # Breve explicação do porquê ser a correta
+    is_published = db.Column(db.Boolean, default=True)
 
 class Study(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -235,8 +238,10 @@ class StudyQuestion(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     study_id = db.Column(db.Integer, db.ForeignKey('study.id'))
     question_text = db.Column(db.Text, nullable=False)
-    options = db.Column(db.Text)
-    correct_option = db.Column(db.Integer)
+    options = db.Column(db.Text) # JSON string com as opções
+    correct_option = db.Column(db.String(1)) # 'A', 'B', 'C', 'D'
+    explanation = db.Column(db.Text)
+    is_published = db.Column(db.Boolean, default=False)
 
 class Devotional(db.Model):
     id = db.Column(db.Integer, primary_key=True)

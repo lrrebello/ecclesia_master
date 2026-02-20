@@ -37,6 +37,16 @@ def create_app():
     app.register_blueprint(edification_bp, url_prefix='/edification')
     app.register_blueprint(admin_bp, url_prefix='/admin')
 
+    import json
+    @app.template_filter('from_json')
+    def from_json_filter(value):
+        if not value:
+            return {}
+        try:
+            return json.loads(value)
+        except (ValueError, TypeError):
+            return {}
+
     # Rota inicial
     @app.route('/')
     def index():

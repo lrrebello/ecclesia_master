@@ -1,0 +1,169 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container py-5 text-center">
+    <div class="mb-4">
+        <a href="{{ url_for('edification.kids') }}" class="btn btn-outline-primary rounded-pill mb-3">
+            <i class="bi bi-arrow-left me-2"></i> Voltar para Ecclesia Kids
+        </a>
+        <h1 class="fw-bold text-primary">Quebra-Cabeça Bíblico</h1>
+        <p class="text-muted">Escolha a dificuldade e monte a imagem!</p>
+    </div>
+
+    <div class="row justify-content-center">
+        <div class="col-md-10">
+            <div class="card border-0 shadow-sm rounded-4 p-4 mb-4">
+                <div class="row g-3 align-items-center mb-4">
+                    <div class="col-md-4">
+                        <label class="form-label small fw-bold">DIFICULDADE</label>
+                        <select id="difficulty" class="form-select bg-light border-0 rounded-pill">
+                            <option value="3">Fácil (3x3)</option>
+                            <option value="4" selected>Médio (4x4)</option>
+                            <option value="5">Difícil (5x5)</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small fw-bold">IMAGEM</label>
+                        <select id="image-select" class="form-select bg-light border-0 rounded-pill">
+                            <option value="https://bibleforchildren.org/images/portuguese/01/1.jpg">Criação</option>
+                            <option value="https://bibleforchildren.org/images/portuguese/02/1.jpg">Arca de Noé</option>
+                            <option value="https://bibleforchildren.org/images/portuguese/48/1.jpg">Nascimento de Jesus</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <button onclick="initPuzzle()" class="btn btn-primary w-100 fw-bold rounded-pill mt-3">
+                            <i class="bi bi-play-fill me-1"></i> Novo Jogo
+                        </button>
+                    </div>
+                </div>
+
+                <div id="puzzle-container" class="mx-auto position-relative" style="width: 400px; height: 400px; background: #f8f9fa; border: 2px dashed #dee2e6;">
+                    <!-- Puzzle pieces will be here -->
+                </div>
+
+                <div id="victory-msg" class="mt-4 alert alert-success d-none rounded-pill fw-bold">
+                    <i class="bi bi-trophy-fill me-2"></i> Parabéns! Você montou o quebra-cabeça!
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .puzzle-piece {
+        position: absolute;
+        cursor: pointer;
+        border: 1px solid rgba(255,255,255,0.3);
+        box-sizing: border-box;
+        transition: transform 0.2s;
+    }
+    .puzzle-piece:hover {
+        z-index: 100;
+        transform: scale(1.02);
+        box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+    }
+    .puzzle-piece.correct {
+        border: none;
+        pointer-events: none;
+    }
+</style>
+
+<script>
+let size = 4;
+let image = '';
+let pieces = [];
+let container = document.getElementById('puzzle-container');
+
+function initPuzzle() {
+    size = parseInt(document.getElementById('difficulty').value);
+    image = document.getElementById('image-select').value;
+    container.innerHTML = '';
+    document.getElementById('victory-msg').classList.add('d-none');
+    
+    const containerSize = 400;
+    const pieceSize = containerSize / size;
+    pieces = [];
+
+    for (let r = 0; r < size; r++) {
+        for (let c = 0; c < size; c++) {
+            const piece = document.createElement('div');
+            piece.className = 'puzzle-piece';
+            piece.style.width = pieceSize + 'px';
+            piece.style.height = pieceSize + 'px';
+            piece.style.backgroundImage = `url(${image})`;
+            piece.style.backgroundSize = `${containerSize}px ${containerSize}px`;
+            piece.style.backgroundPosition = `-${c * pieceSize}px -${r * pieceSize}px`;
+            
+            // Posição correta
+            piece.dataset.correctX = c * pieceSize;
+            piece.dataset.correctY = r * pieceSize;
+            
+            // Posição inicial aleatória
+            const startX = Math.random() * (containerSize - pieceSize);
+            const startY = Math.random() * (containerSize - pieceSize);
+            piece.style.left = startX + 'px';
+            piece.style.top = startY + 'px';
+            
+            makeDraggable(piece);
+            container.appendChild(piece);
+            pieces.push(piece);
+        }
+    }
+}
+
+function makeDraggable(el) {
+    let isDragging = false;
+    let startX, startY;
+
+    el.onmousedown = (e) => {
+        isDragging = true;
+        startX = e.clientX - el.offsetLeft;
+        startY = e.clientY - el.offsetTop;
+        el.style.zIndex = 1000;
+    };
+
+    document.onmousemove = (e) => {
+        if (!isDragging) return;
+        let x = e.clientX - startX;
+        let y = e.clientY - startY;
+        
+        // Limites
+        x = Math.max(0, Math.min(x, 400 - el.offsetWidth));
+        y = Math.max(0, Math.min(y, 400 - el.offsetHeight));
+        
+        el.style.left = x + 'px';
+        el.style.top = y + 'px';
+    };
+
+    document.onmouseup = () => {
+        if (!isDragging) return;
+        isDragging = false;
+        el.style.zIndex = '';
+        checkPosition(el);
+    };
+}
+
+function checkPosition(el) {
+    const curX = parseFloat(el.style.left);
+    const curY = parseFloat(el.style.top);
+    const corX = parseFloat(el.dataset.correctX);
+    const corY = parseFloat(el.dataset.correctY);
+    
+    const threshold = 20;
+    if (Math.abs(curX - corX) < threshold && Math.abs(curY - corY) < threshold) {
+        el.style.left = corX + 'px';
+        el.style.top = corY + 'px';
+        el.classList.add('correct');
+        checkVictory();
+    }
+}
+
+function checkVictory() {
+    const allCorrect = pieces.every(p => p.classList.contains('correct'));
+    if (allCorrect) {
+        document.getElementById('victory-msg').classList.remove('d-none');
+    }
+}
+
+document.addEventListener('DOMContentLoaded', initPuzzle);
+</script>
+{% endblock %}

@@ -1,0 +1,290 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container py-5 text-center">
+    <div class="mb-4">
+        <a href="{{ url_for('edification.kids') }}" class="btn btn-outline-info rounded-pill mb-3">
+            <i class="bi bi-arrow-left me-2"></i> Voltar para Ecclesia Kids
+        </a>
+        <h1 class="fw-bold text-info">Palavras Cruzadas Bíblicas</h1>
+        <p class="text-muted">Use as dicas para preencher as palavras!</p>
+    </div>
+
+    <div class="row justify-content-center">
+        <div class="col-md-11">
+            <div class="card border-0 shadow-sm rounded-4 p-4 mb-4">
+                <div class="row g-3 align-items-center mb-4">
+                    <div class="col-md-6">
+                        <label class="form-label small fw-bold">NÍVEL DE DIFICULDADE</label>
+                        <select id="difficulty" class="form-select bg-light border-0 rounded-pill" onchange="initGame()">
+                            <option value="easy">Fácil (4 palavras)</option>
+                            <option value="medium" selected>Médio (7 palavras)</option>
+                            <option value="hard">Difícil (10 palavras)</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <h5 class="fw-bold mb-0">História: <span class="text-info">{{ story.title if story else 'Geral' }}</span></h5>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-lg-7">
+                        <div id="crossword-container" class="crossword-grid mx-auto mb-4"></div>
+                    </div>
+                    <div class="col-lg-5">
+                        <div class="bg-light p-3 rounded-4 text-start">
+                            <h6 class="fw-bold text-info mb-3">DICAS</h6>
+                            <div id="hints-container">
+                                <div class="mb-3">
+                                    <strong class="text-primary small">HORIZONTAIS</strong>
+                                    <div id="hints-horizontal" class="small mt-1"></div>
+                                </div>
+                                <div>
+                                    <strong class="text-primary small">VERTICAIS</strong>
+                                    <div id="hints-vertical" class="small mt-1"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="victory-msg" class="mt-4 alert alert-success d-none rounded-pill fw-bold">
+                    <i class="bi bi-trophy-fill me-2"></i> Parabéns! Você completou as palavras cruzadas!
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .crossword-grid {
+        display: grid;
+        gap: 2px;
+        background: #dee2e6;
+        border: 2px solid #dee2e6;
+        width: fit-content;
+    }
+    .crossword-cell {
+        width: 40px;
+        height: 40px;
+        background: #343a40;
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .crossword-cell.active {
+        background: white;
+    }
+    .crossword-cell input {
+        width: 100%;
+        height: 100%;
+        border: none;
+        text-align: center;
+        font-weight: bold;
+        font-size: 1.2rem;
+        text-transform: uppercase;
+        background: transparent;
+    }
+    .crossword-cell input:focus {
+        background: #e7f1ff;
+        outline: none;
+    }
+    .cell-number {
+        position: absolute;
+        top: 2px;
+        left: 2px;
+        font-size: 0.6rem;
+        color: #6c757d;
+        font-weight: bold;
+    }
+    .hint-item {
+        margin-bottom: 8px;
+        padding-bottom: 4px;
+        border-bottom: 1px dashed #dee2e6;
+    }
+    .crossword-cell.correct input {
+        color: #198754;
+        background: #d1e7dd;
+    }
+</style>
+
+<script>
+const allWords = {{ (story.game_data|from_json if story and story.game_data else [
+    {"word": "JESUS", "hint": "Filho de Deus"}, {"word": "MARIA", "hint": "Mãe de Jesus"},
+    {"word": "ARCA", "hint": "Barco de Noé"}, {"word": "NOE", "hint": "Construiu a arca"},
+    {"word": "DAVI", "hint": "Venceu o gigante"}, {"word": "GOLIAS", "hint": "O gigante filisteu"},
+    {"word": "BIBLIA", "hint": "A Palavra de Deus"}, {"word": "AMOR", "hint": "O maior mandamento"},
+    {"word": "PAZ", "hint": "Jesus é o Príncipe da..."}, {"word": "FE", "hint": "Certeza do que não se vê"}
+]) | tojson }};
+
+let selectedWords = [];
+let grid = [];
+let gridSize = 15;
+
+function initGame() {
+    const difficulty = document.getElementById('difficulty').value;
+    let wordCount = 7;
+    if (difficulty === 'easy') wordCount = 4;
+    else if (difficulty === 'medium') wordCount = 7;
+    else wordCount = 10;
+
+    selectedWords = allWords.slice(0, wordCount);
+    document.getElementById('victory-msg').classList.add('d-none');
+    
+    generateCrossword();
+}
+
+function generateCrossword() {
+    // Simplificação: Para um jogo infantil, vamos usar uma estrutura pré-definida ou linear
+    // Em um sistema real, usaríamos um algoritmo de backtracking.
+    // Aqui vamos posicionar as palavras de forma que elas se cruzem se possível.
+    
+    grid = Array(gridSize).fill().map(() => Array(gridSize).fill(null));
+    const placedWords = [];
+
+    // Posiciona a primeira palavra no centro
+    const first = selectedWords[0];
+    const startRow = Math.floor(gridSize / 2);
+    const startCol = Math.floor((gridSize - first.word.length) / 2);
+    
+    for (let i = 0; i < first.word.length; i++) {
+        grid[startRow][startCol + i] = { char: first.word[i].toUpperCase(), wordIdx: 0, isStart: i === 0, num: 1 };
+    }
+    placedWords.push({ ...first, row: startRow, col: startCol, dir: 'H', num: 1 });
+
+    // Tenta cruzar as outras (Lógica simplificada para o MVP)
+    for (let i = 1; i < selectedWords.length; i++) {
+        const word = selectedWords[i].word.toUpperCase();
+        let placed = false;
+        
+        for (let p = 0; p < placedWords.length && !placed; p++) {
+            const prev = placedWords[p];
+            for (let j = 0; j < word.length && !placed; j++) {
+                for (let k = 0; k < prev.word.length && !placed; k++) {
+                    if (word[j] === prev.word[k]) {
+                        const newDir = prev.dir === 'H' ? 'V' : 'H';
+                        const newRow = newDir === 'V' ? prev.row - j : prev.row + k;
+                        const newCol = newDir === 'V' ? prev.col + k : prev.col - j;
+                        
+                        if (canPlace(word, newRow, newCol, newDir, i)) {
+                            placeWord(word, newRow, newCol, newDir, i, i + 1);
+                            placedWords.push({ ...selectedWords[i], row: newRow, col: newCol, dir: newDir, num: i + 1 });
+                            placed = true;
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Se não conseguiu cruzar, tenta colocar em um lugar vazio
+        if (!placed) {
+            for (let r = 0; r < gridSize - 5 && !placed; r++) {
+                for (let c = 0; c < gridSize - 5 && !placed; c++) {
+                    if (canPlace(word, r, c, 'H', i)) {
+                        placeWord(word, r, c, 'H', i, i + 1);
+                        placedWords.push({ ...selectedWords[i], row: r, col: c, dir: 'H', num: i + 1 });
+                        placed = true;
+                    }
+                }
+            }
+        }
+    }
+
+    renderGrid();
+    renderHints(placedWords);
+}
+
+function canPlace(word, row, col, dir, wordIdx) {
+    if (row < 0 || col < 0) return false;
+    if (dir === 'H' && col + word.length > gridSize) return false;
+    if (dir === 'V' && row + word.length > gridSize) return false;
+
+    for (let i = 0; i < word.length; i++) {
+        const r = dir === 'V' ? row + i : row;
+        const c = dir === 'H' ? col + i : col;
+        if (grid[r][c] && grid[r][c].char !== word[i]) return false;
+        
+        // Evitar palavras adjacentes paralelas
+        // (Simplificado para este exemplo)
+    }
+    return true;
+}
+
+function placeWord(word, row, col, dir, wordIdx, num) {
+    for (let i = 0; i < word.length; i++) {
+        const r = dir === 'V' ? row + i : row;
+        const c = dir === 'H' ? col + i : col;
+        if (!grid[r][c]) {
+            grid[r][c] = { char: word[i], isStart: i === 0, num: i === 0 ? num : null };
+        } else if (i === 0) {
+            grid[r][c].num = num; // Se for cruzamento e início, marca o número
+        }
+    }
+}
+
+function renderGrid() {
+    const container = document.getElementById('crossword-container');
+    container.style.gridTemplateColumns = `repeat(${gridSize}, 40px)`;
+    container.innerHTML = '';
+
+    for (let r = 0; r < gridSize; r++) {
+        for (let c = 0; c < gridSize; c++) {
+            const cell = document.createElement('div');
+            cell.className = 'crossword-cell' + (grid[r][c] ? ' active' : '');
+            
+            if (grid[r][c]) {
+                if (grid[r][c].num) {
+                    const num = document.createElement('span');
+                    num.className = 'cell-number';
+                    num.innerText = grid[r][c].num;
+                    cell.appendChild(num);
+                }
+                const input = document.createElement('input');
+                input.maxLength = 1;
+                input.dataset.row = r;
+                input.dataset.col = c;
+                input.oninput = (e) => checkCell(e.target, grid[r][c].char);
+                cell.appendChild(input);
+            }
+            container.appendChild(cell);
+        }
+    }
+}
+
+function renderHints(placedWords) {
+    const hList = document.getElementById('hints-horizontal');
+    const vList = document.getElementById('hints-vertical');
+    hList.innerHTML = '';
+    vList.innerHTML = '';
+
+    placedWords.forEach(w => {
+        const item = `<div class="hint-item"><strong>${w.num}.</strong> ${w.hint}</div>`;
+        if (w.dir === 'H') hList.innerHTML += item;
+        else vList.innerHTML += item;
+    });
+}
+
+function checkCell(input, correctChar) {
+    if (input.value.toUpperCase() === correctChar) {
+        input.parentElement.classList.add('correct');
+    } else {
+        input.parentElement.classList.remove('correct');
+    }
+    checkVictory();
+}
+
+function checkVictory() {
+    const cells = document.querySelectorAll('.crossword-cell.active');
+    const allCorrect = Array.from(cells).every(cell => {
+        const input = cell.querySelector('input');
+        return input.value.toUpperCase() === grid[input.dataset.row][input.dataset.col].char;
+    });
+    
+    if (allCorrect) {
+        document.getElementById('victory-msg').classList.remove('d-none');
+    }
+}
+
+document.addEventListener('DOMContentLoaded', initGame);
+</script>
+{% endblock %}

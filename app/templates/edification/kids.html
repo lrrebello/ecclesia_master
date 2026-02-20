@@ -42,11 +42,47 @@
                 </div>
             </div>
             <div class="col-md-6 col-lg-4">
-                <div class="card h-100 border-0 shadow-sm text-center p-4 opacity-75" style="background: #f8f9fa; border: 2px dashed #dee2e6 !important;">
-                    <div class="display-1 mb-3">🎨</div>
-                    <h4 class="fw-bold text-muted">Em Breve: Desenhos</h4>
-                    <p class="text-muted small">Espaço para colorir e soltar a imaginação!</p>
-                    <button class="btn btn-secondary disabled fw-bold rounded-pill mt-auto">Aguarde</button>
+                <div class="card h-100 border-0 shadow-sm text-center p-4 card-hover-warning" style="background: linear-gradient(135deg, #fff 0%, #f0fdf4 100%);">
+                    <div class="display-1 mb-3">🧩</div>
+                    <h4 class="fw-bold">Quebra-Cabeça</h4>
+                    <p class="text-muted small">Monte as imagens das histórias bíblicas!</p>
+                    <a href="{{ url_for('edification.puzzle_game') }}" class="btn btn-success fw-bold rounded-pill mt-auto">Jogar Agora</a>
+                </div>
+            </div>
+            <div class="col-md-6 col-lg-4">
+                <div class="card h-100 border-0 shadow-sm text-center p-4 card-hover-warning" style="background: linear-gradient(135deg, #fff 0%, #fff0f0 100%);">
+                    <div class="display-1 mb-3">🔍</div>
+                    <h4 class="fw-bold">Caça-Palavras</h4>
+                    <p class="text-muted small">Encontre as palavras da história bíblica!</p>
+                    <div class="dropdown mt-auto">
+                        <button class="btn btn-danger fw-bold rounded-pill dropdown-toggle w-100" type="button" data-bs-toggle="dropdown">
+                            Escolher História
+                        </button>
+                        <ul class="dropdown-menu border-0 shadow w-100">
+                            <li><a class="dropdown-item" href="{{ url_for('edification.word_search') }}">Geral</a></li>
+                            {% for story in stories %}
+                            <li><a class="dropdown-item" href="{{ url_for('edification.word_search', story_id=story.id) }}">{{ story.title }}</a></li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6 col-lg-4">
+                <div class="card h-100 border-0 shadow-sm text-center p-4 card-hover-warning" style="background: linear-gradient(135deg, #fff 0%, #f0f7ff 100%);">
+                    <div class="display-1 mb-3">📝</div>
+                    <h4 class="fw-bold">Palavras Cruzadas</h4>
+                    <p class="text-muted small">Complete o desafio com as dicas bíblicas!</p>
+                    <div class="dropdown mt-auto">
+                        <button class="btn btn-primary fw-bold rounded-pill dropdown-toggle w-100" type="button" data-bs-toggle="dropdown">
+                            Escolher História
+                        </button>
+                        <ul class="dropdown-menu border-0 shadow w-100">
+                            <li><a class="dropdown-item" href="{{ url_for('edification.crossword') }}">Geral</a></li>
+                            {% for story in stories %}
+                            <li><a class="dropdown-item" href="{{ url_for('edification.crossword', story_id=story.id) }}">{{ story.title }}</a></li>
+                            {% endfor %}
+                        </ul>
+                    </div>
                 </div>
             </div>
         </div>
