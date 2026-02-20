@@ -87,7 +87,9 @@
 </style>
 
 <script>
-const characters = [
+// Dados dinâmicos da IA ou fallback estático
+const aiWords = {{ game_data | tojson }};
+const staticCharacters = [
     { name: 'Arca', icon: '🚢' },
     { name: 'Davi', icon: '👑' },
     { name: 'Golias', icon: '⚔️' },
@@ -97,6 +99,12 @@ const characters = [
     { name: 'Pomba', icon: '🕊️' },
     { name: 'Estrela', icon: '⭐' }
 ];
+
+// Se houver dados da IA, usa as palavras dela com ícones genéricos ou emojis aleatórios
+const characters = aiWords.length >= 4 ? aiWords.slice(0, 8).map(w => ({
+    name: w.word,
+    icon: '📖' // Ícone padrão para palavras da IA
+})) : staticCharacters;
 
 let cards = [];
 let flippedCards = [];

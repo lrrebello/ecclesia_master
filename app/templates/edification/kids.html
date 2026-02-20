@@ -30,7 +30,17 @@
                     <div class="display-1 mb-3">🧩</div>
                     <h4 class="fw-bold">Jogo da Memória</h4>
                     <p class="text-muted small">Teste sua memória com os personagens da Bíblia!</p>
-                    <a href="{{ url_for('edification.memory_game') }}" class="btn btn-warning fw-bold rounded-pill mt-auto">Jogar Agora</a>
+                    <div class="dropdown mt-auto">
+                            <button class="btn btn-warning fw-bold rounded-pill dropdown-toggle w-100" type="button" data-bs-toggle="dropdown">
+                                Escolher História
+                            </button>
+                            <ul class="dropdown-menu border-0 shadow w-100">
+                                <li><a class="dropdown-item" href="{{ url_for('edification.memory_game') }}">Geral</a></li>
+                                {% for story in stories %}
+                                <li><a class="dropdown-item" href="{{ url_for('edification.memory_game', story_id=story.id) }}">{{ story.title }}</a></li>
+                                {% endfor %}
+                            </ul>
+                        </div>
                 </div>
             </div>
             <div class="col-md-6 col-lg-4">
@@ -38,7 +48,17 @@
                     <div class="display-1 mb-3">👤</div>
                     <h4 class="fw-bold">Quem Sou Eu?</h4>
                     <p class="text-muted small">Adivinhe o personagem bíblico através das dicas!</p>
-                    <a href="{{ url_for('edification.who_am_i') }}" class="btn btn-info text-white fw-bold rounded-pill mt-auto">Jogar Agora</a>
+                    <div class="dropdown mt-auto">
+                            <button class="btn btn-info text-white fw-bold rounded-pill dropdown-toggle w-100" type="button" data-bs-toggle="dropdown">
+                                Escolher História
+                            </button>
+                            <ul class="dropdown-menu border-0 shadow w-100">
+                                <li><a class="dropdown-item" href="{{ url_for('edification.who_am_i') }}">Geral</a></li>
+                                {% for story in stories %}
+                                <li><a class="dropdown-item" href="{{ url_for('edification.who_am_i', story_id=story.id) }}">{{ story.title }}</a></li>
+                                {% endfor %}
+                            </ul>
+                        </div>
                 </div>
             </div>
             <div class="col-md-6 col-lg-4">
@@ -46,7 +66,17 @@
                     <div class="display-1 mb-3">🧩</div>
                     <h4 class="fw-bold">Quebra-Cabeça</h4>
                     <p class="text-muted small">Monte as imagens das histórias bíblicas!</p>
-                    <a href="{{ url_for('edification.puzzle_game') }}" class="btn btn-success fw-bold rounded-pill mt-auto">Jogar Agora</a>
+                    <div class="dropdown mt-auto">
+                            <button class="btn btn-success fw-bold rounded-pill dropdown-toggle w-100" type="button" data-bs-toggle="dropdown">
+                                Escolher História
+                            </button>
+                            <ul class="dropdown-menu border-0 shadow w-100">
+                                <li><a class="dropdown-item" href="{{ url_for('edification.puzzle_game') }}">Geral</a></li>
+                                {% for story in stories %}
+                                <li><a class="dropdown-item" href="{{ url_for('edification.puzzle_game', story_id=story.id) }}">{{ story.title }}</a></li>
+                                {% endfor %}
+                            </ul>
+                        </div>
                 </div>
             </div>
             <div class="col-md-6 col-lg-4">

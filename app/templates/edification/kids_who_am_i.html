@@ -51,7 +51,8 @@
 </div>
 
 <script>
-const gameData = [
+const aiWords = {{ game_data | tojson }};
+const staticData = [
     {
         name: "Noé",
         hints: ["Construí um barco gigante", "Salvei muitos animais do dilúvio", "Vi o primeiro arco-íris"],
@@ -78,6 +79,17 @@ const gameData = [
         options: ["José", "Daniel", "Elias"]
     }
 ];
+
+// Se houver dados da IA, tenta adaptar (usando a dica da IA como primeira dica)
+const gameData = aiWords.length >= 3 ? aiWords.slice(0, 5).map((w, idx) => {
+    // Pega outras 2 palavras aleatórias para as opções
+    const others = aiWords.filter(x => x.word !== w.word).sort(() => 0.5 - Math.random()).slice(0, 2).map(x => x.word);
+    return {
+        name: w.word,
+        hints: [w.hint, "Dica extra: Sou um personagem importante desta história.", "Dica final: Meu nome começa com " + w.word[0]],
+        options: [w.word, ...others].sort(() => 0.5 - Math.random())
+    };
+}) : staticData;
 
 let currentIndex = 0;
 let currentHintIndex = 0;
@@ -126,7 +138,7 @@ function checkAnswer(selected) {
     canPlay = false;
     feedback.classList.remove('d-none', 'bg-success', 'bg-danger', 'bg-opacity-10', 'text-success', 'text-danger');
     
-    if (selected === char.name) {
+    if (selected.toLowerCase() === char.name.toLowerCase()) {
         score += (3 - currentHintIndex) * 10;
         document.getElementById('score').innerText = score;
         

@@ -32,11 +32,12 @@
                     <hr class="my-5 opacity-10">
 
                     <!-- Seção de Quiz -->
-                    {% if story.quizzes %}
+                    {% set published_quizzes = story.quizzes|selectattr(\'is_published\', \'equalto\', true)|list %}
+                    {% if published_quizzes %}
                     <div id="quiz-section">
                         <h3 class="fw-bold mb-4 text-dark"><i class="bi bi-patch-question me-2 text-warning"></i>O que você aprendeu?</h3>
                         
-                        {% for quiz in story.quizzes %}
+                        {% for quiz in published_quizzes %}
                         <div class="quiz-card mb-4 p-4 border rounded-4 bg-light bg-opacity-50" id="quiz-{{ quiz.id }}">
                             <p class="fw-bold fs-5 mb-4">{{ loop.index }}. {{ quiz.question }}</p>
                             

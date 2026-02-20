@@ -50,7 +50,7 @@
                             </div>
                             <div class="mt-3 d-none answer-section" id="answer-{{ q.id }}">
                                 <div class="p-3 bg-white rounded-3 border-start border-success border-4 shadow-sm">
-                                    <span class="text-success fw-bold"><i class="bi bi-check-circle-fill me-2"></i>Resposta Correta: {{ q.correct_option }}</span>
+                                    <span class="text-success fw-bold"><i class="bi bi-check-circle-fill me-2"></i>Resposta Correta: {% set correct_map = {1: 'A', 2: 'B', 3: 'C', 4: 'D'} %}{{ correct_map.get(q.correct_option, q.correct_option) }}</span>
                                     {% if q.explanation %}
                                     <p class="mb-0 small text-muted mt-2 italic"><strong>Fonte/Explicação:</strong> {{ q.explanation }}</p>
                                     {% endif %}

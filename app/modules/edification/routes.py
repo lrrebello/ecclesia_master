@@ -145,12 +145,13 @@ def add_study():
                 if "error" in ai_data:
                     flash(f'Erro na IA: {ai_data["error"]}', 'danger')
                 elif "questions" in ai_data:
+                    correct_map = {'A': 1, 'B': 2, 'C': 3, 'D': 4}
                     for q_data in ai_data["questions"]:
                         new_q = StudyQuestion(
                             study_id=new_study.id,
                             question_text=q_data["question"],
                             options=json.dumps(q_data["options"]),
-                            correct_option=q_data["correct_option"],
+                            correct_option=correct_map.get(q_data["correct_option"].upper(), 1),
                             explanation=q_data.get("explanation"),
                             is_published=False
                         )
@@ -182,12 +183,13 @@ def review_study_questions(study_id):
             StudyQuestion.query.filter_by(study_id=study_id, is_published=False).delete()
             ai_data = generate_questions(study.content, type='adult', count=10)
             if "questions" in ai_data:
+                correct_map = {'A': 1, 'B': 2, 'C': 3, 'D': 4}
                 for q_data in ai_data["questions"]:
                     new_q = StudyQuestion(
                         study_id=study_id,
                         question_text=q_data["question"],
                         options=json.dumps(q_data["options"]),
-                        correct_option=q_data["correct_option"],
+                        correct_option=correct_map.get(q_data["correct_option"].upper(), 1),
                         explanation=q_data.get("explanation"),
                         is_published=False
                     )
@@ -197,9 +199,10 @@ def review_study_questions(study_id):
             return redirect(url_for('edification.review_study_questions', study_id=study_id))
         
         published_ids = request.form.getlist('publish_ids[]')
+        correct_map = {'A': 1, 'B': 2, 'C': 3, 'D': 4}
         for q in questions:
             q.question_text = request.form.get(f'question_{q.id}')
-            q.correct_option = request.form.get(f'correct_{q.id}')
+            q.correct_option = correct_map.get(request.form.get(f'correct_{q.id}'), 1)
             q.is_published = str(q.id) in published_ids
         
         db.session.commit()
@@ -356,6 +359,10 @@ def review_kids_questions(story_id):
                         is_published=False
                     )
                     db.session.add(new_q)
+                
+                if "game_words" in ai_data:
+                    story.game_data = json.dumps(ai_data["game_words"])
+                    
                 db.session.commit()
                 flash('Novas questões geradas!', 'success')
             return redirect(url_for('edification.review_kids_questions', story_id=story_id))
@@ -406,12 +413,22 @@ def add_kids_activity():
 @edification_bp.route('/kids/memory-game')
 @login_required
 def memory_game():
-    return render_template('edification/kids_memory_game.html')
+    story_id = request.args.get('story_id')
+    game_data = []
+    if story_id:
+        story = BibleStory.query.get_or_404(story_id)
+        game_data = json.loads(story.game_data) if story.game_data else []
+    return render_template('edification/kids_memory_game.html', game_data=game_data)
 
 @edification_bp.route('/kids/who-am-i')
 @login_required
 def who_am_i():
-    return render_template('edification/kids_who_am_i.html')
+    story_id = request.args.get('story_id')
+    game_data = []
+    if story_id:
+        story = BibleStory.query.get_or_404(story_id)
+        game_data = json.loads(story.game_data) if story.game_data else []
+    return render_template('edification/kids_who_am_i.html', game_data=game_data)
 
 @edification_bp.route('/kids/puzzle')
 @login_required
@@ -429,25 +446,21 @@ def puzzle_game():
 @login_required
 def word_search():
     story_id = request.args.get('story_id')
+    story = None
     if story_id:
         story = BibleStory.query.get_or_404(story_id)
-        game_data = json.loads(story.game_data) if story.game_data else []
-    else:
-        game_data = []
     
-    return render_template('edification/kids_word_search.html', game_data=game_data)
+    return render_template('edification/kids_word_search.html', story=story)
 
 @edification_bp.route('/kids/crossword')
 @login_required
 def crossword():
     story_id = request.args.get('story_id')
+    story = None
     if story_id:
         story = BibleStory.query.get_or_404(story_id)
-        game_data = json.loads(story.game_data) if story.game_data else []
-    else:
-        game_data = []
     
-    return render_template('edification/kids_crossword.html', game_data=game_data)
+    return render_template('edification/kids_crossword.html', story=story)
 
 @edification_bp.route('/kids/story/<int:id>')
 @login_required
