@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card border-0 shadow-lg rounded-4">
+                <div class="card-header bg-primary text-white py-4">
+                    <h2 class="fw-bold mb-0 text-center">Editar Estudo Bíblico</h2>
+                </div>
+                <div class="card-body p-4 p-md-5">
+                    <form method="POST">
+                        <div class="mb-4">
+                            <label for="title" class="form-label fw-bold">Título do Estudo</label>
+                            <input type="text" class="form-control rounded-pill" id="title" name="title" value="{{ study.title }}" required>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <label for="category" class="form-label fw-bold">Categoria</label>
+                            <select class="form-select rounded-pill" id="category" name="category">
+                                <option value="Geral" {{ 'selected' if study.category == 'Geral' }}>Geral</option>
+                                <option value="Teologia" {{ 'selected' if study.category == 'Teologia' }}>Teologia</option>
+                                <option value="Vida Cristã" {{ 'selected' if study.category == 'Vida Cristã' }}>Vida Cristã</option>
+                                <option value="Família" {{ 'selected' if study.category == 'Família' }}>Família</option>
+                                <option value="Liderança" {{ 'selected' if study.category == 'Liderança' }}>Liderança</option>
+                            </select>
+                        </div>
+
+                        <div class="mb-4">
+                            <label for="content" class="form-label fw-bold">Conteúdo do Estudo</label>
+                            <textarea class="form-control rounded-4" id="content" name="content" rows="12" required>{{ study.content }}</textarea>
+                            <div class="form-text">Você pode editar o texto livremente.</div>
+                        </div>
+
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <a href="{{ url_for('edification.studies') }}" class="btn btn-light rounded-pill px-4">Cancelar</a>
+                            <button type="submit" class="btn btn-primary rounded-pill px-5 fw-bold">Salvar Alterações</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

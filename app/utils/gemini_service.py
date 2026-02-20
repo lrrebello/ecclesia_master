@@ -21,6 +21,10 @@ def generate_questions(content_or_path, type='adult', count=10, is_file=False):
     # Modelo recomendado para 2026
     model_name = 'gemini-2.5-flash'
     contents = []
+    
+    # Reduzimos o tempo de espera para indexação de 5s para 2s para agilizar
+    # O Gemini Flash é muito rápido, 2s costumam ser suficientes para arquivos pequenos.
+    indexing_wait = 2
 
     # Se for um arquivo, fazemos o upload para a Files API
     if is_file and os.path.exists(content_or_path):
@@ -39,7 +43,7 @@ def generate_questions(content_or_path, type='adult', count=10, is_file=False):
             )
             
             # Aguarda indexação
-            time.sleep(5)
+            time.sleep(indexing_wait)
             
             # Adiciona a referência do arquivo usando a estrutura correta
             contents.append(types.Part(
@@ -123,14 +127,21 @@ def generate_questions(content_or_path, type='adult', count=10, is_file=False):
     contents.append(types.Part(text=prompt_text))
 
     try:
+        # Adicionamos um timeout explícito na chamada da API para não travar o worker infinitamente
+        # Se a API demorar mais de 25s, lançamos um erro controlado
         response = client.models.generate_content(
             model=model_name,
             contents=contents,
             config=types.GenerateContentConfig(
                 response_mime_type='application/json',
-                temperature=0.3
+                temperature=0.3,
+                http_options={'timeout': 25000} # 25 segundos em milissegundos
             )
         )
+        
+        if not response or not response.text:
+            return {"error": "A IA não retornou uma resposta válida a tempo."}
+            
         return json.loads(response.text)
     except Exception as e:
         print(f"Erro na API do Gemini: {e}")

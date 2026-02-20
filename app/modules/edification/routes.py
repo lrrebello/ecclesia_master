@@ -98,6 +98,39 @@ def study_detail(id):
     study = Study.query.get_or_404(id)
     return render_template('edification/study_detail.html', study=study)
 
+@edification_bp.route('/study/<int:id>/edit', methods=['GET', 'POST'])
+@login_required
+def edit_study(id):
+    if not can_publish_content():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('edification.studies'))
+    
+    study = Study.query.get_or_404(id)
+    if request.method == 'POST':
+        study.title = request.form.get('title')
+        study.content = request.form.get('content')
+        study.category = request.form.get('category', 'Geral')
+        db.session.commit()
+        flash('Estudo bíblico atualizado com sucesso!', 'success')
+        return redirect(url_for('edification.studies'))
+    
+    return render_template('edification/edit_study.html', study=study)
+
+@edification_bp.route('/study/<int:id>/delete', methods=['POST'])
+@login_required
+def delete_study(id):
+    if not can_publish_content():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('edification.studies'))
+    
+    study = Study.query.get_or_404(id)
+    # Excluir questões associadas primeiro
+    StudyQuestion.query.filter_by(study_id=id).delete()
+    db.session.delete(study)
+    db.session.commit()
+    flash('Estudo bíblico excluído com sucesso!', 'info')
+    return redirect(url_for('edification.studies'))
+
 @edification_bp.route('/study/add', methods=['GET', 'POST'])
 @login_required
 def add_study():
@@ -133,11 +166,14 @@ def add_study():
         db.session.commit()
         
         if request.form.get('generate_ai_questions'):
+            # Reduzimos a contagem de questões para 5 para acelerar a resposta da IA
+            # e evitar o timeout do Gunicorn (que costuma ser 30s por padrão)
+            question_count = 5
             try:
                 if file_path:
-                    ai_data = generate_questions(file_path, type='adult', count=10, is_file=True)
+                    ai_data = generate_questions(file_path, type='adult', count=question_count, is_file=True)
                 elif content and len(content.strip()) >= 100:
-                    ai_data = generate_questions(content, type='adult', count=10)
+                    ai_data = generate_questions(content, type='adult', count=question_count)
                 else:
                     flash('Conteúdo insuficiente para gerar questões com IA.', 'warning')
                     ai_data = {}
@@ -157,10 +193,12 @@ def add_study():
                         )
                         db.session.add(new_q)
                     db.session.commit()
-                    flash('Estudo adicionado e questões geradas pela IA aguardando revisão!', 'success')
+                    flash(f'Estudo adicionado e {len(ai_data["questions"])} questões geradas pela IA aguardando revisão!', 'success')
                     return redirect(url_for('edification.review_study_questions', study_id=new_study.id))
             except Exception as e:
-                flash(f'Erro ao gerar questões: {str(e)}', 'danger')
+                # Se der timeout ou erro, o estudo já foi salvo, então apenas avisamos
+                flash(f'Estudo adicionado, mas a IA demorou muito para responder. Você pode gerar as questões manualmente depois.', 'warning')
+                print(f"Erro na geração de questões: {e}")
         
         flash('Estudo publicado com sucesso!', 'success')
         return redirect(url_for('edification.studies'))
