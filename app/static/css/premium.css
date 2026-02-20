@@ -219,7 +219,7 @@ body {
 
 /* Modo escuro: muda o gradiente para algo mais escuro e elegante */
 [data-theme="dark"] .devotional-card {
-    background: linear-gradient(135deg, #2d2a5e, #1e3a8a); /* tons escuros de índigo/azul escuro */
+    background: linear-gradient(135deg, #45436d, #455fa7); /* tons escuros de índigo/azul escuro */
 }
 
 /* Ajuste extra para mobile (textos longos) */
