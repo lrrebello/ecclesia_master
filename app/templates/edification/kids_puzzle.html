@@ -24,9 +24,12 @@
                     <div class="col-md-4">
                         <label class="form-label small fw-bold">IMAGEM</label>
                         <select id="image-select" class="form-select bg-light border-0 rounded-pill">
-                            <option value="https://bibleforchildren.org/images/portuguese/01/1.jpg">Criação</option>
+                            <option value="https://picsum.photos/512/512?random=1" selected>Imagem de Teste 1 (Picsum)</option>
+                            <option value="https://picsum.photos/512/512?random=2">Imagem de Teste 2</option>
+                            <option value="https://picsum.photos/512/512?random=3">Imagem de Teste 3</option>
+                            <!--<option value="https://bibleforchildren.org/images/portuguese/01/1.jpg">Criação</option>
                             <option value="https://bibleforchildren.org/images/portuguese/02/1.jpg">Arca de Noé</option>
-                            <option value="https://bibleforchildren.org/images/portuguese/48/1.jpg">Nascimento de Jesus</option>
+                            <option value="https://bibleforchildren.org/images/portuguese/48/1.jpg">Nascimento de Jesus</option>-->
                         </select>
                     </div>
                     <div class="col-md-4">
@@ -69,90 +72,137 @@
 
 <script>
 let size = 4;
-let image = '';
+let imageUrl = '';
 let pieces = [];
-let container = document.getElementById('puzzle-container');
+const container = document.getElementById('puzzle-container');
+const victoryMsg = document.getElementById('victory-msg');
+
+// Variáveis globais para drag (eventos únicos no document)
+let currentPiece = null;
+let isDragging = false;
+let startX = 0;
+let startY = 0;
+
+// Eventos globais (definidos só uma vez)
+document.onmousemove = (e) => {
+    if (!isDragging || !currentPiece) return;
+    
+    let x = e.clientX - startX;
+    let y = e.clientY - startY;
+    
+    x = Math.max(0, Math.min(x, 400 - currentPiece.offsetWidth));
+    y = Math.max(0, Math.min(y, 400 - currentPiece.offsetHeight));
+    
+    currentPiece.style.left = `${x}px`;
+    currentPiece.style.top = `${y}px`;
+};
+
+document.onmouseup = () => {
+    if (!isDragging || !currentPiece) return;
+    isDragging = false;
+    currentPiece.style.zIndex = '';
+    checkPosition(currentPiece);
+    currentPiece = null;
+};
+
+// Touch global (para celular)
+document.ontouchmove = (e) => {
+    if (!isDragging || !currentPiece) return;
+    const touch = e.touches[0];
+    let x = touch.clientX - startX;
+    let y = touch.clientY - startY;
+    
+    x = Math.max(0, Math.min(x, 400 - currentPiece.offsetWidth));
+    y = Math.max(0, Math.min(y, 400 - currentPiece.offsetHeight));
+    
+    currentPiece.style.left = `${x}px`;
+    currentPiece.style.top = `${y}px`;
+    e.preventDefault();
+};
+
+document.ontouchend = () => {
+    if (!isDragging || !currentPiece) return;
+    isDragging = false;
+    currentPiece.style.zIndex = '';
+    checkPosition(currentPiece);
+    currentPiece = null;
+};
 
 function initPuzzle() {
-    size = parseInt(document.getElementById('difficulty').value);
-    image = document.getElementById('image-select').value;
+    size = parseInt(document.getElementById('difficulty').value) || 4;
+    imageUrl = document.getElementById('image-select').value || 'https://picsum.photos/512/512?random=1';
+
     container.innerHTML = '';
-    document.getElementById('victory-msg').classList.add('d-none');
+    victoryMsg.classList.add('d-none');
     
     const containerSize = 400;
     const pieceSize = containerSize / size;
     pieces = [];
 
+    if (!imageUrl) {
+        container.innerHTML = '<p class="text-danger mt-5">Selecione uma imagem válida!</p>';
+        return;
+    }
+
     for (let r = 0; r < size; r++) {
         for (let c = 0; c < size; c++) {
             const piece = document.createElement('div');
             piece.className = 'puzzle-piece';
-            piece.style.width = pieceSize + 'px';
-            piece.style.height = pieceSize + 'px';
-            piece.style.backgroundImage = `url(${image})`;
+            piece.style.width = `${pieceSize}px`;
+            piece.style.height = `${pieceSize}px`;
+            piece.style.backgroundImage = `url(${imageUrl})`;
             piece.style.backgroundSize = `${containerSize}px ${containerSize}px`;
             piece.style.backgroundPosition = `-${c * pieceSize}px -${r * pieceSize}px`;
             
-            // Posição correta
             piece.dataset.correctX = c * pieceSize;
             piece.dataset.correctY = r * pieceSize;
             
-            // Posição inicial aleatória
             const startX = Math.random() * (containerSize - pieceSize);
             const startY = Math.random() * (containerSize - pieceSize);
-            piece.style.left = startX + 'px';
-            piece.style.top = startY + 'px';
+            piece.style.left = `${startX}px`;
+            piece.style.top = `${startY}px`;
             
-            makeDraggable(piece);
+            // Drag com mouse
+            piece.onmousedown = (e) => {
+                isDragging = true;
+                currentPiece = piece;
+                startX = e.clientX - piece.offsetLeft;
+                startY = e.clientY - piece.offsetTop;
+                piece.style.zIndex = 1000;
+                e.preventDefault();
+            };
+
+            // Drag com touch
+            piece.ontouchstart = (e) => {
+                isDragging = true;
+                currentPiece = piece;
+                const touch = e.touches[0];
+                startX = touch.clientX - piece.offsetLeft;
+                startY = touch.clientY - piece.offsetTop;
+                piece.style.zIndex = 1000;
+                e.preventDefault();
+            };
+            
             container.appendChild(piece);
             pieces.push(piece);
         }
     }
-}
-
-function makeDraggable(el) {
-    let isDragging = false;
-    let startX, startY;
-
-    el.onmousedown = (e) => {
-        isDragging = true;
-        startX = e.clientX - el.offsetLeft;
-        startY = e.clientY - el.offsetTop;
-        el.style.zIndex = 1000;
-    };
-
-    document.onmousemove = (e) => {
-        if (!isDragging) return;
-        let x = e.clientX - startX;
-        let y = e.clientY - startY;
-        
-        // Limites
-        x = Math.max(0, Math.min(x, 400 - el.offsetWidth));
-        y = Math.max(0, Math.min(y, 400 - el.offsetHeight));
-        
-        el.style.left = x + 'px';
-        el.style.top = y + 'px';
-    };
-
-    document.onmouseup = () => {
-        if (!isDragging) return;
-        isDragging = false;
-        el.style.zIndex = '';
-        checkPosition(el);
-    };
+    
+    console.log("Puzzle iniciado com imagem:", imageUrl);
 }
 
 function checkPosition(el) {
-    const curX = parseFloat(el.style.left);
-    const curY = parseFloat(el.style.top);
+    const curX = parseFloat(el.style.left) || 0;
+    const curY = parseFloat(el.style.top) || 0;
     const corX = parseFloat(el.dataset.correctX);
     const corY = parseFloat(el.dataset.correctY);
     
     const threshold = 20;
     if (Math.abs(curX - corX) < threshold && Math.abs(curY - corY) < threshold) {
-        el.style.left = corX + 'px';
-        el.style.top = corY + 'px';
+        el.style.left = `${corX}px`;
+        el.style.top = `${corY}px`;
         el.classList.add('correct');
+        el.style.cursor = 'default';
         checkVictory();
     }
 }
@@ -160,10 +210,17 @@ function checkPosition(el) {
 function checkVictory() {
     const allCorrect = pieces.every(p => p.classList.contains('correct'));
     if (allCorrect) {
-        document.getElementById('victory-msg').classList.remove('d-none');
+        victoryMsg.classList.remove('d-none');
+        victoryMsg.scrollIntoView({ behavior: 'smooth' });
     }
 }
 
+// Eventos
+document.getElementById('difficulty').addEventListener('change', initPuzzle);
+document.getElementById('image-select').addEventListener('change', initPuzzle);
+document.querySelector('button[onclick="initPuzzle()"]').addEventListener('click', initPuzzle);
+
+// Inicializa na carga
 document.addEventListener('DOMContentLoaded', initPuzzle);
 </script>
 {% endblock %}
