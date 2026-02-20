@@ -194,7 +194,49 @@ body {
 
 .devotional-card {
     background: linear-gradient(135deg, var(--primary), var(--info));
+    color: white; /* texto sempre branco no gradiente colorido */
+    position: relative;
+    overflow: hidden;
+}
+
+.devotional-card .card-body {
+    position: relative;
+    z-index: 2;
+    background: rgba(0, 0, 0, 0.45);          /* overlay escuro semi-transparente para melhorar contraste */
+    border-radius: 1rem;
+    backdrop-filter: blur(6px);               /* efeito vidro fosco - melhora muito a legibilidade */
+    padding: 2rem 1.5rem;
+    color: white !important;                  /* força texto branco */
+    text-shadow: 0 1px 4px rgba(0,0,0,0.7);   /* sombra preta suave atrás do texto */
+}
+
+/* Ícone de fundo menor e mais sutil */
+.devotional-card .position-absolute i.bi-book-half {
+    font-size: 8rem;
+    opacity: 0.08;
     color: white;
+}
+
+/* Modo escuro: muda o gradiente para algo mais escuro e elegante */
+[data-theme="dark"] .devotional-card {
+    background: linear-gradient(135deg, #2d2a5e, #1e3a8a); /* tons escuros de índigo/azul escuro */
+}
+
+/* Ajuste extra para mobile (textos longos) */
+@media (max-width: 768px) {
+    .devotional-card .card-body {
+        padding: 1.5rem 1rem;
+        background: rgba(0, 0, 0, 0.6); /* overlay mais forte no celular */
+    }
+    
+    .devotional-card h2 {
+        font-size: 1.6rem !important;
+    }
+    
+    .devotional-card .fs-5 {
+        font-size: 1rem !important;
+        line-height: 1.6;
+    }
 }
 
 /* Theme Toggle */
