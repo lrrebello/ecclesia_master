@@ -306,6 +306,28 @@ def add_bible_story():
     flash('História adicionada!', 'success')
     return redirect(url_for('edification.manage_kids'))
 
+@edification_bp.route('/kids/quiz/add', methods=['POST'])
+@login_required
+def add_bible_quiz():
+    if not current_user.can_manage_kids and not (current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder']): 
+        return redirect(url_for('edification.kids'))
+    
+    story_id = request.form.get('story_id')
+    new_quiz = BibleQuiz(
+        story_id=story_id,
+        question=request.form.get('question'),
+        option_a=request.form.get('option_a'),
+        option_b=request.form.get('option_b'),
+        option_c=request.form.get('option_c'),
+        correct_option=request.form.get('correct_option'),
+        explanation=request.form.get('explanation'),
+        is_published=True
+    )
+    db.session.add(new_quiz)
+    db.session.commit()
+    flash('Quiz adicionado com sucesso!', 'success')
+    return redirect(url_for('edification.manage_kids'))
+
 @edification_bp.route('/kids/story/<int:story_id>/review-questions', methods=['GET', 'POST'])
 @login_required
 def review_kids_questions(story_id):
