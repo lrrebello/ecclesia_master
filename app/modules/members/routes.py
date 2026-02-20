@@ -18,7 +18,17 @@ def can_manage_ministries():
 @members_bp.route('/dashboard')
 @login_required
 def dashboard():
-    latest_devotional = Devotional.query.order_by(Devotional.date.desc()).first()
+    # Data de hoje (usa hora local do servidor; em Portugal é WET/WEST)
+    today = datetime.now().date()
+
+    # Busca o devocional EXATAMENTE de hoje
+    devotional = Devotional.query.filter_by(date=today).first()
+
+    # Fallback: se não existir devocional para hoje, pega o mais recente
+    # (você pode remover isso e deixar devotional=None se preferir mostrar o "Bem-vindo" sempre que faltar)
+    if not devotional:
+        devotional = Devotional.query.order_by(Devotional.date.desc()).first()
+
     recent_studies = Study.query.order_by(Study.created_at.desc()).limit(3).all()
     
     ministry_ids = [m.id for m in current_user.ministries]
@@ -94,7 +104,7 @@ def dashboard():
             birthday_alerts.sort(key=lambda x: x['days_until'])
         
     return render_template('members/dashboard.html', 
-                           devotional=latest_devotional, 
+                           devotional=devotional,  # ← agora é o de hoje (ou fallback)
                            studies=recent_studies,
                            agenda=personal_agenda,
                            pending_members=pending_members,
