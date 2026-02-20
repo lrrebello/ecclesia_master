@@ -34,7 +34,7 @@
                         <a href="{{ url_for('members.add_ministry_event', id=ministry.id) }}" class="btn btn-sm btn-outline-primary">
                             <i class="bi bi-calendar-plus me-1"></i> Agendar Evento
                         </a>
-                        <a href="{{ url_for('edification.upload_media', ministry_id=ministry.id) }}" class="btn btn-sm btn-outline-info">
+                        <a href="{{ url_for('edification.add_media', ministry_id=ministry.id) }}" class="btn btn-sm btn-outline-info">
                             <i class="bi bi-upload me-1"></i> Upload de Mídia
                         </a>
                         <a href="{{ url_for('members.edit_ministry', id=ministry.id) }}" class="btn btn-sm btn-outline-secondary">
