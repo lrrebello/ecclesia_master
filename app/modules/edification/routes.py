@@ -699,8 +699,40 @@ def edit_study(id):
         study.title = request.form.get('title')
         study.content = request.form.get('content')
         study.category = request.form.get('category')
+        
+        regenerate_questions = 'regenerate_questions' in request.form
+        
         db.session.commit()
         flash('Estudo atualizado com sucesso!', 'success')
+        
+        if regenerate_questions:
+            # Deleta questões antigas não publicadas (ou todas, ajuste se quiser manter publicadas)
+            StudyQuestion.query.filter_by(study_id=study.id).delete()
+            
+            question_count = 5  # Igual ao add, para evitar timeout
+            try:
+                ai_data = generate_questions(study.content, type='adult', count=question_count)
+                
+                if "error" in ai_data:
+                    flash(f'Erro na IA: {ai_data["error"]}', 'danger')
+                elif "questions" in ai_data:
+                    correct_map = {'A': 1, 'B': 2, 'C': 3, 'D': 4}
+                    for q_data in ai_data["questions"]:
+                        new_q = StudyQuestion(
+                            study_id=study.id,
+                            question_text=q_data["question"],
+                            options=json.dumps(q_data["options"]),
+                            correct_option=correct_map.get(q_data["correct_option"].upper(), 1),
+                            explanation=q_data.get("explanation"),
+                            is_published=False
+                        )
+                        db.session.add(new_q)
+                    db.session.commit()
+                    flash(f'{len(ai_data["questions"])} novas questões geradas pela IA aguardando revisão!', 'success')
+                    return redirect(url_for('edification.review_study_questions', study_id=study.id))
+            except Exception as e:
+                flash(f'Erro ao regenerar questões: {str(e)}', 'warning')
+        
         return redirect(url_for('edification.studies'))
     
     return render_template('edification/edit_study.html', study=study)
