@@ -40,7 +40,7 @@
                                     {% set opts = q.options|from_json %}
                                     {% for key, val in opts.items() %}
                                     <div class="form-check mb-3">
-                                        <input class="form-check-input" type="radio" name="q{{ q.id }}" id="q{{ q.id }}_{{ key }}">
+                                        <input class="form-check-input" type="radio" name="q{{ q.id }}" id="q{{ q.id }}_{{ key }}" value="{{ key }}">
                                         <label class="form-check-label fs-6" for="q{{ q.id }}_{{ key }}">
                                             <span class="fw-bold me-2">{{ key }})</span> {{ val }}
                                         </label>
@@ -79,28 +79,70 @@
 </div>
 
 <script>
-function checkAnswer(questionId, correctOptionNum) {
-    const selected = document.querySelector(`input[name="answer_${questionId}"]:checked`);
-    const feedback = document.getElementById(`feedback_${questionId}`);
+function toggleAnswers() {
+    const sections = document.querySelectorAll('.answer-section');
+    const btn = document.getElementById('btn-toggle');
+    const isShowing = btn.getAttribute('data-showing') === 'true';
     
-    if (!selected) {
-        feedback.textContent = 'Selecione uma opção!';
-        feedback.className = 'text-warning';
-        return;
-    }
-    
-    const selectedValue = selected.value;  // 'A', 'B', 'C' ou 'D'
-    
-    // Mapeia o número correto para letra
     const correctMap = {1: 'A', 2: 'B', 3: 'C', 4: 'D'};
-    const correctLetter = correctMap[correctOptionNum];
-    
-    if (selectedValue === correctLetter) {
-        feedback.textContent = 'Correto!';
-        feedback.className = 'text-success fw-bold';
+
+    sections.forEach(section => {
+        const qId = section.id.replace('answer-', '');
+        const selected = document.querySelector(`input[name="q${qId}"]:checked`);
+        const feedbackDiv = section.querySelector('.p-3');
+        
+        if (!isShowing) {
+            section.classList.remove('d-none');
+            
+            // Lógica de correção visual
+            if (selected) {
+                const selectedValue = selected.value;
+                // O texto da resposta correta está dentro do span
+                const correctText = feedbackDiv.querySelector('span').textContent;
+                let correctLetter = correctText.split(':').pop().trim();
+                
+                // Normalizar se for número (1 -> A, 2 -> B, etc)
+                const correctMap = { '1': 'A', '2': 'B', '3': 'C', '4': 'D' };
+                if (correctMap[correctLetter]) {
+                    correctLetter = correctMap[correctLetter];
+                }
+
+                if (selectedValue === correctLetter) {
+                    feedbackDiv.classList.replace('border-success', 'border-success');
+                    feedbackDiv.style.backgroundColor = '#d4edda'; // Verde claro
+                } else {
+                    feedbackDiv.classList.replace('border-success', 'border-danger');
+                    feedbackDiv.style.backgroundColor = '#f8d7da'; // Vermelho claro
+                    
+                    // Adicionar indicação de que errou
+                    if (!feedbackDiv.querySelector('.user-feedback')) {
+                        const userFeedback = document.createElement('p');
+                        userFeedback.className = 'user-feedback text-danger fw-bold mb-1 small';
+                        userFeedback.innerHTML = `<i class="bi bi-x-circle-fill me-1"></i>Sua resposta: ${selectedValue}`;
+                        feedbackDiv.insertBefore(userFeedback, feedbackDiv.firstChild);
+                    }
+                }
+            } else {
+                feedbackDiv.style.backgroundColor = '#fff3cd'; // Amarelo claro (não respondida)
+            }
+        } else {
+            section.classList.add('d-none');
+            // Limpar feedbacks anteriores ao esconder
+            feedbackDiv.style.backgroundColor = '';
+            feedbackDiv.classList.replace('border-danger', 'border-success');
+            const userFeedback = feedbackDiv.querySelector('.user-feedback');
+            if (userFeedback) userFeedback.remove();
+        }
+    });
+
+    if (!isShowing) {
+        btn.innerHTML = '<i class="bi bi-eye-slash me-2"></i>Ocultar Gabarito';
+        btn.setAttribute('data-showing', 'true');
+        btn.classList.replace('btn-primary', 'btn-secondary');
     } else {
-        feedback.textContent = 'Errado. Tente novamente!';
-        feedback.className = 'text-danger fw-bold';
+        btn.innerHTML = '<i class="bi bi-eye me-2"></i>Ver Gabarito';
+        btn.setAttribute('data-showing', 'false');
+        btn.classList.replace('btn-secondary', 'btn-primary');
     }
 }
 </script>

@@ -133,7 +133,7 @@ def add_study():
         db.session.commit()
         
         if request.form.get('generate_ai_questions'):
-            question_count = 10  # Aumentado para 10
+            question_count = 7  # Aumentado para 10
             try:
                 if file_path:
                     ai_data = generate_questions(file_path, type='adult', count=question_count, is_file=True)
@@ -182,7 +182,7 @@ def review_study_questions(study_id):
         action = request.form.get('action')
         if action == 'regenerate':
             StudyQuestion.query.filter_by(study_id=study_id, is_published=False).delete()
-            question_count = 10  # Aumentado para 10
+            question_count = 7  # Aumentado para 10
             ai_data = generate_questions(study.content, type='adult', count=question_count)
             if "questions" in ai_data:
                 correct_map = {'A': 1, 'B': 2, 'C': 3, 'D': 4}
@@ -711,7 +711,7 @@ def edit_study(id):
             # Deleta questões antigas (todas ou só não publicadas - aqui deleta todas para simplificar)
             StudyQuestion.query.filter_by(study_id=study.id).delete()
             
-            question_count = 10  # Mantido em 10, como você pediu
+            question_count = 7  # Mantido em 10, como você pediu
             try:
                 ai_data = generate_questions(study.content, type='adult', count=question_count)
                 
