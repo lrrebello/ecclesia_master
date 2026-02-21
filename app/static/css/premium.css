@@ -27,82 +27,16 @@
     --sidebar-text: #f1f5f9;
 }
 
-/* Dark Mode Global Overrides */
-[data-theme="dark"] body {
-    background-color: var(--bg-main);
-    color: var(--text-main);
-}
-
-[data-theme="dark"] .card {
-    background-color: var(--bg-card);
-    border-color: var(--border);
-    color: var(--text-main);
-}
-
-[data-theme="dark"] .list-group-item {
-    background-color: transparent;
-    color: var(--text-main);
-    border-color: var(--border);
-}
-
-[data-theme="dark"] .text-muted, 
-[data-theme="dark"] .small.text-muted {
-    color: var(--text-muted) !important;
-}
-
-[data-theme="dark"] .bg-light {
-    background-color: rgba(255, 255, 255, 0.05) !important;
-    color: var(--text-main) !important;
-}
-
-[data-theme="dark"] .table {
-    color: var(--text-main);
-    border-color: var(--border);
-}
-
-[data-theme="dark"] .table thead th {
-    background-color: rgba(255, 255, 255, 0.05);
-    color: var(--text-main);
-    border-color: var(--border);
-}
-
-[data-theme="dark"] .table td {
-    border-color: var(--border);
-}
-
-[data-theme="dark"] .modal-content {
-    background-color: var(--bg-card);
-    color: var(--text-main);
-    border: 1px solid var(--border);
-}
-
-[data-theme="dark"] .modal-header {
-    border-bottom: 1px solid var(--border);
-}
-
-[data-theme="dark"] .modal-footer {
-    border-top: 1px solid var(--border);
-}
-
-[data-theme="dark"] .btn-light {
-    background-color: rgba(255, 255, 255, 0.1);
-    color: var(--text-main);
-    border: 1px solid var(--border);
-}
-
-[data-theme="dark"] .btn-light:hover {
-    background-color: rgba(255, 255, 255, 0.2);
-    color: #fff;
-}
-
-/* Base Styles */
+/* === Base Global === */
 body {
     font-family: 'Inter', sans-serif;
     background-color: var(--bg-main);
     color: var(--text-main);
+    margin: 0;
     transition: background-color 0.3s ease, color 0.3s ease;
 }
 
+/* === Sidebar === */
 .sidebar {
     background-color: var(--sidebar-bg);
     color: var(--sidebar-text);
@@ -110,36 +44,27 @@ body {
     padding: 2rem 1rem;
 }
 
-.nav-link {
-    color: var(--sidebar-text);
-    opacity: 0.7;
-    transition: all 0.2s;
-    border-radius: 0.5rem;
-    margin-bottom: 0.5rem;
-}
-
-.nav-link:hover, .nav-link.active {
-    opacity: 1;
-    background-color: rgba(255,255,255,0.1);
-    color: white;
-}
-
+/* === Main Content === */
 .main-content {
     padding: 2rem;
 }
 
+/* === Cards === */
 .card {
     background-color: var(--bg-card);
     border: 1px solid var(--border);
     border-radius: 1rem;
-    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
-    transition: transform 0.2s, background-color 0.3s;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    contain: content; /* ajuda na performance */
 }
 
 .card:hover {
-    transform: translateY(-2px);
+    transform: translateY(-3px);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
 }
 
+/* === Botões === */
 .btn-primary {
     background-color: var(--primary);
     border-color: var(--primary);
@@ -149,24 +74,7 @@ body {
     background-color: var(--primary-hover);
 }
 
-.stats-card {
-    padding: 1.5rem;
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-}
-
-.stats-icon {
-    width: 3rem;
-    height: 3rem;
-    border-radius: 0.75rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.5rem;
-}
-
-/* Form Controls */
+/* === Formulários === */
 .form-control, .form-select {
     background-color: var(--input-bg);
     border-color: var(--border);
@@ -174,27 +82,14 @@ body {
 }
 
 .form-control:focus, .form-select:focus {
-    background-color: var(--input-bg);
-    color: var(--text-main);
     border-color: var(--primary);
-    box-shadow: 0 0 0 0.25rem rgba(79, 70, 229, 0.25);
+    box-shadow: 0 0 0 0.2rem rgba(79, 70, 229, 0.15);
 }
 
-/* Study Content Styling */
-.study-content {
-    line-height: 1.8;
-    font-size: 1.1rem;
-}
-
-.study-content h1, .study-content h2 {
-    margin-top: 2rem;
-    margin-bottom: 1rem;
-    font-weight: 700;
-}
-
+/* === Devotional Card (sem blur pesado) */
 .devotional-card {
     background: linear-gradient(135deg, var(--primary), var(--info));
-    color: white; /* texto sempre branco no gradiente colorido */
+    color: white;
     position: relative;
     overflow: hidden;
 }
@@ -202,100 +97,89 @@ body {
 .devotional-card .card-body {
     position: relative;
     z-index: 2;
-    background: rgba(0, 0, 0, 0.45);          /* overlay escuro semi-transparente para melhorar contraste */
+    background: rgba(0, 0, 0, 0.55); /* overlay simples e leve */
     border-radius: 1rem;
-    backdrop-filter: blur(6px);               /* efeito vidro fosco - melhora muito a legibilidade */
     padding: 2rem 1.5rem;
-    color: white !important;                  /* força texto branco */
-    text-shadow: 0 1px 4px rgba(0,0,0,0.7);   /* sombra preta suave atrás do texto */
+    color: white !important;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.6);
 }
 
-/* Ícone de fundo menor e mais sutil */
 .devotional-card .position-absolute i.bi-book-half {
-    font-size: 8rem;
-    opacity: 0.08;
+    font-size: 7rem;
+    opacity: 0.07;
     color: white;
 }
 
-/* Modo escuro: muda o gradiente para algo mais escuro e elegante */
+/* Dark mode do devotional */
 [data-theme="dark"] .devotional-card {
-    background: linear-gradient(135deg, #45436d, #455fa7); /* tons escuros de índigo/azul escuro */
+    background: linear-gradient(135deg, #45436d, #455fa7);
 }
 
-/* Ajuste extra para mobile (textos longos) */
+/* === Modal Otimizado === */
+.modal-content {
+    background-color: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 1rem;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+}
+
+.modal-header, .modal-footer {
+    border-color: var(--border);
+}
+
+/* === Media Queries para Mobile (reduz carga) === */
 @media (max-width: 768px) {
+    .main-content {
+        padding: 1.5rem;
+    }
+
+    .card {
+        box-shadow: 0 1px 4px rgba(0,0,0,0.08); /* sombra mais leve */
+    }
+
+    .card:hover {
+        transform: none; /* desativa hover em mobile pra economizar */
+    }
+
     .devotional-card .card-body {
         padding: 1.5rem 1rem;
-        background: rgba(0, 0, 0, 0.6); /* overlay mais forte no celular */
+        background: rgba(0, 0, 0, 0.65); /* overlay mais forte sem precisar de blur */
     }
-    
+
     .devotional-card h2 {
-        font-size: 1.6rem !important;
+        font-size: 1.5rem;
     }
-    
-    .devotional-card .fs-5 {
-        font-size: 1rem !important;
-        line-height: 1.6;
+
+    .stats-card {
+        flex-direction: column;
+        text-align: center;
     }
 }
 
-/* Theme Toggle */
+/* === Utilitários === */
+.text-muted { color: var(--text-muted) !important; }
+.extra-small { font-size: 0.75rem; }
+.letter-spacing-1 { letter-spacing: 1px; }
+
+/* === Fixes Dark Mode === */
+[data-theme="dark"] .alert-warning {
+    background-color: #422006 !important;
+    color: #fef3c7 !important;
+}
+
+[data-theme="dark"] .bg-success.bg-opacity-10 { background-color: rgba(16, 185, 129, 0.15) !important; }
+[data-theme="dark"] .bg-danger.bg-opacity-10   { background-color: rgba(239, 68, 68,   0.15) !important; }
+
+/* === Theme Toggle === */
 .theme-toggle {
     cursor: pointer;
-    padding: 0.5rem;
+    width: 40px;
+    height: 40px;
     border-radius: 50%;
     background: var(--bg-card);
     border: 1px solid var(--border);
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 40px;
-    height: 40px;
-    transition: all 0.3s ease;
-}
-
-/* Image Placeholders */
-.img-placeholder {
-    background-color: var(--border);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--text-muted);
-    border-radius: 0.5rem;
-}
-
-.church-logo {
-    width: 48px;
-    height: 48px;
-    object-fit: contain;
-}
-
-/* Custom Utility Classes */
-.extra-small { font-size: 0.75rem; }
-.letter-spacing-1 { letter-spacing: 1px; }
-
-/* Dashboard Specific Fixes */
-[data-theme="dark"] .alert-warning {
-    background-color: #422006 !important;
-    color: #fef3c7 !important;
-}
-
-[data-theme="dark"] .alert-warning .text-dark {
-    color: #fef3c7 !important;
-}
-
-[data-theme="dark"] .bg-success.bg-opacity-10 { background-color: rgba(16, 185, 129, 0.2) !important; }
-[data-theme="dark"] .bg-danger.bg-opacity-10 { background-color: rgba(239, 68, 68, 0.2) !important; }
-[data-theme="dark"] .bg-primary.bg-opacity-10 { background-color: rgba(79, 70, 229, 0.2) !important; }
-[data-theme="dark"] .bg-info.bg-opacity-10 { background-color: rgba(6, 182, 212, 0.2) !important; }
-[data-theme="dark"] .bg-warning.bg-opacity-10 { background-color: rgba(245, 158, 11, 0.2) !important; }
-
-/* Fix for overlapping cards or text visibility in dark mode */
-[data-theme="dark"] .card-header.bg-white {
-    background-color: transparent !important;
-    border-bottom: 1px solid var(--border) !important;
-}
-
-[data-theme="dark"] .list-group-item.bg-white {
-    background-color: transparent !important;
+    transition: background 0.2s ease;
 }

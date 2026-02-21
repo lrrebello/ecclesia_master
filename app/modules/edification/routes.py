@@ -684,3 +684,42 @@ def delete_media(id):
     db.session.commit()
     flash('Mídia excluída com sucesso!', 'info')
     return redirect(url_for('edification.gallery'))
+
+# Rotas de manutenção de Estudos (recuperadas e ajustadas)
+@edification_bp.route('/study/edit/<int:id>', methods=['GET', 'POST'])
+@login_required
+def edit_study(id):
+    if not can_publish_content():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('edification.studies'))
+    
+    study = Study.query.get_or_404(id)
+    
+    if request.method == 'POST':
+        study.title = request.form.get('title')
+        study.content = request.form.get('content')
+        study.category = request.form.get('category')
+        db.session.commit()
+        flash('Estudo atualizado com sucesso!', 'success')
+        return redirect(url_for('edification.studies'))
+    
+    return render_template('edification/edit_study.html', study=study)
+
+
+@edification_bp.route('/study/delete/<int:id>', methods=['POST'])
+@login_required
+def delete_study(id):
+    if not can_publish_content():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('edification.studies'))
+    
+    study = Study.query.get_or_404(id)
+    
+    # Deleta questões associadas para evitar orphans no banco
+    StudyQuestion.query.filter_by(study_id=id).delete()
+    
+    db.session.delete(study)
+    db.session.commit()
+    
+    flash('Estudo e suas questões excluídos com sucesso!', 'info')
+    return redirect(url_for('edification.studies'))
