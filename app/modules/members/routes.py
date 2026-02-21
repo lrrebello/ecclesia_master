@@ -123,7 +123,10 @@ def edit_profile():
         current_user.name = request.form.get('name')
         current_user.birth_date = datetime.strptime(request.form.get('birth_date'), '%Y-%m-%d').date() if request.form.get('birth_date') else current_user.birth_date
         current_user.baptism_date = datetime.strptime(request.form.get('baptism_date'), '%Y-%m-%d').date() if request.form.get('baptism_date') else current_user.baptism_date
+        current_user.conversion_date = datetime.strptime(request.form.get('conversion_date'), '%Y-%m-%d').date() if request.form.get('conversion_date') else current_user.conversion_date
         current_user.gender = request.form.get('gender')
+        current_user.marital_status = request.form.get('marital_status')
+        current_user.spouse_name = request.form.get('spouse_name') if request.form.get('marital_status') == 'Casado(a)' else None
         current_user.documents = request.form.get('documents')
         current_user.address = request.form.get('address')
         current_user.phone = request.form.get('phone')

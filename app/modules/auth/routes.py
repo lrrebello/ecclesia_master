@@ -130,6 +130,8 @@ def register():
         baptism_date = datetime.strptime(baptism_date_str, '%Y-%m-%d').date() if baptism_date_str else None
         
         gender = request.form.get('gender')
+        marital_status = request.form.get('marital_status')
+        spouse_name = request.form.get('spouse_name')
         tax_id = request.form.get('tax_id') # CPF ou NIF
         address = request.form.get('address')
         phone = request.form.get('phone')
@@ -158,6 +160,8 @@ def register():
             birth_date=birth_date,
             baptism_date=baptism_date,
             gender=gender,
+            marital_status=marital_status,
+            spouse_name=spouse_name if marital_status == 'Casado(a)' else None,
             tax_id=tax_id,
             address=address,
             phone=phone,

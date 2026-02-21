@@ -19,6 +19,10 @@
             <input type="date" class="form-control" id="baptism_date" name="baptism_date" value="{{ current_user.baptism_date.strftime('%Y-%m-%d') if current_user.baptism_date else '' }}">
         </div>
         <div class="mb-3">
+            <label for="conversion_date" class="form-label">Data de Conversão</label>
+            <input type="date" class="form-control" id="conversion_date" name="conversion_date" value="{{ current_user.conversion_date.strftime('%Y-%m-%d') if current_user.conversion_date else '' }}">
+        </div>
+        <div class="mb-3">
             <label for="gender" class="form-label">Gênero</label>
             <select class="form-select" id="gender" name="gender">
                 <option value="">Selecionar</option>
@@ -26,6 +30,20 @@
                 <option value="Feminino" {{ 'selected' if current_user.gender == 'Feminino' }}>Feminino</option>
                 <option value="Outro" {{ 'selected' if current_user.gender == 'Outro' }}>Outro</option>
             </select>
+        </div>
+        <div class="mb-3">
+            <label for="marital_status" class="form-label">Estado Civil</label>
+            <select class="form-select" id="marital_status" name="marital_status" onchange="toggleSpouseField()">
+                <option value="">Selecionar</option>
+                <option value="Solteiro(a)" {{ 'selected' if current_user.marital_status == 'Solteiro(a)' }}>Solteiro(a)</option>
+                <option value="Casado(a)" {{ 'selected' if current_user.marital_status == 'Casado(a)' }}>Casado(a)</option>
+                <option value="Divorciado(a)" {{ 'selected' if current_user.marital_status == 'Divorciado(a)' }}>Divorciado(a)</option>
+                <option value="Viúvo(a)" {{ 'selected' if current_user.marital_status == 'Viúvo(a)' }}>Viúvo(a)</option>
+            </select>
+        </div>
+        <div class="mb-3 {{ 'd-none' if current_user.marital_status != 'Casado(a)' }}" id="spouse_field">
+            <label for="spouse_name" class="form-label">Nome do Cônjuge</label>
+            <input type="text" class="form-control" id="spouse_name" name="spouse_name" value="{{ current_user.spouse_name or '' }}">
         </div>
         <div class="mb-3">
             <label for="documents" class="form-label">Documentos</label>
@@ -47,4 +65,21 @@
         <a href="{{ url_for('members.profile') }}" class="btn btn-secondary">Cancelar</a>
     </form>
 </div>
+
+<script>
+function toggleSpouseField() {
+    const status = document.getElementById('marital_status').value;
+    const spouseField = document.getElementById('spouse_field');
+    const spouseInput = document.getElementById('spouse_name');
+    
+    if (status === 'Casado(a)') {
+        spouseField.classList.remove('d-none');
+        spouseInput.setAttribute('required', 'required');
+    } else {
+        spouseField.classList.add('d-none');
+        spouseInput.removeAttribute('required');
+        spouseInput.value = '';
+    }
+}
+</script>
 {% endblock %}

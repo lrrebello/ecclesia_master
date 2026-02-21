@@ -42,6 +42,20 @@
                                     <option value="Feminino">Feminino</option>
                                 </select>
                             </div>
+                            <div class="col-md-6">
+                                <label for="marital_status" class="form-label fw-bold">Estado Civil</label>
+                                <select class="form-select rounded-pill" id="marital_status" name="marital_status" required onchange="toggleSpouseField()">
+                                    <option value="">Selecionar</option>
+                                    <option value="Solteiro(a)">Solteiro(a)</option>
+                                    <option value="Casado(a)">Casado(a)</option>
+                                    <option value="Divorciado(a)">Divorciado(a)</option>
+                                    <option value="Viúvo(a)">Viúvo(a)</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6 d-none" id="spouse_field">
+                                <label for="spouse_name" class="form-label fw-bold">Nome do Cônjuge</label>
+                                <input type="text" class="form-control rounded-pill" id="spouse_name" name="spouse_name" placeholder="Nome completo do cônjuge">
+                            </div>
                         </div>
 
                         <h5 class="fw-bold text-primary mb-4 border-bottom pb-2">
@@ -137,5 +151,20 @@ document.addEventListener('DOMContentLoaded', function() {
         IMask(taxIdInput, { mask: '000 000 000' });
     }
 });
+
+function toggleSpouseField() {
+    const status = document.getElementById('marital_status').value;
+    const spouseField = document.getElementById('spouse_field');
+    const spouseInput = document.getElementById('spouse_name');
+    
+    if (status === 'Casado(a)') {
+        spouseField.classList.remove('d-none');
+        spouseInput.setAttribute('required', 'required');
+    } else {
+        spouseField.classList.add('d-none');
+        spouseInput.removeAttribute('required');
+        spouseInput.value = '';
+    }
+}
 </script>
 {% endblock %}

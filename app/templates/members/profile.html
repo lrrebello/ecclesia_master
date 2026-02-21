@@ -15,7 +15,12 @@
             <p class="text-muted">{{ current_user.email }}</p>
             <p>Data de Nascimento: {{ current_user.birth_date.strftime('%d/%m/%Y') if current_user.birth_date else 'Não informado' }}</p>
             <p>Data de Batismo: {{ current_user.baptism_date.strftime('%d/%m/%Y') if current_user.baptism_date else 'Não informado' }}</p>
+            <p>Data de Conversão: {{ current_user.conversion_date.strftime('%d/%m/%Y') if current_user.conversion_date else 'Não informado' }}</p>
             <p>Gênero: {{ current_user.gender or 'Não informado' }}</p>
+            <p>Estado Civil: {{ current_user.marital_status or 'Não informado' }}</p>
+            {% if current_user.marital_status == 'Casado(a)' %}
+            <p>Cônjuge: {{ current_user.spouse_name or 'Não informado' }}</p>
+            {% endif %}
             <p>Documentos: {{ current_user.documents or 'Não informado' }}</p>
             <p>Endereço: {{ current_user.address or 'Não informado' }}</p>
             <p>Telefone: {{ current_user.phone or 'Não informado' }}</p>
