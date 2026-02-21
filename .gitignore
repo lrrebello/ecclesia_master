@@ -9,6 +9,7 @@ venv/
 *.sqlite3
 *.log
 static/uploads/media/
+static/uploads/churches/logos/
 static/uploads/profiles/
 static/uploads/receipts/
 static/uploads/
