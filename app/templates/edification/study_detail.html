@@ -79,19 +79,28 @@
 </div>
 
 <script>
-function toggleAnswers() {
-    const sections = document.querySelectorAll('.answer-section');
-    const btn = document.getElementById('btn-toggle');
-    const isHidden = sections[0].classList.contains('d-none');
+function checkAnswer(questionId, correctOptionNum) {
+    const selected = document.querySelector(`input[name="answer_${questionId}"]:checked`);
+    const feedback = document.getElementById(`feedback_${questionId}`);
     
-    sections.forEach(el => el.classList.toggle('d-none'));
+    if (!selected) {
+        feedback.textContent = 'Selecione uma opção!';
+        feedback.className = 'text-warning';
+        return;
+    }
     
-    if (isHidden) {
-        btn.innerHTML = '<i class="bi bi-eye-slash me-2"></i>Ocultar Gabarito';
-        btn.classList.replace('btn-primary', 'btn-outline-primary');
+    const selectedValue = selected.value;  // 'A', 'B', 'C' ou 'D'
+    
+    // Mapeia o número correto para letra
+    const correctMap = {1: 'A', 2: 'B', 3: 'C', 4: 'D'};
+    const correctLetter = correctMap[correctOptionNum];
+    
+    if (selectedValue === correctLetter) {
+        feedback.textContent = 'Correto!';
+        feedback.className = 'text-success fw-bold';
     } else {
-        btn.innerHTML = '<i class="bi bi-eye me-2"></i>Ver Gabarito';
-        btn.classList.replace('btn-outline-primary', 'btn-primary');
+        feedback.textContent = 'Errado. Tente novamente!';
+        feedback.className = 'text-danger fw-bold';
     }
 }
 </script>

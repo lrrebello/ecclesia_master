@@ -133,7 +133,7 @@ def add_study():
         db.session.commit()
         
         if request.form.get('generate_ai_questions'):
-            question_count = 5  # reduzido para evitar timeout
+            question_count = 10  # Aumentado para 10
             try:
                 if file_path:
                     ai_data = generate_questions(file_path, type='adult', count=question_count, is_file=True)
@@ -146,23 +146,22 @@ def add_study():
                 if "error" in ai_data:
                     flash(f'Erro na IA: {ai_data["error"]}', 'danger')
                 elif "questions" in ai_data:
-                    correct_map = {'A': 1, 'B': 2, 'C': 3, 'D': 4}
                     for q_data in ai_data["questions"]:
+                        correct_letter = q_data["correct_option"].upper()  # 'A', 'B', 'C' ou 'D' direto
                         new_q = StudyQuestion(
                             study_id=new_study.id,
                             question_text=q_data["question"],
                             options=json.dumps(q_data["options"]),
-                            correct_option=correct_map.get(q_data["correct_option"].upper(), 1),
+                            correct_option=correct_letter,  # ← string letra, igual ao Kids
                             explanation=q_data.get("explanation"),
                             is_published=False
                         )
                         db.session.add(new_q)
                     db.session.commit()
-                    flash(f'Estudo adicionado e {len(ai_data["questions"])} questões geradas pela IA aguardando revisão!', 'success')
+                    flash(f'{len(ai_data["questions"])} questões geradas pela IA aguardando revisão!', 'success')
                     return redirect(url_for('edification.review_study_questions', study_id=new_study.id))
             except Exception as e:
-                flash('Estudo adicionado, mas a IA demorou muito. Gere manualmente depois.', 'warning')
-                print(f"Erro na geração de questões: {e}")
+                flash('Estudo adicionado, mas erro ao gerar questões: {str(e)}', 'warning')
         
         flash('Estudo publicado com sucesso!', 'success')
         return redirect(url_for('edification.studies'))
@@ -183,23 +182,26 @@ def review_study_questions(study_id):
         action = request.form.get('action')
         if action == 'regenerate':
             StudyQuestion.query.filter_by(study_id=study_id, is_published=False).delete()
-            ai_data = generate_questions(study.content, type='adult', count=10)
+            question_count = 10  # Aumentado para 10
+            ai_data = generate_questions(study.content, type='adult', count=question_count)
             if "questions" in ai_data:
                 correct_map = {'A': 1, 'B': 2, 'C': 3, 'D': 4}
                 for q_data in ai_data["questions"]:
+                    correct_option = correct_map.get(q_data["correct_option"].upper(), 1)
                     new_q = StudyQuestion(
                         study_id=study_id,
                         question_text=q_data["question"],
                         options=json.dumps(q_data["options"]),
-                        correct_option=correct_map.get(q_data["correct_option"].upper(), 1),
+                        correct_option=correct_option,
                         explanation=q_data.get("explanation"),
                         is_published=False
                     )
                     db.session.add(new_q)
                 db.session.commit()
-                flash('Novas questões geradas!', 'success')
+                flash('Novas questões geradas com sucesso!', 'success')
             return redirect(url_for('edification.review_study_questions', study_id=study_id))
         
+        # Resto do código de revisão e publicação permanece igual
         published_ids = request.form.getlist('publish_ids[]')
         correct_map = {'A': 1, 'B': 2, 'C': 3, 'D': 4}
         for q in questions:
@@ -706,23 +708,23 @@ def edit_study(id):
         flash('Estudo atualizado com sucesso!', 'success')
         
         if regenerate_questions:
-            # Deleta questões antigas não publicadas (ou todas, ajuste se quiser manter publicadas)
+            # Deleta questões antigas (todas ou só não publicadas - aqui deleta todas para simplificar)
             StudyQuestion.query.filter_by(study_id=study.id).delete()
             
-            question_count = 5  # Igual ao add, para evitar timeout
+            question_count = 10  # Mantido em 10, como você pediu
             try:
                 ai_data = generate_questions(study.content, type='adult', count=question_count)
                 
                 if "error" in ai_data:
                     flash(f'Erro na IA: {ai_data["error"]}', 'danger')
                 elif "questions" in ai_data:
-                    correct_map = {'A': 1, 'B': 2, 'C': 3, 'D': 4}
                     for q_data in ai_data["questions"]:
+                        correct_letter = q_data["correct_option"].upper()  # 'A', 'B', 'C' ou 'D' direto
                         new_q = StudyQuestion(
                             study_id=study.id,
                             question_text=q_data["question"],
                             options=json.dumps(q_data["options"]),
-                            correct_option=correct_map.get(q_data["correct_option"].upper(), 1),
+                            correct_option=correct_letter,  # ← string letra, igual ao Kids
                             explanation=q_data.get("explanation"),
                             is_published=False
                         )
@@ -736,6 +738,7 @@ def edit_study(id):
         return redirect(url_for('edification.studies'))
     
     return render_template('edification/edit_study.html', study=study)
+
 
 
 @edification_bp.route('/study/delete/<int:id>', methods=['POST'])

@@ -241,7 +241,7 @@ class StudyQuestion(db.Model):
     study_id = db.Column(db.Integer, db.ForeignKey('study.id'))
     question_text = db.Column(db.Text, nullable=False)
     options = db.Column(db.Text) # JSON string com as opções
-    correct_option = db.Column(db.Integer) # 1=A, 2=B, 3=C, 4=D
+    correct_option = db.Column(db.String(1)) # 1=A, 2=B, 3=C, 4=D
     explanation = db.Column(db.Text)
     is_published = db.Column(db.Boolean, default=False)
 

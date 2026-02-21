@@ -3,6 +3,7 @@ import json
 import time
 from google import genai
 from google.genai import types
+from flask import current_app
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -13,7 +14,7 @@ def get_gemini_client():
         return None
     return genai.Client(api_key=api_key)
 
-def generate_questions(content_or_path, type='adult', count=10, is_file=False):
+def generate_questions(content_or_path, type='adult', count=7, is_file=False):
     client = get_gemini_client()
     if not client:
         return {"error": "GEMINI_API_KEY não configurada no ambiente."}
@@ -22,11 +23,11 @@ def generate_questions(content_or_path, type='adult', count=10, is_file=False):
     model_name = 'gemini-2.5-flash'
     contents = []
     
-    # Reduzimos o tempo de espera para indexação de 5s para 2s para agilizar
-    # O Gemini Flash é muito rápido, 2s costumam ser suficientes para arquivos pequenos.
+    # Tempo de espera para indexação de arquivos (reduzido para 2s)
     indexing_wait = 2
 
-    # Se for um arquivo, fazemos o upload para a Files API
+    # Preparar o conteúdo
+    text_content = ""
     if is_file and os.path.exists(content_or_path):
         try:
             ext = os.path.splitext(content_or_path)[1].lower()
@@ -35,17 +36,14 @@ def generate_questions(content_or_path, type='adult', count=10, is_file=False):
             elif ext == ".pptx": mime_type = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
             elif ext == ".txt": mime_type = "text/plain"
 
-            # Upload usando o SDK novo - sintaxe corrigida
-            # O parâmetro 'file' aceita o caminho do arquivo diretamente
+            # Upload do arquivo
             uploaded_file = client.files.upload(
                 file=content_or_path,
                 config=types.UploadFileConfig(mime_type=mime_type)
             )
             
-            # Aguarda indexação
             time.sleep(indexing_wait)
             
-            # Adiciona a referência do arquivo usando a estrutura correta
             contents.append(types.Part(
                 file_data=types.FileData(
                     file_uri=uploaded_file.uri,
@@ -53,19 +51,22 @@ def generate_questions(content_or_path, type='adult', count=10, is_file=False):
                 )
             ))
         except Exception as e:
-            print(f"Erro no upload Gemini: {e}")
-            # Fallback: tenta extrair texto localmente se o upload falhar
+            current_app.logger.error(f"Erro no upload Gemini: {e}")
+            # Fallback: extrair texto localmente
             try:
                 from .text_extractor import extract_text
-                text = extract_text(content_or_path)
-                contents.append(types.Part(text=text[:15000]))
-            except:
-                return {"error": f"Falha no processamento do arquivo: {str(e)}"}
+                text_content = extract_text(content_or_path)
+            except Exception as extract_err:
+                return {"error": f"Falha no processamento do arquivo: {str(extract_err)}"}
     else:
-        # Se for apenas texto
-        contents.append(types.Part(text=content_or_path[:15000]))
+        # Conteúdo direto como texto
+        text_content = content_or_path[:15000]  # limite de caracteres
 
-    # Configuração do Prompt
+    # Se tiver texto extraído ou direto, adiciona como Part de texto
+    if text_content:
+        contents.append(types.Part(text=text_content))
+
+    # Montar o prompt correto baseado no tipo
     if type == 'kids':
         prompt_text = f"""
         Você é um educador infantil especializado em criar atividades bíblicas divertidas.
@@ -97,16 +98,17 @@ def generate_questions(content_or_path, type='adult', count=10, is_file=False):
             ]
         }}
         """
-    else:
+    else:  # adult
         prompt_text = f"""
-        Você é um teólogo e educador especializado em estudos bíblicos para adultos.
-        Com base no conteúdo fornecido:
+        Gere {count} questões de múltipla escolha baseadas no seguinte conteúdo: {text_content}.
         
-        Crie {count} perguntas de múltipla escolha para adultos.
-        Para cada pergunta, forneça 4 opções (A, B, C, D).
-        Indique a resposta correta e uma breve explicação/fonte de onde foi tirada no texto.
-        
-        Responda APENAS em formato JSON seguindo EXATAMENTE esta estrutura:
+        Para cada questão:
+        - Crie uma pergunta clara e relevante.
+        - Gere 4 opções (A, B, C, D).
+        - A resposta correta deve ser variada e aleatória entre A, B, C e D (NÃO coloque sempre na A ou na primeira opção).
+        - Inclua uma explicação breve para a resposta correta.
+
+        Responda APENAS em formato JSON estrito, sem texto adicional:
         {{
             "questions": [
                 {{
@@ -117,32 +119,39 @@ def generate_questions(content_or_path, type='adult', count=10, is_file=False):
                         "C": "Opção C",
                         "D": "Opção D"
                     }},
-                    "correct_option": "A",
-                    "explanation": "Explicação/Fonte"
+                    "correct_option": "B",  // exemplo - deve variar!
+                    "explanation": "Explicação curta"
                 }}
             ]
         }}
         """
 
+    # Adiciona o prompt como última parte
     contents.append(types.Part(text=prompt_text))
 
     try:
-        # Adicionamos um timeout explícito na chamada da API para não travar o worker infinitamente
-        # Se a API demorar mais de 25s, lançamos um erro controlado
         response = client.models.generate_content(
             model=model_name,
             contents=contents,
             config=types.GenerateContentConfig(
                 response_mime_type='application/json',
                 temperature=0.3,
-                http_options={'timeout': 25000} # 25 segundos em milissegundos
+                http_options={'timeout': 25000}  # 25 segundos
             )
         )
         
         if not response or not response.text:
             return {"error": "A IA não retornou uma resposta válida a tempo."}
-            
-        return json.loads(response.text)
+        
+        ai_text = response.text.strip()
+        
+        # Limpa formatação markdown se vier
+        if ai_text.startswith("```json"):
+            ai_text = ai_text.split("```json")[1].split("```")[0].strip()
+        
+        ai_data = json.loads(ai_text)
+        return ai_data
+    
     except Exception as e:
-        print(f"Erro na API do Gemini: {e}")
+        current_app.logger.error(f"Erro na API do Gemini: {str(e)}")
         return {"error": f"Falha na geração de conteúdo: {str(e)}"}
