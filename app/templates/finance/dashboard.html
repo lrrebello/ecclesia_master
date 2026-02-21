@@ -16,6 +16,9 @@
             <a href="{{ url_for('modelo25.index') }}" class="btn btn-outline-info">
                 <i class="bi bi-file-earmark-text me-2"></i> Modelo 25
             </a>
+            <button onclick="window.print()" class="btn btn-outline-dark">
+                <i class="bi bi-printer me-2"></i> Imprimir
+            </button>
             <a href="{{ url_for('finance.add_transaction') }}" class="btn btn-primary">
                 <i class="bi bi-plus-lg me-2"></i> Novo Lançamento
             </a>
@@ -30,7 +33,7 @@
                     <label class="form-label small fw-bold">BUSCA</label>
                     <div class="input-group">
                         <span class="input-group-text bg-transparent border-end-0"><i class="bi bi-search"></i></span>
-                        <input type="text" name="search" class="form-control border-start-0" placeholder="Descrição, categoria..." value="{{ filters.search or '' }}">
+                        <input type="text" name="search" class="form-control border-start-0" placeholder="Membro, descrição..." value="{{ filters.search or '' }}">
                     </div>
                 </div>
                 <div class="col-md-2">
@@ -169,5 +172,30 @@
 </div>
 <style>
 .extra-small { font-size: 0.75rem; }
+</style>
+<style>
+@media print {
+    .sidebar, .mobile-navbar, .btn, .card-header, form, .theme-toggle, header {
+        display: none !important;
+    }
+    .main-content {
+        margin-left: 0 !important;
+        padding: 0 !important;
+    }
+    .card {
+        border: none !important;
+        box-shadow: none !important;
+    }
+    .table-responsive {
+        overflow: visible !important;
+    }
+    body {
+        background-color: white !important;
+    }
+    .container-fluid {
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+}
 </style>
 {% endblock %}

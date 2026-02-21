@@ -36,10 +36,11 @@ def dashboard():
 
         # Aplicar filtros
         if search:
-            query = query.filter(or_(
+            query = query.join(User, Transaction.user_id == User.id, isouter=True).filter(or_(
                 Transaction.description.ilike(f'%{search}%'),
                 Transaction.category_name.ilike(f'%{search}%'),
-                Transaction.payment_method_name.ilike(f'%{search}%')
+                Transaction.payment_method_name.ilike(f'%{search}%'),
+                User.name.ilike(f'%{search}%')
             ))
         if start_date:
             query = query.filter(Transaction.date >= datetime.strptime(start_date, '%Y-%m-%d'))
@@ -54,6 +55,7 @@ def dashboard():
 
         transactions = query.order_by(Transaction.date.desc()).all()
         assets = asset_query.all()
+        members = User.query.filter_by(church_id=current_user.church_id, status='active').order_by(User.name).all()
         categories = TransactionCategory.query.filter_by(church_id=current_user.church_id, is_active=True).all()
         payment_methods = PaymentMethod.query.filter_by(church_id=current_user.church_id, is_active=True).all()
 
@@ -70,6 +72,7 @@ def dashboard():
                                transactions=transactions, 
                                assets=assets, 
                                stats=stats, 
+                               members=members,
                                categories=categories,
                                payment_methods=payment_methods,
                                filters={'search': search, 'start_date': start_date, 'end_date': end_date, 'category_id': category_id, 'payment_method_id': payment_method_id, 'type': tx_type})
