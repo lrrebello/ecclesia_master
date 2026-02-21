@@ -1,0 +1,1033 @@
+=== app/core/models.py ===
+from datetime import datetime
+from flask_sqlalchemy import SQLAlchemy
+from flask_login import UserMixin
+from werkzeug.security import generate_password_hash, check_password_hash
+
+db = SQLAlchemy()
+
+# Tabela de associação para Membros e Ministérios (Muitos-para-Muitos)
+member_ministries = db.Table('member_ministries',
+    db.Column('user_id', db.Integer, db.ForeignKey('user.id'), primary_key=True),
+    db.Column('ministry_id', db.Integer, db.ForeignKey('ministry.id'), primary_key=True)
+)
+
+class Church(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    address = db.Column(db.String(200))
+    city = db.Column(db.String(100))
+    country = db.Column(db.String(100))
+    nif = db.Column(db.String(20)) # Número de Contribuinte
+    email = db.Column(db.String(120))
+    currency_symbol = db.Column(db.String(5), default='R$')
+    is_main = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    members = db.relationship('User', backref='church', lazy=True)
+    ministries = db.relationship('Ministry', backref='church', lazy=True)
+    assets = db.relationship('Asset', backref='church', lazy=True)
+    roles = db.relationship('ChurchRole', backref='church', lazy=True, cascade="all, delete-orphan")
+
+class ChurchRole(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(80), nullable=False)
+    description = db.Column(db.Text, nullable=True)
+    church_id = db.Column(db.Integer, db.ForeignKey('church.id'), nullable=False)
+    is_active = db.Column(db.Boolean, default=True)
+    order = db.Column(db.Integer, default=0)  # para ordenar na exibição
+    
+    users = db.relationship('User', backref='church_role', lazy=True)
+
+class User(db.Model, UserMixin):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    email = db.Column(db.String(120), unique=True, nullable=False)
+    password_hash = db.Column(db.String(255))
+    
+    # Dados Pessoais Expandidos
+    birth_date = db.Column(db.Date)
+    baptism_date = db.Column(db.Date, nullable=True)
+    gender = db.Column(db.String(20))
+    documents = db.Column(db.String(200)) # Flexível para diferentes países
+    tax_id = db.Column(db.String(20), nullable=True)  # NIF (PT), CPF/CNPJ (BR), etc.
+    address = db.Column(db.Text)
+    phone = db.Column(db.String(50))
+    profile_photo = db.Column(db.String(255), nullable=True)
+    
+    # Status e Permissões
+    status = db.Column(db.String(20), default='pending') # pending, active, rejected
+    is_email_verified = db.Column(db.Boolean, default=False)
+    email_verification_token = db.Column(db.String(100), unique=True, nullable=True)
+    
+    # Consentimento RGPD/LGPD
+    data_consent = db.Column(db.Boolean, default=False)
+    data_consent_date = db.Column(db.DateTime)
+    marketing_consent = db.Column(db.Boolean, default=False)
+    
+    is_ministry_leader = db.Column(db.Boolean, default=False)
+    
+    church_id = db.Column(db.Integer, db.ForeignKey('church.id'))
+    family_id = db.Column(db.Integer, db.ForeignKey('family.id'), nullable=True)
+    church_role_id = db.Column(db.Integer, db.ForeignKey('church_role.id'), nullable=True)
+    
+    # Relacionamentos
+    ministries = db.relationship('Ministry', secondary=member_ministries, backref=db.backref('members', lazy='dynamic'))
+    
+    def set_password(self, password):
+        self.password_hash = generate_password_hash(password)
+    
+    def check_password(self, password):
+        return check_password_hash(self.password_hash, password)
+    
+    # Permissoes
+    can_manage_ministries = db.Column(db.Boolean, default=False)
+    can_manage_media = db.Column(db.Boolean, default=False)
+    can_publish_devotionals = db.Column(db.Boolean, default=False)
+    can_approve_members = db.Column(db.Boolean, default=False)
+    can_manage_finance = db.Column(db.Boolean, default=False)
+    can_manage_kids = db.Column(db.Boolean, default=False)
+    can_manage_events = db.Column(db.Boolean, default=False)
+
+    @property
+    def is_global_admin(self):
+        return self.church_role and self.church_role.name == 'Administrador Global'
+
+class Ministry(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    description = db.Column(db.Text)
+    church_id = db.Column(db.Integer, db.ForeignKey('church.id'))
+    leader_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    is_kids_ministry = db.Column(db.Boolean, default=False)
+    
+    events = db.relationship('Event', backref='ministry', lazy=True)
+    leader = db.relationship('User', foreign_keys=[leader_id])
+    transactions = db.relationship('MinistryTransaction', backref='ministry', lazy=True)
+
+class Event(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(100), nullable=False)
+    description = db.Column(db.Text)
+    start_time = db.Column(db.DateTime, nullable=False)
+    location = db.Column(db.String(200))
+    ministry_id = db.Column(db.Integer, db.ForeignKey('ministry.id'), nullable=True)
+    church_id = db.Column(db.Integer, db.ForeignKey('church.id'))
+    recurrence = db.Column(db.String(20), default='none')
+
+class Asset(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    category = db.Column(db.String(50))
+    identifier = db.Column(db.String(50))
+    purchase_date = db.Column(db.Date)
+    value = db.Column(db.Float)
+    church_id = db.Column(db.Integer, db.ForeignKey('church.id'))
+    
+    maintenance_logs = db.relationship('MaintenanceLog', backref='asset', lazy=True)
+
+class MaintenanceLog(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    asset_id = db.Column(db.Integer, db.ForeignKey('asset.id'))
+    date = db.Column(db.Date, default=datetime.utcnow().date)
+    description = db.Column(db.Text)
+    cost = db.Column(db.Float, default=0.0)
+    type = db.Column(db.String(50))
+
+class Family(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    users = db.relationship('User', backref='family_group', lazy=True)
+
+class TransactionCategory(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    type = db.Column(db.String(10), nullable=False) # income, expense
+    church_id = db.Column(db.Integer, db.ForeignKey('church.id'), nullable=False)
+    is_active = db.Column(db.Boolean, default=True)
+    
+    church = db.relationship('Church', backref='transaction_categories')
+
+class PaymentMethod(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    is_electronic = db.Column(db.Boolean, default=False) # Tag para lógica fiscal
+    church_id = db.Column(db.Integer, db.ForeignKey('church.id'), nullable=False)
+    is_active = db.Column(db.Boolean, default=True)
+    
+    church = db.relationship('Church', backref='payment_methods')
+
+class Transaction(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    type = db.Column(db.String(10)) # income, expense
+    category_id = db.Column(db.Integer, db.ForeignKey('transaction_category.id'), nullable=True)
+    category_name = db.Column(db.String(100))
+    payment_method_id = db.Column(db.Integer, db.ForeignKey('payment_method.id'), nullable=True)
+    payment_method_name = db.Column(db.String(100))
+    amount = db.Column(db.Float, nullable=False)
+    date = db.Column(db.DateTime, default=datetime.utcnow)
+    description = db.Column(db.Text)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    church_id = db.Column(db.Integer, db.ForeignKey('church.id'))
+    receipt_path = db.Column(db.String(255))
+    
+    category = db.relationship('TransactionCategory', backref='transactions')
+    payment_method = db.relationship('PaymentMethod', backref='transactions')
+    church = db.relationship('Church', backref='transactions')
+    user = db.relationship('User', backref='transactions')
+
+class MinistryTransaction(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    ministry_id = db.Column(db.Integer, db.ForeignKey('ministry.id'), nullable=False)
+    type = db.Column(db.String(10)) # income, expense
+    category_id = db.Column(db.Integer, db.ForeignKey('transaction_category.id'), nullable=True)
+    category_name = db.Column(db.String(100))
+    payment_method_id = db.Column(db.Integer, db.ForeignKey('payment_method.id'), nullable=True)
+    payment_method_name = db.Column(db.String(100))
+    amount = db.Column(db.Float, nullable=False)
+    date = db.Column(db.DateTime, default=datetime.utcnow)
+    description = db.Column(db.Text)
+    is_debt = db.Column(db.Boolean, default=False) # "Põe na conta"
+    debtor_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    is_paid = db.Column(db.Boolean, default=True) # Se for débito, marca se já foi pago
+    
+    category = db.relationship('TransactionCategory')
+    payment_method = db.relationship('PaymentMethod')
+    debtor = db.relationship('User', backref='debts')
+
+class KidsActivity(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(100), nullable=False)
+    content = db.Column(db.Text)
+    age_group = db.Column(db.String(20))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+class BibleStory(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(200), nullable=False)
+    content = db.Column(db.Text, nullable=False)
+    image_path = db.Column(db.String(255)) # URL ou caminho da ilustração
+    reference = db.Column(db.String(100)) # Ex: Gênesis 1
+    order = db.Column(db.Integer, default=0)
+    game_data = db.Column(db.Text) # JSON com palavras e dicas para jogos
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    quizzes = db.relationship('BibleQuiz', backref='story', lazy=True, cascade="all, delete-orphan")
+
+class BibleQuiz(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    story_id = db.Column(db.Integer, db.ForeignKey('bible_story.id'), nullable=False)
+    question = db.Column(db.String(500), nullable=False)
+    option_a = db.Column(db.String(200), nullable=False)
+    option_b = db.Column(db.String(200), nullable=False)
+    option_c = db.Column(db.String(200), nullable=False)
+    option_d = db.Column(db.String(200), nullable=True)
+    correct_option = db.Column(db.String(1)) # 'A', 'B', 'C' ou 'D'
+    explanation = db.Column(db.Text) # Breve explicação do porquê ser a correta
+    is_published = db.Column(db.Boolean, default=True)
+
+class Study(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(200), nullable=False)
+    content = db.Column(db.Text, nullable=False)
+    category = db.Column(db.String(50), default='Geral')
+    author_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    questions = db.relationship('StudyQuestion', backref='study', lazy=True)
+
+class StudyQuestion(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    study_id = db.Column(db.Integer, db.ForeignKey('study.id'))
+    question_text = db.Column(db.Text, nullable=False)
+    options = db.Column(db.Text) # JSON string com as opções
+    correct_option = db.Column(db.Integer) # 1=A, 2=B, 3=C, 4=D
+    explanation = db.Column(db.Text)
+    is_published = db.Column(db.Boolean, default=False)
+
+class Devotional(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(200))
+    content = db.Column(db.Text, nullable=False)
+    verse = db.Column(db.String(200))
+    date = db.Column(db.Date, default=datetime.utcnow().date)
+
+class Album(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(200), nullable=False)
+    description = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    church_id = db.Column(db.Integer, db.ForeignKey('church.id'), nullable=False)
+    ministry_id = db.Column(db.Integer, db.ForeignKey('ministry.id'), nullable=True)
+    
+    media_items = db.relationship('Media', backref='album', lazy=True, cascade="all, delete-orphan")
+    church = db.relationship('Church', backref='albums')
+    ministry = db.relationship('Ministry', backref='albums')
+
+class Media(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(200), nullable=False)
+    description = db.Column(db.Text)
+    file_path = db.Column(db.String(255), nullable=False)
+    media_type = db.Column(db.String(20), default='image')
+    event_name = db.Column(db.String(200))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    church_id = db.Column(db.Integer, db.ForeignKey('church.id'), nullable=False)
+    ministry_id = db.Column(db.Integer, db.ForeignKey('ministry.id'), nullable=True)
+    album_id = db.Column(db.Integer, db.ForeignKey('album.id'), nullable=True)
+    
+    church = db.relationship('Church', backref='media_items')
+    ministry = db.relationship('Ministry', backref='media_items')=== app/modules/admin/routes.py ===
+# Arquivo completo: app/modules/admin/routes.py (adicionando rota para add_user)
+from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app
+from flask_login import login_required, current_user
+from app.core.models import Church, db, User, ChurchRole
+from werkzeug.utils import secure_filename
+import os
+from datetime import datetime
+
+admin_bp = Blueprint('admin', __name__)
+
+def is_global_admin():
+    return current_user.church_role and current_user.church_role.name == 'Administrador Global'
+
+@admin_bp.route('/churches')
+@login_required
+def list_churches():
+    if not is_global_admin():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('members.dashboard'))
+    churches = Church.query.all()
+    return render_template('admin/churches.html', churches=churches)
+
+@admin_bp.route('/church/add', methods=['GET', 'POST'])
+@login_required
+def add_church():
+    if not is_global_admin():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('members.dashboard'))
+    
+    if request.method == 'POST':
+        country = request.form.get('country', '')
+        # Mapeamento robusto de moedas
+        euro_countries = ['Portugal', 'Espanha', 'França', 'Alemanha', 'Itália', 'Bélgica', 'Holanda', 'Luxemburgo', 'Irlanda', 'Grécia', 'Áustria', 'Finlândia']
+        currency = '€' if country in euro_countries else 'R$'
+        
+        new_church = Church(
+            name=request.form.get('name'),
+            address=request.form.get('address'),
+            city=request.form.get('city'),
+            country=country,
+            nif=request.form.get('nif'),
+            email=request.form.get('email'),
+            currency_symbol=currency,
+            is_main=True if request.form.get('is_main') else False
+        )
+        db.session.add(new_church)
+        db.session.commit()
+        flash('Congregação cadastrada com sucesso!', 'success')
+        return redirect(url_for('admin.list_churches'))
+    
+    return render_template('admin/add_church.html')
+
+@admin_bp.route('/church/edit/<int:id>', methods=['GET', 'POST'])
+@login_required
+def edit_church(id):
+    if not is_global_admin():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('admin.list_churches'))
+    
+    church = Church.query.get_or_404(id)
+    
+    if request.method == 'POST':
+        country = request.form.get('country', '')
+        # Atualiza a moeda se o país mudar
+        euro_countries = ['Portugal', 'Espanha', 'França', 'Alemanha', 'Itália', 'Bélgica', 'Holanda', 'Luxemburgo', 'Irlanda', 'Grécia', 'Áustria', 'Finlândia']
+        church.currency_symbol = '€' if country in euro_countries else 'R$'
+        
+        church.name = request.form.get('name')
+        church.address = request.form.get('address')
+        church.city = request.form.get('city')
+        church.country = country
+        church.nif = request.form.get('nif')
+        church.email = request.form.get('email')
+        church.is_main = 'is_main' in request.form
+        db.session.commit()
+        flash('Congregação atualizada!', 'success')
+        return redirect(url_for('admin.list_churches'))
+    
+    return render_template('admin/edit_church.html', church=church)
+
+@admin_bp.route('/members')
+@login_required
+def list_members():
+    if not is_global_admin():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('members.dashboard'))
+    
+    church_id = request.args.get('church_id', type=int)
+    churches = Church.query.order_by(Church.name).all()
+    
+    if church_id:
+        selected_church = Church.query.get(church_id)
+        if selected_church:
+            members = User.query.filter_by(church_id=church_id).order_by(User.name).all()
+        else:
+            members = []
+            flash('Congregação não encontrada.', 'warning')
+    else:
+        selected_church = None
+        members = User.query.order_by(User.name).all()
+    
+    return render_template(
+        'admin/members.html',
+        members=members,
+        churches=churches,
+        selected_church=selected_church,
+        current_church_id=church_id
+    )
+
+@admin_bp.route('/member/add', methods=['GET', 'POST'])
+@login_required
+def add_member():
+    if not is_global_admin():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('admin.list_members'))
+    
+    churches = Church.query.all()
+    
+    if request.method == 'POST':
+        name = request.form.get('name')
+        email = request.form.get('email')
+        password = request.form.get('password')
+        birth_date = datetime.strptime(request.form.get('birth_date'), '%Y-%m-%d').date() if request.form.get('birth_date') else None
+        gender = request.form.get('gender')
+        documents = request.form.get('documents')
+        address = request.form.get('address')
+        phone = request.form.get('phone')
+        church_id = int(request.form.get('church_id')) if request.form.get('church_id') else None
+        status = request.form.get('status', 'active')
+        
+        file = request.files.get('profile_photo')
+        profile_photo = None
+        if file:
+            filename = secure_filename(file.filename)
+            full_path = os.path.join(current_app.config['UPLOAD_FOLDER'], 'profiles', filename)
+            os.makedirs(os.path.dirname(full_path), exist_ok=True)
+            file.save(full_path)
+            profile_photo = 'uploads/profiles/' + filename
+        
+        new_user = User(
+            name=name,
+            email=email,
+            birth_date=birth_date,
+            gender=gender,
+            documents=documents,
+            address=address,
+            phone=phone,
+            profile_photo=profile_photo,
+            church_id=church_id,
+            status=status
+        )
+        new_user.set_password(password)
+        db.session.add(new_user)
+        db.session.commit()
+        flash('Membro criado com sucesso!', 'success')
+        return redirect(url_for('admin.list_members'))
+    
+    return render_template('admin/add_member.html', churches=churches)
+
+@admin_bp.route('/member/edit/<int:id>', methods=['GET', 'POST'])
+@login_required
+def edit_member(id):
+    if not is_global_admin():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('members.dashboard'))
+    
+    member = User.query.get_or_404(id)
+    churches = Church.query.all()
+    roles = ChurchRole.query.filter_by(church_id=member.church_id).order_by(ChurchRole.order, ChurchRole.name).all() if member.church_id else []
+    
+    if request.method == 'POST':
+        member.name = request.form.get('name')
+        member.email = request.form.get('email')
+        member.church_role_id = int(request.form.get('church_role_id')) if request.form.get('church_role_id') else None
+        member.church_id = int(request.form.get('church_id')) if request.form.get('church_id') else None
+        member.status = request.form.get('status')
+        member.birth_date = datetime.strptime(request.form.get('birth_date'), '%Y-%m-%d').date() if request.form.get('birth_date') else member.birth_date
+        member.gender = request.form.get('gender')
+        member.documents = request.form.get('documents')
+        member.tax_id = request.form.get('tax_id')
+        member.address = request.form.get('address')
+        member.phone = request.form.get('phone')
+        
+        file = request.files.get('profile_photo')
+        if file:
+            filename = secure_filename(file.filename)
+            full_path = os.path.join(current_app.config['UPLOAD_FOLDER'], 'profiles', filename)
+            os.makedirs(os.path.dirname(full_path), exist_ok=True)
+            file.save(full_path)
+            member.profile_photo = 'uploads/profiles/' + filename
+        
+        db.session.commit()
+        flash('Membro atualizado com sucesso!', 'success')
+        return redirect(url_for('admin.list_members'))
+    
+    return render_template('admin/edit_member.html', member=member, churches=churches, roles=roles)
+
+# ... (restante igual ao seu TXT)
+
+@admin_bp.route('/roles')
+@login_required
+def list_roles():
+    if not current_user.church_role or current_user.church_role.name not in ['Administrador Global', 'Pastor Líder']:
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('members.dashboard'))
+    
+    roles = ChurchRole.query.filter_by(church_id=current_user.church_id).order_by(ChurchRole.order, ChurchRole.name).all()
+    return render_template('admin/list_roles.html', roles=roles)
+
+@admin_bp.route('/role/add', methods=['GET', 'POST'])
+@login_required
+def add_role():
+    if not current_user.church_role or current_user.church_role.name not in ['Administrador Global', 'Pastor Líder']:
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('admin.list_roles'))
+    
+    if request.method == 'POST':
+        new_role = ChurchRole(
+            name=request.form.get('name'),
+            description=request.form.get('description'),
+            order=int(request.form.get('order')) if request.form.get('order') else 0,
+            church_id=current_user.church_id
+        )
+        db.session.add(new_role)
+        db.session.commit()
+        flash('Cargo criado com sucesso!', 'success')
+        return redirect(url_for('admin.list_roles'))
+    
+    return render_template('admin/add_role.html')
+
+@admin_bp.route('/role/edit/<int:id>', methods=['GET', 'POST'])
+@login_required
+def edit_role(id):
+    role = ChurchRole.query.get_or_404(id)
+    
+    if not current_user.church_role or current_user.church_role.name not in ['Administrador Global', 'Pastor Líder'] or role.church_id != current_user.church_id:
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('admin.list_roles'))
+    
+    if request.method == 'POST':
+        role.name = request.form.get('name')
+        role.description = request.form.get('description')
+        role.order = int(request.form.get('order')) if request.form.get('order') else 0
+        role.is_active = 'is_active' in request.form
+        db.session.commit()
+        flash('Cargo atualizado!', 'success')
+        return redirect(url_for('admin.list_roles'))
+    
+    return render_template('admin/edit_role.html', role=role)
+
+@admin_bp.route('/role/delete/<int:id>')
+@login_required
+def delete_role(id):
+    role = ChurchRole.query.get_or_404(id)
+    
+    if not current_user.church_role or current_user.church_role.name not in ['Administrador Global', 'Pastor Líder'] or role.church_id != current_user.church_id:
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('admin.list_roles'))
+    
+    db.session.delete(role)
+    db.session.commit()
+    flash('Cargo excluído com sucesso!', 'success')
+    return redirect(url_for('admin.list_roles'))
+
+@admin_bp.route('/church/delete/<int:id>', methods=['POST'])
+@login_required
+def delete_church(id):
+    if not is_global_admin():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('members.dashboard'))
+    
+    church = Church.query.get_or_404(id)
+    
+    # Impede excluir a igreja principal se houver apenas uma
+    if church.is_main and Church.query.filter_by(is_main=True).count() <= 1:
+        # Se for a única igreja, não permite excluir
+        if Church.query.count() <= 1:
+            flash('Não é possível excluir a única congregação do sistema.', 'warning')
+            return redirect(url_for('admin.list_churches'))
+
+    try:
+        # Remove vínculos de membros para evitar erro de chave estrangeira
+        User.query.filter_by(church_id=id).update({User.church_id: None})
+        
+        db.session.delete(church)
+        db.session.commit()
+        flash(f'Congregação {church.name} excluída com sucesso!', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Erro ao excluir congregação: {str(e)}', 'danger')
+        
+    return redirect(url_for('admin.list_churches'))
+=== app/templates/admin/add_church.html ===
+{% extends "base.html" %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card border-0 shadow-sm p-4">
+            <h3 class="fw-bold mb-4">Nova Congregação</h3>
+            <form method="POST">
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">NOME DA CONGREGAÇÃO</label>
+                    <input type="text" name="name" class="form-control bg-light border-0" placeholder="Ex: AD Jesus para as Nações - Filial Sul" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">ENDEREÇO</label>
+                    <input type="text" name="address" class="form-control bg-light border-0" required>
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label small fw-bold">CIDADE</label>
+                        <input type="text" name="city" class="form-control bg-light border-0" required>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label small fw-bold">PAÍS</label>
+                        <select name="country" class="form-select bg-light border-0" required>
+                            <option value="">Selecione...</option>
+                            <option value="Portugal">Portugal</option>
+                            <option value="Brasil">Brasil</option>
+                            <option value="Espanha">Espanha</option>
+                            <option value="França">França</option>
+                            <option value="Alemanha">Alemanha</option>
+                            <option value="Itália">Itália</option>
+                            <option value="Irlanda">Irlanda</option>
+                            <option value="Bélgica">Bélgica</option>
+                            <option value="Outro">Outro</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label small fw-bold">NIF / Nº CONTRIBUINTE</label>
+                        <input type="text" name="nif" class="form-control bg-light border-0" placeholder="Ex: 517760010">
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label small fw-bold">E-MAIL FISCAL / CONTATO</label>
+                        <input type="email" name="email" class="form-control bg-light border-0" placeholder="Ex: financeiro@igreja.com">
+                    </div>
+                </div>
+                <div class="mb-3 form-check">
+                    <input type="checkbox" name="is_main" class="form-check-input" id="isMain">
+                    <label class="form-check-label" for="isMain">Esta é a sede principal?</label>
+                </div>
+                <div class="d-grid mt-4">
+                    <button type="submit" class="btn btn-primary btn-lg py-3 fw-bold shadow-sm">
+                        Cadastrar Congregação
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+=== app/templates/admin/edit_church.html ===
+{% extends "base.html" %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card border-0 shadow-sm p-4">
+            <h3 class="fw-bold mb-4">Editar Congregação</h3>
+            <form method="POST">
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">NOME DA CONGREGAÇÃO</label>
+                    <input type="text" name="name" class="form-control bg-light border-0" value="{{ church.name }}" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">ENDEREÇO</label>
+                    <input type="text" name="address" class="form-control bg-light border-0" value="{{ church.address or '' }}" >
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">CIDADE</label>
+                    <input type="text" name="city" class="form-control bg-light border-0" value="{{ church.city or '' }}">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">PAÍS</label>
+                    <select name="country" class="form-select bg-light border-0" required>
+                        <option value="Portugal" {{ 'selected' if church.country == 'Portugal' }}>Portugal</option>
+                        <option value="Brasil" {{ 'selected' if church.country == 'Brasil' }}>Brasil</option>
+                        <option value="Espanha" {{ 'selected' if church.country == 'Espanha' }}>Espanha</option>
+                        <option value="França" {{ 'selected' if church.country == 'França' }}>França</option>
+                        <option value="Alemanha" {{ 'selected' if church.country == 'Alemanha' }}>Alemanha</option>
+                        <option value="Itália" {{ 'selected' if church.country == 'Itália' }}>Itália</option>
+                        <option value="Irlanda" {{ 'selected' if church.country == 'Irlanda' }}>Irlanda</option>
+                        <option value="Bélgica" {{ 'selected' if church.country == 'Bélgica' }}>Bélgica</option>
+                        <option value="Outro" {{ 'selected' if church.country == 'Outro' }}>Outro</option>
+                    </select>
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label small fw-bold">NIF / Nº CONTRIBUINTE</label>
+                        <input type="text" name="nif" class="form-control bg-light border-0" value="{{ church.nif or '' }}" placeholder="Ex: 517760010">
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label small fw-bold">E-MAIL FISCAL / CONTATO</label>
+                        <input type="email" name="email" class="form-control bg-light border-0" value="{{ church.email or '' }}" placeholder="Ex: financeiro@igreja.com">
+                    </div>
+                </div>
+                <div class="form-check mb-3">
+                    <input type="checkbox" name="is_main" class="form-check-input" id="is_main" {{ 'checked' if church.is_main }}>
+                    <label class="form-check-label" for="is_main">É a congregação principal (sede)</label>
+                </div>
+                <div class="d-grid mt-4">
+                    <button type="submit" class="btn btn-primary btn-lg py-3 fw-bold shadow-sm">
+                        Salvar Alterações
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}=== app/templates/admin/churches.html ===
+{% extends "base.html" %}
+{% block content %}
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-5">
+        <div>
+            <h1 class="fw-bold text-primary"><i class="bi bi-building-fill me-2"></i>Congregações</h1>
+            <p class="text-muted">Gerencie a sede e as filiais da igreja.</p>
+        </div>
+        <a href="{{ url_for('admin.add_church') }}" class="btn btn-primary fw-bold">
+            <i class="bi bi-plus-lg me-2"></i> Nova Congregação
+        </a>
+    </div>
+
+    <div class="row g-4">
+        {% for church in churches %}
+        <div class="col-md-6">
+            <div class="card h-100 border-0 shadow-sm">
+                <div class="card-body p-4">
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <h5 class="fw-bold mb-0">{{ church.name }}</h5>
+                        {% if church.is_main %}
+                        <span class="badge bg-primary">Sede</span>
+                        {% else %}
+                        <span class="badge bg-secondary">Filial</span>
+                        {% endif %}
+                    </div>
+                    <p class="text-muted small mb-2"><i class="bi bi-geo-alt me-2"></i>{{ church.address }}</p>
+                    <p class="text-muted small mb-4"><i class="bi bi-globe me-2"></i>{{ church.city }}, {{ church.country }}</p>
+                    
+                    <div class="d-flex gap-2">
+                        <a href="{{ url_for('admin.edit_church', id=church.id) }}" class="btn btn-sm btn-outline-primary">
+                            <i class="bi bi-pencil me-1"></i> Editar
+                        </a>
+                        <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteModal{{ church.id }}">
+                            <i class="bi bi-trash me-1"></i> Excluir
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal de Confirmação de Exclusão -->
+        <div class="modal" id="deleteModal{{ church.id }}" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content border-0 shadow">
+                    <div class="modal-header bg-danger text-white border-0">
+                        <h5 class="modal-title fw-bold">Confirmar Exclusão</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body p-4 text-center">
+                        <i class="bi bi-exclamation-triangle text-danger fs-1 mb-3 d-block"></i>
+                        <p class="mb-0">Tem certeza que deseja excluir a congregação <strong>{{ church.name }}</strong>?</p>
+                        <p class="text-muted small mt-2">Esta ação não pode ser desfeita e removerá os vínculos de todos os membros desta filial.</p>
+                    </div>
+                    <div class="modal-footer border-0 p-3">
+                        <button type="button" class="btn btn-light px-4" data-bs-dismiss="modal">Cancelar</button>
+                        <form action="{{ url_for('admin.delete_church', id=church.id) }}" method="POST" class="d-inline">
+                            <button type="submit" class="btn btn-danger px-4 fw-bold">Sim, Excluir</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}
+=== app/__init__.py ===
+# Arquivo completo: app/__init__.py
+from flask import Flask, render_template, request, current_app
+from flask_login import LoginManager, current_user
+from flask_mail import Mail
+from app.core.models import db, User, Event, Ministry, Media
+from config import Config
+from datetime import datetime
+
+login_manager = LoginManager()
+mail = Mail()
+
+def create_app():
+    app = Flask(__name__)
+    app.config.from_object(Config)
+    
+    db.init_app(app)
+    login_manager.init_app(app)
+    mail.init_app(app)
+    login_manager.login_view = 'auth.login'
+    
+    @login_manager.user_loader
+    def load_user(user_id):
+        return User.query.get(int(user_id))
+    
+    # Blueprints - Importações dentro da função para evitar ciclos
+    from app.modules.auth.routes import auth_bp
+    from app.modules.members.routes import members_bp
+    from app.modules.finance.routes import finance_bp
+    from app.modules.finance.modelo25 import modelo25_bp
+    from app.modules.edification.routes import edification_bp
+    from app.modules.admin.routes import admin_bp
+    
+    app.register_blueprint(auth_bp)
+    app.register_blueprint(members_bp, url_prefix='/members')
+    app.register_blueprint(finance_bp, url_prefix='/finance')
+    app.register_blueprint(modelo25_bp)
+    app.register_blueprint(edification_bp, url_prefix='/edification')
+    app.register_blueprint(admin_bp, url_prefix='/admin')
+
+    import json
+    @app.template_filter('from_json')
+    def from_json_filter(value):
+        if not value:
+            return {}
+        try:
+            return json.loads(value)
+        except (ValueError, TypeError):
+            return {}
+
+    # Rota inicial
+    @app.route('/')
+    def index():
+        return render_template('index.html')
+
+    # Context Processors
+    @app.context_processor
+    def inject_public_events():
+        if current_user.is_authenticated:
+            public_events = Event.query.filter(Event.ministry_id.is_(None), Event.church_id == current_user.church_id).order_by(Event.start_time.asc()).limit(5).all()
+        else:
+            public_events = Event.query.filter(Event.ministry_id.is_(None)).order_by(Event.start_time.asc()).limit(5).all()
+        return dict(public_events=public_events)
+
+    @app.context_processor
+    def inject_is_ministry_leader():
+        def is_ministry_leader(ministry_id):
+            ministry = Ministry.query.get(ministry_id)
+            return ministry and ministry.leader_id == current_user.id
+        return dict(is_ministry_leader=is_ministry_leader)
+
+    @app.context_processor
+    def inject_public_media():
+        if current_user.is_authenticated:
+            public_media = Media.query.filter_by(church_id=current_user.church_id, ministry_id=None).order_by(Media.created_at.desc()).limit(5).all()
+        else:
+            public_media = Media.query.filter(Media.ministry_id.is_(None)).order_by(Media.created_at.desc()).limit(5).all()
+        return dict(public_media=public_media)
+
+    return app
+=== config.py ===
+import os
+from datetime import timedelta
+from dotenv import load_dotenv
+
+# Carrega as variáveis do arquivo .env
+load_dotenv()
+
+class Config:
+    SECRET_KEY = os.environ.get('SECRET_KEY') or 'dev-key-ecclesia-2026'
+    
+    # Suporte dinâmico para PostgreSQL ou SQLite
+    # No Heroku/Render, a variável DATABASE_URL é preenchida automaticamente
+    database_url = os.environ.get('DATABASE_URL')
+    if database_url and database_url.startswith("postgres://"):
+        database_url = database_url.replace("postgres://", "postgresql://", 1)
+    
+    SQLALCHEMY_DATABASE_URI = database_url or 'sqlite:///ecclesia.db'
+    SQLALCHEMY_TRACK_MODIFICATIONS = False
+    
+    REMEMBER_COOKIE_DURATION = timedelta(days=30)
+    UPLOAD_FOLDER = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'app/static/uploads')
+    MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16MB
+    
+    # Configurações de E-mail (SMTP)
+    MAIL_SERVER = os.environ.get('MAIL_SERVER', 'smtp.gmail.com')
+    MAIL_PORT = int(os.environ.get('MAIL_PORT', 587))
+    MAIL_USE_TLS = True
+    MAIL_USE_SSL = False
+    MAIL_USERNAME = os.environ.get('MAIL_USERNAME')
+    MAIL_PASSWORD = os.environ.get('MAIL_PASSWORD')
+    MAIL_DEFAULT_SENDER = os.environ.get('MAIL_DEFAULT_SENDER', MAIL_USERNAME)
+=== app/utils/pdf_gen.py ===
+from fpdf import FPDF
+import os
+from flask import current_app
+from datetime import datetime
+
+class ReceiptPDF(FPDF):
+    def header(self):
+        # Cabeçalho tratado manualmente na função principal
+        pass
+
+    def footer(self):
+        # Rodapé tratado manualmente na função principal
+        pass
+
+
+def generate_receipt(transaction):
+    pdf = ReceiptPDF()
+    pdf.add_page()
+    pdf.set_auto_page_break(auto=True, margin=15)
+
+    # ========================
+    #   CONFIGURAÇÃO DE FONTES UNICODE (para suportar €, ç, ã, etc.)
+    # ========================
+    font_dir = os.path.join(current_app.root_path, 'static', 'fonts')
+    
+    regular_path = os.path.join(font_dir, 'DejaVuSans.ttf')
+    bold_path    = os.path.join(font_dir, 'DejaVuSans-Bold.ttf')
+    
+    use_dejavu = os.path.exists(regular_path) and os.path.exists(bold_path)
+    
+    if use_dejavu:
+        pdf.add_font(family='DejaVu', style='', fname=regular_path)
+        pdf.add_font(family='DejaVu', style='B', fname=bold_path)
+        base_font = 'DejaVu'
+    else:
+        base_font = 'Helvetica'
+        current_app.logger.warning(
+            "Fontes DejaVuSans não encontradas em app/static/fonts/. "
+            "Usando Helvetica como fallback – pode falhar com símbolo €."
+        )
+
+    # --- CABEÇALHO DA IGREJA ---
+    pdf.set_font(base_font, 'B', 12)
+    church_name = transaction.church.name if transaction.church else "Igreja Evangélica Assembleia de Deus"
+    pdf.cell(10, 10, '', 0, 0)  # Espaço para logo futuro
+    pdf.cell(0, 10, church_name, 0, 1, 'L')
+    
+    pdf.ln(5)
+    pdf.set_font(base_font, '', 10)
+    
+    address = transaction.church.address if transaction.church and transaction.church.address else "SEDE R. Dr. Mário Sacramento, 57 - 4ºEsq. Trás"
+    city = f"{transaction.church.city}" if transaction.church and transaction.church.city else "3810-106 Aveiro"
+    pdf.cell(0, 5, address, 0, 1)
+    pdf.cell(0, 5, city, 0, 1)
+    
+    pdf.ln(5)
+    nif = f"Nº Contribuinte: {transaction.church.nif}" if transaction.church and transaction.church.nif else "Nº Contribuinte: 517760010"
+    pdf.cell(0, 5, nif, 0, 1)
+    pdf.cell(0, 5, "Qualidade Jurídica: Pessoa Coletiva Religiosa", 0, 1)
+    pdf.cell(0, 5, "Reconhecimento:", 0, 1)
+    
+    pdf.ln(5)
+    email = f"Email: {transaction.church.email}" if transaction.church and transaction.church.email else "Email: ieadjexus.nacao@gmail.com"
+    pdf.cell(0, 5, email, 0, 1)
+    
+    # --- BOX DO DOADOR (DIREITA) ---
+    pdf.set_xy(100, 60)
+    pdf.set_font(base_font, '', 10)
+    
+    user_name = transaction.user.name if transaction.user else "DOADOR NÃO IDENTIFICADO"
+    user_address = transaction.user.address if transaction.user and transaction.user.address else "Endereço não informado"
+    user_nif = transaction.user.documents if transaction.user and transaction.user.documents else "NIF não informado"
+    user_email = transaction.user.email if transaction.user else ""
+    
+    pdf.rect(95, 60, 100, 30)
+    pdf.set_xy(97, 62)
+    pdf.cell(0, 5, "Para:", 0, 1)
+    pdf.set_x(97)
+    pdf.set_font(base_font, 'B', 10)
+    pdf.cell(0, 5, user_name.upper(), 0, 1)
+    pdf.set_x(97)
+    pdf.set_font(base_font, '', 9)
+    pdf.multi_cell(95, 4, user_address)
+    
+    pdf.set_xy(95, 92)
+    pdf.set_font(base_font, '', 9)
+    pdf.cell(100, 5, f"Nº Contribuinte: {user_nif}", 0, 1, 'C')
+    pdf.set_x(95)
+    pdf.cell(100, 5, f"Email: {user_email}", 0, 1, 'C')
+    
+    pdf.ln(10)
+    
+    # --- TÍTULO DO DOCUMENTO ---
+    pdf.set_y(115)
+    pdf.set_font(base_font, 'B', 11)
+    pdf.cell(0, 10, "COMPROVATIVO DE DONATIVO", 0, 1, 'L')
+    
+    # --- TABELA DE DADOS ---
+    pdf.set_fill_color(220, 235, 245)  # Azul claro
+    pdf.set_font(base_font, 'B', 10)
+    
+    # Cabeçalho da tabela
+    pdf.cell(25, 8, "Nº", 1, 0, 'C', True)
+    pdf.cell(50, 8, "Data do Documento", 1, 0, 'C', True)
+    pdf.cell(70, 8, "Meio de Pagamento", 1, 0, 'C', True)
+    pdf.cell(45, 8, "Valor", 1, 1, 'C', True)
+    
+    # Linha de dados
+    pdf.set_font(base_font, '', 10)
+    pdf.cell(25, 10, str(transaction.id), 1, 0, 'C')
+    pdf.cell(50, 10, transaction.date.strftime('%d/%m/%Y'), 1, 0, 'C')
+    
+    payment_method = transaction.payment_method_name if transaction.payment_method_name else "Numerário"
+    pdf.cell(70, 10, payment_method, 1, 0, 'C')
+    
+    # Valor (aqui o € deve aparecer corretamente agora)
+    currency = transaction.church.currency_symbol if transaction.church else "€"
+    pdf.cell(45, 10, f"{transaction.amount:.2f} {currency}", 1, 1, 'C')
+    
+    pdf.ln(10)
+    
+    # --- TEXTO DE CONFIRMAÇÃO ---
+    pdf.set_font(base_font, '', 10)
+    text = (
+        f"Recebemos de V. Exas. pelo meio acima indicado a quantia de {transaction.amount:.2f} {currency} "
+        "como donativo destinado ao desenvolvimento da atividade desta instituição, "
+        "concedido sem quaisquer contrapartidas."
+    )
+    pdf.multi_cell(0, 5, text)
+    
+    pdf.ln(10)
+    
+    # --- EFEITOS FISCAIS ---
+    pdf.set_font(base_font, 'B', 10)
+    pdf.cell(0, 5, "Efeitos fiscais:", 0, 1)
+    
+    pdf.set_font(base_font, '', 9)
+    pdf.rect(10, pdf.get_y(), 130, 12)
+    pdf.set_x(12)
+    pdf.cell(0, 6, "Enquadramento no Artigo 61º do EBF (donativo concedido sem contrapartidas)", 0, 1)
+    pdf.set_x(12)
+    pdf.line(10, pdf.get_y(), 140, pdf.get_y())
+    pdf.cell(0, 6, "n.º 2 do artigo 63.º do EBF", 0, 1)
+    
+    pdf.ln(15)
+    pdf.set_font(base_font, '', 10)
+    pdf.cell(0, 10, "Respeitosos cumprimentos", 0, 1)
+    
+    # --- SALVAMENTO ---
+    filename = f"recibo_{transaction.id}_{transaction.date.strftime('%Y%m%d')}.pdf"
+    
+    upload_folder = current_app.config.get('UPLOAD_FOLDER', 'app/static/uploads')
+    if not os.path.isabs(upload_folder):
+        upload_folder = os.path.join(current_app.root_path, 'static/uploads')
+    
+    receipts_dir = os.path.join(upload_folder, 'receipts')
+    os.makedirs(receipts_dir, exist_ok=True)
+    
+    filepath = os.path.join(receipts_dir, filename)
+    pdf.output(filepath)
+    
+    return filename

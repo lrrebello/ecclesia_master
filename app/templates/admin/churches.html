@@ -16,6 +16,19 @@
         <div class="col-md-6">
             <div class="card h-100 border-0 shadow-sm">
                 <div class="card-body p-4">
+                    
+                    {% if church.logo_path %}
+                    <img src="{{ url_for('static', filename=church.logo_path) }}" 
+                        alt="Logo {{ church.name }}" 
+                        class="rounded-circle me-3" 
+                        style="width: 50px; height: 50px; object-fit: cover; border: 2px solid #e9ecef;">
+                    {% else %}
+                    <div class="rounded-circle me-3 bg-light d-flex align-items-center justify-content-center" 
+                        style="width: 50px; height: 50px; border: 2px solid #e9ecef;">
+                        <i class="bi bi-building fs-4 text-muted"></i>
+                    </div>
+                    {% endif %}
+
                     <div class="d-flex justify-content-between align-items-start mb-3">
                         <h5 class="fw-bold mb-0">{{ church.name }}</h5>
                         {% if church.is_main %}

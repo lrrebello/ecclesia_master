@@ -4,7 +4,7 @@
     <div class="col-md-6">
         <div class="card border-0 shadow-sm p-4">
             <h3 class="fw-bold mb-4">Editar Congregação</h3>
-            <form method="POST">
+            <form method="POST" enctype="multipart/form-data">
                 <div class="mb-3">
                     <label class="form-label small fw-bold">NOME DA CONGREGAÇÃO</label>
                     <input type="text" name="name" class="form-control bg-light border-0" value="{{ church.name }}" required>
@@ -39,6 +39,15 @@
                     <div class="col-md-6 mb-3">
                         <label class="form-label small fw-bold">E-MAIL FISCAL / CONTATO</label>
                         <input type="email" name="email" class="form-control bg-light border-0" value="{{ church.email or '' }}" placeholder="Ex: financeiro@igreja.com">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">LOGO DA CONGREGAÇÃO</label>
+                        {% if church.logo_path %}
+                        <img src="{{ url_for('static', filename=church.logo_path) }}" alt="Logo atual" class="img-thumbnail mb-2" style="max-height: 100px;">
+                        <small class="text-muted d-block mb-2">Logo atual. Envie um novo para substituir.</small>
+                        {% endif %}
+                        <input type="file" name="logo" class="form-control bg-light border-0" accept="image/*">
+                        <small class="text-muted">Formatos: JPG, PNG, GIF. Tamanho máx: 2MB.</small>
                     </div>
                 </div>
                 <div class="form-check mb-3">

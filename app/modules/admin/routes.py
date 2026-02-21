@@ -43,11 +43,22 @@ def add_church():
             currency_symbol=currency,
             is_main=True if request.form.get('is_main') else False
         )
+
+         # Processar upload de logo
+        file = request.files.get('logo')
+        if file and file.filename:
+            filename = secure_filename(file.filename)
+            logos_dir = os.path.join(current_app.config['UPLOAD_FOLDER'], 'churches', 'logos')
+            os.makedirs(logos_dir, exist_ok=True)
+            full_path = os.path.join(logos_dir, filename)
+            file.save(full_path)
+            new_church.logo_path = f'uploads/churches/logos/{filename}'
+
         db.session.add(new_church)
         db.session.commit()
         flash('Congregação cadastrada com sucesso!', 'success')
         return redirect(url_for('admin.list_churches'))
-    
+        
     return render_template('admin/add_church.html')
 
 @admin_bp.route('/church/edit/<int:id>', methods=['GET', 'POST'])
@@ -72,6 +83,17 @@ def edit_church(id):
         church.nif = request.form.get('nif')
         church.email = request.form.get('email')
         church.is_main = 'is_main' in request.form
+
+        # Processar upload de logo (substitui se novo arquivo for enviado)
+        file = request.files.get('logo')
+        if file and file.filename:
+            filename = secure_filename(file.filename)
+            logos_dir = os.path.join(current_app.config['UPLOAD_FOLDER'], 'churches', 'logos')
+            os.makedirs(logos_dir, exist_ok=True)
+            full_path = os.path.join(logos_dir, filename)
+            file.save(full_path)
+            church.logo_path = f'uploads/churches/logos/{filename}'
+
         db.session.commit()
         flash('Congregação atualizada!', 'success')
         return redirect(url_for('admin.list_churches'))

@@ -4,7 +4,7 @@
     <div class="col-md-6">
         <div class="card border-0 shadow-sm p-4">
             <h3 class="fw-bold mb-4">Nova Congregação</h3>
-            <form method="POST">
+            <form method="POST" enctype="multipart/form-data">
                 <div class="mb-3">
                     <label class="form-label small fw-bold">NOME DA CONGREGAÇÃO</label>
                     <input type="text" name="name" class="form-control bg-light border-0" placeholder="Ex: AD Jesus para as Nações - Filial Sul" required>
@@ -43,6 +43,12 @@
                         <label class="form-label small fw-bold">E-MAIL FISCAL / CONTATO</label>
                         <input type="email" name="email" class="form-control bg-light border-0" placeholder="Ex: financeiro@igreja.com">
                     </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">LOGO DA CONGREGAÇÃO</label>
+                        <input type="file" name="logo" class="form-control bg-light border-0" accept="image/*">
+                        <small class="text-muted">Formatos: JPG, PNG, GIF. Tamanho máx: 2MB.</small>
+                    </div>
+
                 </div>
                 <div class="mb-3 form-check">
                     <input type="checkbox" name="is_main" class="form-check-input" id="isMain">
