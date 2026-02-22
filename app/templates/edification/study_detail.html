@@ -32,38 +32,46 @@
                     {% if published_questions %}
                     <div class="mt-5 pt-5 border-top">
                         <h4 class="fw-bold mb-4 text-primary"><i class="bi bi-patch-question me-2"></i>Questões para Estudo</h4>
-                        {% for q in published_questions %}
-                        <div class="card border-0 bg-light p-4 mb-4 rounded-4">
-                            <p class="fw-bold mb-3 fs-5">{{ loop.index }}. {{ q.question_text }}</p>
-                            <div class="ms-3">
-                                {% if q.options %}
-                                    {% set opts = q.options|from_json %}
-                                    {% for key, val in opts.items() %}
-                                    <div class="form-check mb-3">
-                                        <input class="form-check-input" type="radio" name="q{{ q.id }}" id="q{{ q.id }}_{{ key }}" value="{{ key }}">
-                                        <label class="form-check-label fs-6" for="q{{ q.id }}_{{ key }}">
-                                            <span class="fw-bold me-2">{{ key }})</span> {{ val }}
-                                        </label>
-                                    </div>
-                                    {% endfor %}
-                                {% endif %}
-                            </div>
-                            <div class="mt-3 d-none answer-section" id="answer-{{ q.id }}">
-                                <div class="p-3 bg-white rounded-3 border-start border-success border-4 shadow-sm">
-                                    <span class="text-success fw-bold"><i class="bi bi-check-circle-fill me-2"></i>Resposta Correta: 
-                                        {% set correct_map = {'1': 'A', '2': 'B', '3': 'C', '4': 'D', 1: 'A', 2: 'B', 3: 'C', 4: 'D'} %}
-                                        {{ correct_map.get(q.correct_option, q.correct_option) }}
-                                    </span>
-                                    {% if q.explanation %}
-                                    <p class="mb-0 small text-muted mt-2 italic"><strong>Fonte/Explicação:</strong> {{ q.explanation }}</p>
+                        
+                        <!-- Formulário para respostas -->
+                        <form id="answersForm">
+                            {% for q in published_questions %}
+                            <div class="card border-0 bg-light p-4 mb-4 rounded-4">
+                                <p class="fw-bold mb-3 fs-5">{{ loop.index }}. {{ q.question_text }}</p>
+                                <div class="ms-3">
+                                    {% if q.options %}
+                                        {% set opts = q.options|from_json %}
+                                        {% for key, val in opts.items() %}
+                                        <div class="form-check mb-3">
+                                            <input class="form-check-input question-radio" type="radio" name="q{{ q.id }}" id="q{{ q.id }}_{{ key }}" value="{{ key }}" data-question-id="{{ q.id }}" required>
+                                            <label class="form-check-label fs-6" for="q{{ q.id }}_{{ key }}">
+                                                <span class="fw-bold me-2">{{ key }})</span> {{ val }}
+                                            </label>
+                                        </div>
+                                        {% endfor %}
                                     {% endif %}
                                 </div>
+                                <div class="mt-3 d-none answer-section" id="answer-{{ q.id }}">
+                                    <div class="p-3 bg-white rounded-3 border-start border-success border-4 shadow-sm">
+                                        <span class="text-success fw-bold"><i class="bi bi-check-circle-fill me-2"></i>Resposta Correta: 
+                                            {% set correct_map = {'1': 'A', '2': 'B', '3': 'C', '4': 'D', 1: 'A', 2: 'B', 3: 'C', 4: 'D'} %}
+                                            {{ correct_map.get(q.correct_option, q.correct_option) }}
+                                        </span>
+                                        {% if q.explanation %}
+                                        <p class="mb-0 small text-muted mt-2 italic"><strong>Fonte/Explicação:</strong> {{ q.explanation }}</p>
+                                        {% endif %}
+                                    </div>
+                                </div>
                             </div>
-                        </div>
-                        {% endfor %}
+                            {% endfor %}
+                        </form>
                         
+                        <!-- Contador de questões respondidas -->
                         <div class="text-center mt-4">
-                            <button onclick="toggleAnswers()" id="btn-toggle" class="btn btn-primary btn-lg fw-bold rounded-pill px-5 shadow-sm">
+                            <div class="mb-3">
+                                <span id="answeredCount" class="badge bg-info text-white px-3 py-2">0/{{ published_questions|length }} respondidas</span>
+                            </div>
+                            <button onclick="toggleAnswers()" id="btn-toggle" class="btn btn-primary btn-lg fw-bold rounded-pill px-5 shadow-sm" disabled>
                                 <i class="bi bi-eye me-2"></i>Ver Gabarito
                             </button>
                         </div>
@@ -82,6 +90,50 @@
 </div>
 
 <script>
+// Verificar se todas as questões foram respondidas
+function checkAllQuestionsAnswered() {
+    const totalQuestions = {{ published_questions|length }};
+    const radios = document.querySelectorAll('.question-radio');
+    const answeredQuestions = new Set();
+    
+    radios.forEach(radio => {
+        if (radio.checked) {
+            answeredQuestions.add(radio.dataset.questionId);
+        }
+    });
+    
+    const answeredCount = answeredQuestions.size;
+    const btn = document.getElementById('btn-toggle');
+    const answeredSpan = document.getElementById('answeredCount');
+    
+    // Atualizar contador
+    if (answeredSpan) {
+        answeredSpan.textContent = `${answeredCount}/${totalQuestions} respondidas`;
+    }
+    
+    // Habilitar/desabilitar botão
+    if (answeredCount === totalQuestions && totalQuestions > 0) {
+        btn.disabled = false;
+        btn.classList.remove('btn-secondary');
+        btn.classList.add('btn-primary');
+    } else {
+        btn.disabled = true;
+        btn.classList.add('btn-secondary');
+        btn.classList.remove('btn-primary');
+    }
+}
+
+// Adicionar event listeners para todos os radios
+document.addEventListener('DOMContentLoaded', function() {
+    const radios = document.querySelectorAll('.question-radio');
+    radios.forEach(radio => {
+        radio.addEventListener('change', checkAllQuestionsAnswered);
+    });
+    
+    // Verificar estado inicial
+    checkAllQuestionsAnswered();
+});
+
 function toggleAnswers() {
     const sections = document.querySelectorAll('.answer-section');
     const btn = document.getElementById('btn-toggle');
