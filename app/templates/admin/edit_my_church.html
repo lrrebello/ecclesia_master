@@ -1,0 +1,193 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold mb-0">Dados da Congregação</h2>
+            <p class="text-muted">Mantenha as informações de sua filial sempre atualizadas.</p>
+        </div>
+        <a href="{{ url_for('members.dashboard') }}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-2"></i> Voltar
+        </a>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-primary bg-opacity-10 border-0 p-4">
+                    <h5 class="fw-bold mb-0">
+                        <i class="bi bi-building me-2"></i> Informações Gerais
+                    </h5>
+                </div>
+                <div class="card-body p-4">
+                    <form method="POST" enctype="multipart/form-data">
+                        <!-- Nome da Congregação -->
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">Nome da Congregação</label>
+                            <input type="text" name="name" class="form-control form-control-lg" 
+                                   value="{{ church.name }}" required>
+                            <small class="text-muted">O nome oficial de sua congregação.</small>
+                        </div>
+
+                        <!-- Endereço -->
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">Endereço</label>
+                            <input type="text" name="address" class="form-control" 
+                                   value="{{ church.address or '' }}" placeholder="Rua, número">
+                        </div>
+
+                        <!-- Cidade -->
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">Cidade</label>
+                            <input type="text" name="city" class="form-control" 
+                                   value="{{ church.city or '' }}" placeholder="Cidade">
+                        </div>
+
+                        <!-- País -->
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">País</label>
+                            <select name="country" class="form-select" required>
+                                <option value="">Selecione um país</option>
+                                <option value="Portugal" {% if church.country == 'Portugal' %}selected{% endif %}>Portugal</option>
+                                <option value="Brasil" {% if church.country == 'Brasil' %}selected{% endif %}>Brasil</option>
+                                <option value="Espanha" {% if church.country == 'Espanha' %}selected{% endif %}>Espanha</option>
+                                <option value="França" {% if church.country == 'França' %}selected{% endif %}>França</option>
+                                <option value="Alemanha" {% if church.country == 'Alemanha' %}selected{% endif %}>Alemanha</option>
+                                <option value="Itália" {% if church.country == 'Itália' %}selected{% endif %}>Itália</option>
+                                <option value="Bélgica" {% if church.country == 'Bélgica' %}selected{% endif %}>Bélgica</option>
+                                <option value="Holanda" {% if church.country == 'Holanda' %}selected{% endif %}>Holanda</option>
+                                <option value="Luxemburgo" {% if church.country == 'Luxemburgo' %}selected{% endif %}>Luxemburgo</option>
+                                <option value="Irlanda" {% if church.country == 'Irlanda' %}selected{% endif %}>Irlanda</option>
+                                <option value="Grécia" {% if church.country == 'Grécia' %}selected{% endif %}>Grécia</option>
+                                <option value="Áustria" {% if church.country == 'Áustria' %}selected{% endif %}>Áustria</option>
+                                <option value="Finlândia" {% if church.country == 'Finlândia' %}selected{% endif %}>Finlândia</option>
+                                <option value="Outro" {% if church.country and church.country not in ['Portugal', 'Brasil', 'Espanha', 'França', 'Alemanha', 'Itália', 'Bélgica', 'Holanda', 'Luxemburgo', 'Irlanda', 'Grécia', 'Áustria', 'Finlândia'] %}selected{% endif %}>Outro</option>
+                            </select>
+                            <small class="text-muted">A moeda será ajustada automaticamente conforme o país.</small>
+                        </div>
+
+                        <!-- NIF / Número de Contribuinte -->
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">NIF / Número de Contribuinte</label>
+                            <input type="text" name="nif" class="form-control" 
+                                   value="{{ church.nif or '' }}" placeholder="Ex: 123456789">
+                            <small class="text-muted">Número de Identificação Fiscal (Portugal) ou equivalente no seu país.</small>
+                        </div>
+
+                        <!-- Email -->
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">Email da Congregação</label>
+                            <input type="email" name="email" class="form-control" 
+                                   value="{{ church.email or '' }}" placeholder="contato@congregacao.com">
+                        </div>
+
+                        <hr class="my-5">
+
+                        <!-- Logo -->
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">Logo da Congregação</label>
+                            {% if church.logo_path %}
+                            <div class="mb-3">
+                                <img src="{{ url_for('static', filename=church.logo_path) }}" 
+                                     alt="Logo" class="img-thumbnail" style="max-width: 200px; max-height: 200px;">
+                                <p class="text-muted small mt-2">Logo atual</p>
+                            </div>
+                            {% endif %}
+                            <input type="file" name="logo" class="form-control" accept="image/*">
+                            <small class="text-muted">Formatos aceitos: JPG, PNG. Tamanho máximo: 5MB.</small>
+                        </div>
+
+                        <!-- Cartão de Membro - Frente -->
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">Cartão de Membro - Frente</label>
+                            {% if church.member_card_front %}
+                            <div class="mb-3">
+                                <img src="{{ url_for('static', filename=church.member_card_front) }}" 
+                                     alt="Frente do Cartão" class="img-thumbnail" style="max-width: 300px; max-height: 200px;">
+                                <p class="text-muted small mt-2">Frente atual</p>
+                            </div>
+                            {% endif %}
+                            <input type="file" name="member_card_front" class="form-control" accept="image/*">
+                            <small class="text-muted">Arte da frente do cartão de membro. Formatos aceitos: JPG, PNG.</small>
+                        </div>
+
+                        <!-- Cartão de Membro - Verso -->
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">Cartão de Membro - Verso</label>
+                            {% if church.member_card_back %}
+                            <div class="mb-3">
+                                <img src="{{ url_for('static', filename=church.member_card_back) }}" 
+                                     alt="Verso do Cartão" class="img-thumbnail" style="max-width: 300px; max-height: 200px;">
+                                <p class="text-muted small mt-2">Verso atual</p>
+                            </div>
+                            {% endif %}
+                            <input type="file" name="member_card_back" class="form-control" accept="image/*">
+                            <small class="text-muted">Arte do verso do cartão de membro. Formatos aceitos: JPG, PNG.</small>
+                        </div>
+
+                        <hr class="my-5">
+
+                        <!-- Botões de Ação -->
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-primary btn-lg px-5">
+                                <i class="bi bi-check-circle me-2"></i> Salvar Alterações
+                            </button>
+                            <a href="{{ url_for('members.dashboard') }}" class="btn btn-outline-secondary btn-lg px-5">
+                                <i class="bi bi-x-circle me-2"></i> Cancelar
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Resumo da Congregação -->
+        <div class="col-lg-4">
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-info bg-opacity-10 border-0 p-4">
+                    <h5 class="fw-bold mb-0">
+                        <i class="bi bi-info-circle me-2"></i> Informações
+                    </h5>
+                </div>
+                <div class="card-body p-4">
+                    <div class="mb-3">
+                        <p class="text-muted small mb-1">CONGREGAÇÃO</p>
+                        <p class="fw-bold">{{ church.name }}</p>
+                    </div>
+                    <hr>
+                    <div class="mb-3">
+                        <p class="text-muted small mb-1">LOCALIZAÇÃO</p>
+                        <p class="fw-bold">
+                            {% if church.city %}{{ church.city }}, {% endif %}
+                            {{ church.country or 'Não informado' }}
+                        </p>
+                    </div>
+                    <hr>
+                    <div class="mb-3">
+                        <p class="text-muted small mb-1">MOEDA</p>
+                        <p class="fw-bold">{{ church.currency_symbol }}</p>
+                    </div>
+                    <hr>
+                    <div class="mb-3">
+                        <p class="text-muted small mb-1">CRIADA EM</p>
+                        <p class="fw-bold">{{ church.created_at.strftime('%d/%m/%Y') }}</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Dica de Segurança -->
+            <div class="alert alert-info border-0" role="alert">
+                <div class="d-flex">
+                    <div class="flex-shrink-0">
+                        <i class="bi bi-shield-check text-info fs-5"></i>
+                    </div>
+                    <div class="flex-grow-1 ms-3">
+                        <h6 class="alert-heading">Dados Protegidos</h6>
+                        <p class="mb-0 small">Apenas você e administradores globais podem editar estes dados. Todas as alterações são registradas.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

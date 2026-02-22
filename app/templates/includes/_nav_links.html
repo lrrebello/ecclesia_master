@@ -57,6 +57,12 @@
     </a>
     {% endif %}
 
+    {% if current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder'] %}
+    <a class="nav-link {{ 'active' if 'edit_my_church' in request.endpoint }}" href="{{ url_for('admin.edit_my_church') }}">
+        <i class="bi bi-gear me-2"></i> Dados da Congregação
+    </a>
+    {% endif %}
+
     {% if current_user.church_role and current_user.church_role.name == 'Administrador Global' %}
     <hr class="my-3 opacity-25">
     <label class="small text-muted px-3 mb-2">ADMINISTRAÇÃO</label>
