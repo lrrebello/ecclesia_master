@@ -133,11 +133,21 @@
     color: white;
     font-family: 'Inter', sans-serif;
     box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-    /* Aqui você poderá anexar a arte como background-image futuramente */
-    /* background-image: url('caminho/para/sua/arte.png'); */
     background-size: cover;
     background-position: center;
 }
+
+{% if member.church and member.church.member_card_front %}
+.member-card.front {
+    background-image: url('{{ url_for("static", filename=member.church.member_card_front) }}');
+}
+{% endif %}
+
+{% if member.church and member.church.member_card_back %}
+.member-card.back {
+    background-image: url('{{ url_for("static", filename=member.church.member_card_back) }}');
+}
+{% endif %}
 
 .card-overlay {
     position: absolute;
@@ -145,7 +155,7 @@
     left: 0;
     width: 100%;
     height: 100%;
-    background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(0,0,0,0.1) 100%);
+    background: linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(0,0,0,0.05) 100%);
     pointer-events: none;
 }
 

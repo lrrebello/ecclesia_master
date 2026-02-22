@@ -51,6 +51,9 @@
                                 <a href="{{ url_for('members.promote_member', id=member.id) }}" class="btn btn-sm btn-outline-primary rounded-pill px-3">
                                     <i class="bi bi-person-badge me-1"></i> Cargo
                                 </a>
+                                <a href="{{ url_for('admin.member_card', id=member.id) }}" class="btn btn-sm btn-outline-dark rounded-pill px-3">
+                                    <i class="bi bi-card-id me-1"></i> Cartão
+                                </a>
                                 
                                 {% if member.id != current_user.id %}
                                 <button type="button" class="btn btn-sm btn-outline-danger rounded-pill px-3" data-bs-toggle="modal" data-bs-target="#deleteMemberModal{{ member.id }}">

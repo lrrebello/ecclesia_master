@@ -50,7 +50,34 @@
                         <small class="text-muted">Formatos: JPG, PNG, GIF. Tamanho máx: 2MB.</small>
                     </div>
                 </div>
-                <div class="form-check mb-3">
+
+                <hr class="my-4">
+                <h5 class="fw-bold mb-3"><i class="bi bi-card-id me-2"></i>Arte do Cartão de Membro</h5>
+                
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label small fw-bold">FRENTE DO CARTÃO (85.6mm x 54mm)</label>
+                        {% if church.member_card_front %}
+                        <img src="{{ url_for('static', filename=church.member_card_front) }}" alt="Frente atual" class="img-thumbnail mb-2" style="max-height: 120px;">
+                        <small class="text-muted d-block mb-2">Frente atual. Envie uma nova para substituir.</small>
+                        {% endif %}
+                        <input type="file" name="member_card_front" class="form-control bg-light border-0" accept="image/*">
+                        <small class="text-muted">Formatos: JPG, PNG. Tamanho máx: 5MB. Dimensões: 85.6mm x 54mm (300 DPI).</small>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label small fw-bold">VERSO DO CARTÃO (85.6mm x 54mm)</label>
+                        {% if church.member_card_back %}
+                        <img src="{{ url_for('static', filename=church.member_card_back) }}" alt="Verso atual" class="img-thumbnail mb-2" style="max-height: 120px;">
+                        <small class="text-muted d-block mb-2">Verso atual. Envie um novo para substituir.</small>
+                        {% endif %}
+                        <input type="file" name="member_card_back" class="form-control bg-light border-0" accept="image/*">
+                        <small class="text-muted">Formatos: JPG, PNG. Tamanho máx: 5MB. Dimensões: 85.6mm x 54mm (300 DPI).</small>
+                    </div>
+                </div>
+                <div class="alert alert-info small mt-3">
+                    <i class="bi bi-info-circle me-2"></i><strong>Dica:</strong> As artes devem ser preparadas com espaços em branco para os dados do membro (nome, foto, cargo, etc). O sistema posicionará automaticamente as informações sobre sua arte.
+                </div>
+                <div class="form-check mb-4">
                     <input type="checkbox" name="is_main" class="form-check-input" id="is_main" {{ 'checked' if church.is_main }}>
                     <label class="form-check-label" for="is_main">É a congregação principal (sede)</label>
                 </div>

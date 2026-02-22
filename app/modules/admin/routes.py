@@ -93,6 +93,26 @@ def edit_church(id):
             full_path = os.path.join(logos_dir, filename)
             file.save(full_path)
             church.logo_path = f'uploads/churches/logos/{filename}'
+        
+        # Processar upload da frente do cartão de membro
+        card_front = request.files.get('member_card_front')
+        if card_front and card_front.filename:
+            filename = secure_filename(card_front.filename)
+            cards_dir = os.path.join(current_app.config['UPLOAD_FOLDER'], 'churches', 'member_cards')
+            os.makedirs(cards_dir, exist_ok=True)
+            full_path = os.path.join(cards_dir, f'front_{church.id}_{filename}')
+            card_front.save(full_path)
+            church.member_card_front = f'uploads/churches/member_cards/front_{church.id}_{filename}'
+        
+        # Processar upload do verso do cartão de membro
+        card_back = request.files.get('member_card_back')
+        if card_back and card_back.filename:
+            filename = secure_filename(card_back.filename)
+            cards_dir = os.path.join(current_app.config['UPLOAD_FOLDER'], 'churches', 'member_cards')
+            os.makedirs(cards_dir, exist_ok=True)
+            full_path = os.path.join(cards_dir, f'back_{church.id}_{filename}')
+            card_back.save(full_path)
+            church.member_card_back = f'uploads/churches/member_cards/back_{church.id}_{filename}'
 
         db.session.commit()
         flash('Congregação atualizada!', 'success')
@@ -287,11 +307,16 @@ def delete_role(id):
 @admin_bp.route('/member/card/<int:id>')
 @login_required
 def member_card(id):
-    if not (current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder']):
-        flash('Acesso negado.', 'danger')
+    member = User.query.get_or_404(id)
+    
+    # Verificar permissão: Admin Global ou Pastor Líder da mesma igreja
+    is_global_admin = current_user.church_role and current_user.church_role.name == 'Administrador Global'
+    is_local_pastor = current_user.church_role and current_user.church_role.name == 'Pastor Líder' and current_user.church_id == member.church_id
+    
+    if not (is_global_admin or is_local_pastor):
+        flash('Acesso negado. Você não tem permissão para gerar o cartão deste membro.', 'danger')
         return redirect(url_for('members.dashboard'))
     
-    member = User.query.get_or_404(id)
     return render_template('admin/member_card.html', member=member)
 
 @admin_bp.route('/church/delete/<int:id>', methods=['POST'])

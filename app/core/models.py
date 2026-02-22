@@ -23,6 +23,8 @@ class Church(db.Model):
     is_main = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     logo_path = db.Column(db.String(255), nullable=True)  # Novo campo para o logo
+    member_card_front = db.Column(db.String(255), nullable=True)  # Arte da frente do cartão
+    member_card_back = db.Column(db.String(255), nullable=True)  # Arte do verso do cartão
     
     members = db.relationship('User', backref='church', lazy=True)
     ministries = db.relationship('Ministry', backref='church', lazy=True)
