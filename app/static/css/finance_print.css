@@ -1,0 +1,398 @@
+/* ===================================================================
+   ESTILOS DE IMPRESSÃO PROFISSIONAL - DASHBOARD FINANCEIRO
+   Arquivo: finance_print.css
+   Propósito: Melhorar a aparência do PDF/impressão do dashboard
+   Nota: Não altera funções existentes, apenas adiciona novos estilos
+   =================================================================== */
+
+@media print {
+    /* ===== RESET E LIMPEZA ===== */
+    * {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        color-adjust: exact !important;
+    }
+
+    /* Ocultar elementos desnecessários */
+    .sidebar,
+    .mobile-navbar,
+    .btn,
+    .card-header,
+    form,
+    .theme-toggle,
+    header,
+    .offcanvas,
+    .btn-outline-dark,
+    .btn-outline-secondary,
+    .btn-outline-primary,
+    .btn-outline-info,
+    .btn-primary,
+    [onclick*="print"],
+    a[href*="download"],
+    .btn-sm,
+    .rounded-pill {
+        display: none !important;
+    }
+
+    /* ===== BODY E CONTAINER ===== */
+    body {
+        background-color: white !important;
+        color: #000 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        font-size: 11pt;
+        line-height: 1.4;
+    }
+
+    .main-content {
+        margin-left: 0 !important;
+        padding: 0 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        background-color: white !important;
+    }
+
+    .container-fluid {
+        width: 100% !important;
+        max-width: 100% !important;
+        padding: 0 !important;
+        margin: 0 !important;
+    }
+
+    /* ===== CABEÇALHO PROFISSIONAL ===== */
+    .print-header {
+        border-bottom: 2px solid #333;
+        padding: 20px 0;
+        margin-bottom: 20px;
+        text-align: center;
+    }
+
+    .print-header h1 {
+        margin: 0;
+        font-size: 18pt;
+        font-weight: bold;
+        color: #000;
+    }
+
+    .print-header p {
+        margin: 5px 0 0 0;
+        font-size: 10pt;
+        color: #666;
+    }
+
+    .print-date {
+        font-size: 9pt;
+        color: #999;
+        margin-top: 10px;
+    }
+
+    /* ===== TÍTULO E SUBTÍTULO ===== */
+    h2 {
+        font-size: 16pt !important;
+        font-weight: bold !important;
+        margin: 20px 0 5px 0 !important;
+        color: #000 !important;
+        page-break-after: avoid;
+    }
+
+    h2 + p {
+        font-size: 10pt !important;
+        color: #666 !important;
+        margin: 0 0 15px 0 !important;
+    }
+
+    h5 {
+        font-size: 12pt !important;
+        font-weight: bold !important;
+        margin: 15px 0 10px 0 !important;
+        color: #000 !important;
+        page-break-after: avoid;
+    }
+
+    /* ===== CARDS DE TOTAIS ===== */
+    .row.g-4 {
+        margin: 0 !important;
+        padding: 0 !important;
+        display: flex;
+        gap: 15px;
+        margin-bottom: 20px !important;
+    }
+
+    .row.g-4 .col-md-4 {
+        flex: 0 0 calc(33.333% - 10px) !important;
+        padding: 0 !important;
+        margin: 0 !important;
+    }
+
+    .card {
+        border: 1px solid #ccc !important;
+        box-shadow: none !important;
+        background-color: white !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        page-break-inside: avoid;
+    }
+
+    .card-body {
+        padding: 12px !important;
+        text-align: center;
+    }
+
+    /* Reduzir tamanho dos totais */
+    .card-body p {
+        font-size: 9pt !important;
+        margin: 0 0 8px 0 !important;
+        font-weight: bold;
+        color: #666;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .card-body h3 {
+        font-size: 14pt !important;
+        margin: 0 !important;
+        font-weight: bold;
+        color: #000 !important;
+        word-break: break-word;
+    }
+
+    /* Cores dos cards na impressão */
+    .bg-success.bg-opacity-10 {
+        background-color: #f0f9f6 !important;
+        border-color: #10b981 !important;
+    }
+
+    .bg-success.bg-opacity-10 p {
+        color: #059669 !important;
+    }
+
+    .bg-success.bg-opacity-10 h3 {
+        color: #059669 !important;
+    }
+
+    .bg-danger.bg-opacity-10 {
+        background-color: #fef2f2 !important;
+        border-color: #ef4444 !important;
+    }
+
+    .bg-danger.bg-opacity-10 p {
+        color: #dc2626 !important;
+    }
+
+    .bg-danger.bg-opacity-10 h3 {
+        color: #dc2626 !important;
+    }
+
+    .bg-primary.bg-opacity-10 {
+        background-color: #eff6ff !important;
+        border-color: #3b82f6 !important;
+    }
+
+    .bg-primary.bg-opacity-10 p {
+        color: #1d4ed8 !important;
+    }
+
+    .bg-primary.bg-opacity-10 h3 {
+        color: #1d4ed8 !important;
+    }
+
+    /* ===== TABELA ===== */
+    .table-responsive {
+        overflow: visible !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    table {
+        width: 100% !important;
+        border-collapse: collapse !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        font-size: 10pt;
+        page-break-inside: avoid;
+    }
+
+    table thead {
+        display: table-header-group !important;
+        background-color: #f3f4f6 !important;
+    }
+
+    table thead th {
+        background-color: #f3f4f6 !important;
+        border: 1px solid #d1d5db !important;
+        padding: 10px 8px !important;
+        text-align: left;
+        font-weight: bold;
+        color: #000 !important;
+        font-size: 10pt;
+    }
+
+    table tbody tr {
+        border-bottom: 1px solid #e5e7eb !important;
+        page-break-inside: avoid;
+    }
+
+    table tbody td {
+        border: 1px solid #e5e7eb !important;
+        padding: 8px !important;
+        color: #000 !important;
+        font-size: 10pt;
+    }
+
+    table tbody tr:nth-child(even) {
+        background-color: #f9fafb !important;
+    }
+
+    table tbody tr:hover {
+        background-color: transparent !important;
+    }
+
+    /* Badges na tabela */
+    .badge {
+        background-color: #f3f4f6 !important;
+        color: #000 !important;
+        border: 1px solid #d1d5db !important;
+        padding: 4px 8px !important;
+        font-size: 9pt;
+        font-weight: normal;
+    }
+
+    .badge.bg-success {
+        background-color: #d1fae5 !important;
+        color: #065f46 !important;
+    }
+
+    .badge.bg-danger {
+        background-color: #fee2e2 !important;
+        color: #7f1d1d !important;
+    }
+
+    /* Alinhamento de valores */
+    .text-end {
+        text-align: right !important;
+    }
+
+    .text-center {
+        text-align: center !important;
+    }
+
+    /* Texto de valores */
+    .text-success {
+        color: #059669 !important;
+    }
+
+    .text-danger {
+        color: #dc2626 !important;
+    }
+
+    .text-muted {
+        color: #666 !important;
+    }
+
+    .text-primary {
+        color: #1d4ed8 !important;
+    }
+
+    /* Small text */
+    .small {
+        font-size: 9pt !important;
+    }
+
+    .extra-small {
+        font-size: 8pt !important;
+    }
+
+    /* ===== RODAPÉ ===== */
+    .print-footer {
+        border-top: 1px solid #ccc;
+        padding: 15px 0;
+        margin-top: 30px;
+        text-align: center;
+        font-size: 9pt;
+        color: #999;
+    }
+
+    /* ===== PAGINAÇÃO ===== */
+    @page {
+        size: A4;
+        margin: 15mm;
+    }
+
+    /* Evitar quebras indesejadas */
+    .card {
+        page-break-inside: avoid;
+    }
+
+    table {
+        page-break-inside: avoid;
+    }
+
+    h2, h3, h4, h5 {
+        page-break-after: avoid;
+    }
+
+    /* ===== ESPAÇAMENTO ===== */
+    .mb-4 {
+        margin-bottom: 15px !important;
+    }
+
+    .mb-5 {
+        margin-bottom: 20px !important;
+    }
+
+    .p-4 {
+        padding: 12px !important;
+    }
+
+    .px-4 {
+        padding-left: 8px !important;
+        padding-right: 8px !important;
+    }
+
+    .py-3 {
+        padding-top: 6px !important;
+        padding-bottom: 6px !important;
+    }
+
+    /* ===== ÍCONES ===== */
+    .bi {
+        display: none !important;
+    }
+
+    /* ===== LINKS ===== */
+    a {
+        color: #000 !important;
+        text-decoration: none !important;
+    }
+
+    /* ===== MENSAGEM DE VAZIO ===== */
+    .fs-1 {
+        display: none !important;
+    }
+
+    /* ===== RESPONSIVIDADE PARA IMPRESSÃO ===== */
+    @media print and (max-width: 210mm) {
+        .row.g-4 .col-md-4 {
+            flex: 0 0 100% !important;
+            margin-bottom: 10px !important;
+        }
+
+        table {
+            font-size: 9pt;
+        }
+
+        table thead th,
+        table tbody td {
+            padding: 6px 4px !important;
+        }
+    }
+}
+
+/* ===== ESTILOS ADICIONAIS PARA MELHOR VISUALIZAÇÃO EM TELA ===== */
+@media screen {
+    .print-header,
+    .print-footer {
+        display: none;
+    }
+}

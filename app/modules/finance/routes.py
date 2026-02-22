@@ -247,6 +247,69 @@ def report():
 
     return render_template('finance/report.html', results=results, start_date=start_date, end_date=end_date)
 
+
+@finance_bp.route('/export-report')
+@login_required
+def export_report():
+    if not can_manage_finance():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('finance.dashboard'))
+
+    # Obter filtros
+    start_date = request.args.get('start_date')
+    end_date = request.args.get('end_date')
+    category_id = request.args.get('category_id')
+    payment_method_id = request.args.get('payment_method_id')
+    user_id = request.args.get('user_id')
+    tx_type = request.args.get('type')
+    
+    if start_date and end_date:
+        start = datetime.strptime(start_date, '%Y-%m-%d')
+        end = datetime.strptime(end_date, '%Y-%m-%d') + timedelta(days=1)
+    else:
+        start = datetime.utcnow() - timedelta(days=30)
+        end = datetime.utcnow() + timedelta(days=1)
+
+    # Query base
+    if not is_admin():
+        query = Transaction.query.filter(Transaction.church_id == current_user.church_id)
+    else:
+        query = Transaction.query
+    
+    query = query.filter(Transaction.date >= start, Transaction.date <= end)
+    
+    # Aplicar filtros
+    if category_id:
+        query = query.filter(Transaction.category_id == category_id)
+    if payment_method_id:
+        query = query.filter(Transaction.payment_method_id == payment_method_id)
+    if user_id:
+        query = query.filter(Transaction.user_id == user_id)
+    if tx_type:
+        query = query.filter(Transaction.type == tx_type)
+    
+    # Obter transacoes ordenadas
+    transactions = query.order_by(Transaction.date.asc()).all()
+    
+    # Calcular totais
+    total_income = sum(t.amount for t in transactions if t.type == 'income')
+    total_expense = sum(t.amount for t in transactions if t.type == 'expense')
+    balance = total_income - total_expense
+    
+    # Dados para o template
+    report_data = {
+        'transactions': transactions,
+        'total_income': total_income,
+        'total_expense': total_expense,
+        'balance': balance,
+        'start_date': start_date,
+        'end_date': end_date,
+        'church_name': current_user.church.name if current_user.church else 'Relatorio Financeiro',
+        'generated_at': datetime.utcnow().strftime('%d/%m/%Y %H:%M:%S')
+    }
+    
+    return render_template('finance/export_report.html', **report_data)
+
 @finance_bp.route('/receipt/<int:tx_id>')
 @login_required
 def download_receipt(tx_id):

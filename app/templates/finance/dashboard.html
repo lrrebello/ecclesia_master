@@ -16,8 +16,12 @@
             <a href="{{ url_for('modelo25.index') }}" class="btn btn-outline-info">
                 <i class="bi bi-file-earmark-text me-2"></i> Modelo 25
             </a>
+            <!-- Novo Botão de Exportação Profissional -->
+            <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#exportReportModal">
+                <i class="bi bi-file-earmark-pdf me-2"></i> Exportar Relatório
+            </button>
             <button onclick="window.print()" class="btn btn-outline-dark">
-                <i class="bi bi-printer me-2"></i> Imprimir
+                <i class="bi bi-printer me-2"></i> Imprimir Tela
             </button>
             <a href="{{ url_for('finance.add_transaction') }}" class="btn btn-primary">
                 <i class="bi bi-plus-lg me-2"></i> Novo Lançamento
@@ -170,12 +174,83 @@
         </div>
     </div>
 </div>
+
+<!-- Modal de Filtros para Exportação Profissional -->
+<div class="modal fade" id="exportReportModal" tabindex="-1" aria-labelledby="exportReportLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title fw-bold" id="exportReportLabel">
+                    <i class="bi bi-file-earmark-pdf me-2"></i> Exportar Relatório Profissional
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="GET" action="{{ url_for('finance.export_report') }}" target="_blank">
+                <div class="modal-body p-4">
+                    <p class="text-muted small mb-4">Selecione os filtros abaixo para gerar um relatório tabular limpo e profissional.</p>
+                    
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold">DATA INICIAL</label>
+                            <input type="date" name="start_date" class="form-control" value="{{ filters.start_date or '' }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold">DATA FINAL</label>
+                            <input type="date" name="end_date" class="form-control" value="{{ filters.end_date or '' }}">
+                        </div>
+                        <div class="col-md-12">
+                            <label class="form-label small fw-bold">TIPO DE LANÇAMENTO</label>
+                            <select name="type" class="form-select">
+                                <option value="">Todos (Entradas e Saídas)</option>
+                                <option value="income">Apenas Entradas</option>
+                                <option value="expense">Apenas Saídas</option>
+                            </select>
+                        </div>
+                        <div class="col-md-12">
+                            <label class="form-label small fw-bold">CATEGORIA</label>
+                            <select name="category_id" class="form-select">
+                                <option value="">Todas as Categorias</option>
+                                {% for cat in categories %}
+                                <option value="{{ cat.id }}">{{ cat.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-12">
+                            <label class="form-label small fw-bold">MEIO DE PAGAMENTO</label>
+                            <select name="payment_method_id" class="form-select">
+                                <option value="">Todos os Meios</option>
+                                {% for method in payment_methods %}
+                                <option value="{{ method.id }}">{{ method.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-12">
+                            <label class="form-label small fw-bold">FILTRAR POR MEMBRO</label>
+                            <select name="user_id" class="form-select">
+                                <option value="">Todos os Membros</option>
+                                {% for member in members %}
+                                <option value="{{ member.id }}">{{ member.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light border-0">
+                    <button type="button" class="btn btn-secondary px-4" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-success px-4">
+                        <i class="bi bi-file-earmark-pdf me-2"></i> Gerar Relatório
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <style>
 .extra-small { font-size: 0.75rem; }
-</style>
-<style>
+
 @media print {
-    .sidebar, .mobile-navbar, .btn, .card-header, form, .theme-toggle, header {
+    .sidebar, .mobile-navbar, .btn, .card-header, form, .theme-toggle, header, .modal {
         display: none !important;
     }
     .main-content {
