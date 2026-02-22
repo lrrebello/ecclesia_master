@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold text-primary mb-0"><i class="bi bi-calendar-heart me-2"></i>{{ title }}</h2>
+            <p class="text-muted">Lista anual de aniversariantes organizada por mês.</p>
+        </div>
+        <div class="d-flex gap-2">
+            <button onclick="window.print()" class="btn btn-outline-dark">
+                <i class="bi bi-printer me-2"></i> Imprimir
+            </button>
+            {% if ministry %}
+            <a href="{{ url_for('members.my_led_ministries') }}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left me-1"></i> Voltar
+            </a>
+            {% else %}
+            <a href="{{ url_for('members.dashboard') }}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left me-1"></i> Voltar
+            </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 row-cols-xl-4 g-4">
+        {% for month_num in range(1, 13) %}
+        <div class="col">
+            <div class="card h-100 border-0 shadow-sm rounded-4 overflow-hidden">
+                <div class="card-header bg-primary text-white py-3">
+                    <h5 class="mb-0 fw-bold text-center text-uppercase">{{ month_names[month_num] }}</h5>
+                </div>
+                <div class="card-body p-0">
+                    <ul class="list-group list-group-flush">
+                        {% for person in agenda[month_num] %}
+                        <li class="list-group-item border-0 py-3 px-4 hover-bg">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <span class="badge bg-info bg-opacity-10 text-info rounded-pill me-2">{{ person.day }}</span>
+                                    <span class="fw-medium">{{ person.name }}</span>
+                                </div>
+                                {% if person.phone %}
+                                <a href="https://wa.me/{{ person.phone|replace(' ', '')|replace('-', '')|replace('(', '')|replace(')', '') }}" 
+                                   target="_blank" class="text-success" title="Enviar WhatsApp">
+                                    <i class="bi bi-whatsapp"></i>
+                                </a>
+                                {% endif %}
+                            </div>
+                        </li>
+                        {% else %}
+                        <li class="list-group-item border-0 py-4 text-center text-muted small">
+                            <i class="bi bi-calendar-x d-block mb-1 opacity-50"></i>
+                            Nenhum aniversariante
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<style>
+.hover-bg:hover {
+    background-color: rgba(0,0,0,0.02);
+}
+@media print {
+    .sidebar, .mobile-navbar, .btn, .theme-toggle, header {
+        display: none !important;
+    }
+    .main-content {
+        margin-left: 0 !important;
+        padding: 0 !important;
+    }
+    .card {
+        break-inside: avoid;
+        border: 1px solid #eee !important;
+        box-shadow: none !important;
+        margin-bottom: 1rem;
+    }
+    .row {
+        display: block !important;
+    }
+    .col {
+        width: 100% !important;
+        margin-bottom: 20px;
+    }
+    body {
+        background-color: white !important;
+    }
+}
+</style>
+{% endblock %}

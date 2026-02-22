@@ -537,6 +537,56 @@ def ministry_agenda(ministry_id):
         events=events
     )
 
+@members_bp.route('/birthdays')
+@members_bp.route('/ministry/<int:ministry_id>/birthdays')
+@login_required
+def birthday_agenda(ministry_id=None):
+    is_global_admin = current_user.church_role and current_user.church_role.name == 'Administrador Global'
+    is_pastor = current_user.church_role and current_user.church_role.name == 'Pastor Líder'
+    
+    ministry = None
+    if ministry_id:
+        ministry = Ministry.query.get_or_404(ministry_id)
+        is_leader = ministry.leader_id == current_user.id
+        if not (is_leader or is_global_admin or is_pastor):
+            flash('Acesso negado.', 'danger')
+            return redirect(url_for('members.dashboard'))
+        members = ministry.members.all()
+        title = f"Aniversariantes - {ministry.name}"
+    else:
+        if not (is_global_admin or is_pastor):
+            flash('Acesso negado.', 'danger')
+            return redirect(url_for('members.dashboard'))
+        members = User.query.filter_by(church_id=current_user.church_id, status='active').all()
+        title = "Agenda Anual de Aniversariantes"
+
+    # Organizar por mês
+    agenda = {i: [] for i in range(1, 13)}
+    for member in members:
+        if member.birth_date:
+            month = member.birth_date.month
+            agenda[month].append({
+                'name': member.name,
+                'day': member.birth_date.day,
+                'phone': member.phone
+            })
+    
+    # Ordenar cada mês por dia
+    for month in agenda:
+        agenda[month].sort(key=lambda x: x['day'])
+
+    month_names = {
+        1: 'Janeiro', 2: 'Fevereiro', 3: 'Março', 4: 'Abril',
+        5: 'Maio', 6: 'Junho', 7: 'Julho', 8: 'Agosto',
+        9: 'Setembro', 10: 'Outubro', 11: 'Novembro', 12: 'Dezembro'
+    }
+
+    return render_template('members/birthday_agenda.html', 
+                           agenda=agenda, 
+                           month_names=month_names, 
+                           title=title,
+                           ministry=ministry)
+
 @members_bp.route('/logout')
 @login_required
 def logout():

@@ -35,6 +35,9 @@
                         <a href="{{ url_for('members.ministry_agenda', ministry_id=ministry.id) }}" class="btn btn-outline-info">
                             <i class="bi bi-calendar-event me-1"></i> Agenda do Ministério
                         </a>
+                        <a href="{{ url_for('members.birthday_agenda', ministry_id=ministry.id) }}" class="btn btn-outline-danger">
+                            <i class="bi bi-calendar-heart me-1"></i> Aniversariantes
+                        </a>
                     </div>
                 </div>
             </div>

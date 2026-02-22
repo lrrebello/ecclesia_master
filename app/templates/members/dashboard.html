@@ -148,6 +148,12 @@
                 <a href="{{ url_for('edification.kids') }}" class="btn btn-outline-warning text-start border-2 fw-semibold py-2 text-dark">
                     <i class="bi bi-balloon me-2"></i> Ecclesia Kids
                 </a>
+
+                {% if current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder'] %}
+                <a href="{{ url_for('members.birthday_agenda') }}" class="btn btn-outline-danger text-start border-2 fw-semibold py-2">
+                    <i class="bi bi-calendar-heart me-2"></i> Aniversariantes
+                </a>
+                {% endif %}
             </div>
         </div>
 
