@@ -231,9 +231,28 @@ def report():
         start = datetime.strptime(start_date, '%Y-%m-%d')
         end = datetime.strptime(end_date, '%Y-%m-%d') + timedelta(days=1)
     else:
-        start = datetime.utcnow() - timedelta(days=30)
+        start = (datetime.utcnow() - timedelta(days=30)).replace(hour=0, minute=0, second=0, microsecond=0)
         end = datetime.utcnow() + timedelta(days=1)
 
+    # 1. Calcular Saldo Anterior (antes da data 'start')
+    prev_income_query = db.session.query(func.sum(Transaction.amount)).filter(
+        Transaction.date < start,
+        Transaction.type == 'income'
+    )
+    prev_expense_query = db.session.query(func.sum(Transaction.amount)).filter(
+        Transaction.date < start,
+        Transaction.type == 'expense'
+    )
+
+    if not is_admin():
+        prev_income_query = prev_income_query.filter(Transaction.church_id == current_user.church_id)
+        prev_expense_query = prev_expense_query.filter(Transaction.church_id == current_user.church_id)
+
+    prev_income = prev_income_query.scalar() or 0
+    prev_expense = prev_expense_query.scalar() or 0
+    initial_balance = prev_income - prev_expense
+
+    # 2. Obter resultados por categoria no período
     query = db.session.query(
         Transaction.category_name, 
         Transaction.type, 
@@ -245,7 +264,23 @@ def report():
 
     results = query.group_by(Transaction.category_name, Transaction.type).all()
 
-    return render_template('finance/report.html', results=results, start_date=start_date, end_date=end_date)
+    # 3. Calcular Totais do Período
+    period_income = sum(amount for name, type, amount in results if type == 'income')
+    period_expense = sum(amount for name, type, amount in results if type == 'expense')
+    final_balance = initial_balance + period_income - period_expense
+
+    stats = {
+        'initial_balance': initial_balance,
+        'period_income': period_income,
+        'period_expense': period_expense,
+        'final_balance': final_balance
+    }
+
+    return render_template('finance/report.html', 
+                           results=results, 
+                           start_date=start_date, 
+                           end_date=end_date, 
+                           stats=stats)
 
 
 @finance_bp.route('/export-report')

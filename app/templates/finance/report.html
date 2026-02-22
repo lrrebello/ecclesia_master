@@ -35,6 +35,8 @@
         </div>
     </div>
 
+    <div class="row g-4 mb-4">
+        
     <div class="row g-4">
         <!-- Entradas -->
         <div class="col-md-6">
@@ -111,4 +113,43 @@
         </div>
     </div>
 </div>
+
+<!-- Fechamento Financeiro -->
+        <div class="col-md-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-dark bg-opacity-10 border-0 p-4">
+                    <h5 class="fw-bold mb-0">Fechamento Financeiro do Período</h5>
+                </div>
+                <div class="card-body p-4">
+                    <div class="row text-center">
+                        <div class="col-md-3 border-end">
+                            <p class="text-muted small fw-bold mb-1 text-uppercase">Saldo Anterior</p>
+                            <h4 class="fw-bold mb-0 {{ 'text-success' if stats.initial_balance >= 0 else 'text-danger' }}">
+                                R$ {{ "%.2f"|format(stats.initial_balance) }}
+                            </h4>
+                        </div>
+                        <div class="col-md-3 border-end">
+                            <p class="text-success small fw-bold mb-1 text-uppercase">Total Entradas</p>
+                            <h4 class="fw-bold text-success mb-0">
+                                + R$ {{ "%.2f"|format(stats.period_income) }}
+                            </h4>
+                        </div>
+                        <div class="col-md-3 border-end">
+                            <p class="text-danger small fw-bold mb-1 text-uppercase">Total Saídas</p>
+                            <h4 class="fw-bold text-danger mb-0">
+                                - R$ {{ "%.2f"|format(stats.period_expense) }}
+                            </h4>
+                        </div>
+                        <div class="col-md-3">
+                            <p class="text-primary small fw-bold mb-1 text-uppercase">Saldo Final</p>
+                            <h4 class="fw-bold text-primary mb-0">
+                                R$ {{ "%.2f"|format(stats.final_balance) }}
+                            </h4>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
 {% endblock %}
