@@ -284,6 +284,16 @@ def delete_role(id):
     flash('Cargo excluído com sucesso!', 'success')
     return redirect(url_for('admin.list_roles'))
 
+@admin_bp.route('/member/card/<int:id>')
+@login_required
+def member_card(id):
+    if not (current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder']):
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('members.dashboard'))
+    
+    member = User.query.get_or_404(id)
+    return render_template('admin/member_card.html', member=member)
+
 @admin_bp.route('/church/delete/<int:id>', methods=['POST'])
 @login_required
 def delete_church(id):

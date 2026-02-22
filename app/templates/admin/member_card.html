@@ -1,0 +1,295 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container py-5 no-print">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold text-primary mb-0"><i class="bi bi-card-id me-2"></i>Cartão de Membro</h2>
+            <p class="text-muted">Visualize e imprima o cartão de identificação do membro.</p>
+        </div>
+        <div class="d-flex gap-2">
+            <button onclick="window.print()" class="btn btn-primary">
+                <i class="bi bi-printer me-2"></i> Imprimir Cartão
+            </button>
+            <a href="{{ url_for('admin.list_members') }}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left me-1"></i> Voltar
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="card-print-container">
+    <!-- FRENTE DO CARTÃO -->
+    <div class="member-card front">
+        <div class="card-overlay"></div>
+        <div class="card-content">
+            <div class="card-header-custom">
+                {% if member.church and member.church.logo_path %}
+                <img src="{{ url_for('static', filename=member.church.logo_path) }}" class="church-logo-card">
+                {% else %}
+                <i class="bi bi-lightning-charge-fill text-white fs-3"></i>
+                {% endif %}
+                <div class="church-info">
+                    <h6 class="mb-0 fw-bold">{{ member.church.name if member.church else 'ECCLESIA MASTER' }}</h6>
+                    <small>{{ member.church.city if member.church else '' }} - {{ member.church.country if member.church else '' }}</small>
+                </div>
+            </div>
+            
+            <div class="card-body-custom">
+                <div class="photo-container">
+                    {% if member.profile_photo %}
+                    <img src="{{ url_for('static', filename=member.profile_photo) }}" class="member-photo">
+                    {% else %}
+                    <div class="member-photo-placeholder">
+                        <i class="bi bi-person-fill"></i>
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="member-info-main">
+                    <div class="info-group">
+                        <label>NOME COMPLETO</label>
+                        <div class="value name">{{ member.name }}</div>
+                    </div>
+                    <div class="info-group">
+                        <label>CARGO / FUNÇÃO</label>
+                        <div class="value role">{{ member.church_role.name if member.church_role else 'MEMBRO' }}</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card-footer-custom">
+                <div class="footer-item">
+                    <label>VALIDADE</label>
+                    <div class="value">INDETERMINADA</div>
+                </div>
+                <div class="footer-item text-end">
+                    <label>ID MEMBRO</label>
+                    <div class="value">#{{ "%05d"|format(member.id) }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- VERSO DO CARTÃO -->
+    <div class="member-card back">
+        <div class="card-overlay"></div>
+        <div class="card-content">
+            <div class="back-details">
+                <div class="info-row">
+                    <div class="info-group">
+                        <label>DATA DE NASCIMENTO</label>
+                        <div class="value">{{ member.birth_date.strftime('%d/%m/%Y') if member.birth_date else '--/--/----' }}</div>
+                    </div>
+                    <div class="info-group">
+                        <label>DATA DE BATISMO</label>
+                        <div class="value">{{ member.baptism_date.strftime('%d/%m/%Y') if member.baptism_date else '--/--/----' }}</div>
+                    </div>
+                </div>
+                <div class="info-group mt-2">
+                    <label>DOCUMENTO ({{ 'CPF' if member.church and member.church.country == 'Brasil' else 'NIF' if member.church and member.church.country == 'Portugal' else 'DOC' }})</label>
+                    <div class="value">{{ member.tax_id or '---.---.---' }}</div>
+                </div>
+                <div class="info-group mt-2">
+                    <label>CONGREGAÇÃO</label>
+                    <div class="value">{{ member.church.name if member.church else '---' }}</div>
+                </div>
+            </div>
+            
+            <div class="signature-area">
+                <div class="signature-line"></div>
+                <label>ASSINATURA DO PASTOR PRESIDENTE</label>
+            </div>
+            
+            <div class="card-disclaimer">
+                Este cartão é de uso pessoal e intransferível, sendo propriedade da instituição acima identificada.
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+:root {
+    --card-width: 85.6mm;
+    --card-height: 54mm;
+    --primary-card: #1a237e; /* Azul escuro padrão, pode ser trocado pela arte */
+    --accent-card: #ffd700;
+}
+
+.card-print-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+    padding: 20px;
+}
+
+.member-card {
+    width: var(--card-width);
+    height: var(--card-height);
+    background-color: var(--primary-card);
+    border-radius: 3.18mm;
+    position: relative;
+    overflow: hidden;
+    color: white;
+    font-family: 'Inter', sans-serif;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    /* Aqui você poderá anexar a arte como background-image futuramente */
+    /* background-image: url('caminho/para/sua/arte.png'); */
+    background-size: cover;
+    background-position: center;
+}
+
+.card-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(0,0,0,0.1) 100%);
+    pointer-events: none;
+}
+
+.card-content {
+    position: relative;
+    z-index: 2;
+    height: 100%;
+    padding: 4mm;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Header */
+.card-header-custom {
+    display: flex;
+    align-items: center;
+    gap: 3mm;
+    border-bottom: 0.5pt solid rgba(255,255,255,0.2);
+    padding-bottom: 2mm;
+    margin-bottom: 3mm;
+}
+.church-logo-card {
+    width: 10mm;
+    height: 10mm;
+    object-fit: contain;
+    background: white;
+    border-radius: 2mm;
+    padding: 1mm;
+}
+.church-info h6 { font-size: 3.5mm; margin: 0; }
+.church-info small { font-size: 2.2mm; opacity: 0.8; }
+
+/* Body */
+.card-body-custom {
+    display: flex;
+    gap: 4mm;
+    flex-grow: 1;
+}
+.photo-container {
+    width: 22mm;
+    height: 28mm;
+    background: #f0f0f0;
+    border: 1pt solid white;
+    border-radius: 1.5mm;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+.member-photo {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+.member-photo-placeholder {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #ccc;
+    font-size: 10mm;
+}
+
+.member-info-main {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 2mm;
+}
+.info-group label {
+    font-size: 1.8mm;
+    font-weight: 700;
+    color: var(--accent-card);
+    display: block;
+    margin-bottom: 0.5mm;
+    text-transform: uppercase;
+}
+.value { font-size: 2.8mm; font-weight: 600; }
+.value.name { font-size: 3.8mm; text-transform: uppercase; line-height: 1.1; }
+.value.role { color: #fff; font-size: 3mm; }
+
+/* Footer */
+.card-footer-custom {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-top: auto;
+}
+
+/* Verso */
+.back .card-content {
+    justify-content: space-between;
+    text-align: center;
+}
+.back-details {
+    text-align: left;
+    background: rgba(255,255,255,0.05);
+    padding: 3mm;
+    border-radius: 2mm;
+}
+.info-row {
+    display: flex;
+    justify-content: space-between;
+}
+.signature-area {
+    margin-top: 4mm;
+}
+.signature-line {
+    width: 80%;
+    height: 0.5pt;
+    background: white;
+    margin: 0 auto 1mm;
+}
+.signature-area label {
+    font-size: 1.8mm;
+    opacity: 0.8;
+}
+.card-disclaimer {
+    font-size: 1.6mm;
+    opacity: 0.6;
+    margin-top: 2mm;
+    line-height: 1.2;
+}
+
+@media print {
+    .no-print, .sidebar, .mobile-navbar, .theme-toggle, header {
+        display: none !important;
+    }
+    .main-content {
+        margin-left: 0 !important;
+        padding: 0 !important;
+    }
+    body {
+        background: white !important;
+    }
+    .card-print-container {
+        padding: 0;
+        gap: 10mm;
+    }
+    .member-card {
+        box-shadow: none;
+        border: 0.1pt solid #ddd;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+}
+</style>
+{% endblock %}
