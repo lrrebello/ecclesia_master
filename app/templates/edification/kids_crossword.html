@@ -28,7 +28,9 @@
 
                 <div class="row">
                     <div class="col-lg-7">
-                        <div id="crossword-container" class="crossword-grid mx-auto mb-4"></div>
+                        <div class="crossword-container-wrapper mb-4">
+                            <div id="crossword-container" class="crossword-grid"></div>
+                        </div>
                     </div>
                     <div class="col-lg-5">
                         <div class="bg-light p-3 rounded-4 text-start">
@@ -56,21 +58,37 @@
 </div>
 
 <style>
+    .crossword-container-wrapper {
+        width: 100%;
+        overflow-x: auto;
+        padding: 10px 0;
+        -webkit-overflow-scrolling: touch;
+    }
     .crossword-grid {
         display: grid;
-        gap: 2px;
+        gap: 1px;
         background: #dee2e6;
-        border: 2px solid #dee2e6;
+        border: 1px solid #dee2e6;
         width: fit-content;
+        margin: 0 auto;
     }
     .crossword-cell {
-        width: 40px;
-        height: 40px;
+        width: 35px;
+        height: 35px;
         background: #343a40;
         position: relative;
         display: flex;
         align-items: center;
         justify-content: center;
+    }
+    @media (max-width: 768px) {
+        .crossword-cell {
+            width: 30px;
+            height: 30px;
+        }
+        .crossword-cell input {
+            font-size: 1rem !important;
+        }
     }
     .crossword-cell.active {
         background: white;
@@ -224,7 +242,8 @@ function placeWord(word, row, col, dir, wordIdx, num) {
 
 function renderGrid() {
     const container = document.getElementById('crossword-container');
-    container.style.gridTemplateColumns = `repeat(${gridSize}, 40px)`;
+    const cellSize = window.innerWidth < 768 ? 30 : 35;
+    container.style.gridTemplateColumns = `repeat(${gridSize}, ${cellSize}px)`;
     container.innerHTML = '';
 
     for (let r = 0; r < gridSize; r++) {
@@ -240,14 +259,45 @@ function renderGrid() {
                     cell.appendChild(num);
                 }
                 const input = document.createElement('input');
+                input.type = "text";
                 input.maxLength = 1;
+                input.autocomplete = "off";
                 input.dataset.row = r;
                 input.dataset.col = c;
-                input.oninput = (e) => checkCell(e.target, grid[r][c].char);
+                
+                input.oninput = (e) => {
+                    const val = e.target.value.toUpperCase();
+                    e.target.value = val;
+                    checkCell(e.target, grid[r][c].char);
+                    if (val) focusNext(r, c);
+                };
+
+                input.onkeydown = (e) => {
+                    if (e.key === 'Backspace' && !e.target.value) {
+                        focusPrev(r, c);
+                    }
+                };
+
                 cell.appendChild(input);
             }
             container.appendChild(cell);
         }
+    }
+}
+
+function focusNext(r, c) {
+    const inputs = Array.from(document.querySelectorAll('.crossword-cell.active input'));
+    const currentIdx = inputs.findIndex(i => i.dataset.row == r && i.dataset.col == c);
+    if (currentIdx < inputs.length - 1) {
+        inputs[currentIdx + 1].focus();
+    }
+}
+
+function focusPrev(r, c) {
+    const inputs = Array.from(document.querySelectorAll('.crossword-cell.active input'));
+    const currentIdx = inputs.findIndex(i => i.dataset.row == r && i.dataset.col == c);
+    if (currentIdx > 0) {
+        inputs[currentIdx - 1].focus();
     }
 }
 
