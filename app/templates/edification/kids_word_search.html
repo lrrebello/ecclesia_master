@@ -49,22 +49,34 @@
 <style>
     .word-search-grid {
         display: grid;
-        gap: 5px;
+        gap: 4px;
         user-select: none;
         touch-action: none;
+        max-width: 100%;
+        margin: 0 auto;
     }
     .grid-cell {
         aspect-ratio: 1/1;
         background: white;
-        border: 2px solid #e9ecef;
-        border-radius: 8px;
+        border: 1px solid #e9ecef;
+        border-radius: 6px;
         display: flex;
         align-items: center;
         justify-content: center;
         font-weight: bold;
-        font-size: 1.2rem;
+        font-size: 1.1rem;
         cursor: pointer;
-        transition: all 0.2s;
+        transition: all 0.1s;
+        -webkit-tap-highlight-color: transparent;
+    }
+    @media (max-width: 768px) {
+        .grid-cell {
+            font-size: 0.9rem;
+            border-radius: 4px;
+        }
+        .word-search-grid {
+            gap: 2px;
+        }
     }
     .grid-cell.selected {
         background-color: #d1e7dd;
@@ -174,12 +186,39 @@ function renderGrid() {
             cell.dataset.row = r;
             cell.dataset.col = c;
             
-            cell.onmousedown = () => startSelection(r, c);
+            // Mouse events
+            cell.onmousedown = (e) => { e.preventDefault(); startSelection(r, c); };
             cell.onmouseover = () => updateSelection(r, c);
+            
+            // Touch events
+            cell.ontouchstart = (e) => {
+                e.preventDefault();
+                const touch = e.touches[0];
+                startSelection(r, c);
+            };
+            
             container.appendChild(cell);
         }
     }
+    
+    // Global events for ending selection
     document.onmouseup = endSelection;
+    document.ontouchend = (e) => {
+        e.preventDefault();
+        endSelection();
+    };
+    
+    // Touch move needs to be handled globally or on the container
+    container.ontouchmove = (e) => {
+        e.preventDefault();
+        const touch = e.touches[0];
+        const target = document.elementFromPoint(touch.clientX, touch.clientY);
+        if (target && target.classList.contains('grid-cell')) {
+            const r = parseInt(target.dataset.row);
+            const c = parseInt(target.dataset.col);
+            updateSelection(r, c);
+        }
+    };
 }
 
 function renderWordList() {
@@ -199,8 +238,17 @@ function updateSelection(r, c) {
     // Limitar a horizontal ou vertical
     if (r !== selectionStart.r && c !== selectionStart.c) return;
     
+    // Evitar atualizações desnecessárias se for a mesma célula
+    if (currentSelection.length > 0) {
+        const last = currentSelection[currentSelection.length - 1];
+        if (last.r === r && last.c === c && currentSelection.length > 1) {
+            // Se voltamos para a célula anterior, não fazemos nada ou poderíamos "desfazer"
+            // Mas o loop abaixo reconstrói tudo, então está ok.
+        }
+    }
+
     document.querySelectorAll('.grid-cell.selected').forEach(el => el.classList.remove('selected'));
-    currentSelection = [];
+    const newSelection = [];
     
     const startR = Math.min(r, selectionStart.r);
     const endR = Math.max(r, selectionStart.r);
@@ -210,10 +258,13 @@ function updateSelection(r, c) {
     for (let i = startR; i <= endR; i++) {
         for (let j = startC; j <= endC; j++) {
             const cell = document.querySelector(`.grid-cell[data-row="${i}"][data-col="${j}"]`);
-            cell.classList.add('selected');
-            currentSelection.push({ r: i, c: j, letter: grid[i][j] });
+            if (cell) {
+                cell.classList.add('selected');
+                newSelection.push({ r: i, c: j, letter: grid[i][j] });
+            }
         }
     }
+    currentSelection = newSelection;
 }
 
 function endSelection() {

@@ -19,104 +19,93 @@
         </div>
     </div>
 
-
-
     <!-- Seção de Jogos -->
     <div class="mb-5">
         <h3 class="fw-bold mb-4"><i class="bi bi-controller me-2 text-warning"></i>Hora de Brincar e Aprender</h3>
         <div class="row g-4">
+            <!-- Jogo da Memória -->
             <div class="col-md-6 col-lg-4">
                 <div class="card h-100 border-0 shadow-sm text-center p-4 card-hover-warning" style="background: linear-gradient(135deg, #fff 0%, #fff9e6 100%);">
                     <div class="display-1 mb-3">🧩</div>
                     <h4 class="fw-bold">Jogo da Memória</h4>
                     <p class="text-muted small">Teste sua memória com os personagens da Bíblia!</p>
-                    <div class="dropdown mt-auto">
-                            <button class="btn btn-warning fw-bold rounded-pill dropdown-toggle w-100" type="button" data-bs-toggle="dropdown">
-                                Escolher História
-                            </button>
-                            <ul class="dropdown-menu border-0 shadow w-100">
-                                <li><a class="dropdown-item" href="{{ url_for('edification.memory_game') }}">Geral</a></li>
-                                {% for story in stories %}
-                                <li><a class="dropdown-item" href="{{ url_for('edification.memory_game', story_id=story.id) }}">{{ story.title }}</a></li>
-                                {% endfor %}
-                            </ul>
-                        </div>
+                    <button class="btn btn-warning fw-bold rounded-pill w-100 mt-auto" type="button" data-bs-toggle="modal" data-bs-target="#modalMemory">
+                        Escolher História
+                    </button>
                 </div>
             </div>
+
+            <!-- Quem Sou Eu? -->
             <div class="col-md-6 col-lg-4">
                 <div class="card h-100 border-0 shadow-sm text-center p-4 card-hover-warning" style="background: linear-gradient(135deg, #fff 0%, #e6f7ff 100%);">
                     <div class="display-1 mb-3">👤</div>
                     <h4 class="fw-bold">Quem Sou Eu?</h4>
                     <p class="text-muted small">Adivinhe o personagem bíblico através das dicas!</p>
-                    <div class="dropdown mt-auto">
-                            <button class="btn btn-info text-white fw-bold rounded-pill dropdown-toggle w-100" type="button" data-bs-toggle="dropdown">
-                                Escolher História
-                            </button>
-                            <ul class="dropdown-menu border-0 shadow w-100">
-                                <li><a class="dropdown-item" href="{{ url_for('edification.who_am_i') }}">Geral</a></li>
-                                {% for story in stories %}
-                                <li><a class="dropdown-item" href="{{ url_for('edification.who_am_i', story_id=story.id) }}">{{ story.title }}</a></li>
-                                {% endfor %}
-                            </ul>
-                        </div>
+                    <button class="btn btn-info text-white fw-bold rounded-pill w-100 mt-auto" type="button" data-bs-toggle="modal" data-bs-target="#modalWhoAmI">
+                        Escolher História
+                    </button>
                 </div>
             </div>
-            <!--<div class="col-md-6 col-lg-4">
-                <div class="card h-100 border-0 shadow-sm text-center p-4 card-hover-warning" style="background: linear-gradient(135deg, #fff 0%, #f0fdf4 100%);">
-                    <div class="display-1 mb-3">🧩</div>
-                    <h4 class="fw-bold">Quebra-Cabeça</h4>
-                    <p class="text-muted small">Monte as imagens das histórias bíblicas!</p>
-                    <div class="dropdown mt-auto">
-                            <button class="btn btn-success fw-bold rounded-pill dropdown-toggle w-100" type="button" data-bs-toggle="dropdown">
-                                Escolher História
-                            </button>
-                            <ul class="dropdown-menu border-0 shadow w-100">
-                                <li><a class="dropdown-item" href="{{ url_for('edification.puzzle_game') }}">Geral</a></li>
-                                {% for story in stories %}
-                                <li><a class="dropdown-item" href="{{ url_for('edification.puzzle_game', story_id=story.id) }}">{{ story.title }}</a></li>
-                                {% endfor %}
-                            </ul>
-                        </div>
-                </div>
-            </div>-->
+
+            <!-- Caça-Palavras -->
             <div class="col-md-6 col-lg-4">
                 <div class="card h-100 border-0 shadow-sm text-center p-4 card-hover-warning" style="background: linear-gradient(135deg, #fff 0%, #fff0f0 100%);">
                     <div class="display-1 mb-3">🔍</div>
                     <h4 class="fw-bold">Caça-Palavras</h4>
                     <p class="text-muted small">Encontre as palavras da história bíblica!</p>
-                    <div class="dropdown mt-auto">
-                        <button class="btn btn-danger fw-bold rounded-pill dropdown-toggle w-100" type="button" data-bs-toggle="dropdown">
-                            Escolher História
-                        </button>
-                        <ul class="dropdown-menu border-0 shadow w-100">
-                            <li><a class="dropdown-item" href="{{ url_for('edification.word_search') }}">Geral</a></li>
-                            {% for story in stories %}
-                            <li><a class="dropdown-item" href="{{ url_for('edification.word_search', story_id=story.id) }}">{{ story.title }}</a></li>
-                            {% endfor %}
-                        </ul>
-                    </div>
+                    <button class="btn btn-danger fw-bold rounded-pill w-100 mt-auto" type="button" data-bs-toggle="modal" data-bs-target="#modalWordSearch">
+                        Escolher História
+                    </button>
                 </div>
             </div>
+
+            <!-- Palavras Cruzadas -->
             <div class="col-md-6 col-lg-4">
                 <div class="card h-100 border-0 shadow-sm text-center p-4 card-hover-warning" style="background: linear-gradient(135deg, #fff 0%, #f0f7ff 100%);">
                     <div class="display-1 mb-3">📝</div>
                     <h4 class="fw-bold">Palavras Cruzadas</h4>
                     <p class="text-muted small">Complete o desafio com as dicas bíblicas!</p>
-                    <div class="dropdown mt-auto">
-                        <button class="btn btn-primary fw-bold rounded-pill dropdown-toggle w-100" type="button" data-bs-toggle="dropdown">
-                            Escolher História
-                        </button>
-                        <ul class="dropdown-menu border-0 shadow w-100">
-                            <li><a class="dropdown-item" href="{{ url_for('edification.crossword') }}">Geral</a></li>
-                            {% for story in stories %}
-                            <li><a class="dropdown-item" href="{{ url_for('edification.crossword', story_id=story.id) }}">{{ story.title }}</a></li>
-                            {% endfor %}
-                        </ul>
+                    <button class="btn btn-primary fw-bold rounded-pill w-100 mt-auto" type="button" data-bs-toggle="modal" data-bs-target="#modalCrossword">
+                        Escolher História
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modais de Seleção -->
+    {% set games = [
+        {'id': 'Memory', 'title': 'Jogo da Memória', 'color': 'warning', 'route': 'edification.memory_game'},
+        {'id': 'WhoAmI', 'title': 'Quem Sou Eu?', 'color': 'info', 'route': 'edification.who_am_i'},
+        {'id': 'WordSearch', 'title': 'Caça-Palavras', 'color': 'danger', 'route': 'edification.word_search'},
+        {'id': 'Crossword', 'title': 'Palavras Cruzadas', 'color': 'primary', 'route': 'edification.crossword'}
+    ] %}
+
+    {% for game in games %}
+    <div class="modal fade" id="modal{{ game.id }}" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content border-0 shadow rounded-4">
+                <div class="modal-header border-0 pb-0">
+                    <h5 class="modal-title fw-bold text-{{ game.color }}">{{ game.title }}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <p class="text-muted small mb-4">Selecione uma história para começar a brincar:</p>
+                    <div class="d-grid gap-2">
+                        <a href="{{ url_for(game.route) }}" class="btn btn-outline-{{ game.color }} rounded-pill fw-bold text-start px-4 py-3">
+                            <i class="bi bi-star-fill me-2"></i> Geral (Todas as histórias)
+                        </a>
+                        {% for story in stories %}
+                        <a href="{{ url_for(game.route, story_id=story.id) }}" class="btn btn-light border rounded-pill fw-bold text-start px-4 py-3 hover-{{ game.color }}">
+                            <i class="bi bi-book me-2"></i> {{ story.title }}
+                        </a>
+                        {% endfor %}
                     </div>
                 </div>
             </div>
         </div>
     </div>
+    {% endfor %}
 
     <!-- Bíblia Ilustrada -->
     {% if stories %}
@@ -204,6 +193,16 @@
     0% { transform: scale(1); }
     50% { transform: scale(1.05); }
     100% { transform: scale(1); }
+}
+
+/* Estilos para os botões dentro do modal */
+.hover-warning:hover { background-color: #fff9e6 !important; border-color: #ffc107 !important; }
+.hover-info:hover { background-color: #e6f7ff !important; border-color: #0dcaf0 !important; }
+.hover-danger:hover { background-color: #fff0f0 !important; border-color: #dc3545 !important; }
+.hover-primary:hover { background-color: #f0f7ff !important; border-color: #0d6efd !important; }
+
+.modal-body .btn {
+    transition: all 0.2s ease;
 }
 </style>
 {% endblock %}
