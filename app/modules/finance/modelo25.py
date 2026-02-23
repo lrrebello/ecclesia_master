@@ -18,8 +18,11 @@ modelo25_bp = Blueprint('modelo25', __name__, url_prefix='/finance/modelo25')
 
 def can_manage_finance():
     return current_user.can_manage_finance or (
-        current_user.church_role and 
-        current_user.church_role.name in ['Administrador Global', 'Pastor Líder', 'Tesoureiro']
+        current_user.church_role and (
+            current_user.church_role.name == 'Administrador Global' or
+            current_user.church_role.is_lead_pastor or
+            current_user.church_role.name == 'Tesoureiro'
+        )
     )
 
 def validate_tax_id(tax_id, country='Portugal'):

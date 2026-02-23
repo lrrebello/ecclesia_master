@@ -13,10 +13,10 @@ import os
 members_bp = Blueprint('members', __name__)
 
 def can_manage_members():
-    return current_user.can_approve_members or (current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder'])
+    return current_user.can_approve_members or (current_user.church_role and current_user.church_role.name == 'Administrador Global' or current_user.church_role.is_lead_pastor)
 
 def can_manage_ministries():
-    return current_user.can_manage_ministries or (current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder'])
+    return current_user.can_manage_ministries or (current_user.church_role and current_user.church_role.name == 'Administrador Global' or current_user.church_role.is_lead_pastor)
 
 @members_bp.route('/dashboard')
 @login_required
@@ -43,7 +43,7 @@ def dashboard():
     
     # Lógica de Permissões Centralizada (Mesma lógica do menu lateral)
     is_global_admin = current_user.church_role and current_user.church_role.name == 'Administrador Global'
-    is_pastor = current_user.church_role and current_user.church_role.name == 'Pastor Líder'
+    is_pastor = current_user.church_role and current_user.church_role and current_user.church_role.is_lead_pastor
     
     # Identifica se o usuário é líder de algum ministério (Lógica do menu lateral)
     led_ministries_list = [m for m in current_user.ministries if m.leader_id == current_user.id]
@@ -318,8 +318,7 @@ def add_event(id=None):
     ministry = Ministry.query.get(id) if id else None
     
     is_authorized = current_user.can_manage_events or (
-        current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder']
-    ) or (ministry and ministry.leader_id == current_user.id)
+        current_user.church_role and current_user.church_role.name == 'Administrador Global' or current_user.church_role.is_lead_pastor    ) or (ministry and ministry.leader_id == current_user.id)
 
     if not is_authorized:
         flash('Acesso negado.', 'danger')
@@ -362,7 +361,7 @@ def add_general_event():
 @login_required
 def edit_event(id):
     event = Event.query.get_or_404(id)
-    is_authorized = (current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder']) or \
+    is_authorized = (current_user.church_role and current_user.church_role.name == 'Administrador Global' or current_user.church_role.is_lead_pastor) or \
                     (event.ministry and event.ministry.leader_id == current_user.id) or \
                     current_user.can_manage_events
     
@@ -387,7 +386,7 @@ def edit_event(id):
 @login_required
 def delete_event(id):
     event = Event.query.get_or_404(id)
-    is_authorized = (current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder']) or \
+    is_authorized = (current_user.church_role and current_user.church_role.name == 'Administrador Global' or current_user.church_role.is_lead_pastor) or \
                     (event.ministry and event.ministry.leader_id == current_user.id) or \
                     current_user.can_manage_events
     
@@ -519,8 +518,7 @@ def ministry_agenda(ministry_id):
     
     is_leader = ministry.leader_id == current_user.id
     is_authorized = is_leader or current_user.can_manage_events or (
-        current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder']
-    )
+        current_user.church_role and current_user.church_role.name == 'Administrador Global' or current_user.church_role.is_lead_pastor    )
     
     if not is_authorized:
         flash('Acesso negado.', 'danger')

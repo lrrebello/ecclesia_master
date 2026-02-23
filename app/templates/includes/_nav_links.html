@@ -5,37 +5,56 @@
     <a class="nav-link {{ 'active' if request.endpoint == 'members.agenda' }}" href="{{ url_for('members.agenda') }}">
         <i class="bi bi-calendar-week me-2"></i> Minha Agenda
     </a>
-    {% if current_user.can_manage_finance or (current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder', 'Tesoureiro']) %}
+
+    {% if current_user.can_manage_finance or 
+          (current_user.church_role and (
+              current_user.church_role.name == 'Administrador Global' or 
+              current_user.church_role.is_lead_pastor or 
+              current_user.church_role.name == 'Tesoureiro'
+          )) %}
     <a class="nav-link {{ 'active' if request.endpoint == 'finance.dashboard' }}" href="{{ url_for('finance.dashboard') }}">
         <i class="bi bi-cash-stack me-2"></i> Gestão Financeira
     </a>
     {% endif %}
+
     <a class="nav-link {{ 'active' if request.endpoint == 'finance.member_finance' }}" href="{{ url_for('finance.member_finance') }}">
         <i class="bi bi-wallet2 me-2"></i> Minhas Contribuições
     </a>
+
     <a class="nav-link {{ 'active' if request.endpoint == 'edification.studies' }}" href="{{ url_for('edification.studies') }}">
         <i class="bi bi-book me-2"></i> Estudos Bíblicos
     </a>
     <a class="nav-link {{ 'active' if request.endpoint == 'edification.devotionals' }}" href="{{ url_for('edification.devotionals') }}">
         <i class="bi bi-journal-text me-2"></i> Devocionais
     </a>
-    {% if current_user.can_manage_kids or (current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder']) %}
+
+    {% if current_user.can_manage_kids or 
+          (current_user.church_role and (
+              current_user.church_role.name == 'Administrador Global' or 
+              current_user.church_role.is_lead_pastor
+          )) %}
     <a class="nav-link {{ 'active' if request.endpoint == 'edification.kids' }}" href="{{ url_for('edification.kids') }}">
         <i class="bi bi-balloon-heart me-2"></i> Ecclesia Kids
     </a>
     {% endif %}
+
     <a class="nav-link {{ 'active' if 'gallery' in request.endpoint }}" href="{{ url_for('edification.gallery') }}">
         <i class="bi bi-images me-2"></i> Galeria
     </a>
+
     <a class="nav-link {{ 'active' if 'ministries' in request.endpoint }}" href="{{ url_for('members.list_ministries') }}">
         <i class="bi bi-diagram-3 me-2"></i> Ministérios
     </a>
-    {% if current_user.can_approve_members or (current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder']) %}
+
+    {% if current_user.can_approve_members or 
+          (current_user.church_role and (
+              current_user.church_role.name == 'Administrador Global' or 
+              current_user.church_role.is_lead_pastor
+          )) %}
     <a class="nav-link {{ 'active' if 'church_members' in request.endpoint }}" href="{{ url_for('members.church_members') }}">
         <i class="bi bi-people me-2"></i> Membros da Filial
     </a>
     {% endif %}
-
 
     <!-- Link "Meus Ministérios Liderados" -->
     {% if current_user.is_authenticated %}
@@ -52,20 +71,21 @@
         {% endif %}
     {% endif %}
 
-
-    {% if current_user.can_approve_members or (current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder']) %}
+    {% if current_user.can_approve_members or 
+          (current_user.church_role and (
+              current_user.church_role.name == 'Administrador Global' or 
+              current_user.church_role.is_lead_pastor
+          )) %}
     <a class="nav-link {{ 'active' if 'roles' in request.endpoint }}" href="{{ url_for('admin.list_roles') }}">
         <i class="bi bi-person-badge me-2"></i> Cargos da Congregação
     </a>
     {% endif %}
 
-
-    {% if current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder'] %}
+    {% if current_user.church_role and current_user.church_role.is_lead_pastor %}
     <a class="nav-link {{ 'active' if 'edit_my_church' in request.endpoint }}" href="{{ url_for('admin.edit_my_church') }}">
         <i class="bi bi-gear me-2"></i> Dados da Congregação
     </a>
     {% endif %}
-
 
     {% if current_user.church_role and current_user.church_role.name == 'Administrador Global' %}
     <hr class="my-3 opacity-25">
@@ -80,7 +100,6 @@
         <i class="bi bi-person-badge me-2"></i> Cargos das Congregações
     </a>
     {% endif %}
-
 
     <a class="nav-link" href="{{ url_for('members.profile') }}">
         <i class="bi bi-person me-2"></i> Meu Perfil

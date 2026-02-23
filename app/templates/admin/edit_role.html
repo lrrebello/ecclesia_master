@@ -21,6 +21,13 @@
                     <input type="checkbox" name="is_active" class="form-check-input" id="isActive" {{ 'checked' if role.is_active }}>
                     <label class="form-check-label" for="isActive">Cargo ativo?</label>
                 </div>
+                <div class="form-group form-check">
+                    <input type="checkbox" class="form-check-input" id="is_lead_pastor" name="is_lead_pastor" 
+                        {% if role and role.is_lead_pastor %}checked{% endif %}>
+                    <label class="form-check-label" for="is_lead_pastor">
+                        Este é o cargo de Pastor Líder (acesso a edição da congregação e cartão de membros)
+                    </label>
+                </div>
                 <div class="d-grid mt-4">
                     <button type="submit" class="btn btn-primary btn-lg py-3 fw-bold shadow-sm">
                         Salvar Alterações

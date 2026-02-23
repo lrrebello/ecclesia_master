@@ -38,6 +38,8 @@ class ChurchRole(db.Model):
     church_id = db.Column(db.Integer, db.ForeignKey('church.id'), nullable=False)
     is_active = db.Column(db.Boolean, default=True)
     order = db.Column(db.Integer, default=0)  # para ordenar na exibição
+    # ─── Novo campo ────────────────────────────────────────
+    is_lead_pastor = db.Column(db.Boolean, default=False, nullable=False)   # ou is_pastor, escolha o nome que preferir
     
     users = db.relationship('User', backref='church_role', lazy=True)
 

@@ -19,7 +19,7 @@ pillow_heif.register_heif_opener()
 edification_bp = Blueprint('edification', __name__)
 
 def can_publish_content():
-    return current_user.can_publish_devotionals or (current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder'])
+    return current_user.can_publish_devotionals or (current_user.church_role and current_user.church_role.name == 'Administrador Global' or current_user.church_role.is_lead_pastor)
 
 @edification_bp.route('/devotionals')
 @login_required
@@ -220,8 +220,13 @@ def review_study_questions(study_id):
 @login_required
 def kids():
     is_kids_ministry_member = any(m.is_kids_ministry for m in current_user.ministries)
-    has_permission = current_user.can_manage_kids or (current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder'])
-    
+has_permission = (
+    current_user.can_manage_kids 
+    or (current_user.church_role and (
+        current_user.church_role.name == 'Administrador Global' 
+        or current_user.church_role.is_lead_pastor
+    ))
+)    
     if not has_permission and not is_kids_ministry_member:
         flash('Acesso negado. Espaço restrito ao Ministério Kids.', 'danger')
         return redirect(url_for('members.dashboard'))
@@ -234,7 +239,7 @@ def kids():
 @edification_bp.route('/kids/manage')
 @login_required
 def manage_kids():
-    if not current_user.can_manage_kids and not (current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder']):
+    if not current_user.can_manage_kids and not (current_user.church_role and current_user.church_role.name == 'Administrador Global' or current_user.church_role.is_lead_pastor):
         flash('Acesso negado.', 'danger')
         return redirect(url_for('edification.kids'))
     
@@ -245,7 +250,7 @@ def manage_kids():
 @edification_bp.route('/kids/story/add', methods=['POST'])
 @login_required
 def add_bible_story():
-    if not current_user.can_manage_kids and not (current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder']): 
+    if not current_user.can_manage_kids and not (current_user.church_role and current_user.church_role.name == 'Administrador Global' or current_user.church_role.is_lead_pastor): 
         return redirect(url_for('edification.kids'))
     
     title = request.form.get('title')
@@ -317,7 +322,7 @@ def add_bible_story():
 @edification_bp.route('/kids/story/<int:story_id>/review-questions', methods=['GET', 'POST'])
 @login_required
 def review_kids_questions(story_id):
-    if not current_user.can_manage_kids and not (current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder']): 
+    if not current_user.can_manage_kids and not (current_user.church_role and current_user.church_role.name == 'Administrador Global' or current_user.church_role.is_lead_pastor): 
         return redirect(url_for('edification.kids'))
     
     story = BibleStory.query.get_or_404(story_id)
@@ -365,7 +370,7 @@ def review_kids_questions(story_id):
 @edification_bp.route('/kids/story/delete/<int:id>')
 @login_required
 def delete_bible_story(id):
-    if not current_user.can_manage_kids and not (current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder']): 
+    if not current_user.can_manage_kids and not (current_user.church_role and current_user.church_role.name == 'Administrador Global' or current_user.church_role.is_lead_pastor): 
         return redirect(url_for('edification.kids'))
     story = BibleStory.query.get_or_404(id)
     db.session.delete(story)
@@ -376,7 +381,7 @@ def delete_bible_story(id):
 @edification_bp.route('/kids/activity/add', methods=['GET', 'POST'])
 @login_required
 def add_kids_activity():
-    if not current_user.can_manage_kids and not (current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder']):
+    if not current_user.can_manage_kids and not (current_user.church_role and current_user.church_role.name == 'Administrador Global' or current_user.church_role.is_lead_pastor):
         flash('Acesso negado.', 'danger')
         return redirect(url_for('edification.kids'))
     
@@ -499,7 +504,7 @@ def gallery():
 @edification_bp.route('/media/add', methods=['GET', 'POST'])
 @login_required
 def add_media():
-    if not current_user.can_manage_media and not (current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder']) and not any(m.leader_id == current_user.id for m in current_user.ministries):
+    if not current_user.can_manage_media and not (current_user.church_role and current_user.church_role.name == 'Administrador Global' or current_user.church_role.is_lead_pastor) and not any(m.leader_id == current_user.id for m in current_user.ministries):
         flash('Acesso negado.', 'danger')
         return redirect(url_for('edification.gallery'))
     
@@ -601,7 +606,7 @@ def gallery_album(id):
 @login_required
 def delete_album(id):
     album = Album.query.get_or_404(id)
-    if not (current_user.can_manage_media or (current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder']) or (album.ministry and album.ministry.leader_id == current_user.id)):
+    if not (current_user.can_manage_media or (current_user.church_role and current_user.church_role.name == 'Administrador Global' or current_user.church_role.is_lead_pastor) or (album.ministry and album.ministry.leader_id == current_user.id)):
         flash('Acesso negado.', 'danger')
         return redirect(url_for('edification.gallery'))
     
@@ -622,7 +627,7 @@ def delete_album(id):
 def edit_media(id):
     media = Media.query.get_or_404(id)
     
-    if not (current_user.can_manage_media or (current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder']) or (media.ministry and media.ministry.leader_id == current_user.id)):
+    if not (current_user.can_manage_media or (current_user.church_role and current_user.church_role.name == 'Administrador Global' or current_user.church_role.is_lead_pastor) or (media.ministry and media.ministry.leader_id == current_user.id)):
         flash('Acesso negado.', 'danger')
         return redirect(url_for('edification.gallery'))
     
@@ -673,7 +678,7 @@ def edit_media(id):
 def delete_media(id):
     media = Media.query.get_or_404(id)
     
-    if not (current_user.can_manage_media or (current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder']) or (media.ministry and media.ministry.leader_id == current_user.id)):
+    if not (current_user.can_manage_media or (current_user.church_role and current_user.church_role.name == 'Administrador Global' or current_user.church_role.is_lead_pastor) or (media.ministry and media.ministry.leader_id == current_user.id)):
         flash('Acesso negado.', 'danger')
         return redirect(url_for('edification.gallery'))
     

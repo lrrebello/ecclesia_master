@@ -14,7 +14,7 @@
     <div class="card border-0 shadow-sm">
         <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center py-3">
             <h5 class="mb-0">Próximos Eventos</h5>
-            {% if current_user.can_manage_events or (current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder']) %}
+            {% if current_user.can_manage_events or (current_user.church_role and current_user.church_role.name == 'Administrador Global' or current_user.church_role.is_lead_pastor) %}
             <a href="{{ url_for('members.add_event') }}" class="btn btn-light btn-sm fw-bold">
                 <i class="bi bi-plus-circle me-1"></i> Novo Evento Geral
             </a>
@@ -61,7 +61,7 @@
                         </div>
                         
                         {# Lógica de Permissão para Ações #}
-                        {% set is_admin = current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder'] %}
+                        {% set is_admin = current_user.church_role and current_user.church_role.name == 'Administrador Global' or current_user.church_role.is_lead_pastor %}
                         {% set is_leader = event.ministry and event.ministry.leader_id == current_user.id %}
                         {% if is_admin or is_leader or current_user.can_manage_events %}
                         <div class="ms-3 d-flex gap-2">

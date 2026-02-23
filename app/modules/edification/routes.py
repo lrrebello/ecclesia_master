@@ -16,7 +16,12 @@ pillow_heif.register_heif_opener()
 edification_bp = Blueprint('edification', __name__)
 
 def can_publish_content():
-    return current_user.can_publish_devotionals or (current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder'])
+    return current_user.can_publish_devotionals or (
+        current_user.church_role and (
+            current_user.church_role.name == 'Administrador Global' or
+            current_user.church_role.is_lead_pastor
+        )
+    )
 
 @edification_bp.route('/devotionals')
 @login_required
@@ -219,8 +224,13 @@ def review_study_questions(study_id):
 @login_required
 def kids():
     is_kids_ministry_member = any(m.is_kids_ministry for m in current_user.ministries)
-    has_permission = current_user.can_manage_kids or (current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder'])
-    
+    has_permission = (
+        current_user.can_manage_kids 
+        or (current_user.church_role and (
+            current_user.church_role.name == 'Administrador Global' 
+            or current_user.church_role.is_lead_pastor
+        ))
+    )    
     if not has_permission and not is_kids_ministry_member:
         flash('Acesso negado. Espaço restrito ao Ministério Kids.', 'danger')
         return redirect(url_for('members.dashboard'))

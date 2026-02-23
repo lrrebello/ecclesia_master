@@ -46,6 +46,13 @@
                     <input type="checkbox" class="form-check-input" id="is_active" name="is_active" {% if role.is_active %}checked{% endif %}>
                     <label class="form-check-label" for="is_active">Ativo</label>
                 </div>
+                <div class="form-group form-check">
+                    <input type="checkbox" class="form-check-input" id="is_lead_pastor" name="is_lead_pastor" 
+                        {% if role and role.is_lead_pastor %}checked{% endif %}>
+                    <label class="form-check-label" for="is_lead_pastor">
+                        Este é o cargo de Pastor Líder (acesso a edição da congregação e cartão de membros)
+                    </label>
+                </div>
                 <button type="submit" class="btn btn-primary">Salvar Alterações</button>
                 <a href="{{ url_for("admin.list_church_roles_by_id", church_id=church.id) }}" class="btn btn-secondary">Voltar</a>
             </form>

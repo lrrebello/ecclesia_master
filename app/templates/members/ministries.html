@@ -6,7 +6,7 @@
             <h1 class="fw-bold text-primary"><i class="bi bi-diagram-3-fill me-2"></i>Ministérios</h1>
             <p class="text-muted">Departamentos e grupos de serviço da nossa igreja.</p>
         </div>
-        {% if current_user.can_manage_ministries or (current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder']) %}
+        {% if current_user.can_manage_ministries or (current_user.church_role and current_user.church_role.name == 'Administrador Global' or current_user.church_role.is_lead_pastor) %}
         <a href="{{ url_for('members.add_ministry') }}" class="btn btn-primary fw-bold">
             <i class="bi bi-plus-lg me-2"></i> Novo Ministério
         </a>
@@ -30,7 +30,7 @@
                     </div>
 
                     <div class="d-grid gap-2">
-                        {% if ministry.leader_id == current_user.id or current_user.can_manage_ministries or (current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder']) %}
+                        {% if ministry.leader_id == current_user.id or current_user.can_manage_ministries or (current_user.church_role and current_user.church_role.name == 'Administrador Global' or current_user.church_role.is_lead_pastor) %}
                         <a href="{{ url_for('members.add_ministry_event', id=ministry.id) }}" class="btn btn-sm btn-outline-primary">
                             <i class="bi bi-calendar-plus me-1"></i> Agendar Evento
                         </a>

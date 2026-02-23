@@ -13,7 +13,7 @@ def is_admin():
     return current_user.church_role and current_user.church_role.name == 'Administrador Global'
 
 def can_manage_finance():
-    return current_user.can_manage_finance or (current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder', 'Tesoureiro'])
+    return current_user.can_manage_finance or (current_user.church_role and current_user.church_role.name == 'Administrador Global' or current_user.church_role.is_lead_pastor, 'Tesoureiro')
 
 @finance_bp.route('/dashboard')
 @login_required

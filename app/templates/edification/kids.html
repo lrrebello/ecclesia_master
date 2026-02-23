@@ -8,7 +8,7 @@
             <p class="text-muted fs-5">Espaço especial para nossas crianças crescerem na Palavra!</p>
         </div>
         <div class="d-flex gap-2">
-            {% if current_user.can_manage_kids or (current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder']) %}
+            {% if current_user.can_manage_kids or (current_user.church_role and current_user.church_role.name == 'Administrador Global' or current_user.church_role.is_lead_pastor) %}
             <a href="{{ url_for('edification.manage_kids') }}" class="btn btn-outline-dark btn-lg fw-bold rounded-pill shadow-sm">
                 <i class="bi bi-gear me-2"></i> Gerenciar
             </a>
