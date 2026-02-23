@@ -294,7 +294,7 @@ def add_member():
     if request.method == 'POST':
         name = request.form.get('name')
         email = request.form.get('email')
-        birth_date = datetime.strptime(request.form.get('birth_date'), '%Y-%m-%kd').date() if request.form.get('birth_date') else None
+        birth_date = datetime.strptime(request.form.get('birth_date'), '%Y-%m-%d').date() if request.form.get('birth_date') else None
         documents = request.form.get('documents')
         address = request.form.get('address')
         phone = request.form.get('phone')
@@ -337,7 +337,7 @@ def edit_member(id):
         member.email = request.form.get('email')
         member.church_role_id = int(request.form.get('church_role_id')) if request.form.get('church_role_id') else None
         member.church_id = int(request.form.get('church_id')) if request.form.get('church_id') else None
-        member.birth_date = datetime.strptime(request.form.get('birth_date'), '%Y-%m-%kd').date() if request.form.get('birth_date') else member.birth_date
+        member.birth_date = datetime.strptime(request.form.get('birth_date'), '%Y-%m-%d').date() if request.form.get('birth_date') else member.birth_date
         member.documents = request.form.get('documents')
         member.address = request.form.get('address')
         member.phone = request.form.get('phone')
