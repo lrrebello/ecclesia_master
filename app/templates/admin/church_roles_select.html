@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block title %}Selecionar Congregação - Gestão de Cargos{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4">
+    <h1 class="mt-4">Gestão de Cargos por Congregação</h1>
+    <ol class="breadcrumb mb-4">
+        <li class="breadcrumb-item"><a href="{{ url_for("members.dashboard") }}">Dashboard</a></li>
+        <li class="breadcrumb-item active">Selecionar Congregação</li>
+    </ol>
+
+    <div class="card mb-4">
+        <div class="card-header">
+            <i class="bi bi-building me-1"></i>
+            Selecione a Congregação para Gerenciar os Cargos
+        </div>
+        <div class="card-body">
+            <div class="row">
+                {% for church in churches %}
+                <div class="col-xl-3 col-md-6 mb-4">
+                    <div class="card bg-primary text-white mb-4">
+                        <div class="card-body">{{ church.name }}</div>
+                        <div class="card-footer d-flex align-items-center justify-content-between">
+                            <a href="{{ url_for("admin.list_church_roles_by_id", church_id=church.id) }}" class="small text-white stretched-link">Gerenciar Cargos</a>
+                            <div class="small text-white"><i class="bi bi-angle-right"></i></div>
+                        </div>
+                    </div>
+                </div>
+                {% else %}
+                <div class="col-12">
+                    <p>Nenhuma congregação encontrada.</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

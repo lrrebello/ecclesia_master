@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+
+{% block title %}Cargos da Congregação - {{ church.name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4">
+    <h1 class="mt-4">Cargos da Congregação: {{ church.name }}</h1>
+    <ol class="breadcrumb mb-4">
+        <li class="breadcrumb-item"><a href="{{ url_for("members.dashboard") }}">Dashboard</a></li>
+        <li class="breadcrumb-item"><a href="{{ url_for("admin.list_church_roles") }}">Cargos das Congregações</a></li>
+        <li class="breadcrumb-item active">{{ church.name }}</li>
+    </ol>
+
+    <div class="card mb-4">
+        <div class="card-header">
+            <i class="bi bi-person-badge me-1"></i>
+            Cargos
+            <a href="{{ url_for("admin.add_church_role", church_id=church.id) }}" class="btn btn-primary btn-sm float-end">Adicionar Cargo</a>
+        </div>
+        <div class="card-body">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <table class="table table-bordered" id="datatablesSimple">
+                <thead>
+                    <tr>
+                        <th>Nome</th>
+                        <th>Descrição</th>
+                        <th>Ordem</th>
+                        <th>Ativo</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for role in roles %}
+                    <tr>
+                        <td>{{ role.name }}</td>
+                        <td>{{ role.description }}</td>
+                        <td>{{ role.order }}</td>
+                        <td>{% if role.is_active %}Sim{% else %}Não{% endif %}</td>
+                        <td>
+                            <a href="{{ url_for("admin.edit_church_role", church_id=church.id, role_id=role.id) }}" class="btn btn-warning btn-sm">Editar</a>
+                            <a href="{{ url_for("admin.delete_church_role", church_id=church.id, role_id=role.id) }}" class="btn btn-danger btn-sm" onclick="return confirm("Tem certeza que deseja excluir este cargo? Isso pode afetar membros vinculados.");">Excluir</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

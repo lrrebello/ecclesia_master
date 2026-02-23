@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block title %}Editar Cargo - {{ church.name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4">
+    <h1 class="mt-4">Editar Cargo na Congregação: {{ church.name }}</h1>
+    <ol class="breadcrumb mb-4">
+        <li class="breadcrumb-item"><a href="{{ url_for("members.dashboard") }}">Dashboard</a></li>
+        <li class="breadcrumb-item"><a href="{{ url_for("admin.list_church_roles") }}">Cargos das Congregações</a></li>
+        <li class="breadcrumb-item"><a href="{{ url_for("admin.list_church_roles_by_id", church_id=church.id) }}">{{ church.name }}</a></li>
+        <li class="breadcrumb-item active">Editar Cargo</li>
+    </ol>
+
+    <div class="card mb-4">
+        <div class="card-header">
+            <i class="bi bi-pencil-square me-1"></i>
+            Formulário de Edição de Cargo
+        </div>
+        <div class="card-body">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <form method="POST" action="{{ url_for("admin.edit_church_role", church_id=church.id, role_id=role.id) }}">
+                <div class="mb-3">
+                    <label for="name" class="form-label">Nome do Cargo</label>
+                    <input type="text" class="form-control" id="name" name="name" value="{{ role.name }}" required>
+                </div>
+                <div class="mb-3">
+                    <label for="description" class="form-label">Descrição</label>
+                    <textarea class="form-control" id="description" name="description" rows="3">{{ role.description }}</textarea>
+                </div>
+                <div class="mb-3">
+                    <label for="order" class="form-label">Ordem de Exibição</label>
+                    <input type="number" class="form-control" id="order" name="order" value="{{ role.order }}">
+                </div>
+                <div class="mb-3 form-check">
+                    <input type="checkbox" class="form-check-input" id="is_active" name="is_active" {% if role.is_active %}checked{% endif %}>
+                    <label class="form-check-label" for="is_active">Ativo</label>
+                </div>
+                <button type="submit" class="btn btn-primary">Salvar Alterações</button>
+                <a href="{{ url_for("admin.list_church_roles_by_id", church_id=church.id) }}" class="btn btn-secondary">Voltar</a>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

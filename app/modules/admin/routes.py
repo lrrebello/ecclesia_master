@@ -1,4 +1,7 @@
-# Arquivo completo: app/modules/admin/routes.py (adicionando rota para add_user)
+# Arquivo completo: app/modules/admin/routes.py
+# Consolidado com Gestão Global de Membros (filtros/totalizador) e Gestão de Cargos por Filial
+# Baseado no código original do repositório com adições das novas funcionalidades
+
 from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app
 from flask_login import login_required, current_user
 from app.core.models import Church, db, User, ChurchRole
@@ -10,6 +13,8 @@ admin_bp = Blueprint('admin', __name__)
 
 def is_global_admin():
     return current_user.church_role and current_user.church_role.name == 'Administrador Global'
+
+# ==================== GESTÃO DE CONGREGAÇÕES ====================
 
 @admin_bp.route('/churches')
 @login_required
@@ -44,7 +49,7 @@ def add_church():
             is_main=True if request.form.get('is_main') else False
         )
 
-         # Processar upload de logo
+        # Processar upload de logo
         file = request.files.get('logo')
         if file and file.filename:
             filename = secure_filename(file.filename)
@@ -120,255 +125,48 @@ def edit_church(id):
     
     return render_template('admin/edit_church.html', church=church)
 
-@admin_bp.route('/members')
+@admin_bp.route('/church/delete/<int:id>', methods=['POST'])
 @login_required
-def list_members():
-    """
-    Rota modificada para suportar filtros por cargo e exibir totalizador de membros.
-    Mantém compatibilidade com filtro de congregação existente.
-    """
+def delete_church(id):
     if not is_global_admin():
         flash('Acesso negado.', 'danger')
         return redirect(url_for('members.dashboard'))
     
-    church_id = request.args.get('church_id', type=int)
-    role_id = request.args.get('role_id', type=int)
+    church = Church.query.get_or_404(id)
     
-    churches = Church.query.order_by(Church.name).all()
-    roles = ChurchRole.query.order_by(ChurchRole.name).all()
-    
-    # Construir query base
-    query = User.query
-    
-    # Aplicar filtro de congregação
-    if church_id:
-        selected_church = Church.query.get(church_id)
-        if selected_church:
-            query = query.filter_by(church_id=church_id)
-        else:
-            selected_church = None
-            flash('Congregação não encontrada.', 'warning')
-    else:
-        selected_church = None
-    
-    # Aplicar filtro de cargo
-    if role_id:
-        selected_role = ChurchRole.query.get(role_id)
-        if selected_role:
-            query = query.filter_by(church_role_id=role_id)
-        else:
-            selected_role = None
-            flash('Cargo não encontrado.', 'warning')
-    else:
-        selected_role = None
-    
-    # Executar query e ordenar
-    members = query.order_by(User.name).all()
-    
-    # Calcular totalizador
-    total_members = len(members)
-    
-    return render_template(
-        'admin/members.html',
-        members=members,
-        churches=churches,
-        roles=roles,
-        selected_church=selected_church,
-        selected_role=selected_role,
-        current_church_id=church_id,
-        current_role_id=role_id,
-        total_members=total_members
-    )
+    # Impede excluir a igreja principal se houver apenas uma
+    if church.is_main and Church.query.filter_by(is_main=True).count() <= 1:
+        # Se for a única igreja, não permite excluir
+        if Church.query.count() <= 1:
+            flash('Não é possível excluir a única congregação do sistema.', 'warning')
+            return redirect(url_for('admin.list_churches'))
 
-@admin_bp.route('/member/add', methods=['GET', 'POST'])
-@login_required
-def add_member():
-    if not is_global_admin():
-        flash('Acesso negado.', 'danger')
-        return redirect(url_for('admin.list_members'))
-    
-    churches = Church.query.all()
-    
-    if request.method == 'POST':
-        name = request.form.get('name')
-        email = request.form.get('email')
-        password = request.form.get('password')
-        birth_date = datetime.strptime(request.form.get('birth_date'), '%Y-%m-%d').date() if request.form.get('birth_date') else None
-        gender = request.form.get('gender')
-        documents = request.form.get('documents')
-        address = request.form.get('address')
-        phone = request.form.get('phone')
-        church_id = int(request.form.get('church_id')) if request.form.get('church_id') else None
-        status = request.form.get('status', 'active')
+    try:
+        # Remove vínculos de membros para evitar erro de chave estrangeira
+        User.query.filter_by(church_id=id).update({User.church_id: None})
         
-        file = request.files.get('profile_photo')
-        profile_photo = None
-        if file:
-            filename = secure_filename(file.filename)
-            full_path = os.path.join(current_app.config['UPLOAD_FOLDER'], 'profiles', filename)
-            os.makedirs(os.path.dirname(full_path), exist_ok=True)
-            file.save(full_path)
-            profile_photo = 'uploads/profiles/' + filename
+        db.session.delete(church)
+        db.session.commit()
+        flash(f'Congregação {church.name} excluída com sucesso!', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Erro ao excluir congregação: {str(e)}', 'danger')
         
-        new_user = User(
-            name=name,
-            email=email,
-            birth_date=birth_date,
-            gender=gender,
-            documents=documents,
-            address=address,
-            phone=phone,
-            profile_photo=profile_photo,
-            church_id=church_id,
-            status=status
-        )
-        new_user.set_password(password)
-        db.session.add(new_user)
-        db.session.commit()
-        flash('Membro criado com sucesso!', 'success')
-        return redirect(url_for('admin.list_members'))
-    
-    return render_template('admin/add_member.html', churches=churches)
-
-@admin_bp.route('/member/edit/<int:id>', methods=['GET', 'POST'])
-@login_required
-def edit_member(id):
-    if not is_global_admin():
-        flash('Acesso negado.', 'danger')
-        return redirect(url_for('members.dashboard'))
-    
-    member = User.query.get_or_404(id)
-    churches = Church.query.all()
-    roles = ChurchRole.query.filter_by(church_id=member.church_id).order_by(ChurchRole.order, ChurchRole.name).all() if member.church_id else []
-    
-    if request.method == 'POST':
-        member.name = request.form.get('name')
-        member.email = request.form.get('email')
-        member.church_role_id = int(request.form.get('church_role_id')) if request.form.get('church_role_id') else None
-        member.church_id = int(request.form.get('church_id')) if request.form.get('church_id') else None
-        member.status = request.form.get('status')
-        member.birth_date = datetime.strptime(request.form.get('birth_date'), '%Y-%m-%d').date() if request.form.get('birth_date') else member.birth_date
-        member.gender = request.form.get('gender')
-        member.documents = request.form.get('documents')
-        member.tax_id = request.form.get('tax_id')
-        member.address = request.form.get('address')
-        member.phone = request.form.get('phone')
-        
-        file = request.files.get('profile_photo')
-        if file:
-            filename = secure_filename(file.filename)
-            full_path = os.path.join(current_app.config['UPLOAD_FOLDER'], 'profiles', filename)
-            os.makedirs(os.path.dirname(full_path), exist_ok=True)
-            file.save(full_path)
-            member.profile_photo = 'uploads/profiles/' + filename
-        
-        db.session.commit()
-        flash('Membro atualizado com sucesso!', 'success')
-        return redirect(url_for('admin.list_members'))
-    
-    return render_template('admin/edit_member.html', member=member, churches=churches, roles=roles)
-
-# ... (restante igual ao seu TXT)
-
-@admin_bp.route('/roles')
-@login_required
-def list_roles():
-    if not current_user.church_role or current_user.church_role.name not in ['Administrador Global', 'Pastor Líder']:
-        flash('Acesso negado.', 'danger')
-        return redirect(url_for('members.dashboard'))
-    
-    roles = ChurchRole.query.filter_by(church_id=current_user.church_id).order_by(ChurchRole.order, ChurchRole.name).all()
-    return render_template('admin/list_roles.html', roles=roles)
-
-@admin_bp.route('/role/add', methods=['GET', 'POST'])
-@login_required
-def add_role():
-    if not current_user.church_role or current_user.church_role.name not in ['Administrador Global', 'Pastor Líder']:
-        flash('Acesso negado.', 'danger')
-        return redirect(url_for('admin.list_roles'))
-    
-    if request.method == 'POST':
-        new_role = ChurchRole(
-            name=request.form.get('name'),
-            description=request.form.get('description'),
-            order=int(request.form.get('order')) if request.form.get('order') else 0,
-            church_id=current_user.church_id
-        )
-        db.session.add(new_role)
-        db.session.commit()
-        flash('Cargo criado com sucesso!', 'success')
-        return redirect(url_for('admin.list_roles'))
-    
-    return render_template('admin/add_role.html')
-
-@admin_bp.route('/role/edit/<int:id>', methods=['GET', 'POST'])
-@login_required
-def edit_role(id):
-    role = ChurchRole.query.get_or_404(id)
-    
-    if not current_user.church_role or current_user.church_role.name not in ['Administrador Global', 'Pastor Líder'] or role.church_id != current_user.church_id:
-        flash('Acesso negado.', 'danger')
-        return redirect(url_for('admin.list_roles'))
-    
-    if request.method == 'POST':
-        role.name = request.form.get('name')
-        role.description = request.form.get('description')
-        role.order = int(request.form.get('order')) if request.form.get('order') else 0
-        role.is_active = 'is_active' in request.form
-        db.session.commit()
-        flash('Cargo atualizado!', 'success')
-        return redirect(url_for('admin.list_roles'))
-    
-    return render_template('admin/edit_role.html', role=role)
-
-@admin_bp.route('/role/delete/<int:id>')
-@login_required
-def delete_role(id):
-    role = ChurchRole.query.get_or_404(id)
-    
-    if not current_user.church_role or current_user.church_role.name not in ['Administrador Global', 'Pastor Líder'] or role.church_id != current_user.church_id:
-        flash('Acesso negado.', 'danger')
-        return redirect(url_for('admin.list_roles'))
-    
-    db.session.delete(role)
-    db.session.commit()
-    flash('Cargo excluído com sucesso!', 'success')
-    return redirect(url_for('admin.list_roles'))
-
-@admin_bp.route('/member/card/<int:id>')
-@login_required
-def member_card(id):
-    member = User.query.get_or_404(id)
-    
-    # Verificar permissão: Admin Global ou Pastor Líder da mesma igreja
-    is_global_admin = current_user.church_role and current_user.church_role.name == 'Administrador Global'
-    is_local_pastor = current_user.church_role and current_user.church_role.name == 'Pastor Líder' and current_user.church_id == member.church_id
-    
-    if not (is_global_admin or is_local_pastor):
-        flash('Acesso negado. Você não tem permissão para gerar o cartão deste membro.', 'danger')
-        return redirect(url_for('members.dashboard'))
-    
-    return render_template('admin/member_card.html', member=member)
+    return redirect(url_for('admin.list_churches'))
 
 @admin_bp.route('/my-church', methods=['GET', 'POST'])
 @login_required
 def edit_my_church():
     """Permite que o Pastor Líder edite os dados de sua congregação."""
     # Verificar se o usuário é Pastor Líder ou Admin Global
-    is_global_admin = current_user.church_role and current_user.church_role.name == 'Administrador Global'
+    is_global_admin_check = is_global_admin()
     is_pastor = current_user.church_role and current_user.church_role.name == 'Pastor Líder'
     
-    if not (is_global_admin or is_pastor):
+    if not (is_global_admin_check or is_pastor):
         flash('Acesso negado. Apenas Pastores Líderes e Administradores podem acessar esta página.', 'danger')
         return redirect(url_for('members.dashboard'))
     
-    # Se for Admin Global, precisa ter uma church_id (editar a sua própria)
-    # Se for Pastor, edita automaticamente a sua congregação
-    if is_pastor:
-        church = current_user.church
-    else:
-        # Admin Global pode editar sua própria church se tiver uma
-        church = current_user.church
+    church = current_user.church
     
     if not church:
         flash('Você não está vinculado a nenhuma congregação.', 'warning')
@@ -423,31 +221,325 @@ def edit_my_church():
     
     return render_template('admin/edit_my_church.html', church=church)
 
-@admin_bp.route('/church/delete/<int:id>', methods=['POST'])
+# ==================== GESTÃO DE MEMBROS (COM FILTROS E TOTALIZADOR) ====================
+
+@admin_bp.route('/members')
 @login_required
-def delete_church(id):
+def list_members():
+    """
+    Rota modificada para suportar filtros por cargo e exibir totalizador de membros.
+    Mantém compatibilidade com filtro de congregação existente.
+    """
     if not is_global_admin():
         flash('Acesso negado.', 'danger')
         return redirect(url_for('members.dashboard'))
     
-    church = Church.query.get_or_404(id)
+    church_id = request.args.get('church_id', type=int)
+    role_id = request.args.get('role_id', type=int)
     
-    # Impede excluir a igreja principal se houver apenas uma
-    if church.is_main and Church.query.filter_by(is_main=True).count() <= 1:
-        # Se for a única igreja, não permite excluir
-        if Church.query.count() <= 1:
-            flash('Não é possível excluir a única congregação do sistema.', 'warning')
-            return redirect(url_for('admin.list_churches'))
+    # Construir query base
+    query = User.query
+    
+    # Aplicar filtro de congregação
+    if church_id:
+        selected_church = Church.query.get(church_id)
+        if selected_church:
+            query = query.filter_by(church_id=church_id)
+        else:
+            selected_church = None
+    else:
+        selected_church = None
+    
+    # Aplicar filtro de cargo
+    if role_id:
+        selected_role = ChurchRole.query.get(role_id)
+        if selected_role:
+            query = query.filter_by(church_role_id=role_id)
+        else:
+            selected_role = None
+    else:
+        selected_role = None
+    
+    # Executar query e ordenar
+    members = query.order_by(User.name).all()
+    
+    # Calcular totalizador
+    total_members = len(members)
+    
+    # Obter todas as congregações e cargos para os filtros
+    churches = Church.query.order_by(Church.name).all()
+    roles = ChurchRole.query.order_by(ChurchRole.name).all()
+    
+    return render_template(
+        'admin/members.html',
+        members=members,
+        churches=churches,
+        roles=roles,
+        selected_church=selected_church,
+        selected_role=selected_role,
+        current_church_id=church_id,
+        current_role_id=role_id,
+        total_members=total_members
+    )
 
-    try:
-        # Remove vínculos de membros para evitar erro de chave estrangeira
-        User.query.filter_by(church_id=id).update({User.church_id: None})
+@admin_bp.route('/member/add', methods=['GET', 'POST'])
+@login_required
+def add_member():
+    if not is_global_admin():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('admin.list_members'))
+
+    churches = Church.query.all()
+    
+    if request.method == 'POST':
+        name = request.form.get('name')
+        email = request.form.get('email')
+        birth_date = datetime.strptime(request.form.get('birth_date'), '%Y-%m-%kd').date() if request.form.get('birth_date') else None
+        documents = request.form.get('documents')
+        address = request.form.get('address')
+        phone = request.form.get('phone')
+        gender = request.form.get('gender')
+        church_id = int(request.form.get('church_id')) if request.form.get('church_id') else None
+        status = request.form.get('status', 'active')
         
-        db.session.delete(church)
+        new_user = User(
+            name=name,
+            email=email,
+            birth_date=birth_date,
+            documents=documents,
+            address=address,
+            phone=phone,
+            gender=gender,
+            church_id=church_id,
+            status=status
+        )
+        new_user.set_password(request.form.get('password'))
+        db.session.add(new_user)
         db.session.commit()
-        flash(f'Congregação {church.name} excluída com sucesso!', 'success')
-    except Exception as e:
-        db.session.rollback()
-        flash(f'Erro ao excluir congregação: {str(e)}', 'danger')
+        flash('Membro criado com sucesso!', 'success')
+        return redirect(url_for('admin.list_members'))
+    
+    return render_template('admin/add_member.html', churches=churches)
+
+@admin_bp.route('/member/edit/<int:id>', methods=['GET', 'POST'])
+@login_required
+def edit_member(id):
+    if not is_global_admin():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('admin.list_members'))
+
+    member = User.query.get_or_404(id)
+    churches = Church.query.all()
+    roles = ChurchRole.query.filter_by(church_id=member.church_id).order_by(ChurchRole.order, ChurchRole.name).all() if member.church_id else []
+
+    if request.method == 'POST':
+        member.name = request.form.get('name')
+        member.email = request.form.get('email')
+        member.church_role_id = int(request.form.get('church_role_id')) if request.form.get('church_role_id') else None
+        member.church_id = int(request.form.get('church_id')) if request.form.get('church_id') else None
+        member.birth_date = datetime.strptime(request.form.get('birth_date'), '%Y-%m-%kd').date() if request.form.get('birth_date') else member.birth_date
+        member.documents = request.form.get('documents')
+        member.address = request.form.get('address')
+        member.phone = request.form.get('phone')
+        member.gender = request.form.get('gender')
+        member.tax_id = request.form.get('tax_id')
         
-    return redirect(url_for('admin.list_churches'))
+        file = request.files.get('profile_photo')
+        if file:
+            filename = secure_filename(file.filename)
+            full_path = os.path.join(current_app.config['UPLOAD_FOLDER'], 'profiles', filename)
+            os.makedirs(os.path.dirname(full_path), exist_ok=True)
+            file.save(full_path)
+            member.profile_photo = f'uploads/profiles/{filename}'
+        
+        db.session.commit()
+        flash('Membro atualizado com sucesso!', 'success')
+        return redirect(url_for('admin.list_members'))
+    
+    return render_template('admin/edit_member.html', member=member, churches=churches, roles=roles)
+
+@admin_bp.route('/member/card/<int:id>')
+@login_required
+def member_card(id):
+    member = User.query.get_or_404(id)
+    
+    # Verificar permissões: Admin Global ou Pastor Líder da mesma igreja
+    is_global_admin_check = is_global_admin()
+    is_local_pastor = current_user.church_role and current_user.church_role.name == 'Pastor Líder' and current_user.church_id == member.church_id
+    
+    if not (is_global_admin_check or is_local_pastor):
+        flash('Acesso negado. Você não tem permissão para gerar o cartão deste membro.', 'danger')
+        
+        return render_template('admin/member_card.html', member=member)
+
+# ==================== GESTÃO DE CARGOS ====================
+
+@admin_bp.route('/roles')
+@login_required
+def list_roles():
+    if not current_user.church_role or current_user.church_role.name not in ['Administrador Global', 'Pastor Líder']:
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('members.dashboard'))
+    roles = ChurchRole.query.filter_by(church_id=current_user.church_id).order_by(ChurchRole.order, ChurchRole.name).all()
+    return render_template('admin/list_roles.html', roles=roles)
+
+
+@admin_bp.route('/role/add', methods=['GET', 'POST'])
+@login_required
+def add_role():
+    if not current_user.church_role or current_user.church_role.name not in ['Administrador Global', 'Pastor Líder']:
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('admin.list_roles'))
+    if request.method == 'POST':
+        new_role = ChurchRole(
+            name=request.form.get('name'),
+            description=request.form.get('description'),
+            order=int(request.form.get('order')) if request.form.get('order') else 0,
+            church_id=current_user.church_id
+        )
+        db.session.add(new_role)
+        db.session.commit()
+        flash('Cargo criado com sucesso!', 'success')
+        return redirect(url_for('admin.list_roles'))
+    return render_template('admin/add_role.html')
+
+
+@admin_bp.route('/role/edit/<int:id>', methods=['GET', 'POST'])
+@login_required
+def edit_role(id):
+    role = ChurchRole.query.get_or_404(id)
+    if not current_user.church_role or current_user.church_role.name not in ['Administrador Global', 'Pastor Líder'] or role.church_id != current_user.church_id:
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('admin.list_roles'))
+    if request.method == 'POST':
+        role.name = request.form.get('name')
+        role.description = request.form.get('description')
+        role.order = int(request.form.get('order')) if request.form.get('order') else 0
+        role.is_active = 'is_active' in request.form
+        db.session.commit()
+        flash('Cargo atualizado!', 'success')
+        return redirect(url_for('admin.list_roles'))
+    return render_template('admin/edit_role.html', role=role)
+
+
+@admin_bp.route('/role/delete/<int:id>')
+@login_required
+def delete_role(id):
+    role = ChurchRole.query.get_or_404(id)
+    if not current_user.church_role or current_user.church_role.name not in ['Administrador Global', 'Pastor Líder'] or role.church_id != current_user.church_id:
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('admin.list_roles'))
+    db.session.delete(role)
+    db.session.commit()
+    flash('Cargo excluído com sucesso!', 'success')
+    return redirect(url_for('admin.list_roles'))
+
+# ==================== GESTÃO DE CARGOS POR FILIAL (ADMIN GLOBAL) ====================
+
+@admin_bp.route('/church-roles')
+@login_required
+def list_church_roles():
+    """
+    Página de seleção de filial para o Administrador Global gerenciar cargos.
+    """
+    if not is_global_admin():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('members.dashboard'))
+    
+    churches = Church.query.order_by(Church.name).all()
+    return render_template('admin/church_roles_select.html', churches=churches)
+
+
+@admin_bp.route('/church-roles/<int:church_id>')
+@login_required
+def list_church_roles_by_id(church_id):
+    """
+    Listagem de cargos de uma filial específica para o Administrador Global.
+    """
+    if not is_global_admin():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('members.dashboard'))
+    
+    church = Church.query.get_or_404(church_id)
+    roles = ChurchRole.query.filter_by(church_id=church_id).order_by(ChurchRole.order, ChurchRole.name).all()
+    
+    return render_template('admin/church_roles_list.html', church=church, roles=roles)
+
+
+@admin_bp.route('/church-roles/<int:church_id>/add', methods=['GET', 'POST'])
+@login_required
+def add_church_role(church_id):
+    """
+    Adicionar novo cargo em uma filial específica (Administrador Global).
+    """
+    if not is_global_admin():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('members.dashboard'))
+    
+    church = Church.query.get_or_404(church_id)
+    
+    if request.method == 'POST':
+        new_role = ChurchRole(
+            name=request.form.get('name'),
+            description=request.form.get('description'),
+            order=int(request.form.get('order')) if request.form.get('order') else 0,
+            church_id=church_id
+        )
+        db.session.add(new_role)
+        db.session.commit()
+        flash('Cargo criado com sucesso!', 'success')
+        return redirect(url_for('admin.list_church_roles_by_id', church_id=church_id))
+    
+    return render_template('admin/add_church_role.html', church=church)
+
+
+@admin_bp.route('/church-roles/<int:church_id>/edit/<int:role_id>', methods=['GET', 'POST'])
+@login_required
+def edit_church_role(church_id, role_id):
+    """
+    Editar cargo em uma filial específica (Administrador Global).
+    """
+    if not is_global_admin():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('members.dashboard'))
+    
+    church = Church.query.get_or_404(church_id)
+    role = ChurchRole.query.get_or_404(role_id)
+    
+    if role.church_id != church_id:
+        flash('Cargo não encontrado nesta congregação.', 'danger')
+        return redirect(url_for('admin.list_church_roles_by_id', church_id=church_id))
+    
+    if request.method == 'POST':
+        role.name = request.form.get('name')
+        role.description = request.form.get('description')
+        role.order = int(request.form.get('order')) if request.form.get('order') else 0
+        role.is_active = 'is_active' in request.form
+        db.session.commit()
+        flash('Cargo atualizado!', 'success')
+        return redirect(url_for('admin.list_church_roles_by_id', church_id=church_id))
+    
+    return render_template('admin/edit_church_role.html', church=church, role=role)
+
+
+@admin_bp.route('/church-roles/<int:church_id>/delete/<int:role_id>')
+@login_required
+def delete_church_role(church_id, role_id):
+    """
+    Deletar cargo em uma filial específica (Administrador Global).
+    """
+    if not is_global_admin():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('members.dashboard'))
+    
+    church = Church.query.get_or_404(church_id)
+    role = ChurchRole.query.get_or_404(role_id)
+    
+    if role.church_id != church_id:
+        flash('Cargo não encontrado nesta congregação.', 'danger')
+        return redirect(url_for('admin.list_church_roles_by_id', church_id=church_id))
+    
+    db.session.delete(role)
+    db.session.commit()
+    flash('Cargo excluído com sucesso!', 'success')
+    return redirect(url_for('admin.list_church_roles_by_id', church_id=church_id))
