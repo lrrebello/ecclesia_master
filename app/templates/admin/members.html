@@ -4,13 +4,13 @@
 <div class="container py-4">
     <h1 class="fw-bold text-primary mb-4">Gestão Global - Membros das Congregações</h1>
 
-    <!-- Seletor de Congregação -->
+    <!-- Seletor de Congregação e Cargo -->
     <div class="card border-0 shadow-sm mb-4">
         <div class="card-body">
             <form method="GET" class="row g-3 align-items-end">
-                <div class="col-md-6">
+                <div class="col-md-5">
                     <label for="church_id" class="form-label fw-bold">Selecionar Congregação</label>
-                    <select name="church_id" id="church_id" class="form-select" onchange="this.form.submit()">
+                    <select name="church_id" id="church_id" class="form-select">
                         <option value="">-- Todas as Congregações --</option>
                         {% for church in churches %}
                         <option value="{{ church.id }}" {{ 'selected' if current_church_id == church.id }}>
@@ -19,10 +19,50 @@
                         {% endfor %}
                     </select>
                 </div>
-                <div class="col-md-3 d-flex align-items-end">
+                <div class="col-md-5">
+                    <label for="role_id" class="form-label fw-bold">Filtrar por Cargo</label>
+                    <select name="role_id" id="role_id" class="form-select">
+                        <option value="">-- Todos os Cargos --</option>
+                        {% for role in roles %}
+                        <option value="{{ role.id }}" {{ 'selected' if current_role_id == role.id }}>
+                            {{ role.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
                     <button type="submit" class="btn btn-primary w-100">Filtrar</button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <!-- Totalizador de Membros -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card border-0 shadow-sm bg-light">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h5 class="card-title mb-0 text-muted">Total de Membros Listados</h5>
+                        </div>
+                        <div>
+                            <h2 class="text-primary mb-0 fw-bold">{{ total_members }}</h2>
+                        </div>
+                    </div>
+                    {% if current_church_id or current_role_id %}
+                    <small class="text-muted d-block mt-2">
+                        {% if current_church_id and current_role_id %}
+                            Filtrados por congregação e cargo
+                        {% elif current_church_id %}
+                            Filtrados por congregação
+                        {% elif current_role_id %}
+                            Filtrados por cargo
+                        {% endif %}
+                    </small>
+                    {% endif %}
+                </div>
+            </div>
         </div>
     </div>
 
@@ -35,6 +75,7 @@
                     <th>Nome</th>
                     <th>E-mail</th>
                     <th>Congregação</th>
+                    <th>Cargo</th>
                     <th>Status</th>
                     <th>Ações</th>
                 </tr>
@@ -45,6 +86,13 @@
                     <td>{{ member.name }}</td>
                     <td>{{ member.email }}</td>
                     <td>{{ member.church.name if member.church else 'Sem congregação' }}</td>
+                    <td>
+                        {% if member.church_role %}
+                            <span class="badge bg-info">{{ member.church_role.name }}</span>
+                        {% else %}
+                            <span class="text-muted">-</span>
+                        {% endif %}
+                    </td>
                     <td>
                         <span class="badge {{ 'bg-success' if member.status == 'active' else 'bg-warning' if member.status == 'pending' else 'bg-danger' }}">
                             {{ member.status|capitalize }}

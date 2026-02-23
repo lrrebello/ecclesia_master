@@ -123,30 +123,61 @@ def edit_church(id):
 @admin_bp.route('/members')
 @login_required
 def list_members():
+    """
+    Rota modificada para suportar filtros por cargo e exibir totalizador de membros.
+    Mantém compatibilidade com filtro de congregação existente.
+    """
     if not is_global_admin():
         flash('Acesso negado.', 'danger')
         return redirect(url_for('members.dashboard'))
     
     church_id = request.args.get('church_id', type=int)
-    churches = Church.query.order_by(Church.name).all()
+    role_id = request.args.get('role_id', type=int)
     
+    churches = Church.query.order_by(Church.name).all()
+    roles = ChurchRole.query.order_by(ChurchRole.name).all()
+    
+    # Construir query base
+    query = User.query
+    
+    # Aplicar filtro de congregação
     if church_id:
         selected_church = Church.query.get(church_id)
         if selected_church:
-            members = User.query.filter_by(church_id=church_id).order_by(User.name).all()
+            query = query.filter_by(church_id=church_id)
         else:
-            members = []
+            selected_church = None
             flash('Congregação não encontrada.', 'warning')
     else:
         selected_church = None
-        members = User.query.order_by(User.name).all()
+    
+    # Aplicar filtro de cargo
+    if role_id:
+        selected_role = ChurchRole.query.get(role_id)
+        if selected_role:
+            query = query.filter_by(church_role_id=role_id)
+        else:
+            selected_role = None
+            flash('Cargo não encontrado.', 'warning')
+    else:
+        selected_role = None
+    
+    # Executar query e ordenar
+    members = query.order_by(User.name).all()
+    
+    # Calcular totalizador
+    total_members = len(members)
     
     return render_template(
         'admin/members.html',
         members=members,
         churches=churches,
+        roles=roles,
         selected_church=selected_church,
-        current_church_id=church_id
+        selected_role=selected_role,
+        current_church_id=church_id,
+        current_role_id=role_id,
+        total_members=total_members
     )
 
 @admin_bp.route('/member/add', methods=['GET', 'POST'])
