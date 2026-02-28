@@ -1,1 +1,0 @@
-cat: ./inicio_grok_completo.txt: os arquivos de entrada e de saída são os mesmos
