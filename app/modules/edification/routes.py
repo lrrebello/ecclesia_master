@@ -2,6 +2,7 @@ from flask import Blueprint, render_template, redirect, url_for, flash, request,
 from flask_login import login_required, current_user
 from app.core.models import db, Devotional, Study, KidsActivity, StudyQuestion, Media, Ministry, Album, BibleStory, BibleQuiz
 from datetime import datetime
+from PIL import Image
 from werkzeug.utils import secure_filename
 import os
 import json
@@ -547,46 +548,60 @@ def add_media():
             file_ext = os.path.splitext(filename)[1].lower()
             unique_filename = f"{datetime.now().strftime('%Y%m%d%H%M%S')}_{count}_{filename}"
             
-            if file_ext == '.heic':
-                try:
-                    img = Image.open(file)
-                    new_filename = unique_filename.replace('.heic', '.jpg', 1)
-                    full_path = os.path.join(current_app.config['UPLOAD_FOLDER'], 'media', new_filename)
-                    os.makedirs(os.path.dirname(full_path), exist_ok=True)
-                    img.convert('RGB').save(full_path, 'JPEG', quality=95)
-                    file_path = 'uploads/media/' + new_filename
-                    media_type = 'image'
-                except Exception as e:
-                    flash(f'Erro ao converter HEIC: {str(e)}', 'warning')
-                    continue
-            else:
-                full_path = os.path.join(current_app.config['UPLOAD_FOLDER'], 'media', unique_filename)
-                os.makedirs(os.path.dirname(full_path), exist_ok=True)
-                file.save(full_path)
-                file_path = 'uploads/media/' + unique_filename
-                
-                if file_ext in ['.jpg', '.jpeg', '.png', '.gif']:
-                    media_type = 'image'
-                elif file_ext in ['.mp4', '.mov']:
-                    media_type = 'video'
-                elif file_ext == '.pdf':
-                    media_type = 'pdf'
-                else:
-                    flash(f'Formato não suportado: {file_ext}', 'warning')
-                    continue
+            full_path = os.path.join(current_app.config['UPLOAD_FOLDER'], 'media', unique_filename)
+            os.makedirs(os.path.dirname(full_path), exist_ok=True)
             
-            new_media = Media(
-                title=title if not album else file.filename,
-                description=description,
-                file_path=file_path,
-                media_type=media_type,
-                event_name=event_name,
-                church_id=current_user.church_id,
-                ministry_id=int(ministry_id) if ministry_id else None,
-                album_id=album_id
-            )
-            db.session.add(new_media)
-            count += 1
+            media_type = 'image'  # default
+            try:
+                if file_ext == '.heic':
+                    img = Image.open(file)
+                    img = img.convert('RGB')
+                    new_filename = unique_filename.rsplit('.', 1)[0] + '.jpg'
+                    full_path = os.path.join(current_app.config['UPLOAD_FOLDER'], 'media', new_filename)
+                    # Compressão e redimensionamento
+                    img = compress_and_resize_image(img)
+                    img.save(full_path, 'JPEG', quality=80, optimize=True)
+                    file_path = 'uploads/media/' + new_filename
+                else:
+                    file.save(full_path)
+                    file_path = 'uploads/media/' + unique_filename
+                    
+                    if file_ext in ['.jpg', '.jpeg', '.png', '.gif']:
+                        media_type = 'image'
+                        # Compressão para imagens comuns
+                        try:
+                            img = Image.open(full_path)
+                            img = compress_and_resize_image(img)
+                            img.save(full_path, 'JPEG', quality=80, optimize=True)
+                        except Exception as e:
+                            print(f"Erro ao comprimir {filename}: {e}")  # log silencioso
+                    elif file_ext in ['.mp4', '.mov']:
+                        media_type = 'video'
+                    elif file_ext == '.pdf':
+                        media_type = 'pdf'
+                    else:
+                        flash(f'Formato não suportado: {file_ext}', 'warning')
+                        continue
+                
+                # Garanta permissão de leitura para Caddy
+                os.chmod(full_path, 0o644)
+                
+                new_media = Media(
+                    title=title if not album else file.filename,
+                    description=description,
+                    file_path=file_path,
+                    media_type=media_type,
+                    event_name=event_name,
+                    church_id=current_user.church_id,
+                    ministry_id=int(ministry_id) if ministry_id else None,
+                    album_id=album_id
+                )
+                db.session.add(new_media)
+                count += 1
+                
+            except Exception as e:
+                flash(f'Erro ao processar arquivo {filename}: {str(e)}', 'warning')
+                continue
             
         db.session.commit()
         flash(f'{count} mídias adicionadas com sucesso!', 'success')
@@ -598,6 +613,24 @@ def add_media():
             return redirect(url_for('edification.gallery'))
     
     return render_template('edification/add_media.html', ministries=ministries)
+
+
+# Função auxiliar de compressão e redimensionamento
+def compress_and_resize_image(img):
+    """
+    Redimensiona (se maior que 1920px) e comprime imagem para web.
+    """
+    max_width = 1920
+    if img.width > max_width:
+        ratio = max_width / img.width
+        new_height = int(img.height * ratio)
+        img = img.resize((max_width, new_height), Image.LANCZOS)
+    
+    # Converte para RGB se necessário
+    if img.mode in ("RGBA", "P"):
+        img = img.convert("RGB")
+    
+    return img
 
 @edification_bp.route('/gallery/album/<int:id>')
 @login_required
