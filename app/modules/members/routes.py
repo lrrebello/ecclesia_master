@@ -131,13 +131,20 @@ def edit_profile():
         current_user.address = request.form.get('address')
         current_user.phone = request.form.get('phone')
         
+        # Novos campos adicionados aqui
+        current_user.postal_code    = request.form.get('postal_code')
+        current_user.concelho       = request.form.get('concelho')
+        current_user.localidade     = request.form.get('localidade')
+        current_user.education_level = request.form.get('education_level')
+        
         file = request.files.get('profile_photo')
-        if file:
+        if file and file.filename:  # adicionei verificação de filename para evitar salvar vazio
             filename = secure_filename(file.filename)
-            full_path = os.path.join(current_app.config['UPLOAD_FOLDER'], 'profiles', filename)
-            os.makedirs(os.path.dirname(full_path), exist_ok=True)
+            profiles_dir = os.path.join(current_app.config['UPLOAD_FOLDER'], 'profiles')
+            os.makedirs(profiles_dir, exist_ok=True)
+            full_path = os.path.join(profiles_dir, filename)
             file.save(full_path)
-            current_user.profile_photo = 'uploads/profiles/' + filename
+            current_user.profile_photo = f'uploads/profiles/{filename}'
         
         db.session.commit()
         flash('Perfil atualizado com sucesso!', 'success')
