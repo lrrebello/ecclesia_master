@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+
 {% block content %}
 <div class="container py-4">
     <div class="d-flex justify-content-between align-items-center mb-5">
@@ -56,31 +57,12 @@
                                 </a>
                                 
                                 {% if member.id != current_user.id %}
-                                <button type="button" class="btn btn-sm btn-outline-danger rounded-pill px-3" data-bs-toggle="modal" data-bs-target="#deleteMemberModal{{ member.id }}">
+                                <button type="button" class="btn btn-sm btn-outline-danger rounded-pill px-3" 
+                                        data-bs-toggle="modal" data-bs-target="#deleteMemberModal"
+                                        data-member-id="{{ member.id }}"
+                                        data-member-name="{{ member.name }}">
                                     <i class="bi bi-trash me-1"></i> Excluir
                                 </button>
-
-                                <!-- Modal de Confirmação de Exclusão -->
-                                <div class="modal text-start" id="deleteMemberModal{{ member.id }}" tabindex="-1" aria-hidden="true">
-                                    <div class="modal-dialog modal-dialog-centered">
-                                        <div class="modal-content border-0 shadow-lg rounded-4">
-                                            <div class="modal-header border-0">
-                                                <h5 class="modal-title fw-bold">Confirmar Exclusão</h5>
-                                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                                            </div>
-                                            <div class="modal-body">
-                                                Tem certeza que deseja excluir o membro <strong>{{ member.name }}</strong>? 
-                                                <p class="text-danger small mt-2 mb-0"><i class="bi bi-exclamation-triangle me-1"></i> Esta ação removerá permanentemente o acesso deste usuário ao sistema.</p>
-                                            </div>
-                                            <div class="modal-footer border-0">
-                                                <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">Cancelar</button>
-                                                <form action="{{ url_for('members.delete_member', id=member.id) }}" method="POST" class="d-inline">
-                                                    <button type="submit" class="btn btn-danger rounded-pill px-4">Excluir Membro</button>
-                                                </form>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
                                 {% endif %}
                             </div>
                         </td>
@@ -91,4 +73,50 @@
         </div>
     </div>
 </div>
+
+<!-- Modal ÚNICO de confirmação de exclusão (fora do loop) -->
+<div class="modal fade" id="deleteMemberModal" tabindex="-1" aria-labelledby="deleteMemberModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg rounded-4">
+            <div class="modal-header border-0">
+                <h5 class="modal-title fw-bold" id="deleteMemberModalLabel">Confirmar Exclusão</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center">
+                Tem certeza que deseja excluir o membro <strong id="modalMemberName">?</strong>?
+                <p class="text-danger small mt-2 mb-0">
+                    <i class="bi bi-exclamation-triangle me-1"></i> 
+                    Esta ação removerá permanentemente o acesso deste usuário ao sistema.
+                </p>
+            </div>
+            <div class="modal-footer border-0">
+                <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">Cancelar</button>
+                <form id="deleteMemberForm" method="POST" action="">
+                    <button type="submit" class="btn btn-danger rounded-pill px-4 fw-bold">Excluir Membro</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Script JS para preencher o modal dinamicamente -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const deleteModal = document.getElementById('deleteMemberModal');
+    if (!deleteModal) return;
+
+    deleteModal.addEventListener('show.bs.modal', function(event) {
+        const button = event.relatedTarget; // Botão que abriu o modal
+        const memberId = button.getAttribute('data-member-id');
+        const memberName = button.getAttribute('data-member-name');
+
+        // Preenche o nome do membro no modal
+        document.getElementById('modalMemberName').textContent = memberName;
+
+        // Atualiza a action do form com o ID correto
+        const form = document.getElementById('deleteMemberForm');
+        form.action = "{{ url_for('members.delete_member', id=0) }}".replace('/0', '/' + memberId);
+    });
+});
+</script>
 {% endblock %}
