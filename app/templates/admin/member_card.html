@@ -4,8 +4,8 @@
 <div class="container py-5 no-print">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
-            <h2 class="fw-bold text-primary mb-0"><i class="bi bi-card-id me-2"></i>Cartão de Membro</h2>
-            <p class="text-muted">Visualize e imprima o cartão de identificação do membro.</p>
+            <h2 class="fw-bold text-primary mb-0"><i class="bi bi-card-id me-2"></i>Cartão de Membro - {{ member.name }}</h2>
+            <p class="text-muted">Visualize e imprima o cartão de identificação.</p>
         </div>
         <div class="d-flex gap-2">
             <button onclick="window.print()" class="btn btn-primary">
@@ -19,318 +19,138 @@
 </div>
 
 <div class="card-print-container">
-    <!-- FRENTE DO CARTÃO -->
-    <div class="member-card front">
-        <div class="card-overlay"></div>
-        <div class="card-content">
-            <div class="card-header-custom">
-                {% if member.church and member.church.logo_path %}
-                <!--<img src="{{ url_for('static', filename=member.church.logo_path) }}" class="church-logo-card">-->
-                {% else %}
-                <i class="bi bi-lightning-charge-fill text-white fs-3"></i>
-                {% endif %}
-                <div class="church-info">
-                    <h6 class="mb-0 fw-bold">{{ member.church.name if member.church else 'IGREJA EVANGELICA ASSEMBLEIA DE DEUS JESUS PARA AS NAÇÕES' }}</h6>
-                    <small>{{ member.church.address if member.church else 'Rua Principal N°133 Edifício Avenida' }}<br>
-                    {{ member.church.city if member.church else 'Gafanha da Boa Hora Vagos Portugal' }}<br>
-                    E-mail: {{ member.church.email if member.church else 'ieadjesus.nacao@hotmail.com' }}</small>
-                </div>
-            </div>
-            
-            <h5 class="card-title">CARTÃO DE MEMBRO</h5>
-            
-            <div class="card-body-custom">
-                <div class="photo-container">
-                    {% if member.profile_photo %}
-                    <img src="{{ url_for('static', filename=member.profile_photo) }}" class="member-photo">
-                    {% else %}
-                    <div class="member-photo-placeholder">
-                        <i class="bi bi-person-fill"></i>
-                    </div>
-                    {% endif %}
-                </div>
-                <div class="member-info-main">
-                    <div class="info-group">
-                        <label>Nome completo</label>
-                        <div class="value name">{{ member.name }}</div>
-                    </div>
-                    <div class="info-group">
-                        <label>Posição</label>
-                        <div class="value role">{{ member.church_role.name if member.church_role else 'Membro' }}</div>
-                    </div>
-                    <div class="info-row">
-                        <div class="info-group">
-                            <label>Estado civil</label>
-                            <div class="value">{{ member.marital_status or '--' }}</div>
-                        </div>
-                        <div class="info-group">
-                            <label>Data de nascimento</label>
-                            <div class="value">{{ member.birth_date.strftime('%d/%m/%Y') if member.birth_date else '--/--/----' }}</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+    <!-- FRENTE -->
+    <div class="member-card front" style="background-image: url('{{ url_for('static', filename=member.church.member_card_front) if member.church and member.church.member_card_front else '' }}');">
+        {% set front = member.church.card_front_layout or {} if member.church else {} %}
+
+        <!-- Foto (se configurada) -->
+        {% if front.photo %}
+        <div class="member-photo-container" style="position: absolute; left: {{ front.photo.x }}px; top: {{ front.photo.y }}px; width: {{ front.photo.width }}px; height: {{ front.photo.height }}px; overflow: hidden; border-radius: 4px;">
+            {% if member.profile_photo %}
+            <img src="{{ url_for('static', filename=member.profile_photo) }}" alt="Foto do membro" style="width: 100%; height: 100%; object-fit: cover;">
+            {% else %}
+            <div class="placeholder-photo">Sem foto</div>
+            {% endif %}
         </div>
+        {% endif %}
+
+        <!-- Nome -->
+        {% if front.name %}
+        <div class="field-value name" style="position: absolute; left: {{ front.name.x }}px; top: {{ front.name.y }}px; width: {{ front.name.width }}px;">
+            {{ member.name }}
+        </div>
+        {% endif %}
+
+        <!-- Cargo / Posição -->
+        {% if front.role %}
+        <div class="field-value role" style="position: absolute; left: {{ front.role.x }}px; top: {{ front.role.y }}px; width: {{ front.role.width }}px;">
+            {{ member.church_role.name if member.church_role else 'Membro' }}
+        </div>
+        {% endif %}
+
+        <!-- Estado Civil -->
+        {% if front.marital_status %}
+        <div class="field-value" style="position: absolute; left: {{ front.marital_status.x }}px; top: {{ front.marital_status.y }}px; width: {{ front.marital_status.width }}px;">
+            {{ member.marital_status or 'Não informado' }}
+        </div>
+        {% endif %}
+
+        <!-- Data de Nascimento -->
+        {% if front.birth_date %}
+        <div class="field-value" style="position: absolute; left: {{ front.birth_date.x }}px; top: {{ front.birth_date.y }}px; width: {{ front.birth_date.width }}px;">
+            {{ member.birth_date.strftime('%d/%m/%Y') if member.birth_date else 'Não informado' }}
+        </div>
+        {% endif %}
     </div>
 
-    <!-- VERSO DO CARTÃO -->
-    <div class="member-card back">
-        <div class="card-overlay"></div>
-        <div class="card-content">
-            <div class="back-details">
-                <div class="info-group">
-                    <label>Filiação</label>
-                    <div class="value filiacao">{{ member.church.name if member.church else '--' }}</div>
-                </div>
-                <div class="info-row mt-3">
-                    <div class="info-group">
-                        <label>Documento</label>
-                        <div class="value">{{ member.tax_id or member.documents or '--' }}</div>
-                    </div>
-                    <div class="info-group">
-                        <label>Data de conversão</label>
-                        <div class="value">{{ member.conversion_date.strftime('%d/%m/%Y') if member.conversion_date else '--/--/----' }}</div>
-                    </div>
-                    <div class="info-group">
-                        <label>Data de batismo</label>
-                        <div class="value">{{ member.baptism_date.strftime('%d/%m/%Y') if member.baptism_date else '--/--/----' }}</div>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="card-disclaimer">
-                Este documento tem validade enquanto o(a) titular permanecer em plena comunhão como membro da Assembleia de Deus IEAD Jesus para as Nações em Aveiro - Portugal.
-            </div>
-            
-            <div class="signature-area">
-                <div class="signature-line"></div>
-                <label>Pr. Fernando Telles dos Santos<br>Presidente da IEAD Jesus Para as Nações</label>
-            </div>
+    <!-- VERSO -->
+    <div class="member-card back" style="background-image: url('{{ url_for('static', filename=member.church.member_card_back) if member.church and member.church.member_card_back else '' }}'); margin-top: 40px;">
+        {% set back = member.church.card_back_layout or {} if member.church else {} %}
+
+        <!-- Filiação -->
+        {% if back.filiacao %}
+        <div class="field-value filiacao" style="position: absolute; left: {{ back.filiacao.x }}px; top: {{ back.filiacao.y }}px; width: {{ back.filiacao.width }}px;">
+            {{ member.church.name if member.church else 'Não informado' }}
         </div>
+        {% endif %}
+
+        <!-- Documento -->
+        {% if back.document %}
+        <div class="field-value" style="position: absolute; left: {{ back.document.x }}px; top: {{ back.document.y }}px; width: {{ back.document.width }}px;">
+            {{ member.tax_id or member.documents or 'Não informado' }}
+        </div>
+        {% endif %}
+
+        <!-- Data de Conversão -->
+        {% if back.conversion_date %}
+        <div class="field-value" style="position: absolute; left: {{ back.conversion_date.x }}px; top: {{ back.conversion_date.y }}px; width: {{ back.conversion_date.width }}px;">
+            {{ member.conversion_date.strftime('%d/%m/%Y') if member.conversion_date else 'Não informado' }}
+        </div>
+        {% endif %}
+
+        <!-- Data de Batismo -->
+        {% if back.baptism_date %}
+        <div class="field-value" style="position: absolute; left: {{ back.baptism_date.x }}px; top: {{ back.baptism_date.y }}px; width: {{ back.baptism_date.width }}px;">
+            {{ member.baptism_date.strftime('%d/%m/%Y') if member.baptism_date else 'Não informado' }}
+        </div>
+        {% endif %}
+
+        <!-- Disclaimer -->
+        {% if back.disclaimer %}
+        <div class="field-value disclaimer" style="position: absolute; left: {{ back.disclaimer.x }}px; top: {{ back.disclaimer.y }}px; width: {{ back.disclaimer.width }}px; height: {{ back.disclaimer.height }}px;">
+            Este documento tem validade enquanto o(a) titular permanecer em plena comunhão como membro da Assembleia de Deus IEAD Jesus para as Nações em Aveiro - Portugal.
+        </div>
+        {% endif %}
+
+        <!-- Assinatura -->
+        {% if back.signature %}
+        <div class="field-value signature" style="position: absolute; left: {{ back.signature.x }}px; top: {{ back.signature.y }}px; width: {{ back.signature.width }}px;">
+            Pr. Fernando Telles dos Santos<br>Presidente da IEAD Jesus Para as Nações
+        </div>
+        {% endif %}
     </div>
 </div>
 
 <style>
-:root {
-    --card-width: 85.6mm;
-    --card-height: 54mm;
-    --primary-card: #1a237e; /* Azul escuro */
-    --accent-card: #ffffff; /* Branco para textos */
-}
-
 .card-print-container {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 20px;
+    gap: 60px;
     padding: 20px;
 }
 
 .member-card {
-    width: var(--card-width);
-    height: var(--card-height);
-    background-color: var(--primary-card);
-    border-radius: 3.18mm;
-    position: relative;
-    overflow: hidden;
-    color: white;
-    font-family: 'Inter', sans-serif;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    width: 856px;
+    height: 540px;
     background-size: cover;
     background-position: center;
-}
-
-{% if member.church and member.church.member_card_front %}
-.member-card.front {
-    background-image: url('{{ url_for("static", filename=member.church.member_card_front) }}');
-}
-{% endif %}
-
-{% if member.church and member.church.member_card_back %}
-.member-card.back {
-    background-image: url('{{ url_for("static", filename=member.church.member_card_back) }}');
-}
-{% endif %}
-
-.card-overlay {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(0,0,0,0.05) 100%);
-    pointer-events: none;
-}
-
-.card-content {
     position: relative;
-    z-index: 2;
-    height: 100%;
-    padding: 4mm;
-    display: flex;
-    flex-direction: column;
-}
-
-/* Header Frente */
-.card-header-custom {
-    display: flex;
-    align-items: center;
-    gap: 3mm;
-    margin-bottom: 2mm;
-}
-.church-logo-card {
-    width: 20mm;
-    height: 20mm;
-    object-fit: contain;
-}
-.church-info {
-    text-align: left;
-}
-.church-info h6 { font-size: 4mm; margin: 0; }
-.church-info small { font-size: 2.5mm; display: block; line-height: 1.2; }
-
-/* Título Frente */
-.card-title {
-    text-align: center;
-    font-size: 4mm;
-    font-weight: bold;
-    margin: 2mm 0;
-    background: rgba(255,255,255,0.2);
-    padding: 1mm;
-    border-radius: 2mm;
-}
-
-/* Body Frente */
-.card-body-custom {
-    display: flex;
-    gap: 4mm;
-}
-.photo-container {
-    width: 25mm;
-    height: 30mm;
-    background: white;
-    border-radius: 2mm;
     overflow: hidden;
-    flex-shrink: 0;
-}
-.member-photo {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-}
-.member-photo-placeholder {
-    width: 100%;
-    height: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #ccc;
-    font-size: 10mm;
+    border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.2);
 }
 
-.member-info-main {
-    flex-grow: 1;
-}
-.info-group label {
-    font-size: 2.5mm;
+.field-value {
+    position: absolute;
+    color: black; /* ou ajuste conforme a arte */
+    font-size: 16px;
     font-weight: 500;
-    display: block;
-    margin-bottom: 0.5mm;
-}
-.value {
-    background: white;
-    color: black;
-    padding: 1mm 2mm;
-    border-radius: 2mm;
-    font-size: 3mm;
-    font-weight: 500;
-}
-.value.name {
-    font-size: 3.5mm;
-    margin-bottom: 2mm;
-}
-.info-row {
-    display: flex;
-    gap: 2mm;
-    margin-top: 1mm;
-}
-.info-row .info-group {
-    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
-/* Verso */
-.back .card-content {
-    justify-content: space-between;
-}
-.back-details {
-    text-align: left;
-}
-.filiacao {
-    background: white;
-    color: black;
-    padding: 1mm 2mm;
-    border-radius: 2mm;
-    font-size: 3.5mm;
-    margin-top: 2mm;
-}
-.info-row {
-    display: flex;
-    justify-content: space-between;
-    gap: 2mm;
-    margin-top: 3mm;
-}
-.info-row .value {
-    width: 25mm;
-    font-size: 3mm;
-}
-
-.card-disclaimer {
-    font-size: 2.2mm;
-    opacity: 0.9;
-    margin: 3mm 0;
-    line-height: 1.2;
-    text-align: center;
-    background: rgba(255,255,255,0.2);
-    padding: 2mm;
-    border-radius: 2mm;
-}
-
-.signature-area {
-    text-align: center;
-    margin-top: auto;
-}
-.signature-line {
-    width: 50mm;
-    height: 0.5pt;
-    background: white;
-    margin: 0 auto 1mm;
-}
-.signature-area label {
-    font-size: 2.5mm;
-    font-weight: bold;
-    line-height: 1.2;
-}
+.name { font-size: 20px; font-weight: bold; }
+.role { font-size: 18px; }
+.disclaimer { font-size: 13px; line-height: 1.4; text-align: center; }
+.signature { font-size: 14px; text-align: center; color: #333; }
 
 @media print {
-    .no-print, .sidebar, .mobile-navbar, .theme-toggle, header {
-        display: none !important;
-    }
-    .main-content {
-        margin-left: 0 !important;
-        padding: 0 !important;
-    }
-    body {
-        background: white !important;
-    }
-    .card-print-container {
-        padding: 0;
-        gap: 10mm;
-    }
-    .member-card {
-        box-shadow: none;
-        -webkit-print-color-adjust: exact;
-        print-color-adjust: exact;
-    }
+    .no-print { display: none !important; }
+    .card-print-container { gap: 40px; padding: 0; }
+    .member-card { box-shadow: none; page-break-after: always; }
+    body { background: white; margin: 0; }
 }
 </style>
 {% endblock %}
