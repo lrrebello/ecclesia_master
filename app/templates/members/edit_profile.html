@@ -1,4 +1,3 @@
-<!-- Arquivo completo: app/templates/members/edit_profile.html (form para usuário editar seu perfil) -->
 {% extends "base.html" %}
 
 {% block content %}
@@ -51,11 +50,34 @@
         </div>
         <div class="mb-3">
             <label for="address" class="form-label">Endereço</label>
-            <textarea class="form-control" id="address" name="address" rows="3">{{ current_user.address }}</textarea>
+            <textarea class="form-control" id="address" name="address" rows="3">{{ current_user.address or '' }}</textarea>
+        </div>
+
+        <!-- Novos campos -->
+        <div class="mb-3">
+            <label for="postal_code" class="form-label">Código Postal</label>
+            <input type="text" class="form-control" id="postal_code" name="postal_code" 
+                   value="{{ current_user.postal_code or '' }}" placeholder="Ex: 1250-123">
         </div>
         <div class="mb-3">
+            <label for="concelho" class="form-label">Concelho / Município</label>
+            <input type="text" class="form-control" id="concelho" name="concelho" 
+                   value="{{ current_user.concelho or '' }}" placeholder="Ex: Lisboa">
+        </div>
+        <div class="mb-3">
+            <label for="localidade" class="form-label">Localidade / Bairro</label>
+            <input type="text" class="form-control" id="localidade" name="localidade" 
+                   value="{{ current_user.localidade or '' }}" placeholder="Ex: São Domingos de Benfica">
+        </div>
+        <div class="mb-3">
+            <label for="education_level" class="form-label">Escolaridade</label>
+            <input type="text" class="form-control" id="education_level" name="education_level" 
+                   value="{{ current_user.education_level or '' }}" placeholder="Ex: Ensino Superior Completo">
+        </div>
+
+        <div class="mb-3">
             <label for="phone" class="form-label">Telefone</label>
-            <input type="tel" class="form-control" id="phone" name="phone" value="{{ current_user.phone }}">
+            <input type="tel" class="form-control" id="phone" name="phone" value="{{ current_user.phone or '' }}">
         </div>
         <div class="mb-3">
             <label for="profile_photo" class="form-label">Foto de Perfil (atual: {{ current_user.profile_photo if current_user.profile_photo else 'Nenhuma' }})</label>

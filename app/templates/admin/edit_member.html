@@ -39,6 +39,23 @@
             <label for="address" class="form-label">Endereço</label>
             <textarea class="form-control" id="address" name="address" rows="3">{{ member.address }}</textarea>
         </div>
+        <!-- Novos campos -->
+        <div class="mb-3">
+            <label for="postal_code" class="form-label">Código Postal</label>
+            <input type="text" class="form-control" id="postal_code" name="postal_code" value="{{ member.postal_code or '' }}" placeholder="Ex: 1234-567">
+        </div>
+        <div class="mb-3">
+            <label for="concelho" class="form-label">Concelho (Município)</label>
+            <input type="text" class="form-control" id="concelho" name="concelho" value="{{ member.concelho or '' }}" placeholder="Ex: Lisboa">
+        </div>
+        <div class="mb-3">
+            <label for="localidade" class="form-label">Localidade</label>
+            <input type="text" class="form-control" id="localidade" name="localidade" value="{{ member.localidade or '' }}" placeholder="Ex: Centro">
+        </div>
+        <div class="mb-3">
+            <label for="education_level" class="form-label">Escolaridade</label>
+            <input type="text" class="form-control" id="education_level" name="education_level" value="{{ member.education_level or '' }}" placeholder="Ex: Ensino Superior">
+        </div>
         <div class="mb-3">
             <label for="phone" class="form-label">Telefone</label>
             <input type="tel" class="form-control" id="phone" name="phone" value="{{ member.phone }}">

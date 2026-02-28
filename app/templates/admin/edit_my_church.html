@@ -36,6 +36,28 @@
                                    value="{{ church.address or '' }}" placeholder="Rua, número">
                         </div>
 
+                        <!-- Código Postal -->
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">Código Postal</label>
+                            <input type="text" name="postal_code" class="form-control" 
+                                   value="{{ church.postal_code or '' }}" placeholder="Ex: 1250-123">
+                            <small class="text-muted">Código postal completo (ex: 4 dígitos + hífen + 3 dígitos em PT).</small>
+                        </div>
+
+                        <!-- Concelho -->
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">Concelho</label>
+                            <input type="text" name="concelho" class="form-control" 
+                                   value="{{ church.concelho or '' }}" placeholder="Ex: Lisboa">
+                        </div>
+
+                        <!-- Localidade -->
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">Localidade</label>
+                            <input type="text" name="localidade" class="form-control" 
+                                   value="{{ church.localidade or '' }}" placeholder="Ex: São Domingos de Benfica">
+                        </div>
+
                         <!-- Cidade -->
                         <div class="mb-4">
                             <label class="form-label fw-bold">Cidade</label>
@@ -170,7 +192,7 @@
                     <hr>
                     <div class="mb-3">
                         <p class="text-muted small mb-1">CRIADA EM</p>
-                        <p class="fw-bold">{{ church.created_at.strftime('%d/%m/%Y') }}</p>
+                        <p class="fw-bold">{{ church.created_at.strftime('%d/%m/%Y') if church.created_at else 'Não informado' }}</p>
                     </div>
                 </div>
             </div>

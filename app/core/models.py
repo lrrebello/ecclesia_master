@@ -26,6 +26,11 @@ class Church(db.Model):
     member_card_front = db.Column(db.String(255), nullable=True)  # Arte da frente do cartão
     member_card_back = db.Column(db.String(255), nullable=True)  # Arte do verso do cartão
     
+    # Novos campos para Church
+    postal_code = db.Column(db.String(20), nullable=True)  # Código postal
+    concelho = db.Column(db.String(100), nullable=True)    # Concelho (município)
+    localidade = db.Column(db.String(100), nullable=True)  # Localidade
+    
     members = db.relationship('User', backref='church', lazy=True)
     ministries = db.relationship('Ministry', backref='church', lazy=True)
     assets = db.relationship('Asset', backref='church', lazy=True)
@@ -61,6 +66,13 @@ class User(db.Model, UserMixin):
     address = db.Column(db.Text)
     phone = db.Column(db.String(50))
     profile_photo = db.Column(db.String(255), nullable=True)
+    
+    # Novos campos para User
+    postal_code = db.Column(db.String(20), nullable=True)     # Código postal
+    concelho = db.Column(db.String(100), nullable=True)       # Concelho (município)
+    localidade = db.Column(db.String(100), nullable=True)     # Localidade
+    education_level = db.Column(db.String(100), nullable=True)  # Escolaridade
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)  # Criado em
     
     # Status e Permissões
     status = db.Column(db.String(20), default='pending') # pending, active, rejected
