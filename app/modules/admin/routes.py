@@ -1,8 +1,9 @@
 # Arquivo completo: app/modules/admin/routes.py
 # Consolidado com Gestão Global de Membros (filtros/totalizador) e Gestão de Cargos por Filial
 # Atualizado para usar campo is_lead_pastor em vez de nome fixo 'Pastor Líder'
+# + Nova rota para configuração do layout do cartão de membro
 
-from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app
+from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app, jsonify
 from flask_login import login_required, current_user
 from app.core.models import Church, db, User, ChurchRole
 from werkzeug.utils import secure_filename
@@ -13,6 +14,14 @@ admin_bp = Blueprint('admin', __name__)
 
 def is_global_admin():
     return current_user.church_role and current_user.church_role.name == 'Administrador Global'
+
+def can_edit_church(church):
+    """Verifica se o usuário pode editar dados/layout da congregação"""
+    if is_global_admin():
+        return True
+    if current_user.church_id == church.id and current_user.church_role and current_user.church_role.is_lead_pastor:
+        return True
+    return False
 
 # ==================== GESTÃO DE CONGREGAÇÕES ====================
 
@@ -28,6 +37,10 @@ def list_churches():
 @admin_bp.route('/church/add', methods=['GET', 'POST'])
 @login_required
 def add_church():
+    if not is_global_admin():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('members.dashboard'))
+    
     if request.method == 'POST':
         country = request.form.get('country', '')
         euro_countries = ['Portugal', 'Espanha', 'França', 'Alemanha', 'Itália', 'Bélgica', 'Holanda', 'Luxemburgo', 'Irlanda', 'Grécia', 'Áustria', 'Finlândia']
@@ -42,13 +55,11 @@ def add_church():
             email=request.form.get('email'),
             currency_symbol=currency,
             is_main=bool(request.form.get('is_main')),
-            # Novos campos
             postal_code=request.form.get('postal_code'),
             concelho=request.form.get('concelho'),
             localidade=request.form.get('localidade')
         )
 
-        # (código de upload de logo permanece igual)
         file = request.files.get('logo')
         if file and file.filename:
             filename = secure_filename(file.filename)
@@ -68,11 +79,10 @@ def add_church():
 @admin_bp.route('/church/edit/<int:id>', methods=['GET', 'POST'])
 @login_required
 def edit_church(id):
-    if not is_global_admin():
+    church = Church.query.get_or_404(id)
+    if not can_edit_church(church):
         flash('Acesso negado.', 'danger')
         return redirect(url_for('admin.list_churches'))
-    
-    church = Church.query.get_or_404(id)
     
     if request.method == 'POST':
         country = request.form.get('country', '')
@@ -86,8 +96,6 @@ def edit_church(id):
         church.nif = request.form.get('nif')
         church.email = request.form.get('email')
         church.is_main = bool(request.form.get('is_main'))
-        
-        # Novos campos
         church.postal_code = request.form.get('postal_code')
         church.concelho = request.form.get('concelho')
         church.localidade = request.form.get('localidade')
@@ -153,18 +161,9 @@ def delete_church(id):
 @admin_bp.route('/my-church', methods=['GET', 'POST'])
 @login_required
 def edit_my_church():
-    """Permite que o Pastor Líder edite os dados de sua congregação."""
-    is_global = is_global_admin()
-    is_lead_pastor = current_user.church_role and current_user.church_role.is_lead_pastor
-    
-    if not (is_global or is_lead_pastor):
-        flash('Acesso negado. Apenas Pastores Líderes e Administradores podem acessar esta página.', 'danger')
-        return redirect(url_for('members.dashboard'))
-    
     church = current_user.church
-    
-    if not church:
-        flash('Você não está vinculado a nenhuma congregação.', 'warning')
+    if not church or not can_edit_church(church):
+        flash('Acesso negado ou você não está vinculado a nenhuma congregação.', 'danger')
         return redirect(url_for('members.dashboard'))
     
     if request.method == 'POST':
@@ -178,8 +177,6 @@ def edit_my_church():
         church.country = country
         church.nif = request.form.get('nif')
         church.email = request.form.get('email')
-        
-        # Novos campos
         church.postal_code = request.form.get('postal_code')
         church.concelho = request.form.get('concelho')
         church.localidade = request.form.get('localidade')
@@ -216,6 +213,30 @@ def edit_my_church():
         return redirect(url_for('admin.edit_my_church'))
     
     return render_template('admin/edit_my_church.html', church=church)
+
+# ==================== CONFIGURAÇÃO DO LAYOUT DO CARTÃO DE MEMBRO ====================
+
+@admin_bp.route('/church/<int:church_id>/card-layout', methods=['GET', 'POST'])
+@login_required
+def edit_card_layout(church_id):
+    church = Church.query.get_or_404(church_id)
+    
+    if not can_edit_church(church):
+        flash('Acesso negado. Apenas administradores globais ou pastores líderes desta congregação podem configurar o layout do cartão.', 'danger')
+        return redirect(url_for('admin.list_churches'))
+    
+    if request.method == 'POST':
+        try:
+            data = request.get_json()
+            church.card_front_layout = data.get('front', {})
+            church.card_back_layout = data.get('back', {})
+            db.session.commit()
+            return jsonify({'success': True, 'message': 'Layout do cartão salvo com sucesso!'})
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({'success': False, 'error': str(e)}), 500
+    
+    return render_template('admin/edit_card_layout.html', church=church)
 
 # ==================== GESTÃO DE MEMBROS ====================
 
@@ -286,7 +307,6 @@ def add_member():
             gender=request.form.get('gender'),
             church_id=int(request.form.get('church_id')) if request.form.get('church_id') else None,
             status=request.form.get('status', 'active'),
-            # Novos campos
             postal_code=request.form.get('postal_code'),
             concelho=request.form.get('concelho'),
             localidade=request.form.get('localidade'),
@@ -325,13 +345,11 @@ def edit_member(id):
         member.church_role_id = int(request.form.get('church_role_id')) if request.form.get('church_role_id') else None
         member.status = request.form.get('status', 'active')
         
-        # Novos campos
         member.postal_code = request.form.get('postal_code')
         member.concelho = request.form.get('concelho')
         member.localidade = request.form.get('localidade')
         member.education_level = request.form.get('education_level')
         
-        # (código de upload de foto permanece igual)
         file = request.files.get('profile_photo')
         if file and file.filename:
             filename = secure_filename(file.filename)
@@ -361,7 +379,6 @@ def member_card(id):
     
     if not (is_global or is_lead_pastor):
         flash('Acesso negado. Você não tem permissão para gerar o cartão deste membro.', 'danger')
-        # Aqui você pode decidir se retorna um template de erro ou redireciona
         return redirect(url_for('members.dashboard'))
     
     return render_template('admin/member_card.html', member=member)

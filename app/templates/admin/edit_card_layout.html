@@ -1,0 +1,292 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container py-5">
+    <h1 class="fw-bold mb-4 text-center">Configurar Layout do Cartão de Membro</h1>
+    <h5 class="text-center text-muted mb-5">{{ church.name }} - {{ church.city or '' }} ({{ church.country or '' }})</h5>
+
+    <div class="alert alert-info mb-4">
+        <i class="bi bi-info-circle me-2"></i>
+        Arraste as caixas para posicionar os campos. Clique na borda inferior-direita para redimensionar. Clique no "X" para remover um campo (não será impresso no cartão).
+    </div>
+
+    <div class="row justify-content-center">
+        <!-- Frente -->
+        <div class="col-lg-6 mb-5">
+            <h4 class="text-center mb-3 fw-bold">Frente do Cartão</h4>
+            <div id="preview-front" class="card-preview border shadow-sm mx-auto" 
+                 style="width: 856px; height: 540px; position: relative; background-size: cover; background-position: center; 
+                        background-image: url('{{ url_for('static', filename=church.member_card_front) if church.member_card_front else '' }}'); 
+                        overflow: hidden; border-radius: 8px;">
+                
+                {% set front = church.card_front_layout or {} %}
+                
+                <div class="draggable-box" id="front-name" data-field="name"
+                     style="left: {{ front.get('name', {}).get('x', 280) }}px; top: {{ front.get('name', {}).get('y', 180) }}px; width: {{ front.get('name', {}).get('width', 500) }}px;">
+                    Nome Completo
+                    <span class="remove-btn" onclick="removeBox('front-name')">×</span>
+                </div>
+                
+                <div class="draggable-box" id="front-role" data-field="role"
+                     style="left: {{ front.get('role', {}).get('x', 280) }}px; top: {{ front.get('role', {}).get('y', 240) }}px; width: {{ front.get('role', {}).get('width', 500) }}px;">
+                    Posição / Cargo
+                    <span class="remove-btn" onclick="removeBox('front-role')">×</span>
+                </div>
+                
+                <div class="draggable-box" id="front-marital" data-field="marital_status"
+                     style="left: {{ front.get('marital_status', {}).get('x', 280) }}px; top: {{ front.get('marital_status', {}).get('y', 300) }}px; width: {{ front.get('marital_status', {}).get('width', 250) }}px;">
+                    Estado Civil
+                    <span class="remove-btn" onclick="removeBox('front-marital')">×</span>
+                </div>
+                
+                <div class="draggable-box" id="front-birth" data-field="birth_date"
+                     style="left: {{ front.get('birth_date', {}).get('x', 540) }}px; top: {{ front.get('birth_date', {}).get('y', 300) }}px; width: {{ front.get('birth_date', {}).get('width', 240) }}px;">
+                    Data de Nascimento
+                    <span class="remove-btn" onclick="removeBox('front-birth')">×</span>
+                </div>
+                
+                <div class="draggable-box resizable" id="front-photo" data-field="photo"
+                     style="left: {{ front.get('photo', {}).get('x', 40) }}px; top: {{ front.get('photo', {}).get('y', 140) }}px; width: {{ front.get('photo', {}).get('width', 220) }}px; height: {{ front.get('photo', {}).get('height', 280) }}px;">
+                    Foto do Membro
+                    <span class="remove-btn" onclick="removeBox('front-photo')">×</span>
+                    <div class="resize-handle"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Verso -->
+        <div class="col-lg-6 mb-5">
+            <h4 class="text-center mb-3 fw-bold">Verso do Cartão</h4>
+            <div id="preview-back" class="card-preview border shadow-sm mx-auto" 
+                 style="width: 856px; height: 540px; position: relative; background-size: cover; background-position: center; 
+                        background-image: url('{{ url_for('static', filename=church.member_card_back) if church.member_card_back else '' }}'); 
+                        overflow: hidden; border-radius: 8px;">
+                
+                {% set back = church.card_back_layout or {} %}
+                
+                <div class="draggable-box" id="back-filiacao" data-field="filiacao"
+                     style="left: {{ back.get('filiacao', {}).get('x', 40) }}px; top: {{ back.get('filiacao', {}).get('y', 40) }}px; width: {{ back.get('filiacao', {}).get('width', 780) }}px;">
+                    Filiação
+                    <span class="remove-btn" onclick="removeBox('back-filiacao')">×</span>
+                </div>
+                
+                <div class="draggable-box" id="back-document" data-field="document"
+                     style="left: {{ back.get('document', {}).get('x', 40) }}px; top: {{ back.get('document', {}).get('y', 140) }}px; width: {{ back.get('document', {}).get('width', 240) }}px;">
+                    Documento
+                    <span class="remove-btn" onclick="removeBox('back-document')">×</span>
+                </div>
+                
+                <div class="draggable-box" id="back-conversion" data-field="conversion_date"
+                     style="left: {{ back.get('conversion_date', {}).get('x', 300) }}px; top: {{ back.get('conversion_date', {}).get('y', 140) }}px; width: {{ back.get('conversion_date', {}).get('width', 240) }}px;">
+                    Data de Conversão
+                    <span class="remove-btn" onclick="removeBox('back-conversion')">×</span>
+                </div>
+                
+                <div class="draggable-box" id="back-baptism" data-field="baptism_date"
+                     style="left: {{ back.get('baptism_date', {}).get('x', 560) }}px; top: {{ back.get('baptism_date', {}).get('y', 140) }}px; width: {{ back.get('baptism_date', {}).get('width', 240) }}px;">
+                    Data de Batismo
+                    <span class="remove-btn" onclick="removeBox('back-baptism')">×</span>
+                </div>
+                
+                <div class="draggable-box resizable" id="back-disclaimer" data-field="disclaimer"
+                     style="left: {{ back.get('disclaimer', {}).get('x', 40) }}px; top: {{ back.get('disclaimer', {}).get('y', 220) }}px; width: {{ back.get('disclaimer', {}).get('width', 780) }}px; height: {{ back.get('disclaimer', {}).get('height', 100) }}px;">
+                    Disclaimer / Validade
+                    <span class="remove-btn" onclick="removeBox('back-disclaimer')">×</span>
+                    <div class="resize-handle"></div>
+                </div>
+                
+                <div class="draggable-box" id="back-signature" data-field="signature"
+                     style="left: {{ back.get('signature', {}).get('x', 40) }}px; top: {{ back.get('signature', {}).get('y', 380) }}px; width: {{ back.get('signature', {}).get('width', 780) }}px;">
+                    Assinatura do Pastor
+                    <span class="remove-btn" onclick="removeBox('back-signature')">×</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="text-center mt-5">
+        <button id="save-layout" class="btn btn-primary btn-lg px-5 py-3">
+            <i class="bi bi-save me-2"></i> Salvar Configuração do Layout
+        </button>
+        <a href="{{ url_for('admin.edit_my_church') }}" class="btn btn-outline-secondary btn-lg px-5 py-3 ms-3">
+            <i class="bi bi-arrow-left me-2"></i> Voltar
+        </a>
+    </div>
+</div>
+
+<style>
+.card-preview {
+    transform: scale(0.75);
+    transform-origin: top center;
+    margin-bottom: 30px;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+    background-color: #f8f9fa; /* fallback se imagem não carregar */
+}
+.draggable-box {
+    position: absolute;
+    background: rgba(13, 110, 253, 0.18);
+    border: 2px dashed #0d6efd;
+    border-radius: 6px;
+    color: #0d6efd;
+    font-weight: 600;
+    text-align: center;
+    padding: 12px;
+    cursor: move;
+    user-select: none;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+    transition: all 0.15s ease;
+    min-width: 140px;
+    min-height: 50px;
+}
+.draggable-box:hover {
+    background: rgba(13, 110, 253, 0.28);
+    border-color: #0a58ca;
+}
+.draggable-box:active {
+    cursor: grabbing;
+}
+.remove-btn {
+    position: absolute;
+    top: -10px;
+    right: -10px;
+    background: #dc3545;
+    color: white;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    line-height: 24px;
+    text-align: center;
+    font-size: 16px;
+    cursor: pointer;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+}
+.remove-btn:hover {
+    background: #c82333;
+}
+.resize-handle {
+    position: absolute;
+    bottom: -5px;
+    right: -5px;
+    width: 16px;
+    height: 16px;
+    background: #0d6efd;
+    border-radius: 50%;
+    cursor: nwse-resize;
+}
+</style>
+
+<script>
+// DRAG + RESIZE
+function makeDraggableAndResizable(el) {
+    let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
+    let resizeStartX = 0, resizeStartY = 0, startWidth = 0, startHeight = 0;
+
+    // Drag
+    el.onmousedown = function(e) {
+        if (e.target.classList.contains('resize-handle')) {
+            e.preventDefault();
+            resizeStartX = e.clientX;
+            resizeStartY = e.clientY;
+            startWidth = parseInt(document.defaultView.getComputedStyle(el).width, 10);
+            startHeight = parseInt(document.defaultView.getComputedStyle(el).height, 10);
+            document.onmousemove = resizeElement;
+            document.onmouseup = stopResize;
+            return;
+        }
+
+        e.preventDefault();
+        pos3 = e.clientX;
+        pos4 = e.clientY;
+        document.onmouseup = closeDragElement;
+        document.onmousemove = elementDrag;
+    };
+
+    function elementDrag(e) {
+        e.preventDefault();
+        pos1 = pos3 - e.clientX;
+        pos2 = pos4 - e.clientY;
+        pos3 = e.clientX;
+        pos4 = e.clientY;
+        el.style.top = (el.offsetTop - pos2) + "px";
+        el.style.left = (el.offsetLeft - pos1) + "px";
+    }
+
+    function closeDragElement() {
+        document.onmouseup = null;
+        document.onmousemove = null;
+    }
+
+    // Resize
+    function resizeElement(e) {
+        e.preventDefault();
+        const dx = e.clientX - resizeStartX;
+        const dy = e.clientY - resizeStartY;
+        el.style.width = (startWidth + dx) + 'px';
+        el.style.height = (startHeight + dy) + 'px';
+    }
+
+    function stopResize() {
+        document.onmousemove = null;
+        document.onmouseup = null;
+    }
+}
+
+// Aplica drag + resize em todas as caixas
+document.querySelectorAll('.draggable-box').forEach(box => makeDraggableAndResizable(box));
+
+// Remove caixa (esconde e não salva no JSON)
+function removeBox(boxId) {
+    const box = document.getElementById(boxId);
+    if (box) {
+        box.style.display = 'none';
+        alert('Campo removido! Ao salvar, ele não será mais impresso no cartão.');
+    }
+}
+
+// Salvar
+document.getElementById('save-layout').addEventListener('click', function() {
+    const front = {};
+    const back = {};
+
+    // Só salva caixas que estão visíveis (não removidas)
+    document.querySelectorAll('#preview-front .draggable-box:not([style*="display: none"])').forEach(box => {
+        const field = box.getAttribute('data-field');
+        front[field] = {
+            x: parseInt(box.style.left) || 0,
+            y: parseInt(box.style.top) || 0,
+            width: parseInt(box.style.width) || 0,
+            height: parseInt(box.style.height) || 0
+        };
+    });
+
+    document.querySelectorAll('#preview-back .draggable-box:not([style*="display: none"])').forEach(box => {
+        const field = box.getAttribute('data-field');
+        back[field] = {
+            x: parseInt(box.style.left) || 0,
+            y: parseInt(box.style.top) || 0,
+            width: parseInt(box.style.width) || 0,
+            height: parseInt(box.style.height) || 0
+        };
+    });
+
+    fetch(window.location.href, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ front, back })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            alert('Layout salvo! Campos removidos não aparecerão mais nos cartões.');
+            location.reload(); // Recarrega para atualizar posições
+        } else {
+            alert('Erro: ' + (data.error || 'Tente novamente'));
+        }
+    })
+    .catch(err => {
+        console.error(err);
+        alert('Falha ao salvar.');
+    });
+});
+</script>
+{% endblock %}

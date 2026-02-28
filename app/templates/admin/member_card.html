@@ -25,15 +25,19 @@
         <div class="card-content">
             <div class="card-header-custom">
                 {% if member.church and member.church.logo_path %}
-                <img src="{{ url_for('static', filename=member.church.logo_path) }}" class="church-logo-card">
+                <!--<img src="{{ url_for('static', filename=member.church.logo_path) }}" class="church-logo-card">-->
                 {% else %}
                 <i class="bi bi-lightning-charge-fill text-white fs-3"></i>
                 {% endif %}
                 <div class="church-info">
-                    <h6 class="mb-0 fw-bold">{{ member.church.name if member.church else 'ECCLESIA MASTER' }}</h6>
-                    <small>{{ member.church.city if member.church else '' }} - {{ member.church.country if member.church else '' }}</small>
+                    <h6 class="mb-0 fw-bold">{{ member.church.name if member.church else 'IGREJA EVANGELICA ASSEMBLEIA DE DEUS JESUS PARA AS NAÇÕES' }}</h6>
+                    <small>{{ member.church.address if member.church else 'Rua Principal N°133 Edifício Avenida' }}<br>
+                    {{ member.church.city if member.church else 'Gafanha da Boa Hora Vagos Portugal' }}<br>
+                    E-mail: {{ member.church.email if member.church else 'ieadjesus.nacao@hotmail.com' }}</small>
                 </div>
             </div>
+            
+            <h5 class="card-title">CARTÃO DE MEMBRO</h5>
             
             <div class="card-body-custom">
                 <div class="photo-container">
@@ -47,24 +51,23 @@
                 </div>
                 <div class="member-info-main">
                     <div class="info-group">
-                        <label>NOME COMPLETO</label>
+                        <label>Nome completo</label>
                         <div class="value name">{{ member.name }}</div>
                     </div>
                     <div class="info-group">
-                        <label>CARGO / FUNÇÃO</label>
-                        <div class="value role">{{ member.church_role.name if member.church_role else 'MEMBRO' }}</div>
+                        <label>Posição</label>
+                        <div class="value role">{{ member.church_role.name if member.church_role else 'Membro' }}</div>
                     </div>
-                </div>
-            </div>
-            
-            <div class="card-footer-custom">
-                <div class="footer-item">
-                    <label>VALIDADE</label>
-                    <div class="value">INDETERMINADA</div>
-                </div>
-                <div class="footer-item text-end">
-                    <label>ID MEMBRO</label>
-                    <div class="value">#{{ "%05d"|format(member.id) }}</div>
+                    <div class="info-row">
+                        <div class="info-group">
+                            <label>Estado civil</label>
+                            <div class="value">{{ member.marital_status or '--' }}</div>
+                        </div>
+                        <div class="info-group">
+                            <label>Data de nascimento</label>
+                            <div class="value">{{ member.birth_date.strftime('%d/%m/%Y') if member.birth_date else '--/--/----' }}</div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -75,33 +78,33 @@
         <div class="card-overlay"></div>
         <div class="card-content">
             <div class="back-details">
-                <div class="info-row">
+                <div class="info-group">
+                    <label>Filiação</label>
+                    <div class="value filiacao">{{ member.church.name if member.church else '--' }}</div>
+                </div>
+                <div class="info-row mt-3">
                     <div class="info-group">
-                        <label>DATA DE NASCIMENTO</label>
-                        <div class="value">{{ member.birth_date.strftime('%d/%m/%Y') if member.birth_date else '--/--/----' }}</div>
+                        <label>Documento</label>
+                        <div class="value">{{ member.tax_id or member.documents or '--' }}</div>
                     </div>
                     <div class="info-group">
-                        <label>DATA DE BATISMO</label>
+                        <label>Data de conversão</label>
+                        <div class="value">{{ member.conversion_date.strftime('%d/%m/%Y') if member.conversion_date else '--/--/----' }}</div>
+                    </div>
+                    <div class="info-group">
+                        <label>Data de batismo</label>
                         <div class="value">{{ member.baptism_date.strftime('%d/%m/%Y') if member.baptism_date else '--/--/----' }}</div>
                     </div>
                 </div>
-                <div class="info-group mt-2">
-                    <label>DOCUMENTO ({{ 'CPF' if member.church and member.church.country == 'Brasil' else 'NIF' if member.church and member.church.country == 'Portugal' else 'DOC' }})</label>
-                    <div class="value">{{ member.tax_id or '---.---.---' }}</div>
-                </div>
-                <div class="info-group mt-2">
-                    <label>CONGREGAÇÃO</label>
-                    <div class="value">{{ member.church.name if member.church else '---' }}</div>
-                </div>
+            </div>
+            
+            <div class="card-disclaimer">
+                Este documento tem validade enquanto o(a) titular permanecer em plena comunhão como membro da Assembleia de Deus IEAD Jesus para as Nações em Aveiro - Portugal.
             </div>
             
             <div class="signature-area">
                 <div class="signature-line"></div>
-                <label>ASSINATURA DO PASTOR PRESIDENTE</label>
-            </div>
-            
-            <div class="card-disclaimer">
-                Este cartão é de uso pessoal e intransferível, sendo propriedade da instituição acima identificada.
+                <label>Pr. Fernando Telles dos Santos<br>Presidente da IEAD Jesus Para as Nações</label>
             </div>
         </div>
     </div>
@@ -111,8 +114,8 @@
 :root {
     --card-width: 85.6mm;
     --card-height: 54mm;
-    --primary-card: #1a237e; /* Azul escuro padrão, pode ser trocado pela arte */
-    --accent-card: #ffd700;
+    --primary-card: #1a237e; /* Azul escuro */
+    --accent-card: #ffffff; /* Branco para textos */
 }
 
 .card-print-container {
@@ -168,38 +171,45 @@
     flex-direction: column;
 }
 
-/* Header */
+/* Header Frente */
 .card-header-custom {
     display: flex;
     align-items: center;
     gap: 3mm;
-    border-bottom: 0.5pt solid rgba(255,255,255,0.2);
-    padding-bottom: 2mm;
-    margin-bottom: 3mm;
+    margin-bottom: 2mm;
 }
 .church-logo-card {
-    width: 10mm;
-    height: 10mm;
+    width: 20mm;
+    height: 20mm;
     object-fit: contain;
-    background: white;
-    border-radius: 2mm;
-    padding: 1mm;
 }
-.church-info h6 { font-size: 3.5mm; margin: 0; }
-.church-info small { font-size: 2.2mm; opacity: 0.8; }
+.church-info {
+    text-align: left;
+}
+.church-info h6 { font-size: 4mm; margin: 0; }
+.church-info small { font-size: 2.5mm; display: block; line-height: 1.2; }
 
-/* Body */
+/* Título Frente */
+.card-title {
+    text-align: center;
+    font-size: 4mm;
+    font-weight: bold;
+    margin: 2mm 0;
+    background: rgba(255,255,255,0.2);
+    padding: 1mm;
+    border-radius: 2mm;
+}
+
+/* Body Frente */
 .card-body-custom {
     display: flex;
     gap: 4mm;
-    flex-grow: 1;
 }
 .photo-container {
-    width: 22mm;
-    height: 28mm;
-    background: #f0f0f0;
-    border: 1pt solid white;
-    border-radius: 1.5mm;
+    width: 25mm;
+    height: 30mm;
+    background: white;
+    border-radius: 2mm;
     overflow: hidden;
     flex-shrink: 0;
 }
@@ -219,63 +229,85 @@
 }
 
 .member-info-main {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    gap: 2mm;
+    flex-grow: 1;
 }
 .info-group label {
-    font-size: 1.8mm;
-    font-weight: 700;
-    color: var(--accent-card);
+    font-size: 2.5mm;
+    font-weight: 500;
     display: block;
     margin-bottom: 0.5mm;
-    text-transform: uppercase;
 }
-.value { font-size: 2.8mm; font-weight: 600; }
-.value.name { font-size: 3.8mm; text-transform: uppercase; line-height: 1.1; }
-.value.role { color: #fff; font-size: 3mm; }
-
-/* Footer */
-.card-footer-custom {
+.value {
+    background: white;
+    color: black;
+    padding: 1mm 2mm;
+    border-radius: 2mm;
+    font-size: 3mm;
+    font-weight: 500;
+}
+.value.name {
+    font-size: 3.5mm;
+    margin-bottom: 2mm;
+}
+.info-row {
     display: flex;
-    justify-content: space-between;
-    align-items: flex-end;
-    margin-top: auto;
+    gap: 2mm;
+    margin-top: 1mm;
+}
+.info-row .info-group {
+    flex: 1;
 }
 
 /* Verso */
 .back .card-content {
     justify-content: space-between;
-    text-align: center;
 }
 .back-details {
     text-align: left;
-    background: rgba(255,255,255,0.05);
-    padding: 3mm;
+}
+.filiacao {
+    background: white;
+    color: black;
+    padding: 1mm 2mm;
     border-radius: 2mm;
+    font-size: 3.5mm;
+    margin-top: 2mm;
 }
 .info-row {
     display: flex;
     justify-content: space-between;
+    gap: 2mm;
+    margin-top: 3mm;
 }
+.info-row .value {
+    width: 25mm;
+    font-size: 3mm;
+}
+
+.card-disclaimer {
+    font-size: 2.2mm;
+    opacity: 0.9;
+    margin: 3mm 0;
+    line-height: 1.2;
+    text-align: center;
+    background: rgba(255,255,255,0.2);
+    padding: 2mm;
+    border-radius: 2mm;
+}
+
 .signature-area {
-    margin-top: 4mm;
+    text-align: center;
+    margin-top: auto;
 }
 .signature-line {
-    width: 80%;
+    width: 50mm;
     height: 0.5pt;
     background: white;
     margin: 0 auto 1mm;
 }
 .signature-area label {
-    font-size: 1.8mm;
-    opacity: 0.8;
-}
-.card-disclaimer {
-    font-size: 1.6mm;
-    opacity: 0.6;
-    margin-top: 2mm;
+    font-size: 2.5mm;
+    font-weight: bold;
     line-height: 1.2;
 }
 
@@ -296,7 +328,6 @@
     }
     .member-card {
         box-shadow: none;
-        border: 0.1pt solid #ddd;
         -webkit-print-color-adjust: exact;
         print-color-adjust: exact;
     }

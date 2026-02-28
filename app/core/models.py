@@ -25,6 +25,8 @@ class Church(db.Model):
     logo_path = db.Column(db.String(255), nullable=True)  # Novo campo para o logo
     member_card_front = db.Column(db.String(255), nullable=True)  # Arte da frente do cartão
     member_card_back = db.Column(db.String(255), nullable=True)  # Arte do verso do cartão
+    card_front_layout = db.Column(db.JSON, nullable=True)  # ex: {'name': {'x': 30, 'y': 20, 'width': 50}, 'photo': {...}, ...}
+    card_back_layout = db.Column(db.JSON, nullable=True)
     
     # Novos campos para Church
     postal_code = db.Column(db.String(20), nullable=True)  # Código postal

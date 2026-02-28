@@ -86,6 +86,9 @@
                         <input type="file" name="member_card_back" class="form-control bg-light border-0" accept="image/*">
                         <small class="text-muted">Formatos: JPG, PNG. Tamanho máx: 5MB. Dimensões: 85.6mm x 54mm (300 DPI).</small>
                     </div>
+                    <a href="{{ url_for('admin.edit_card_layout', church_id=church.id) }}" class="btn btn-sm btn-info">
+                        <i class="bi bi-card-text"></i> Configurar Layout Cartão
+                    </a>
                 </div>
                 <div class="alert alert-info small mt-3">
                     <i class="bi bi-info-circle me-2"></i><strong>Dica:</strong> As artes devem ser preparadas com espaços em branco para os dados do membro (nome, foto, cargo, etc). O sistema posicionará automaticamente as informações sobre sua arte.
