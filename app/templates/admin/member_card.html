@@ -112,45 +112,102 @@
 </div>
 
 <style>
+/* Preview na tela (em px para visualização confortável) */
 .card-print-container {
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 60px;
     padding: 20px;
+    margin: 0 auto;
 }
 
 .member-card {
-    width: 856px;
-    height: 540px;
-    background-size: cover;
-    background-position: center;
+    width: 856px;           /* ~85.6mm em 96dpi */
+    height: 540px;          /* ~54mm em 96dpi */
+    background-size: cover !important;
+    background-position: center !important;
+    background-repeat: no-repeat !important;
     position: relative;
-    overflow: hidden;
+    overflow: visible !important; /* Permite que absolute saia da div se necessário */
     border-radius: 8px;
     box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+    margin: 0 auto;
+    page-break-inside: avoid;
 }
 
+/* Campos */
 .field-value {
     position: absolute;
-    color: black; /* ou ajuste conforme a arte */
-    font-size: 16px;
+    color: black;
+    font-family: Arial, sans-serif;
     font-weight: 500;
     white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    overflow: visible;
+    text-overflow: clip;
+    z-index: 10;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
 }
 
-.name { font-size: 20px; font-weight: bold; }
-.role { font-size: 18px; }
-.disclaimer { font-size: 13px; line-height: 1.4; text-align: center; }
-.signature { font-size: 14px; text-align: center; color: #333; }
+/* Tamanhos de fonte */
+.name          { font-size: 20px; font-weight: bold; }
+.role          { font-size: 18px; }
+.marital_status,
+.birth_date    { font-size: 16px; }
+.disclaimer    { font-size: 13px; line-height: 1.4; text-align: center; }
+.signature     { font-size: 14px; text-align: center; color: #333; }
 
+/* Foto */
+.member-photo-container {
+    overflow: hidden;
+    border-radius: 4px;
+    z-index: 5;
+}
+
+/* IMPRESSÃO: Força tudo a aparecer */
 @media print {
-    .no-print { display: none !important; }
-    .card-print-container { gap: 40px; padding: 0; }
-    .member-card { box-shadow: none; page-break-after: always; }
-    body { background: white; margin: 0; }
+    @page {
+        size: 210mm 297mm portrait; /* A4 padrão, mas vamos centralizar */
+        margin: 10mm !important;   /* Margem mínima para não cortar */
+    }
+    body, html {
+        margin: 0 !important;
+        padding: 0 !important;
+        background: white !important;
+    }
+    .no-print, header, footer, nav, .sidebar, .btn, .alert, h1, h2, .text-muted {
+        display: none !important;
+    }
+    .card-print-container {
+        padding: 0 !important;
+        margin: 0 auto !important;
+        gap: 10mm !important;
+        width: 100% !important;
+    }
+    .member-card {
+        width: 85.6mm !important;
+        height: 54mm !important;
+        box-shadow: none !important;
+        border: none !important;
+        margin: 5mm auto !important;
+        padding: 0 !important;
+        overflow: visible !important;
+        page-break-inside: avoid !important;
+        page-break-after: always !important;
+        background-size: cover !important;
+        background-position: center !important;
+        background-repeat: no-repeat !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+    .member-card.back {
+        page-break-before: always !important;
+    }
+    /* Força background-image no print */
+    .member-card {
+        background-image: inherit !important;
+    }
 }
 </style>
 {% endblock %}

@@ -9,6 +9,10 @@ from app.core.models import Church, db, User, ChurchRole
 from werkzeug.utils import secure_filename
 import os
 from datetime import datetime
+from PIL import Image, ImageDraw, ImageFont, ImageOps
+from io import BytesIO
+from flask import send_file
+import textwrap  # Para quebrar linhas longas se necessário
 
 admin_bp = Blueprint('admin', __name__)
 
@@ -381,7 +385,118 @@ def member_card(id):
         flash('Acesso negado. Você não tem permissão para gerar o cartão deste membro.', 'danger')
         return redirect(url_for('members.dashboard'))
     
-    return render_template('admin/member_card.html', member=member)
+    church = member.church
+    if not church:
+        flash('Membro não vinculado a nenhuma congregação.', 'danger')
+        return redirect(url_for('members.dashboard'))
+    
+    # Tamanho final da imagem (alta resolução para impressão nítida)
+    WIDTH, HEIGHT = 1200, 756  # Aumente para 2400, 1512 se quiser ainda mais qualidade
+    
+    def generate_card_side(background_path, layout, fields_data, is_front=False):
+        # Cria imagem base
+        if background_path and os.path.exists(os.path.join(current_app.static_folder, background_path)):
+            bg_path = os.path.join(current_app.static_folder, background_path)
+            img = Image.open(bg_path).convert('RGBA')
+            img = img.resize((WIDTH, HEIGHT), Image.LANCZOS)
+        else:
+            img = Image.new('RGBA', (WIDTH, HEIGHT), (255, 255, 255, 255))
+        
+        draw = ImageDraw.Draw(img)
+        
+        # Fontes maiores e com suporte a acentos (use uma font com UTF-8 no servidor)
+        try:
+            font_path = "fonts/DejaVuSans.ttf"  # Ou "times.ttf" se preferir serifada
+            font_normal = ImageFont.truetype(font_path, 20)   # Aumentado
+            font_bold = ImageFont.truetype(font_path, 25)     # Aumentado para nome/títulos
+            font_small = ImageFont.truetype(font_path, 15)    # Aumentado para textos menores
+        except:
+            font_normal = ImageFont.load_default()
+            font_bold = font_normal
+            font_small = font_normal
+        
+        # Desenha cada campo
+        for field, data in layout.items():
+            if field not in fields_data:
+                continue
+            x = int(data.get('x', 0) * (WIDTH / 856))
+            y = int(data.get('y', 0) * (HEIGHT / 540))
+            w = int(data.get('width', 200) * (WIDTH / 856))
+            h = int(data.get('height', 40) * (HEIGHT / 540))
+            text = str(fields_data[field])
+            
+            # Sem fundo branco (já que a arte tem blanks) — se quiser, descomente:
+            # draw.rectangle((x, y, x + w, y + h), fill=(255, 255, 255, 220))
+            
+            # Escolhe fonte baseada no campo
+            font = font_bold if field in ['name', 'role', 'filiacao', 'signature'] else font_small if field in ['disclaimer'] else font_normal
+            
+            # Quebra linha para textos longos
+            lines = textwrap.wrap(text, width=int(w / 8))  # Ajuste width para caber melhor (menor número = mais quebras)
+            current_y = y + 5
+            for line in lines:
+                draw.text((x + 10, current_y), line, fill=(0, 0, 0), font=font)
+                current_y += font.getbbox(line)[3] + 5  # Altura + espaçamento
+        
+        # Foto de perfil (apenas na frente)
+        if is_front and member.profile_photo and 'photo' in layout:
+            photo_data = layout['photo']
+            photo_x = int(photo_data.get('x', 40) * (WIDTH / 856))
+            photo_y = int(photo_data.get('y', 140) * (HEIGHT / 540))
+            photo_w = int(photo_data.get('width', 220) * (WIDTH / 856))
+            photo_h = int(photo_data.get('height', 280) * (HEIGHT / 540))
+            
+            photo_path = os.path.join(current_app.static_folder, member.profile_photo)
+            if os.path.exists(photo_path):
+                photo = Image.open(photo_path).convert('RGBA')
+                # Redimensiona usando o size exato do layout, com fit e crop
+                photo = ImageOps.fit(photo, (photo_w, photo_h), Image.LANCZOS)
+                img.paste(photo, (photo_x, photo_y), photo)
+        
+        return img
+
+    # Dados para frente
+    front_layout = church.card_front_layout or {}
+    front_data = {
+        'name': member.name or '',
+        'role': member.church_role.name if member.church_role else 'Membro',
+        'marital_status': member.marital_status or 'Não informado',
+        'birth_date': member.birth_date.strftime('%d/%m/%Y') if member.birth_date else 'Não informado',
+    }
+    
+    # Dados para verso
+    back_layout = church.card_back_layout or {}
+    back_data = {
+        'filiacao': church.name or 'Não informado',
+        'document': member.tax_id or member.documents or 'Não informado',
+        'conversion_date': member.conversion_date.strftime('%d/%m/%Y') if member.conversion_date else 'Não informado',
+        'baptism_date': member.baptism_date.strftime('%d/%m/%Y') if member.baptism_date else 'Não informado',
+        'disclaimer': 'Este documento tem validade enquanto o(a) titular permanecer em plena comunhão como membro da Assembleia de Deus IEAD Jesus para as Nações em Aveiro - Portugal.',
+        'signature': 'Pr. Fernando Telles dos Santos\nPresidente da IEAD Jesus Para as Nações'
+    }
+    
+    # Gera as imagens
+    front_img = generate_card_side(church.member_card_front, front_layout, front_data, is_front=True)
+    back_img = generate_card_side(church.member_card_back, back_layout, back_data, is_front=False)
+    
+    # Junta frente + verso verticalmente com espaço
+    total_height = front_img.height + back_img.height + 60
+    combined = Image.new('RGB', (max(front_img.width, back_img.width), total_height), (255, 255, 255))
+    combined.paste(front_img, ((combined.width - front_img.width) // 2, 0))
+    combined.paste(back_img, ((combined.width - back_img.width) // 2, front_img.height + 60))
+    
+    # Salva em memória e envia como PNG
+    img_io = BytesIO()
+    combined.save(img_io, 'PNG', quality=95)
+    img_io.seek(0)
+    
+    return send_file(
+        img_io,
+        mimetype='image/png',
+        as_attachment=True,
+        download_name=f'cartao_membro_{member.name.replace(" ", "_")}.png'
+    )
+
 
 # ==================== GESTÃO DE CARGOS LOCAIS (Pastor Líder) ====================
 
