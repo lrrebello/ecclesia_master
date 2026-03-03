@@ -1,0 +1,414 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold text-primary mb-0">
+                <i class="bi bi-card-id me-2"></i>Pré-visualização do Cartão - {{ member.name }}
+            </h2>
+            <p class="text-muted">Ajuste a foto e o zoom antes de emitir o cartão</p>
+        </div>
+        <a href="{{ url_for('admin.list_members') }}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-1"></i> Voltar
+        </a>
+    </div>
+
+    <div class="row">
+        <!-- Painel de Controle -->
+        <div class="col-lg-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-primary bg-opacity-10 border-0 p-4">
+                    <h5 class="mb-0"><i class="bi bi-sliders me-2"></i>Controles de Edição</h5>
+                </div>
+                <div class="card-body p-4">
+                    <!-- Seção de Foto -->
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">
+                            <i class="bi bi-image me-2"></i>Foto do Membro
+                        </label>
+                        
+                        <div class="mb-3">
+                            <div id="current-photo-preview" class="border rounded p-2 mb-2" style="height: 150px; background-color: #f8f9fa; display: flex; align-items: center; justify-content: center;">
+                                {% if member.profile_photo %}
+                                    <img src="{{ url_for('static', filename=member.profile_photo) }}" alt="Foto atual" style="max-height: 100%; max-width: 100%; object-fit: contain;">
+                                {% else %}
+                                    <span class="text-muted"><i class="bi bi-image"></i> Sem foto</span>
+                                {% endif %}
+                            </div>
+                            <small class="text-muted d-block mb-2">Foto atual do membro</small>
+                        </div>
+
+                        <label class="form-label">Trocar Foto (apenas para o cartão)</label>
+                        <input type="file" id="photo-upload" class="form-control" accept="image/*">
+                        <small class="text-muted d-block mt-1">A foto original do membro não será alterada</small>
+                    </div>
+
+                    <hr>
+
+                    <!-- Seção de Zoom -->
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">
+                            <i class="bi bi-zoom-in me-2"></i>Zoom da Foto
+                        </label>
+                        
+                        <div class="d-flex align-items-center gap-2 mb-2">
+                            <input type="range" id="zoom-slider" class="form-range" min="0.5" max="2" step="0.1" value="1.0">
+                            <span id="zoom-value" class="badge bg-primary">100%</span>
+                        </div>
+                        
+                        <small class="text-muted d-block">Ajuste o zoom para melhor enquadramento</small>
+                    </div>
+
+                    <hr>
+
+                    <!-- Seção de Posição -->
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">
+                            <i class="bi bi-arrows-move me-2"></i>Posição da Foto
+                        </label>
+                        
+                        <div class="mb-2">
+                            <label class="form-label">Deslocamento Horizontal</label>
+                            <input type="range" id="offset-x-slider" class="form-range" min="-50" max="50" step="1" value="0">
+                            <small class="text-muted d-block">Esquerda ← → Direita</small>
+                        </div>
+
+                        <div class="mb-2">
+                            <label class="form-label">Deslocamento Vertical</label>
+                            <input type="range" id="offset-y-slider" class="form-range" min="-50" max="50" step="1" value="0">
+                            <small class="text-muted d-block">Cima ↑ ↓ Baixo</small>
+                        </div>
+                    </div>
+
+                    <hr>
+
+                    <!-- Botões de Ação -->
+                    <div class="d-grid gap-2">
+                        <button id="btn-reset" class="btn btn-outline-secondary btn-sm">
+                            <i class="bi bi-arrow-clockwise me-1"></i> Resetar
+                        </button>
+                        <button id="btn-emit" class="btn btn-success btn-lg">
+                            <i class="bi bi-download me-1"></i> Emitir Cartão
+                        </button>
+                    </div>
+
+                    <div id="loading-indicator" class="alert alert-info mt-3" style="display: none;">
+                        <div class="spinner-border spinner-border-sm me-2" role="status">
+                            <span class="visually-hidden">Carregando...</span>
+                        </div>
+                        <span>Gerando cartão...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pré-visualização do Cartão -->
+        <div class="col-lg-9">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-info bg-opacity-10 border-0 p-4">
+                    <h5 class="mb-0"><i class="bi bi-eye me-2"></i>Pré-visualização do Cartão</h5>
+                </div>
+                <div class="card-body p-4">
+                    <div class="card-preview-container">
+                        <!-- FRENTE -->
+                        <div class="member-card-preview front" id="card-preview-front" 
+                             style="background-image: url('{{ url_for('static', filename=church.member_card_front) if church.member_card_front else '' }}');">
+                            {% set front = church.card_front_layout or {} %}
+
+                            <!-- Foto (se configurada) -->
+                            {% if front.photo %}
+                            <div class="member-photo-container-preview" id="photo-container-preview"
+                                 style="position: absolute; left: {{ front.photo.x }}px; top: {{ front.photo.y }}px; width: {{ front.photo.width }}px; height: {{ front.photo.height }}px; overflow: hidden; border-radius: 4px; border: 2px dashed #0d6efd;">
+                                {% if member.profile_photo %}
+                                <img id="preview-photo-img" src="{{ url_for('static', filename=member.profile_photo) }}" alt="Foto do membro" 
+                                     style="width: 100%; height: 100%; object-fit: cover;">
+                                {% else %}
+                                <div class="placeholder-photo" style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background-color: #e9ecef;">
+                                    <span class="text-muted">Sem foto</span>
+                                </div>
+                                {% endif %}
+                            </div>
+                            {% endif %}
+
+                            <!-- Nome -->
+                            {% if front.name %}
+                            <div class="field-value name" style="position: absolute; left: {{ front.name.x }}px; top: {{ front.name.y }}px; width: {{ front.name.width }}px;">
+                                {{ member.name }}
+                            </div>
+                            {% endif %}
+
+                            <!-- Cargo -->
+                            {% if front.role %}
+                            <div class="field-value role" style="position: absolute; left: {{ front.role.x }}px; top: {{ front.role.y }}px; width: {{ front.role.width }}px;">
+                                {{ member.church_role.name if member.church_role else 'Membro' }}
+                            </div>
+                            {% endif %}
+
+                            <!-- Estado Civil -->
+                            {% if front.marital_status %}
+                            <div class="field-value" style="position: absolute; left: {{ front.marital_status.x }}px; top: {{ front.marital_status.y }}px; width: {{ front.marital_status.width }}px;">
+                                {{ member.marital_status or 'Não informado' }}
+                            </div>
+                            {% endif %}
+
+                            <!-- Data de Nascimento -->
+                            {% if front.birth_date %}
+                            <div class="field-value" style="position: absolute; left: {{ front.birth_date.x }}px; top: {{ front.birth_date.y }}px; width: {{ front.birth_date.width }}px;">
+                                {{ member.birth_date.strftime('%d/%m/%Y') if member.birth_date else 'Não informado' }}
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <!-- VERSO -->
+                        <div class="member-card-preview back" id="card-preview-back"
+                             style="background-image: url('{{ url_for('static', filename=church.member_card_back) if church.member_card_back else '' }}'); margin-top: 40px;">
+                            {% set back = church.card_back_layout or {} %}
+
+                            <!-- Filiação -->
+                            {% if back.filiacao %}
+                            <div class="field-value filiacao" style="position: absolute; left: {{ back.filiacao.x }}px; top: {{ back.filiacao.y }}px; width: {{ back.filiacao.width }}px;">
+                                {{ church.name if church else 'Não informado' }}
+                            </div>
+                            {% endif %}
+
+                            <!-- Documento -->
+                            {% if back.document %}
+                            <div class="field-value" style="position: absolute; left: {{ back.document.x }}px; top: {{ back.document.y }}px; width: {{ back.document.width }}px;">
+                                {{ member.tax_id or member.documents or 'Não informado' }}
+                            </div>
+                            {% endif %}
+
+                            <!-- Data de Conversão -->
+                            {% if back.conversion_date %}
+                            <div class="field-value" style="position: absolute; left: {{ back.conversion_date.x }}px; top: {{ back.conversion_date.y }}px; width: {{ back.conversion_date.width }}px;">
+                                {{ member.conversion_date.strftime('%d/%m/%Y') if member.conversion_date else 'Não informado' }}
+                            </div>
+                            {% endif %}
+
+                            <!-- Data de Batismo -->
+                            {% if back.baptism_date %}
+                            <div class="field-value" style="position: absolute; left: {{ back.baptism_date.x }}px; top: {{ back.baptism_date.y }}px; width: {{ back.baptism_date.width }}px;">
+                                {{ member.baptism_date.strftime('%d/%m/%Y') if member.baptism_date else 'Não informado' }}
+                            </div>
+                            {% endif %}
+
+                            <!-- Disclaimer -->
+                            {% if back.disclaimer %}
+                            <div class="field-value disclaimer" style="position: absolute; left: {{ back.disclaimer.x }}px; top: {{ back.disclaimer.y }}px; width: {{ back.disclaimer.width }}px; height: {{ back.disclaimer.height }}px;">
+                                Este documento tem validade enquanto o(a) titular permanecer em plena comunhão como membro da Assembleia de Deus IEAD Jesus para as Nações em Aveiro - Portugal.
+                            </div>
+                            {% endif %}
+
+                            <!-- Assinatura -->
+                            {% if back.signature %}
+                            <div class="field-value signature" style="position: absolute; left: {{ back.signature.x }}px; top: {{ back.signature.y }}px; width: {{ back.signature.width }}px;">
+                                Pr. Fernando Telles dos Santos  
+Presidente da IEAD Jesus Para as Nações
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.card-preview-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 40px;
+    padding: 20px;
+    background-color: #f8f9fa;
+    border-radius: 8px;
+}
+
+.member-card-preview {
+    width: 856px;
+    height: 540px;
+    background-size: cover !important;
+    background-position: center !important;
+    background-repeat: no-repeat !important;
+    position: relative;
+    overflow: visible;
+    border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+    border: 1px solid #dee2e6;
+}
+
+.field-value {
+    position: absolute;
+    color: black;
+    font-family: Arial, sans-serif;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: visible;
+    text-overflow: clip;
+    z-index: 10;
+}
+
+.name { font-size: 20px; font-weight: bold; }
+.role { font-size: 18px; }
+.marital_status,
+.birth_date { font-size: 16px; }
+.disclaimer { font-size: 13px; line-height: 1.4; text-align: center; }
+.signature { font-size: 14px; text-align: center; color: #333; }
+
+.member-photo-container-preview {
+    overflow: hidden;
+    border-radius: 4px;
+    z-index: 5;
+    transition: all 0.3s ease;
+}
+
+@media (max-width: 1200px) {
+    .card-preview-container {
+        padding: 10px;
+    }
+    
+    .member-card-preview {
+        width: 600px;
+        height: 378px;
+    }
+}
+
+@media (max-width: 768px) {
+    .member-card-preview {
+        width: 100%;
+        height: auto;
+        aspect-ratio: 856 / 540;
+    }
+}
+</style>
+
+<script>
+const memberId = {{ member.id }};
+let currentPhotoPath = null;
+let currentZoom = 1.0;
+let currentOffsetX = 0;
+let currentOffsetY = 0;
+
+const photoUpload = document.getElementById('photo-upload');
+const zoomSlider = document.getElementById('zoom-slider');
+const zoomValue = document.getElementById('zoom-value');
+const offsetXSlider = document.getElementById('offset-x-slider');
+const offsetYSlider = document.getElementById('offset-y-slider');
+const btnReset = document.getElementById('btn-reset');
+const btnEmit = document.getElementById('btn-emit');
+const loadingIndicator = document.getElementById('loading-indicator');
+const previewPhotoImg = document.getElementById('preview-photo-img');
+const photoContainer = document.getElementById('photo-container-preview');
+
+photoUpload.addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('photo', file);
+
+    try {
+        const response = await fetch(`/admin/member/card-upload-temp/${memberId}`, {
+            method: 'POST',
+            body: formData
+        });
+
+        const data = await response.json();
+        if (data.success) {
+            currentPhotoPath = data.photo_path;
+            previewPhotoImg.src = data.photo_url + '?t=' + Date.now();
+            console.log('Foto carregada:', currentPhotoPath);
+        } else {
+            alert('Erro ao fazer upload: ' + data.message);
+        }
+    } catch (error) {
+        console.error('Erro:', error);
+        alert('Erro ao fazer upload da foto');
+    }
+});
+
+zoomSlider.addEventListener('input', (e) => {
+    currentZoom = parseFloat(e.target.value);
+    zoomValue.textContent = Math.round(currentZoom * 100) + '%';
+    updatePhotoPreview();
+});
+
+offsetXSlider.addEventListener('input', (e) => {
+    currentOffsetX = parseInt(e.target.value);
+    updatePhotoPreview();
+});
+
+offsetYSlider.addEventListener('input', (e) => {
+    currentOffsetY = parseInt(e.target.value);
+    updatePhotoPreview();
+});
+
+function updatePhotoPreview() {
+    if (previewPhotoImg) {
+        const scale = currentZoom;
+        previewPhotoImg.style.transform = `scale(${scale}) translate(${currentOffsetX / 100}px, ${currentOffsetY / 100}px)`;
+        previewPhotoImg.style.transformOrigin = 'center center';
+    }
+}
+
+btnReset.addEventListener('click', () => {
+    zoomSlider.value = 1.0;
+    offsetXSlider.value = 0;
+    offsetYSlider.value = 0;
+    currentZoom = 1.0;
+    currentOffsetX = 0;
+    currentOffsetY = 0;
+    zoomValue.textContent = '100%';
+    updatePhotoPreview();
+});
+
+btnEmit.addEventListener('click', async () => {
+    loadingIndicator.style.display = 'block';
+    btnEmit.disabled = true;
+
+    try {
+        const response = await fetch(`/admin/member/card-generate/${memberId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                photo_zoom: currentZoom,
+                photo_offset_x: currentOffsetX,
+                photo_offset_y: currentOffsetY,
+                custom_photo_path: currentPhotoPath
+            })
+        });
+
+        if (response.ok) {
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `cartao_membro_{{ member.name.replace(" ", "_") }}.png`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+            
+            setTimeout(() => {
+                alert('Cartão gerado com sucesso!');
+                window.location.href = '{{ url_for("admin.list_members") }}';
+            }, 500);
+        } else {
+            alert('Erro ao gerar cartão');
+        }
+    } catch (error) {
+        console.error('Erro:', error);
+        alert('Erro ao gerar cartão');
+    } finally {
+        loadingIndicator.style.display = 'none';
+        btnEmit.disabled = false;
+    }
+});
+
+updatePhotoPreview();
+</script>
+{% endblock %}

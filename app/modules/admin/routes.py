@@ -13,6 +13,8 @@ from PIL import Image, ImageDraw, ImageFont, ImageOps
 from io import BytesIO
 from flask import send_file
 import textwrap  # Para quebrar linhas longas se necessário
+import uuid
+import json
 
 admin_bp = Blueprint('admin', __name__)
 
@@ -369,6 +371,31 @@ def edit_member(id):
     
     return render_template('admin/edit_member.html', member=member, churches=churches, roles=roles)
 
+@admin_bp.route('/member/card-preview/<int:id>')
+@login_required
+def member_card_preview(id):
+    """Tela de pré-visualização e edição do cartão de membro"""
+    member = User.query.get_or_404(id)
+    
+    is_global = is_global_admin()
+    is_lead_pastor = (
+        current_user.church_role 
+        and current_user.church_role.is_lead_pastor 
+        and current_user.church_role == member.church_role
+    )
+    
+    if not (is_global or is_lead_pastor):
+        flash('Acesso negado. Você não tem permissão para gerar o cartão deste membro.', 'danger')
+        return redirect(url_for('members.dashboard'))
+    
+    church = member.church
+    if not church:
+        flash('Membro não vinculado a nenhuma congregação.', 'danger')
+        return redirect(url_for('members.dashboard'))
+    
+    return render_template('admin/member_card_preview.html', member=member, church=church)
+
+
 @admin_bp.route('/member/card/<int:id>')
 @login_required
 def member_card(id):
@@ -680,3 +707,194 @@ def delete_church_role(church_id, role_id):
     db.session.commit()
     flash('Cargo excluído com sucesso!', 'success')
     return redirect(url_for('admin.list_church_roles_by_id', church_id=church_id))
+
+@admin_bp.route('/member/card-generate/<int:id>', methods=['POST'])
+@login_required
+def member_card_generate(id):
+    """Gera o cartao PNG com foto customizada e zoom"""
+    member = User.query.get_or_404(id)
+    
+    is_global = is_global_admin()
+    is_lead_pastor = (
+        current_user.church_role 
+        and current_user.church_role.is_lead_pastor 
+        and current_user.church_role == member.church_role
+    )
+    
+    if not (is_global or is_lead_pastor):
+        return jsonify({'success': False, 'message': 'Acesso negado'}), 403
+    
+    church = member.church
+    if not church:
+        return jsonify({'success': False, 'message': 'Membro nao vinculado a nenhuma congregacao'}), 400
+    
+    WIDTH, HEIGHT = 1200, 756
+    
+    def generate_card_side_custom(background_path, layout, fields_data, custom_photo_path=None, photo_zoom=1.0, photo_offset_x=0, photo_offset_y=0, is_front=False):
+        if background_path and os.path.exists(os.path.join(current_app.static_folder, background_path)):
+            bg_path = os.path.join(current_app.static_folder, background_path)
+            img = Image.open(bg_path).convert('RGBA')
+            img = img.resize((WIDTH, HEIGHT), Image.LANCZOS)
+        else:
+            img = Image.new('RGBA', (WIDTH, HEIGHT), (255, 255, 255, 255))
+        
+        draw = ImageDraw.Draw(img)
+        
+        try:
+            font_path = "fonts/DejaVuSans.ttf"
+            font_normal = ImageFont.truetype(font_path, 20)
+            font_bold = ImageFont.truetype(font_path, 25)
+            font_small = ImageFont.truetype(font_path, 15)
+        except:
+            font_normal = ImageFont.load_default()
+            font_bold = font_normal
+            font_small = font_normal
+        
+        for field, data in layout.items():
+            if field not in fields_data:
+                continue
+            x = int(data.get('x', 0) * (WIDTH / 856))
+            y = int(data.get('y', 0) * (HEIGHT / 540))
+            w = int(data.get('width', 200) * (WIDTH / 856))
+            h = int(data.get('height', 40) * (HEIGHT / 540))
+            text = str(fields_data[field])
+            
+            font = font_bold if field in ['name', 'role', 'filiacao', 'signature'] else font_small if field in ['disclaimer'] else font_normal
+            
+            lines = textwrap.wrap(text, width=int(w / 8))
+            current_y = y + 5
+            for line in lines:
+                draw.text((x + 10, current_y), line, fill=(0, 0, 0), font=font)
+                current_y += font.getbbox(line)[3] + 5
+        
+        if is_front and 'photo' in layout:
+            photo_data = layout['photo']
+            photo_x = int(photo_data.get('x', 40) * (WIDTH / 856))
+            photo_y = int(photo_data.get('y', 140) * (HEIGHT / 540))
+            photo_w = int(photo_data.get('width', 220) * (WIDTH / 856))
+            photo_h = int(photo_data.get('height', 280) * (HEIGHT / 540))
+            
+            photo_path_to_use = custom_photo_path if custom_photo_path else member.profile_photo
+            
+            if photo_path_to_use:
+                if custom_photo_path and custom_photo_path.startswith('/'):
+                    photo_file_path = custom_photo_path
+                else:
+                    photo_file_path = os.path.join(current_app.static_folder, photo_path_to_use)
+                
+                if os.path.exists(photo_file_path):
+                    photo = Image.open(photo_file_path).convert('RGBA')
+                    photo_resized = ImageOps.fit(photo, (photo_w, photo_h), Image.LANCZOS)
+                    if photo_zoom != 1.0:
+                        zoomed_w = int(photo_resized.width * photo_zoom)
+                        zoomed_h = int(photo_resized.height * photo_zoom)
+                        photo_resized = photo_resized.resize((zoomed_w, zoomed_h), Image.LANCZOS)
+                    center_x = (photo_w - photo_resized.width) // 2
+                    center_y = (photo_h - photo_resized.height) // 2
+                    scale_factor = (WIDTH / 856)
+                    scaled_offset_x = int(photo_offset_x * scale_factor)
+                    scaled_offset_y = int(photo_offset_y * scale_factor)
+                    final_x = center_x + scaled_offset_x
+                    final_y = center_y + scaled_offset_y
+                    final_x = max(0, min(final_x, photo_w - photo_resized.width))
+                    final_y = max(0, min(final_y, photo_h - photo_resized.height))
+                    temp_img = Image.new('RGBA', (photo_w, photo_h), (0, 0, 0, 0))
+                    temp_img.paste(photo_resized, (final_x, final_y), photo_resized)
+                    img.paste(temp_img, (photo_x, photo_y), temp_img)
+        
+        return img
+    
+    data = request.get_json()
+    photo_zoom = float(data.get('photo_zoom', 1.0))
+    photo_offset_x = float(data.get('photo_offset_x', 0))
+    photo_offset_y = float(data.get('photo_offset_y', 0))
+    custom_photo_path = data.get('custom_photo_path')
+    
+    front_layout = church.card_front_layout or {}
+    front_data = {
+        'name': member.name or '',
+        'role': member.church_role.name if member.church_role else 'Membro',
+        'marital_status': member.marital_status or 'Nao informado',
+        'birth_date': member.birth_date.strftime('%d/%m/%Y') if member.birth_date else 'Nao informado',
+    }
+    
+    back_layout = church.card_back_layout or {}
+    back_data = {
+        'filiacao': church.name or 'Nao informado',
+        'document': member.tax_id or member.documents or 'Nao informado',
+        'conversion_date': member.conversion_date.strftime('%d/%m/%Y') if member.conversion_date else 'Nao informado',
+        'baptism_date': member.baptism_date.strftime('%d/%m/%Y') if member.baptism_date else 'Nao informado',
+        'disclaimer': 'Este documento tem validade enquanto o(a) titular permanecer em plena comunhao como membro da Assembleia de Deus IEAD Jesus para as Nacoes em Aveiro - Portugal.',
+        'signature': 'Pr. Fernando Telles dos Santos\nPresidente da IEAD Jesus Para as Nacoes'
+    }
+    
+    front_img = generate_card_side_custom(
+        church.member_card_front, 
+        front_layout, 
+        front_data, 
+        custom_photo_path=custom_photo_path,
+        photo_zoom=photo_zoom,
+        photo_offset_x=photo_offset_x,
+        photo_offset_y=photo_offset_y,
+        is_front=True
+    )
+    back_img = generate_card_side_custom(
+        church.member_card_back, 
+        back_layout, 
+        back_data, 
+        is_front=False
+    )
+    
+    total_height = front_img.height + back_img.height + 60
+    combined = Image.new('RGB', (max(front_img.width, back_img.width), total_height), (255, 255, 255))
+    combined.paste(front_img, ((combined.width - front_img.width) // 2, 0))
+    combined.paste(back_img, ((combined.width - back_img.width) // 2, front_img.height + 60))
+    
+    img_io = BytesIO()
+    combined.save(img_io, 'PNG', quality=95)
+    img_io.seek(0)
+    
+    return send_file(
+        img_io,
+        mimetype='image/png',
+        as_attachment=True,
+        download_name=f'cartao_membro_{member.name.replace(" ", "_")}.png'
+    )
+
+
+@admin_bp.route('/member/card-upload-temp/<int:id>', methods=['POST'])
+@login_required
+def member_card_upload_temp(id):
+    """Upload temporario de foto para pre-visualizacao"""
+    member = User.query.get_or_404(id)
+    
+    is_global = is_global_admin()
+    is_lead_pastor = (
+        current_user.church_role 
+        and current_user.church_role.is_lead_pastor 
+        and current_user.church_role == member.church_role
+    )
+    
+    if not (is_global or is_lead_pastor):
+        return jsonify({'success': False, 'message': 'Acesso negado'}), 403
+    
+    file = request.files.get('photo')
+    if not file or not file.filename:
+        return jsonify({'success': False, 'message': 'Nenhum arquivo enviado'}), 400
+    
+    try:
+        filename = secure_filename(file.filename)
+        temp_dir = os.path.join(current_app.config['UPLOAD_FOLDER'], 'temp_card_photos')
+        os.makedirs(temp_dir, exist_ok=True)
+        
+        unique_filename = f"{uuid.uuid4()}_{filename}"
+        full_path = os.path.join(temp_dir, unique_filename)
+        file.save(full_path)
+        
+        return jsonify({
+            'success': True,
+            'photo_path': full_path,
+            'photo_url': f"/static/uploads/temp_card_photos/{unique_filename}"
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500

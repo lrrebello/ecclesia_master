@@ -101,8 +101,7 @@
                     <td>
                         <div class="btn-group">
                             <a href="{{ url_for('admin.edit_member', id=member.id) }}" class="btn btn-sm btn-primary">Editar</a>
-                            <a href="{{ url_for('admin.member_card', id=member.id) }}" class="btn btn-sm btn-outline-dark" title="Gerar Cartão">
-                                <i class="bi bi-card-id"></i>
+                                <a href="{{ url_for('admin.member_card_preview', id=member.id) }}" class="btn btn-sm btn-outline-dark" title="Gerar Cartão">                                <i class="bi bi-card-id"></i>
                             </a>
                         </div>
                     </td>
