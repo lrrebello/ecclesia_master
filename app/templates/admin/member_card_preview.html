@@ -92,7 +92,7 @@
         <div class="col-lg-9">
             <div class="card border-0 shadow-sm">
                 <div class="card-header bg-info bg-opacity-10 border-0 p-4">
-                    <h5 class="mb-0"><i class="bi bi-eye me-2"></i>Pré-visualização do Cartão (Frente)</h5>
+                    <h5 class="mb-0"><i class="bi bi-eye me-2"></i>Pré-visualização do Cartão</h5>
                 </div>
                 <div class="card-body p-4">
                     <div class="card-preview-container">
@@ -103,13 +103,11 @@
 
                             <!-- Foto (se configurada) -->
                             {% if front.photo %}
-                            <div class="member-photo-container-preview" id="photo-container-preview"
-                                 style="position: absolute; left: {{ front.photo.x }}px; top: {{ front.photo.y }}px; width: {{ front.photo.width }}px; height: {{ front.photo.height }}px; overflow: hidden; border-radius: 4px; border: 2px dashed #0d6efd; cursor: grab;">
+                            <div class="member-photo-container-preview" id="photo-container-preview">
                                 {% if member.profile_photo %}
-                                <img id="preview-photo-img" src="{{ url_for('static', filename=member.profile_photo) }}" alt="Foto do membro" 
-                                     style="width: 100%; height: 100%; object-fit: cover; display: block; position: absolute; top: 0; left: 0;">
+                                <img id="preview-photo-img" src="{{ url_for('static', filename=member.profile_photo) }}" alt="Foto do membro">
                                 {% else %}
-                                <div class="placeholder-photo" style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background-color: #e9ecef;">
+                                <div class="placeholder-photo">
                                     <span class="text-muted">Sem foto</span>
                                 </div>
                                 {% endif %}
@@ -118,76 +116,75 @@
 
                             <!-- Nome -->
                             {% if front.name %}
-                            <div class="field-value name" style="position: absolute; left: {{ front.name.x }}px; top: {{ front.name.y }}px; width: {{ front.name.width }}px;">
+                            <div class="field-value name" data-field="name">
                                 {{ member.name }}
                             </div>
                             {% endif %}
 
                             <!-- Cargo -->
                             {% if front.role %}
-                            <div class="field-value role" style="position: absolute; left: {{ front.role.x }}px; top: {{ front.role.y }}px; width: {{ front.role.width }}px;">
+                            <div class="field-value role" data-field="role">
                                 {{ member.church_role.name if member.church_role else 'Membro' }}
                             </div>
                             {% endif %}
 
                             <!-- Estado Civil -->
                             {% if front.marital_status %}
-                            <div class="field-value" style="position: absolute; left: {{ front.marital_status.x }}px; top: {{ front.marital_status.y }}px; width: {{ front.marital_status.width }}px;">
+                            <div class="field-value" data-field="marital_status">
                                 {{ member.marital_status or 'Não informado' }}
                             </div>
                             {% endif %}
 
                             <!-- Data de Nascimento -->
                             {% if front.birth_date %}
-                            <div class="field-value" style="position: absolute; left: {{ front.birth_date.x }}px; top: {{ front.birth_date.y }}px; width: {{ front.birth_date.width }}px;">
+                            <div class="field-value" data-field="birth_date">
                                 {{ member.birth_date.strftime('%d/%m/%Y') if member.birth_date else 'Não informado' }}
                             </div>
                             {% endif %}
                         </div>
 
                         <!-- VERSO -->
-                        <div class="member-card-preview back" id="card-preview-back"
-                             style="background-image: url('{{ url_for('static', filename=church.member_card_back) if church.member_card_back else '' }}'); margin-top: 40px;">
+                        <div class="member-card-preview back" id="card-preview-back">
                             {% set back = church.card_back_layout or {} %}
 
                             <!-- Filiação -->
                             {% if back.filiacao %}
-                            <div class="field-value filiacao" style="position: absolute; left: {{ back.filiacao.x }}px; top: {{ back.filiacao.y }}px; width: {{ back.filiacao.width }}px;">
+                            <div class="field-value filiacao" data-field="filiacao">
                                 {{ church.name if church else 'Não informado' }}
                             </div>
                             {% endif %}
 
                             <!-- Documento -->
                             {% if back.document %}
-                            <div class="field-value" style="position: absolute; left: {{ back.document.x }}px; top: {{ back.document.y }}px; width: {{ back.document.width }}px;">
+                            <div class="field-value" data-field="document">
                                 {{ member.tax_id or member.documents or 'Não informado' }}
                             </div>
                             {% endif %}
 
                             <!-- Data de Conversão -->
                             {% if back.conversion_date %}
-                            <div class="field-value" style="position: absolute; left: {{ back.conversion_date.x }}px; top: {{ back.conversion_date.y }}px; width: {{ back.conversion_date.width }}px;">
+                            <div class="field-value" data-field="conversion_date">
                                 {{ member.conversion_date.strftime('%d/%m/%Y') if member.conversion_date else 'Não informado' }}
                             </div>
                             {% endif %}
 
                             <!-- Data de Batismo -->
                             {% if back.baptism_date %}
-                            <div class="field-value" style="position: absolute; left: {{ back.baptism_date.x }}px; top: {{ back.baptism_date.y }}px; width: {{ back.baptism_date.width }}px;">
+                            <div class="field-value" data-field="baptism_date">
                                 {{ member.baptism_date.strftime('%d/%m/%Y') if member.baptism_date else 'Não informado' }}
                             </div>
                             {% endif %}
 
                             <!-- Disclaimer -->
                             {% if back.disclaimer %}
-                            <div class="field-value disclaimer" style="position: absolute; left: {{ back.disclaimer.x }}px; top: {{ back.disclaimer.y }}px; width: {{ back.disclaimer.width }}px; height: {{ back.disclaimer.height }}px;">
+                            <div class="field-value disclaimer" data-field="disclaimer">
                                 Este documento tem validade enquanto o(a) titular permanecer em plena comunhão como membro da Assembleia de Deus IEAD Jesus para as Nações em Aveiro - Portugal.
                             </div>
                             {% endif %}
 
                             <!-- Assinatura -->
                             {% if back.signature %}
-                            <div class="field-value signature" style="position: absolute; left: {{ back.signature.x }}px; top: {{ back.signature.y }}px; width: {{ back.signature.width }}px;">
+                            <div class="field-value signature" data-field="signature">
                                 Pr. Fernando Telles dos Santos<br>Presidente da IEAD Jesus Para as Nações
                             </div>
                             {% endif %}
@@ -211,16 +208,59 @@
 }
 
 .member-card-preview {
-    width: 856px;
-    height: 540px;
+    width: 100%;
+    max-width: 856px;
+    aspect-ratio: 856 / 540;
     background-size: cover !important;
     background-position: center !important;
     background-repeat: no-repeat !important;
     position: relative;
-    overflow: visible;
+    overflow: hidden;
     border-radius: 8px;
     box-shadow: 0 4px 20px rgba(0,0,0,0.15);
     border: 1px solid #dee2e6;
+    container-type: size;
+}
+
+.member-photo-container-preview {
+    position: absolute;
+    overflow: hidden;
+    border-radius: 4px;
+    border: 2px dashed #0d6efd;
+    cursor: grab;
+    z-index: 5;
+    transition: border-color 0.2s ease;
+    
+    /* Coordenadas em porcentagem do cartão (856x540) */
+    left: 4.67%;
+    top: 25.93%;
+    width: 25.70%;
+    height: 51.85%;
+}
+
+.member-photo-container-preview.dragging {
+    border-color: #0d6efd !important;
+    box-shadow: 0 0 10px rgba(13, 110, 253, 0.5);
+    cursor: grabbing;
+}
+
+#preview-photo-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+
+.placeholder-photo {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #e9ecef;
 }
 
 .field-value {
@@ -228,52 +268,107 @@
     color: black;
     font-family: Arial, sans-serif;
     font-weight: 500;
-    white-space: nowrap;
-    overflow: visible;
-    text-overflow: clip;
     z-index: 10;
     pointer-events: none;
-}
-
-.name { font-size: 20px; font-weight: bold; }
-.role { font-size: 18px; }
-.marital_status,
-.birth_date { font-size: 16px; }
-.disclaimer { font-size: 13px; line-height: 1.4; text-align: center; }
-.signature { font-size: 14px; text-align: center; color: #333; }
-
-.member-photo-container-preview {
-    overflow: hidden;
-    border-radius: 4px;
-    z-index: 5;
-    transition: border-color 0.2s ease;
-}
-
-.member-photo-container-preview.dragging {
-    border-color: #0d6efd !important;
-    box-shadow: 0 0 10px rgba(13, 110, 253, 0.5);
-}
-
-#preview-photo-img {
-    display: block;
-}
-
-@media (max-width: 1200px) {
-    .card-preview-container {
-        padding: 10px;
-    }
     
-    .member-card-preview {
-        width: 600px;
-        height: 378px;
-    }
+    /* Usar unidades relativas ao container */
+    font-size: clamp(0.8rem, 1.5cqw, 1.2rem);
+    line-height: 1.3;
+}
+
+.name {
+    font-weight: bold;
+    font-size: clamp(1rem, 2cqw, 1.5rem);
+    left: 31.64%;
+    top: 18.52%;
+    width: 65%;
+    height: 8%;
+}
+
+.role {
+    font-size: clamp(0.9rem, 1.8cqw, 1.3rem);
+    left: 31.64%;
+    top: 28.52%;
+    width: 65%;
+    height: 6%;
+}
+
+.marital_status {
+    font-size: clamp(0.8rem, 1.5cqw, 1.1rem);
+    left: 31.64%;
+    top: 36.30%;
+    width: 30%;
+    height: 5%;
+}
+
+.birth_date {
+    font-size: clamp(0.8rem, 1.5cqw, 1.1rem);
+    left: 65%;
+    top: 36.30%;
+    width: 30%;
+    height: 5%;
+}
+
+.filiacao {
+    font-size: clamp(0.8rem, 1.5cqw, 1.1rem);
+    left: 5.85%;
+    top: 12.96%;
+    width: 88.30%;
+    height: 6%;
+}
+
+.document {
+    font-size: clamp(0.8rem, 1.5cqw, 1.1rem);
+    left: 5.85%;
+    top: 22.96%;
+    width: 30%;
+    height: 5%;
+}
+
+.conversion_date {
+    font-size: clamp(0.8rem, 1.5cqw, 1.1rem);
+    left: 35%;
+    top: 22.96%;
+    width: 30%;
+    height: 5%;
+}
+
+.baptism_date {
+    font-size: clamp(0.8rem, 1.5cqw, 1.1rem);
+    left: 65%;
+    top: 22.96%;
+    width: 30%;
+    height: 5%;
+}
+
+.disclaimer {
+    font-size: clamp(0.7rem, 1.2cqw, 0.9rem);
+    left: 5.85%;
+    top: 45.19%;
+    width: 88.30%;
+    height: 20%;
+    text-align: center;
+    line-height: 1.4;
+}
+
+.signature {
+    font-size: clamp(0.75rem, 1.3cqw, 1rem);
+    left: 5.85%;
+    top: 68.52%;
+    width: 88.30%;
+    height: 15%;
+    text-align: center;
+    color: #333;
 }
 
 @media (max-width: 768px) {
+    .card-preview-container {
+        padding: 10px;
+        gap: 20px;
+    }
+    
     .member-card-preview {
-        width: 100%;
-        height: auto;
-        aspect-ratio: 856 / 540;
+        max-width: 100%;
     }
 }
 </style>
@@ -288,6 +383,7 @@ const zoomValue = document.getElementById('zoom-value');
 const btnReset = document.getElementById('btn-reset');
 const btnEmit = document.getElementById('btn-emit');
 const loadingIndicator = document.getElementById('loading-indicator');
+const cardFront = document.getElementById('card-preview-front');
 
 // Variáveis de estado
 let currentPhotoPath = null;
@@ -300,9 +396,16 @@ let dragStartY = 0;
 let dragStartOffsetX = 0;
 let dragStartOffsetY = 0;
 
-// Dimensões do container de foto (em pixels na pré-visualização)
-const photoContainerWidth = parseInt(photoContainer.style.width) || 220;
-const photoContainerHeight = parseInt(photoContainer.style.height) || 280;
+// Função para obter as dimensões reais do cartão em pixels
+function getCardDimensions() {
+    const rect = cardFront.getBoundingClientRect();
+    return {
+        width: rect.width,
+        height: rect.height,
+        x: rect.left,
+        y: rect.top
+    };
+}
 
 // Evento de upload de foto
 photoUpload.addEventListener('change', async (e) => {
@@ -343,13 +446,8 @@ zoomSlider.addEventListener('input', (e) => {
 // Atualizar visualização da foto com zoom e offset
 function updatePhotoPreview() {
     if (previewPhotoImg && previewPhotoImg.parentElement) {
-        // Aplicar zoom com transformação CSS
-        // O zoom é aplicado a partir do centro da imagem
         previewPhotoImg.style.transform = `scale(${currentZoom})`;
         previewPhotoImg.style.transformOrigin = 'center center';
-        
-        // Aplicar offset (deslocamento) em pixels
-        // O offset move a imagem dentro do container
         previewPhotoImg.style.left = currentOffsetX + 'px';
         previewPhotoImg.style.top = currentOffsetY + 'px';
     }
@@ -367,7 +465,20 @@ if (photoContainer) {
         dragStartOffsetY = currentOffsetY;
         
         photoContainer.classList.add('dragging');
-        photoContainer.style.cursor = 'grabbing';
+        e.preventDefault();
+    });
+
+    // Suporte a touch (mobile)
+    photoContainer.addEventListener('touchstart', (e) => {
+        if (!previewPhotoImg || !previewPhotoImg.src) return;
+        
+        isDragging = true;
+        dragStartX = e.touches[0].clientX;
+        dragStartY = e.touches[0].clientY;
+        dragStartOffsetX = currentOffsetX;
+        dragStartOffsetY = currentOffsetY;
+        
+        photoContainer.classList.add('dragging');
         e.preventDefault();
     });
 
@@ -377,7 +488,19 @@ if (photoContainer) {
         const deltaX = e.clientX - dragStartX;
         const deltaY = e.clientY - dragStartY;
         
-        // Limitar o deslocamento para não sair muito do container
+        const maxOffset = 80;
+        currentOffsetX = Math.max(-maxOffset, Math.min(maxOffset, dragStartOffsetX + deltaX));
+        currentOffsetY = Math.max(-maxOffset, Math.min(maxOffset, dragStartOffsetY + deltaY));
+        
+        updatePhotoPreview();
+    });
+
+    document.addEventListener('touchmove', (e) => {
+        if (!isDragging) return;
+        
+        const deltaX = e.touches[0].clientX - dragStartX;
+        const deltaY = e.touches[0].clientY - dragStartY;
+        
         const maxOffset = 80;
         currentOffsetX = Math.max(-maxOffset, Math.min(maxOffset, dragStartOffsetX + deltaX));
         currentOffsetY = Math.max(-maxOffset, Math.min(maxOffset, dragStartOffsetY + deltaY));
@@ -389,7 +512,13 @@ if (photoContainer) {
         if (isDragging) {
             isDragging = false;
             photoContainer.classList.remove('dragging');
-            photoContainer.style.cursor = 'grab';
+        }
+    });
+
+    document.addEventListener('touchend', () => {
+        if (isDragging) {
+            isDragging = false;
+            photoContainer.classList.remove('dragging');
         }
     });
 }
