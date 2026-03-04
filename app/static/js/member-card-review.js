@@ -1,276 +1,507 @@
 // static/js/member-card-review.js
-document.addEventListener('DOMContentLoaded', function() {
+// CSS FORÇADO - Garante que o cartão apareça
+(function() {
+    const style = document.createElement('style');
+    style.textContent = `
+        #card-preview-front, #card-preview-back {
+            position: relative !important;
+            z-index: 9999 !important;
+            opacity: 1 !important;
+            visibility: visible !important;
+            display: block !important;
+            background-color: #f0f0f0 !important;
+            border: 5px solid red !important;
+            min-height: 540px !important;
+            overflow: visible !important;
+        }
+        
+        #card-preview-front * , #card-preview-back * {
+            position: absolute;
+            z-index: 10000 !important;
+            background-color: rgba(255,255,255,0.9) !important;
+            border: 2px solid blue !important;
+            color: black !important;
+            font-size: 16px !important;
+            padding: 5px !important;
+        }
+        
+        .member-photo-container-preview {
+            z-index: 10001 !important;
+            background-color: #e9ecef !important;
+            border: 3px solid green !important;
+        }
+        
+        .field-value {
+            background-color: rgba(255,255,255,0.95) !important;
+            border: 2px dashed #0d6efd !important;
+        }
+    `;
+    document.head.appendChild(style);
+    console.log('✅ CSS de emergência aplicado');
+})();
+// Arquivo COMPLETO com todas as funcionalidades
+
+(function() {
+    console.log('🚀 Iniciando member-card-review.js - Versão Completa');
+    
     // ========== CONFIGURAÇÕES ==========
-    const WIDTH = 856, HEIGHT = 540;  // Tamanho base do cartão
-    
+    const CARD_WIDTH = 856;
+    const CARD_HEIGHT = 540;
+
+    // ========== ESTADO GLOBAL ==========
+    let currentPhotoUrl = '';
+    let currentZoom = 1.0;
+    let currentPhotoOffset = { x: 0, y: 0 };
+    let isDraggingPhoto = false;
+    let dragStartX, dragStartY;
+    let customPhotoPath = null;
+
     // ========== ELEMENTOS DOM ==========
-    const image = document.getElementById('cropper-image');
-    const frontPreview = document.getElementById('front-preview');
-    const backPreview = document.getElementById('back-preview');
-    const loadingOverlay = document.getElementById('loading');
-    
-    // ========== ESTADO ==========
-    let cropper = null;
-    let currentPhotoSource = 'profile';
-    let originalPhotoUrl = image.src;
-    
-    // ========== INICIALIZAÇÃO ==========
-    function initCropper() {
-        if (cropper) cropper.destroy();
-        
-        cropper = new Cropper(image, {
-            aspectRatio: 0.75,  // 3:4 para foto de identificação
-            viewMode: 1,
-            autoCropArea: 0.8,
-            rotatable: true,
-            zoomable: true,
-            scalable: true,
-            minCropBoxWidth: 100,
-            minCropBoxHeight: 100,
-            ready: function() {
-                updatePreviews();
-            },
-            crop: function() {
-                updatePreviews();
-            },
-            zoom: function() {
-                updatePreviews();
-            },
-            rotate: function() {
-                updatePreviews();
+    let cardPreviewFront, cardPreviewBack, photoUploadInput, zoomSlider, zoomValueSpan, btnReset, btnEmit, loadingIndicator;
+
+    // ========== FUNÇÃO PARA AGUARDAR ELEMENTOS ==========
+    function waitForElement(selector, callback, maxAttempts = 50) {
+        let attempts = 0;
+        const interval = setInterval(() => {
+            const element = document.querySelector(selector);
+            attempts++;
+            
+            if (element) {
+                console.log(`✅ Elemento ${selector} encontrado após ${attempts} tentativas`);
+                clearInterval(interval);
+                callback(element);
+            } else if (attempts >= maxAttempts) {
+                console.error(`❌ Elemento ${selector} não encontrado após ${maxAttempts} tentativas`);
+                clearInterval(interval);
             }
-        });
+        }, 100);
     }
-    
-    // ========== FUNÇÕES DE PREVIEW ==========
-    function updatePreviews() {
-        // Atualiza frente
-        updateCardPreview('front', frontPreview, window.cardData.church.frontLayout, getFrontData());
-        // Atualiza verso
-        updateCardPreview('back', backPreview, window.cardData.church.backLayout, getBackData());
+
+    // ========== FUNÇÕES DE DRAG DA FOTO ==========
+    function startPhotoDrag(e) {
+        e.preventDefault();
+        const photoContainer = document.getElementById('member-photo-container-preview');
+        if (!photoContainer) return;
+        
+        isDraggingPhoto = true;
+        dragStartX = e.clientX - currentPhotoOffset.x;
+        dragStartY = e.clientY - currentPhotoOffset.y;
+        
+        document.addEventListener('mousemove', dragPhoto);
+        document.addEventListener('mouseup', stopPhotoDrag);
+        
+        photoContainer.style.cursor = 'grabbing';
     }
-    
-    function updateCardPreview(side, container, layout, data) {
-        const bgUrl = side === 'front' ? window.cardData.church.frontBg : window.cardData.church.backBg;
+
+    function dragPhoto(e) {
+        if (!isDraggingPhoto) return;
         
-        // Cria HTML do preview
-        let html = `<div class="preview-card" style="background-image: url('${bgUrl}'); background-size: cover;">`;
+        currentPhotoOffset.x = e.clientX - dragStartX;
+        currentPhotoOffset.y = e.clientY - dragStartY;
+        updatePhotoTransform();
+    }
+
+    function stopPhotoDrag() {
+        isDraggingPhoto = false;
+        document.removeEventListener('mousemove', dragPhoto);
+        document.removeEventListener('mouseup', stopPhotoDrag);
         
-        // Adiciona campos de texto
-        for (const [field, fieldData] of Object.entries(layout)) {
-            if (!data[field]) continue;
-            
-            const x = fieldData.x || 0;
-            const y = fieldData.y || 0;
-            const width = fieldData.width || 200;
-            
-            html += `<div class="field-value ${field}" style="left: ${x}px; top: ${y}px; width: ${width}px;">`;
-            
-            if (field === 'disclaimer') {
-                html += data[field];
-            } else if (field === 'signature') {
-                html += data[field].replace('\n', '<br>');
-            } else {
-                html += data[field];
-            }
-            
-            html += '</div>';
+        const photoContainer = document.getElementById('member-photo-container-preview');
+        if (photoContainer) {
+            photoContainer.style.cursor = 'move';
         }
-        
-        // Adiciona foto (apenas frente)
-        if (side === 'front' && layout.photo) {
-            const photoData = layout.photo;
-            const photoX = photoData.x || 40;
-            const photoY = photoData.y || 140;
-            const photoW = photoData.width || 220;
-            const photoH = photoData.height || 280;
-            
-            // Obtém foto cropada
-            if (cropper) {
-                const canvas = cropper.getCroppedCanvas({
-                    width: photoW,
-                    height: photoH
-                });
-                html += `<img src="${canvas.toDataURL()}" style="position: absolute; left: ${photoX}px; top: ${photoY}px; width: ${photoW}px; height: ${photoH}px; object-fit: cover; border-radius: 4px;">`;
-            } else if (originalPhotoUrl) {
-                html += `<img src="${originalPhotoUrl}" style="position: absolute; left: ${photoX}px; top: ${photoY}px; width: ${photoW}px; height: ${photoH}px; object-fit: cover; border-radius: 4px;">`;
-            }
+    }
+
+    function updatePhotoTransform() {
+        const imgElement = document.getElementById('preview-photo-img');
+        if (imgElement) {
+            imgElement.style.transform = `scale(${currentZoom}) translate(${currentPhotoOffset.x}px, ${currentPhotoOffset.y}px)`;
         }
-        
-        html += '</div>';
-        container.innerHTML = html;
     }
-    
-    function getFrontData() {
-        return {
-            name: window.cardData.member.name,
-            role: window.cardData.member.role,
-            marital_status: window.cardData.member.maritalStatus,
-            birth_date: window.cardData.member.birthDate
-        };
-    }
-    
-    function getBackData() {
-        return {
-            filiacao: window.cardData.church.name,
-            document: window.cardData.member.documents,
-            conversion_date: window.cardData.member.conversionDate,
-            baptism_date: window.cardData.member.baptismDate,
-            disclaimer: window.cardData.disclaimer,
-            signature: window.cardData.signature
-        };
-    }
-    
-    // ========== CONTROLES DA FOTO ==========
-    
-    // Opções de fonte da foto
-    document.querySelectorAll('.photo-option').forEach(option => {
-        option.addEventListener('click', function() {
-            document.querySelectorAll('.photo-option').forEach(opt => opt.classList.remove('selected'));
-            this.classList.add('selected');
-            
-            currentPhotoSource = this.dataset.source;
-            
-            if (currentPhotoSource === 'upload') {
-                document.getElementById('upload-area').style.display = 'block';
-                document.getElementById('cropper-container').style.display = 'block';
-            } else if (currentPhotoSource === 'default') {
-                document.getElementById('upload-area').style.display = 'none';
-                document.getElementById('cropper-container').style.display = 'block';
-                
-                // Carrega foto padrão
-                image.src = '/static/img/default-avatar.png';
-                cropper.replace('/static/img/default-avatar.png');
-            } else {
-                document.getElementById('upload-area').style.display = 'none';
-                document.getElementById('cropper-container').style.display = 'block';
-                
-                // Volta para foto original do perfil
-                image.src = originalPhotoUrl;
-                cropper.replace(originalPhotoUrl);
-            }
-        });
-    });
-    
-    // Upload de nova foto
-    document.getElementById('photo-upload').addEventListener('change', function(e) {
-        const file = e.target.files[0];
-        if (!file) return;
-        
-        // Valida tamanho (5MB)
-        if (file.size > 5 * 1024 * 1024) {
-            alert('Arquivo muito grande! Máximo 5MB.');
+
+    // ========== FUNÇÃO PRINCIPAL DE RENDERIZAÇÃO ==========
+    function renderCard(side, container) {
+        if (!container) {
+            console.error(`❌ Container ${side} não disponível`);
             return;
         }
         
-        // Valida tipo
-        if (!file.type.startsWith('image/')) {
-            alert('Por favor, selecione uma imagem válida.');
+        console.log(`🎨 Renderizando ${side}...`);
+        container.innerHTML = '';
+        
+        // Configurações básicas do container
+        container.style.position = 'relative';
+        container.style.width = CARD_WIDTH + 'px';
+        container.style.height = CARD_HEIGHT + 'px';
+        container.style.overflow = 'hidden';
+        container.style.borderRadius = '8px';
+        container.style.boxShadow = '0 4px 20px rgba(0,0,0,0.15)';
+        container.style.border = '1px solid #dee2e6'; // Borda sutil
+        
+        const data = window.cardData;
+        if (!data) {
+            console.error('❌ cardData não encontrado');
+            container.innerHTML = '<div style="padding:20px; color:red;">Erro: Dados do cartão não carregados</div>';
             return;
         }
         
-        const reader = new FileReader();
-        reader.onload = function(event) {
-            image.src = event.target.result;
-            if (cropper) {
-                cropper.replace(event.target.result);
-            } else {
-                initCropper();
-            }
-        };
-        reader.readAsDataURL(file);
-    });
-    
-    // Controles de rotação
-    document.getElementById('rotate-left').addEventListener('click', function() {
-        if (cropper) cropper.rotate(-90);
-    });
-    
-    document.getElementById('rotate-right').addEventListener('click', function() {
-        if (cropper) cropper.rotate(90);
-    });
-    
-    // Espelhamento
-    document.getElementById('flip-x').addEventListener('click', function() {
-        if (cropper) {
-            const data = cropper.getData();
-            cropper.scale(-data.scaleX || -1, data.scaleY || 1);
-        }
-    });
-    
-    document.getElementById('flip-y').addEventListener('click', function() {
-        if (cropper) {
-            const data = cropper.getData();
-            cropper.scale(data.scaleX || 1, -data.scaleY || -1);
-        }
-    });
-    
-    // Zoom slider
-    document.getElementById('zoom-slider').addEventListener('input', function(e) {
-        if (cropper) {
-            cropper.zoomTo(parseFloat(e.target.value));
-        }
-    });
-    
-    // Reset
-    document.getElementById('reset-crop').addEventListener('click', function() {
-        if (cropper) cropper.reset();
-    });
-    
-    // ========== GERAÇÃO DO CARTÃO ==========
-    
-    document.getElementById('generate-card').addEventListener('click', async function() {
-        loadingOverlay.classList.add('active');
+        const isFront = (side === 'front');
         
-        try {
-            const canvas = cropper.getCroppedCanvas({
-                width: 400,
-                height: 533,  // Mantém proporção 3:4
-                imageSmoothingEnabled: true,
-                imageSmoothingQuality: 'high'
-            });
-            
-            const croppedPhoto = canvas.toDataURL('image/png', 0.95);
-            
-            const form = new FormData();
-            form.append('cropped_photo', croppedPhoto);
-            form.append('photo_source', currentPhotoSource);
-            
-            const response = await fetch('{{ url_for('admin.member_card', id=member.id) }}', {
-                method: 'POST',
-                body: form
-            });
-            
-            if (!response.ok) throw new Error('Erro na geração');
-            
-            const blob = await response.blob();
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `cartao_membro_{{ member.name.replace(" ", "_") }}.png`;
-            a.click();
-            URL.revokeObjectURL(url);
-            
-        } catch (err) {
-            alert('Erro ao gerar o cartão: ' + err.message);
-        } finally {
-            loadingOverlay.classList.remove('active');
+        // 1. APLICAR BACKGROUND
+        const bgUrl = isFront ? data.church?.frontBg : data.church?.backBg;
+        if (bgUrl && bgUrl.trim() !== '') {
+            console.log(`🖼️ Background ${side}:`, bgUrl);
+            container.style.backgroundImage = `url('${bgUrl}')`;
+            container.style.backgroundSize = 'cover';
+            container.style.backgroundPosition = 'center';
+            container.style.backgroundRepeat = 'no-repeat';
+        } else {
+            console.warn(`⚠️ Sem background para ${side}`);
+            container.style.backgroundColor = '#f8f9fa';
         }
-    });
-    
-    // Download preview
-    document.getElementById('download-preview').addEventListener('click', function() {
-        // Captura os previews como imagem
-        html2canvas(frontPreview).then(canvas => {
-            const url = canvas.toDataURL('image/png');
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `preview_frente_{{ member.name.replace(" ", "_") }}.png`;
-            a.click();
+        
+        // 2. RENDERIZAR LAYOUT
+        const layout = isFront ? data.church?.frontLayout : data.church?.backLayout;
+        if (!layout || Object.keys(layout).length === 0) {
+            console.warn(`⚠️ Layout vazio para ${side}`);
+            const msg = document.createElement('div');
+            msg.textContent = `Layout ${side} não configurado`;
+            msg.style.position = 'absolute';
+            msg.style.top = '50%';
+            msg.style.left = '50%';
+            msg.style.transform = 'translate(-50%, -50%)';
+            msg.style.backgroundColor = 'rgba(255,193,7,0.8)';
+            msg.style.padding = '10px';
+            msg.style.borderRadius = '4px';
+            container.appendChild(msg);
+        } else {
+            // Renderizar campos de texto
+            Object.entries(layout).forEach(([fieldName, fieldLayout]) => {
+                if (fieldName === 'photo') return; // Foto será tratada separadamente
+                
+                // Determinar valor do campo
+                let fieldValue = '';
+                switch(fieldName) {
+                    case 'name':
+                        fieldValue = data.member?.name || '';
+                        break;
+                    case 'role':
+                        fieldValue = data.member?.role || '';
+                        break;
+                    case 'marital_status':
+                        fieldValue = data.member?.maritalStatus || '';
+                        break;
+                    case 'birth_date':
+                        fieldValue = data.member?.birthDate || '';
+                        break;
+                    case 'filiacao':
+                        fieldValue = data.member?.filiation || data.church?.name || '';
+                        break;
+                    case 'document':
+                        fieldValue = data.member?.documents || '';
+                        break;
+                    case 'conversion_date':
+                        fieldValue = data.member?.conversionDate || '';
+                        break;
+                    case 'baptism_date':
+                        fieldValue = data.member?.baptismDate || '';
+                        break;
+                    case 'disclaimer':
+                        fieldValue = data.disclaimer || '';
+                        break;
+                    case 'signature':
+                        fieldValue = data.signature ? data.signature.replace(/\\n/g, '<br>') : '';
+                        break;
+                    default:
+                        fieldValue = '';
+                }
+                
+                if (fieldValue && fieldValue.trim() !== '') {
+                    try {
+                        const fieldEl = document.createElement('div');
+                        fieldEl.className = `field-value field-${fieldName}`;
+                        fieldEl.innerHTML = fieldValue;
+                        
+                        // Posicionamento
+                        fieldEl.style.position = 'absolute';
+                        fieldEl.style.left = (fieldLayout.x || 0) + 'px';
+                        fieldEl.style.top = (fieldLayout.y || 0) + 'px';
+                        fieldEl.style.width = (fieldLayout.width || 200) + 'px';
+                        
+                        if (fieldLayout.height) {
+                            fieldEl.style.height = fieldLayout.height + 'px';
+                        }
+                        
+                        // Estilo
+                        fieldEl.style.backgroundColor = 'rgba(255, 255, 255, 0.7)';
+                        fieldEl.style.padding = '5px';
+                        fieldEl.style.fontSize = fieldLayout.font_size ? fieldLayout.font_size + 'px' : '14px';
+                        fieldEl.style.color = fieldLayout.color || '#000000';
+                        fieldEl.style.textAlign = fieldLayout.text_align || 'left';
+                        fieldEl.style.fontWeight = fieldLayout.font_weight || 'normal';
+                        fieldEl.style.overflow = 'hidden';
+                        fieldEl.style.boxSizing = 'border-box';
+                        fieldEl.style.zIndex = '2';
+                        fieldEl.style.border = '1px dashed #0d6efd'; // Para debug
+                        
+                        container.appendChild(fieldEl);
+                        console.log(`✅ Campo ${fieldName} renderizado`);
+                    } catch (e) {
+                        console.error(`Erro ao renderizar campo ${fieldName}:`, e);
+                    }
+                }
+            });
+        }
+        
+        // 3. RENDERIZAR FOTO (apenas frente)
+        if (isFront) {
+            const photoLayout = layout?.photo;
+            const photoUrl = currentPhotoUrl || data.member?.profilePhotoUrl;
+            
+            if (photoLayout && photoUrl) {
+                try {
+                    console.log('📸 Renderizando foto');
+                    
+                    const photoContainer = document.createElement('div');
+                    photoContainer.id = 'member-photo-container-preview';
+                    photoContainer.className = 'member-photo-container-preview';
+                    
+                    // Posicionamento
+                    photoContainer.style.position = 'absolute';
+                    photoContainer.style.left = (photoLayout.x || 40) + 'px';
+                    photoContainer.style.top = (photoLayout.y || 140) + 'px';
+                    photoContainer.style.width = (photoLayout.width || 220) + 'px';
+                    photoContainer.style.height = (photoLayout.height || 280) + 'px';
+                    photoContainer.style.overflow = 'hidden';
+                    photoContainer.style.cursor = 'move';
+                    photoContainer.style.backgroundColor = '#e9ecef';
+                    photoContainer.style.border = '2px solid #28a745'; // Borda verde para debug
+                    photoContainer.style.zIndex = '3';
+                    photoContainer.style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)';
+                    
+                    const img = document.createElement('img');
+                    img.id = 'preview-photo-img';
+                    img.src = photoUrl;
+                    img.alt = 'Foto do membro';
+                    img.style.width = '100%';
+                    img.style.height = '100%';
+                    img.style.objectFit = 'cover';
+                    img.style.transform = `scale(${currentZoom}) translate(${currentPhotoOffset.x}px, ${currentPhotoOffset.y}px)`;
+                    img.style.transformOrigin = 'center';
+                    img.style.transition = 'transform 0.1s ease';
+                    img.style.pointerEvents = 'none';
+                    
+                    photoContainer.appendChild(img);
+                    container.appendChild(photoContainer);
+                    
+                    // Adicionar evento de drag
+                    photoContainer.addEventListener('mousedown', startPhotoDrag);
+                    
+                    console.log('✅ Foto renderizada');
+                } catch (e) {
+                    console.error('Erro ao renderizar foto:', e);
+                }
+            } else if (isFront) {
+                // Placeholder para foto
+                const placeholder = document.createElement('div');
+                placeholder.style.position = 'absolute';
+                placeholder.style.left = '40px';
+                placeholder.style.top = '140px';
+                placeholder.style.width = '220px';
+                placeholder.style.height = '280px';
+                placeholder.style.backgroundColor = '#e9ecef';
+                placeholder.style.border = '2px dashed #6c757d';
+                placeholder.style.display = 'flex';
+                placeholder.style.alignItems = 'center';
+                placeholder.style.justifyContent = 'center';
+                placeholder.style.color = '#6c757d';
+                placeholder.style.fontSize = '12px';
+                placeholder.innerHTML = 'Sem foto';
+                placeholder.style.zIndex = '1';
+                container.appendChild(placeholder);
+            }
+        }
+        
+        console.log(`✅ Renderização do ${side} concluída`);
+    }
+
+    // ========== INICIALIZAR EVENT LISTENERS ==========
+    function initializeEventListeners() {
+        console.log('🎮 Inicializando event listeners...');
+        
+        // Upload de foto
+        if (photoUploadInput) {
+            photoUploadInput.addEventListener('change', function(e) {
+                const file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = function(event) {
+                        currentPhotoUrl = event.target.result;
+                        customPhotoPath = 'data-url';
+                        renderCard('front', cardPreviewFront);
+                        renderCard('back', cardPreviewBack);
+                    };
+                    reader.readAsDataURL(file);
+                }
+            });
+            console.log('✅ Event listener de upload adicionado');
+        }
+
+        // Zoom slider
+        if (zoomSlider && zoomValueSpan) {
+            zoomSlider.addEventListener('input', function(e) {
+                currentZoom = parseFloat(e.target.value);
+                zoomValueSpan.textContent = `${Math.round(currentZoom * 100)}%`;
+                updatePhotoTransform();
+            });
+            console.log('✅ Event listener de zoom adicionado');
+        }
+
+        // Botão Reset
+        if (btnReset) {
+            btnReset.addEventListener('click', function() {
+                currentZoom = 1.0;
+                currentPhotoOffset = { x: 0, y: 0 };
+                if (zoomSlider) zoomSlider.value = 1.0;
+                if (zoomValueSpan) zoomValueSpan.textContent = '100%';
+                currentPhotoUrl = window.cardData?.member?.profilePhotoUrl || '';
+                customPhotoPath = null;
+                if (photoUploadInput) photoUploadInput.value = '';
+                
+                renderCard('front', cardPreviewFront);
+                renderCard('back', cardPreviewBack);
+            });
+            console.log('✅ Event listener de reset adicionado');
+        }
+
+        // Botão Emitir
+        if (btnEmit) {
+            btnEmit.addEventListener('click', async function() {
+                if (loadingIndicator) loadingIndicator.style.display = 'block';
+                btnEmit.disabled = true;
+
+                try {
+                    const response = await fetch(`/admin/member/card-generate/${window.cardData.member.id}`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            photo_zoom: currentZoom,
+                            photo_offset_x: currentPhotoOffset.x,
+                            photo_offset_y: currentPhotoOffset.y,
+                            custom_photo_path: customPhotoPath
+                        })
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`Erro HTTP: ${response.status}`);
+                    }
+
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `cartao_membro_${window.cardData.member.name.replace(/ /g, '_')}.png`;
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+
+                } catch (error) {
+                    console.error('Erro ao emitir cartão:', error);
+                    alert('Erro ao emitir cartão: ' + error.message);
+                } finally {
+                    if (loadingIndicator) loadingIndicator.style.display = 'none';
+                    btnEmit.disabled = false;
+                }
+            });
+            console.log('✅ Event listener de emissão adicionado');
+        }
+    }
+
+    // ========== FUNÇÃO PRINCIPAL DE INICIALIZAÇÃO ==========
+    function initialize() {
+        console.log('🔄 Inicializando sistema completo...');
+        
+        // Buscar elementos DOM
+        cardPreviewFront = document.getElementById('card-preview-front');
+        cardPreviewBack = document.getElementById('card-preview-back');
+        photoUploadInput = document.getElementById('photo-upload');
+        zoomSlider = document.getElementById('zoom-slider');
+        zoomValueSpan = document.getElementById('zoom-value');
+        btnReset = document.getElementById('btn-reset');
+        btnEmit = document.getElementById('btn-emit');
+        loadingIndicator = document.getElementById('loading-indicator');
+        
+        // Verificar cardData
+        if (!window.cardData) {
+            console.error('❌ cardData não encontrado!');
+            return;
+        }
+        
+        // Inicializar foto atual
+        currentPhotoUrl = window.cardData.member?.profilePhotoUrl || '';
+        
+        console.log('📦 Dados carregados:', {
+            member: window.cardData.member?.name,
+            church: window.cardData.church?.name,
+            hasFrontLayout: !!window.cardData.church?.frontLayout,
+            hasBackLayout: !!window.cardData.church?.backLayout
         });
-    });
-    
-    // ========== INICIALIZA ==========
-    initCropper();
-    updatePreviews();
-});
+        
+        // Tentativa 1: Renderizar imediatamente se os containers existirem
+        if (cardPreviewFront && cardPreviewBack) {
+            console.log('✅ Containers encontrados imediatamente');
+            renderCard('front', cardPreviewFront);
+            renderCard('back', cardPreviewBack);
+            initializeEventListeners();
+            return;
+        }
+        
+        // Tentativa 2: Aguardar DOM pronto
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => {
+                console.log('📦 DOMContentLoaded disparado');
+                cardPreviewFront = document.getElementById('card-preview-front');
+                cardPreviewBack = document.getElementById('card-preview-back');
+                
+                if (cardPreviewFront && cardPreviewBack) {
+                    renderCard('front', cardPreviewFront);
+                    renderCard('back', cardPreviewBack);
+                    initializeEventListeners();
+                }
+            });
+        }
+        
+        // Tentativa 3: Aguardar elementos especificamente
+        waitForElement('#card-preview-front', (front) => {
+            cardPreviewFront = front;
+            cardPreviewBack = document.getElementById('card-preview-back');
+            
+            if (cardPreviewFront && cardPreviewBack) {
+                renderCard('front', cardPreviewFront);
+                renderCard('back', cardPreviewBack);
+                initializeEventListeners();
+            }
+        });
+        
+        // Tentativa 4: Última tentativa após 2 segundos
+        setTimeout(() => {
+            console.log('⏰ Tentativa atrasada...');
+            cardPreviewFront = document.getElementById('card-preview-front');
+            cardPreviewBack = document.getElementById('card-preview-back');
+            
+            if (cardPreviewFront && cardPreviewBack) {
+                if (cardPreviewFront.children.length === 0) { // Só renderiza se estiver vazio
+                    renderCard('front', cardPreviewFront);
+                    renderCard('back', cardPreviewBack);
+                    initializeEventListeners();
+                }
+            }
+        }, 2000);
+    }
+
+    // Iniciar tudo
+    initialize();
+})();
