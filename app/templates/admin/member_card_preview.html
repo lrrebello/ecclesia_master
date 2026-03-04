@@ -2,7 +2,7 @@
 
 {% block content %}
 <div class="container-fluid py-4">
-    <!-- Cabeçalho simples -->
+    <!-- Cabeçalho -->
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h2 class="fw-bold text-primary">
             <i class="bi bi-card-id me-2"></i>Pré-visualização do Cartão - {{ member.name }}
@@ -13,11 +13,11 @@
     </div>
 
     <div class="row">
-        <!-- Painel de Controles (esquerda) -->
+        <!-- Painel de Controles -->
         <div class="col-md-4">
             <div class="card shadow-sm">
                 <div class="card-header bg-primary text-white">
-                    <h5 class="mb-0"><i class="bi bi-gear"></i> Controles</h5>
+                    <h5 class="mb-0"><i class="bi bi-gear"></i> Controles de Edição</h5>
                 </div>
                 <div class="card-body">
                     
@@ -35,7 +35,7 @@
                         {% endif %}
                     </div>
 
-                    <!-- Upload de nova foto -->
+                    <!-- Upload de foto -->
                     <div class="mb-4">
                         <label class="fw-bold mb-2">Trocar Foto (só no cartão)</label>
                         <input type="file" id="foto-upload" class="form-control" accept="image/*">
@@ -46,6 +46,13 @@
                     <div class="mb-4">
                         <label class="fw-bold mb-2">Zoom: <span id="zoom-valor">100%</span></label>
                         <input type="range" id="zoom-slider" class="form-range" min="0.5" max="2" step="0.1" value="1.0">
+                        <small class="text-muted">Ajuste o zoom para melhor enquadramento</small>
+                    </div>
+
+                    <!-- Dica -->
+                    <div class="alert alert-info py-2 mb-4">
+                        <i class="bi bi-info-circle"></i>
+                        <strong>Dica:</strong> Clique e arraste a foto para posicioná-la
                     </div>
 
                     <!-- Botões -->
@@ -54,21 +61,21 @@
                             <i class="bi bi-arrow-counterclockwise"></i> Resetar
                         </button>
                         <button id="btn-emitir" class="btn btn-success btn-lg">
-                            <i class="bi bi-printer"></i> Emitir Cartão
+                            <i class="bi bi-download"></i> Emitir Cartão
                         </button>
                     </div>
 
                     <!-- Loading -->
                     <div id="loading" class="text-center mt-3" style="display: none;">
                         <div class="spinner-border text-primary" role="status"></div>
-                        <p>Gerando cartão...</p>
+                        <p class="mt-2">Gerando cartão...</p>
                     </div>
 
                 </div>
             </div>
         </div>
 
-        <!-- Pré-visualização do Cartão (direita) -->
+        <!-- Pré-visualização -->
         <div class="col-md-8">
             <div class="card shadow-sm">
                 <div class="card-header bg-info text-white">
@@ -76,32 +83,26 @@
                 </div>
                 <div class="card-body text-center">
                     
-                    <!-- Container SEM rolagem, com flex em coluna -->
-                        <div style="display: flex; flex-direction: column; align-items: center; gap: 30px; padding: 20px 0;">
-                            
-                            <!-- CARD FRENTE -->
-                            <div class="cartao-container" style="width: 100%; display: flex; flex-direction: column; align-items: center;">
-                                <div class="badge bg-secondary mb-2">FRENTE</div>
-                                <div id="cartao-frente" class="cartao" style="width: 856px; height: 540px; position: relative; border: 3px solid #0d6efd; border-radius: 10px; overflow: hidden; background-color: #f8f9fa; box-shadow: 0 10px 30px rgba(0,0,0,0.2);">
-                                    <!-- conteúdo -->
-                                </div>
+                    <!-- Cartões um abaixo do outro -->
+                    <div style="display: flex; flex-direction: column; align-items: center; gap: 30px;">
+                        
+                        <!-- FRENTE -->
+                        <div style="width: 100%; display: flex; flex-direction: column; align-items: center;">
+                            <div class="badge bg-secondary mb-2">FRENTE</div>
+                            <div id="cartao-frente" class="cartao" 
+                                 style="width: 856px; height: 540px; position: relative; border: 2px solid #0d6efd; border-radius: 10px; overflow: hidden; background-color: #f8f9fa; box-shadow: 0 5px 15px rgba(0,0,0,0.2);">
                             </div>
-
-                            <!-- CARD VERSO -->
-                            <div class="cartao-container" style="width: 100%; display: flex; flex-direction: column; align-items: center;">
-                                <div class="badge bg-secondary mb-2">VERSO</div>
-                                <div id="cartao-verso" class="cartao" style="width: 856px; height: 540px; position: relative; border: 3px solid #198754; border-radius: 10px; overflow: hidden; background-color: #f8f9fa; box-shadow: 0 10px 30px rgba(0,0,0,0.2);">
-                                    <!-- conteúdo -->
-                                </div>
-                            </div>
-
                         </div>
 
-                        <!-- Remove a mensagem de rolagem -->
-                    <p class="text-warning">
-                        <i class="bi bi-info-circle"></i> Dica: Clique e arraste a foto para posicionar
-                    </p>
+                        <!-- VERSO -->
+                        <div style="width: 100%; display: flex; flex-direction: column; align-items: center;">
+                            <div class="badge bg-secondary mb-2">VERSO</div>
+                            <div id="cartao-verso" class="cartao" 
+                                 style="width: 856px; height: 540px; position: relative; border: 2px solid #198754; border-radius: 10px; overflow: hidden; background-color: #f8f9fa; box-shadow: 0 5px 15px rgba(0,0,0,0.2);">
+                            </div>
+                        </div>
 
+                    </div>
                 </div>
             </div>
         </div>
@@ -109,57 +110,44 @@
 </div>
 
 <style>
-    .cartao {
-        background-size: cover !important;
-        background-position: center !important;
-        background-repeat: no-repeat !important;
-    }
-    
-    .campo-texto {
-        position: absolute;
-        background-color: rgba(255, 255, 255, 0.8);
-        padding: 5px 10px;
-        border-radius: 4px;
-        border: 1px dashed #0d6efd;
-        font-size: 16px;
-        white-space: normal;
-        word-wrap: break-word;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-        z-index: 10;
-    }
-    
-    .foto-container {
-        position: absolute;
-        overflow: hidden;
-        cursor: move;
-        border: 2px solid #28a745;
-        background-color: #e9ecef;
-        z-index: 5;
-    }
-    
-    .foto-container img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-        pointer-events: none;
-    }
-    
-    .placeholder-text {
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        color: #6c757d;
-        font-size: 18px;
-    }
+.cartao {
+    background-size: cover !important;
+    background-position: center !important;
+    background-repeat: no-repeat !important;
+}
+
+.campo-texto {
+    position: absolute;
+    background-color: rgba(255, 255, 255, 0.85);
+    padding: 5px 10px;
+    border-radius: 4px;
+    font-size: 14px;
+    white-space: normal;
+    word-wrap: break-word;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    z-index: 10;
+}
+
+.foto-container {
+    position: absolute;
+    overflow: hidden;
+    cursor: move;
+    background-color: #e9ecef;
+    z-index: 5;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.foto-container img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    pointer-events: none;
+}
 </style>
 
 <script>
-// ==================== NOVO SCRIPT SIMPLES E FUNCIONAL ====================
 (function() {
-    console.log('🚀 Iniciando novo sistema de cartão');
-
-    // ========== DADOS ==========
+    // Dados do membro e igreja
     const member = {
         id: {{ member.id }},
         name: "{{ member.name or '' }}",
@@ -206,7 +194,7 @@
     const disclaimer = "Este documento tem validade enquanto o(a) titular permanecer em plena comunhão como membro da Assembleia de Deus IEAD Jesus para as Nações em Aveiro - Portugal.";
     const signature = "Pr. Fernando Telles dos Santos\nPresidente da IEAD Jesus Para as Nações";
 
-    // ========== ESTADO ==========
+    // Estado
     let estado = {
         fotoUrl: member.photoUrl,
         zoom: 1.0,
@@ -215,7 +203,7 @@
         fotoCustomizada: null
     };
 
-    // ========== ELEMENTOS DOM ==========
+    // Elementos DOM
     const cartaoFrente = document.getElementById('cartao-frente');
     const cartaoVerso = document.getElementById('cartao-verso');
     const fotoUpload = document.getElementById('foto-upload');
@@ -225,42 +213,28 @@
     const btnEmitir = document.getElementById('btn-emitir');
     const loading = document.getElementById('loading');
 
-    // ========== FUNÇÕES DE RENDERIZAÇÃO ==========
+    // Renderizar frente
     function renderizarFrente() {
         if (!cartaoFrente) return;
         
+        cartaoFrente.style.backgroundImage = church.frontBg ? `url('${church.frontBg}')` : 'none';
+        cartaoFrente.style.backgroundColor = church.frontBg ? 'transparent' : '#f8f9fa';
+        
         let html = '';
         
-        // Background
-        if (church.frontBg) {
-            cartaoFrente.style.backgroundImage = `url('${church.frontBg}')`;
-        } else {
-            cartaoFrente.style.backgroundColor = '#f0f0f0';
-        }
-        
-        // Campos de texto
         if (church.frontLayout) {
-            // Nome
             if (church.frontLayout.name && member.name) {
                 html += `<div class="campo-texto" style="left: ${church.frontLayout.name.x}px; top: ${church.frontLayout.name.y}px; width: ${church.frontLayout.name.width}px;">${member.name}</div>`;
             }
-            
-            // Cargo
             if (church.frontLayout.role && member.role) {
                 html += `<div class="campo-texto" style="left: ${church.frontLayout.role.x}px; top: ${church.frontLayout.role.y}px; width: ${church.frontLayout.role.width}px;">${member.role}</div>`;
             }
-            
-            // Estado Civil
             if (church.frontLayout.marital_status && member.maritalStatus) {
                 html += `<div class="campo-texto" style="left: ${church.frontLayout.marital_status.x}px; top: ${church.frontLayout.marital_status.y}px; width: ${church.frontLayout.marital_status.width}px;">${member.maritalStatus}</div>`;
             }
-            
-            // Data Nascimento
             if (church.frontLayout.birth_date && member.birthDate) {
                 html += `<div class="campo-texto" style="left: ${church.frontLayout.birth_date.x}px; top: ${church.frontLayout.birth_date.y}px; width: ${church.frontLayout.birth_date.width}px;">${member.birthDate}</div>`;
             }
-            
-            // Foto
             if (church.frontLayout.photo && estado.fotoUrl) {
                 const foto = church.frontLayout.photo;
                 html += `<div class="foto-container" id="foto-container" style="left: ${foto.x}px; top: ${foto.y}px; width: ${foto.width}px; height: ${foto.height}px;">
@@ -271,53 +245,37 @@
         
         cartaoFrente.innerHTML = html;
         
-        // Adicionar evento de drag na foto
         const fotoContainer = document.getElementById('foto-container');
         if (fotoContainer) {
             fotoContainer.addEventListener('mousedown', iniciarDrag);
         }
     }
 
+    // Renderizar verso
     function renderizarVerso() {
         if (!cartaoVerso) return;
         
+        cartaoVerso.style.backgroundImage = church.backBg ? `url('${church.backBg}')` : 'none';
+        cartaoVerso.style.backgroundColor = church.backBg ? 'transparent' : '#f8f9fa';
+        
         let html = '';
         
-        // Background
-        if (church.backBg) {
-            cartaoVerso.style.backgroundImage = `url('${church.backBg}')`;
-        } else {
-            cartaoVerso.style.backgroundColor = '#f0f0f0';
-        }
-        
-        // Campos de texto
         if (church.backLayout) {
-            // Filiação
             if (church.backLayout.filiacao && member.filiation) {
                 html += `<div class="campo-texto" style="left: ${church.backLayout.filiacao.x}px; top: ${church.backLayout.filiacao.y}px; width: ${church.backLayout.filiacao.width}px;">${member.filiation}</div>`;
             }
-            
-            // Documento
             if (church.backLayout.document && member.documents) {
                 html += `<div class="campo-texto" style="left: ${church.backLayout.document.x}px; top: ${church.backLayout.document.y}px; width: ${church.backLayout.document.width}px;">${member.documents}</div>`;
             }
-            
-            // Data Conversão
             if (church.backLayout.conversion_date && member.conversionDate) {
                 html += `<div class="campo-texto" style="left: ${church.backLayout.conversion_date.x}px; top: ${church.backLayout.conversion_date.y}px; width: ${church.backLayout.conversion_date.width}px;">${member.conversionDate}</div>`;
             }
-            
-            // Data Batismo
             if (church.backLayout.baptism_date && member.baptismDate) {
                 html += `<div class="campo-texto" style="left: ${church.backLayout.baptism_date.x}px; top: ${church.backLayout.baptism_date.y}px; width: ${church.backLayout.baptism_date.width}px;">${member.baptismDate}</div>`;
             }
-            
-            // Disclaimer
             if (church.backLayout.disclaimer && disclaimer) {
-                html += `<div class="campo-texto" style="left: ${church.backLayout.disclaimer.x}px; top: ${church.backLayout.disclaimer.y}px; width: ${church.backLayout.disclaimer.width}px; height: ${church.backLayout.disclaimer.height}px; overflow-y: auto; font-size: 12px;">${disclaimer}</div>`;
+                html += `<div class="campo-texto" style="left: ${church.backLayout.disclaimer.x}px; top: ${church.backLayout.disclaimer.y}px; width: ${church.backLayout.disclaimer.width}px;">${disclaimer}</div>`;
             }
-            
-            // Assinatura
             if (church.backLayout.signature && signature) {
                 html += `<div class="campo-texto" style="left: ${church.backLayout.signature.x}px; top: ${church.backLayout.signature.y}px; width: ${church.backLayout.signature.width}px;">${signature.replace(/\n/g, '<br>')}</div>`;
             }
@@ -326,7 +284,7 @@
         cartaoVerso.innerHTML = html;
     }
 
-    // ========== FUNÇÕES DE DRAG ==========
+    // Drag da foto
     let arrastando = false;
     let startX, startY;
 
@@ -335,7 +293,6 @@
         arrastando = true;
         startX = e.clientX - estado.offsetX;
         startY = e.clientY - estado.offsetY;
-        
         document.addEventListener('mousemove', duranteDrag);
         document.addEventListener('mouseup', pararDrag);
     }
@@ -360,7 +317,7 @@
         }
     }
 
-    // ========== EVENT LISTENERS ==========
+    // Upload de foto
     if (fotoUpload) {
         fotoUpload.addEventListener('change', function(e) {
             const file = e.target.files[0];
@@ -376,6 +333,7 @@
         });
     }
 
+    // Controle de zoom
     if (zoomSlider && zoomValor) {
         zoomSlider.addEventListener('input', function(e) {
             estado.zoom = parseFloat(e.target.value);
@@ -384,6 +342,7 @@
         });
     }
 
+    // Botão reset
     if (btnReset) {
         btnReset.addEventListener('click', function() {
             estado.zoom = 1.0;
@@ -400,6 +359,7 @@
         });
     }
 
+    // Botão emitir
     if (btnEmitir) {
         btnEmitir.addEventListener('click', async function() {
             loading.style.display = 'block';
@@ -413,11 +373,11 @@
                         photo_zoom: estado.zoom,
                         photo_offset_x: estado.offsetX,
                         photo_offset_y: estado.offsetY,
-                        custom_photo_path: estado.fotoCustomizada ? 'data-url' : null
+                        custom_photo_path: estado.fotoCustomizada ? estado.fotoUrl : null
                     })
                 });
 
-                if (!response.ok) throw new Error('Erro no servidor');
+                if (!response.ok) throw new Error('Erro ao gerar cartão');
 
                 const blob = await response.blob();
                 const url = window.URL.createObjectURL(blob);
@@ -438,11 +398,9 @@
         });
     }
 
-    // ========== INICIAR ==========
+    // Iniciar
     renderizarFrente();
     renderizarVerso();
-    console.log('✅ Sistema novo iniciado com sucesso');
-
 })();
 </script>
 {% endblock %}
