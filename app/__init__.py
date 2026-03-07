@@ -5,9 +5,11 @@ from flask_mail import Mail
 from app.core.models import db, User, Event, Ministry, Media
 from config import Config
 from datetime import datetime
+from flask_migrate import Migrate
 
 login_manager = LoginManager()
 mail = Mail()
+migrate = Migrate()
 
 def create_app():
     app = Flask(__name__)
@@ -17,6 +19,7 @@ def create_app():
     login_manager.init_app(app)
     mail.init_app(app)
     login_manager.login_view = 'auth.login'
+    migrate.init_app(app, db)
     
     @login_manager.user_loader
     def load_user(user_id):

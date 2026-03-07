@@ -1,0 +1,245 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold text-primary mb-0">
+                <i class="bi bi-journal-text me-2"></i> Logs do Sistema
+            </h2>
+            <p class="text-muted">Registro de todas as ações importantes no sistema.</p>
+        </div>
+        <div>
+            <button onclick="window.location.reload()" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-clockwise me-1"></i> Atualizar
+            </button>
+        </div>
+    </div>
+
+    <!-- Filtros -->
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body p-4">
+            <form method="GET" action="{{ url_for('admin.view_logs') }}" class="row g-3">
+                {% if churches %}
+                <div class="col-md-3">
+                    <label class="form-label small fw-bold">CONGREGAÇÃO</label>
+                    <select name="church_id" class="form-select">
+                        <option value="">Todas</option>
+                        {% for church in churches %}
+                        <option value="{{ church.id }}" {{ 'selected' if request.args.get('church_id')|int == church.id else '' }}>
+                            {{ church.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                {% endif %}
+                
+                <div class="col-md-2">
+                    <label class="form-label small fw-bold">MÓDULO</label>
+                    <select name="module" class="form-select">
+                        <option value="">Todos</option>
+                        <option value="FINANCE" {{ 'selected' if request.args.get('module') == 'FINANCE' }}>Financeiro</option>
+                        <option value="MEMBERS" {{ 'selected' if request.args.get('module') == 'MEMBERS' }}>Membros</option>
+                        <option value="CHURCH" {{ 'selected' if request.args.get('module') == 'CHURCH' }}>Igreja</option>
+                        <option value="SYSTEM" {{ 'selected' if request.args.get('module') == 'SYSTEM' }}>Sistema</option>
+                    </select>
+                </div>
+                
+                <div class="col-md-2">
+                    <label class="form-label small fw-bold">AÇÃO</label>
+                    <select name="action" class="form-select">
+                        <option value="">Todas</option>
+                        <option value="CREATE" {{ 'selected' if request.args.get('action') == 'CREATE' }}>Criação</option>
+                        <option value="UPDATE" {{ 'selected' if request.args.get('action') == 'UPDATE' }}>Atualização</option>
+                        <option value="DELETE" {{ 'selected' if request.args.get('action') == 'DELETE' }}>Exclusão</option>
+                        <option value="LOGIN" {{ 'selected' if request.args.get('action') == 'LOGIN' }}>Login</option>
+                    </select>
+                </div>
+                
+                <div class="col-md-2">
+                    <label class="form-label small fw-bold">DATA INÍCIO</label>
+                    <input type="date" name="start_date" class="form-control" value="{{ request.args.get('start_date', '') }}">
+                </div>
+                
+                <div class="col-md-2">
+                    <label class="form-label small fw-bold">DATA FIM</label>
+                    <input type="date" name="end_date" class="form-control" value="{{ request.args.get('end_date', '') }}">
+                </div>
+                
+                <div class="col-md-1 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="bi bi-funnel"></i>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Tabela de Logs -->
+    <div class="card border-0 shadow-sm">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="px-4 py-3">Data/Hora</th>
+                            <th class="py-3">Usuário</th>
+                            <th class="py-3">Congregação</th>
+                            <th class="py-3">Módulo</th>
+                            <th class="py-3">Ação</th>
+                            <th class="py-3">Descrição</th>
+                            <th class="py-3">IP</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for log in logs.items %}
+                        <tr>
+                            <td class="px-4 small">
+                                {{ log.created_at.strftime('%d/%m/%Y %H:%M:%S') }}
+                            </td>
+                            <td>
+                                {% if log.user %}
+                                <span class="fw-medium">{{ log.user.name }}</span>
+                                <small class="d-block text-muted">{{ log.user.email }}</small>
+                                {% else %}
+                                <span class="text-muted">Sistema</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if log.church %}
+                                <span class="badge bg-info bg-opacity-10 text-info">
+                                    {{ log.church.name }}
+                                </span>
+                                {% else %}
+                                <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="badge bg-secondary bg-opacity-10 text-secondary px-3 py-2">
+                                    {{ log.module }}
+                                </span>
+                            </td>
+                            <td>
+                                {% if log.action == 'CREATE' %}
+                                <span class="badge bg-success bg-opacity-10 text-success px-3 py-2">
+                                    <i class="bi bi-plus-circle me-1"></i> CRIAR
+                                </span>
+                                {% elif log.action == 'UPDATE' %}
+                                <span class="badge bg-warning bg-opacity-10 text-warning px-3 py-2">
+                                    <i class="bi bi-pencil me-1"></i> ATUALIZAR
+                                </span>
+                                {% elif log.action == 'DELETE' %}
+                                <span class="badge bg-danger bg-opacity-10 text-danger px-3 py-2">
+                                    <i class="bi bi-trash me-1"></i> EXCLUIR
+                                </span>
+                                {% elif log.action == 'LOGIN' %}
+                                <span class="badge bg-info bg-opacity-10 text-info px-3 py-2">
+                                    <i class="bi bi-box-arrow-in-right me-1"></i> LOGIN
+                                </span>
+                                {% else %}
+                                <span class="badge bg-secondary bg-opacity-10 text-secondary px-3 py-2">
+                                    {{ log.action }}
+                                </span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="small">{{ log.description }}</div>
+                                {% if log.old_values or log.new_values %}
+                                <button type="button" class="btn btn-link btn-sm p-0 mt-1" 
+                                        onclick="verDetalhes({{ log.id }})">
+                                    <i class="bi bi-eye"></i> Ver detalhes
+                                </button>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="small text-muted">{{ log.ip_address or '-' }}</span>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="7" class="text-center py-5 text-muted">
+                                <i class="bi bi-journal-text fs-1 d-block mb-3"></i>
+                                Nenhum log encontrado.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <!-- Paginação -->
+        {% if logs.pages > 1 %}
+        <div class="card-footer bg-transparent border-0 py-3">
+            <nav>
+                <ul class="pagination justify-content-center mb-0">
+                    {% if logs.has_prev %}
+                    <li class="page-item">
+                        <a class="page-link" href="{{ url_for('admin.view_logs', page=logs.prev_num, **request.args) }}">
+                            <i class="bi bi-chevron-left"></i>
+                        </a>
+                    </li>
+                    {% endif %}
+                    
+                    {% for page_num in logs.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                        {% if page_num %}
+                            <li class="page-item {{ 'active' if page_num == logs.page else '' }}">
+                                <a class="page-link" href="{{ url_for('admin.view_logs', page=page_num, **request.args) }}">
+                                    {{ page_num }}
+                                </a>
+                            </li>
+                        {% else %}
+                            <li class="page-item disabled"><span class="page-link">...</span></li>
+                        {% endif %}
+                    {% endfor %}
+                    
+                    {% if logs.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="{{ url_for('admin.view_logs', page=logs.next_num, **request.args) }}">
+                            <i class="bi bi-chevron-right"></i>
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Modal de Detalhes -->
+<div class="modal fade" id="modalDetalhes" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-info text-white">
+                <h5 class="modal-title">
+                    <i class="bi bi-info-circle me-2"></i> Detalhes do Log
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <pre id="detalhesLog" class="bg-light p-3 rounded" style="max-height: 400px; overflow: auto;"></pre>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function verDetalhes(logId) {
+    fetch(`/admin/log-details/${logId}`)
+        .then(response => response.json())
+        .then(data => {
+            const detalhes = {
+                'Valores Antigos': data.old_values,
+                'Valores Novos': data.new_values
+            };
+            document.getElementById('detalhesLog').textContent = 
+                JSON.stringify(detalhes, null, 2);
+            new bootstrap.Modal(document.getElementById('modalDetalhes')).show();
+        })
+        .catch(error => {
+            alert('Erro ao carregar detalhes');
+        });
+}
+</script>
+{% endblock %}

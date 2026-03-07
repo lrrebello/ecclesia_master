@@ -96,6 +96,9 @@
     <a class="nav-link {{ 'active' if 'admin.list_members' in request.endpoint }}" href="{{ url_for('admin.list_members') }}">
         <i class="bi bi-globe me-2"></i> Gestão Global
     </a>
+    <a class="nav-link" href="{{ url_for('admin.view_logs') }}">
+        <i class="bi bi-journal-text me-2"></i> Logs do Sistema
+    </a>
     <a class="nav-link {{ 'active' if 'admin.list_church_roles' in request.endpoint }}" href="{{ url_for('admin.list_church_roles') }}">
         <i class="bi bi-person-badge me-2"></i> Cargos das Congregações
     </a>

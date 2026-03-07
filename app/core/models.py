@@ -1,3 +1,4 @@
+from sqlalchemy import JSON
 from datetime import datetime
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import UserMixin
@@ -299,3 +300,20 @@ class Media(db.Model):
     
     church = db.relationship('Church', backref='media_items')
     ministry = db.relationship('Ministry', backref='media_items')
+
+class SystemLog(db.Model):
+    __tablename__ = 'system_logs'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    church_id = db.Column(db.Integer, db.ForeignKey('church.id'), nullable=True)
+    action = db.Column(db.String(20), nullable=False)
+    module = db.Column(db.String(50), nullable=False)
+    description = db.Column(db.Text, nullable=False)
+    old_values = db.Column(JSON, nullable=True)  # <--- AGORA FUNCIONA
+    new_values = db.Column(JSON, nullable=True)  # <--- AGORA FUNCIONA
+    ip_address = db.Column(db.String(45), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    user = db.relationship('User', backref=db.backref('logs', lazy='dynamic'))
+    church = db.relationship('Church', backref=db.backref('logs', lazy='dynamic'))

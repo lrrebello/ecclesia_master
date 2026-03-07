@@ -1,10 +1,11 @@
-from flask import Blueprint, render_template, redirect, url_for, flash, request, send_from_directory, current_app, send_file
+from flask import Blueprint, render_template, redirect, url_for, flash, request, send_from_directory, jsonify, current_app, send_file
 from flask_login import login_required, current_user
 from app.core.models import (
     Transaction, Asset, MaintenanceLog, db, User, Church, Ministry,
-    MinistryTransaction, TransactionCategory, PaymentMethod
+    MinistryTransaction, TransactionCategory, PaymentMethod, SystemLog
 )
-from app.utils.pdf_gen import generate_receipt, generate_consolidated_receipt  # <-- IMPORT CORRETO AQUI
+from app.utils.pdf_gen import generate_receipt, generate_consolidated_receipt
+from app.utils.logger import log_action  # <-- IMPORT DO LOGGER
 from sqlalchemy import or_, func
 import os
 from datetime import datetime, timedelta, date
@@ -99,51 +100,280 @@ def manage_settings():
     
     if request.method == 'POST':
         form_type = request.form.get('form_type')
+        
         if form_type == 'category':
             name = request.form.get('name')
-            type_ = request.form.get('type')  # evitei usar 'type' como variável
+            type_ = request.form.get('type')
             if name and type_:
-                new_cat = TransactionCategory(name=name, type=type_, church_id=current_user.church_id)
+                new_cat = TransactionCategory(
+                    name=name, 
+                    type=type_, 
+                    church_id=current_user.church_id,
+                    is_active=True
+                )
                 db.session.add(new_cat)
                 db.session.commit()
+                
+                # LOG: Criação de categoria
+                log_action(
+                    action='CREATE',
+                    module='FINANCE',
+                    description=f"Nova categoria {type_}: {name}",
+                    new_values={
+                        'id': new_cat.id,
+                        'name': name,
+                        'type': type_,
+                        'church_id': current_user.church_id
+                    },
+                    church_id=current_user.church_id
+                )
                 flash('Categoria cadastrada com sucesso!', 'success')
+                
         elif form_type == 'payment_method':
             name = request.form.get('name')
             is_electronic = 'is_electronic' in request.form
             if name:
-                new_method = PaymentMethod(name=name, is_electronic=is_electronic, church_id=current_user.church_id)
+                new_method = PaymentMethod(
+                    name=name, 
+                    is_electronic=is_electronic, 
+                    church_id=current_user.church_id,
+                    is_active=True
+                )
                 db.session.add(new_method)
                 db.session.commit()
+                
+                # LOG: Criação de método de pagamento
+                log_action(
+                    action='CREATE',
+                    module='FINANCE',
+                    description=f"Novo método de pagamento: {name} {'(eletrônico)' if is_electronic else ''}",
+                    new_values={
+                        'id': new_method.id,
+                        'name': name,
+                        'is_electronic': is_electronic,
+                        'church_id': current_user.church_id
+                    },
+                    church_id=current_user.church_id
+                )
                 flash('Meio de pagamento cadastrado com sucesso!', 'success')
+                
         return redirect(url_for('finance.manage_settings'))
         
     categories = TransactionCategory.query.filter_by(church_id=current_user.church_id, is_active=True).all()
     payment_methods = PaymentMethod.query.filter_by(church_id=current_user.church_id, is_active=True).all()
     return render_template('finance/settings.html', categories=categories, payment_methods=payment_methods)
 
+@finance_bp.route('/categories/edit/<int:id>', methods=['POST'])
+@login_required
+def edit_category(id):
+    """Editar categoria (nome ou tipo)"""
+    if not can_manage_finance():
+        return jsonify({'success': False, 'message': 'Acesso negado.'}), 403
+    
+    category = TransactionCategory.query.get_or_404(id)
+    if category.church_id != current_user.church_id:
+        return jsonify({'success': False, 'message': 'Acesso negado.'}), 403
+    
+    old_values = {
+        'name': category.name,
+        'type': category.type,
+        'is_active': category.is_active
+    }
+    
+    category.name = request.form.get('name', category.name)
+    category.type = request.form.get('type', category.type)
+    
+    try:
+        db.session.commit()
+        
+        # LOG: Edição de categoria
+        log_action(
+            action='UPDATE',
+            module='FINANCE',
+            description=f"Categoria editada: {category.name}",
+            old_values=old_values,
+            new_values={
+                'name': category.name,
+                'type': category.type,
+                'is_active': category.is_active
+            },
+            church_id=category.church_id
+        )
+        
+        return jsonify({'success': True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': str(e)}), 500
+
 @finance_bp.route('/categories/delete/<int:id>', methods=['POST'])
 @login_required
 def delete_category(id):
     if not can_manage_finance():
         return redirect(url_for('finance.dashboard'))
+    
     cat = TransactionCategory.query.get_or_404(id)
     if cat.church_id == current_user.church_id:
+        old_status = cat.is_active
+        old_values = {
+            'id': cat.id,
+            'name': cat.name,
+            'type': cat.type,
+            'is_active': old_status
+        }
+        
         cat.is_active = False
         db.session.commit()
+        
+        # LOG: Desativação de categoria
+        log_action(
+            action='UPDATE',
+            module='FINANCE',
+            description=f"Categoria desativada: {cat.name}",
+            old_values=old_values,
+            new_values={'is_active': False},
+            church_id=cat.church_id
+        )
         flash('Categoria desativada.', 'info')
+        
     return redirect(url_for('finance.manage_settings'))
+
+@finance_bp.route('/categories/reactivate/<int:id>', methods=['POST'])
+@login_required
+def reactivate_category(id):
+    """Reativar categoria"""
+    if not can_manage_finance():
+        return jsonify({'success': False, 'message': 'Acesso negado.'}), 403
+    
+    cat = TransactionCategory.query.get_or_404(id)
+    if cat.church_id != current_user.church_id:
+        return jsonify({'success': False, 'message': 'Acesso negado.'}), 403
+    
+    old_status = cat.is_active
+    cat.is_active = True
+    
+    try:
+        db.session.commit()
+        
+        # LOG: Reativação de categoria
+        log_action(
+            action='UPDATE',
+            module='FINANCE',
+            description=f"Categoria reativada: {cat.name}",
+            old_values={'is_active': old_status},
+            new_values={'is_active': True},
+            church_id=cat.church_id
+        )
+        
+        return jsonify({'success': True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@finance_bp.route('/payment-methods/edit/<int:id>', methods=['POST'])
+@login_required
+def edit_payment_method(id):
+    """Editar método de pagamento"""
+    if not can_manage_finance():
+        return jsonify({'success': False, 'message': 'Acesso negado.'}), 403
+    
+    method = PaymentMethod.query.get_or_404(id)
+    if method.church_id != current_user.church_id:
+        return jsonify({'success': False, 'message': 'Acesso negado.'}), 403
+    
+    old_values = {
+        'name': method.name,
+        'is_electronic': method.is_electronic,
+        'is_active': method.is_active
+    }
+    
+    method.name = request.form.get('name', method.name)
+    method.is_electronic = 'is_electronic' in request.form
+    
+    try:
+        db.session.commit()
+        
+        # LOG: Edição de método de pagamento
+        log_action(
+            action='UPDATE',
+            module='FINANCE',
+            description=f"Método de pagamento editado: {method.name}",
+            old_values=old_values,
+            new_values={
+                'name': method.name,
+                'is_electronic': method.is_electronic,
+                'is_active': method.is_active
+            },
+            church_id=method.church_id
+        )
+        
+        return jsonify({'success': True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': str(e)}), 500
 
 @finance_bp.route('/payment-methods/delete/<int:id>', methods=['POST'])
 @login_required
 def delete_payment_method(id):
     if not can_manage_finance():
         return redirect(url_for('finance.dashboard'))
+    
     method = PaymentMethod.query.get_or_404(id)
     if method.church_id == current_user.church_id:
+        old_status = method.is_active
+        old_values = {
+            'id': method.id,
+            'name': method.name,
+            'is_electronic': method.is_electronic,
+            'is_active': old_status
+        }
+        
         method.is_active = False
         db.session.commit()
+        
+        # LOG: Desativação de método de pagamento
+        log_action(
+            action='UPDATE',
+            module='FINANCE',
+            description=f"Método de pagamento desativado: {method.name}",
+            old_values=old_values,
+            new_values={'is_active': False},
+            church_id=method.church_id
+        )
         flash('Meio de pagamento desativado.', 'info')
+        
     return redirect(url_for('finance.manage_settings'))
+
+@finance_bp.route('/payment-methods/reactivate/<int:id>', methods=['POST'])
+@login_required
+def reactivate_payment_method(id):
+    """Reativar método de pagamento"""
+    if not can_manage_finance():
+        return jsonify({'success': False, 'message': 'Acesso negado.'}), 403
+    
+    method = PaymentMethod.query.get_or_404(id)
+    if method.church_id != current_user.church_id:
+        return jsonify({'success': False, 'message': 'Acesso negado.'}), 403
+    
+    old_status = method.is_active
+    method.is_active = True
+    
+    try:
+        db.session.commit()
+        
+        # LOG: Reativação de método de pagamento
+        log_action(
+            action='UPDATE',
+            module='FINANCE',
+            description=f"Método de pagamento reativado: {method.name}",
+            old_values={'is_active': old_status},
+            new_values={'is_active': True},
+            church_id=method.church_id
+        )
+        
+        return jsonify({'success': True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': str(e)}), 500
 
 @finance_bp.route('/my-contributions')
 @login_required
@@ -272,6 +502,23 @@ def add_transaction():
         )
         db.session.add(new_tx)
         db.session.commit()
+        
+        # LOG: Criação de transação
+        log_action(
+            action='CREATE',
+            module='FINANCE',
+            description=f"Novo lançamento: {new_tx.description} (R$ {new_tx.amount})",
+            new_values={
+                'id': new_tx.id,
+                'type': new_tx.type,
+                'amount': new_tx.amount,
+                'description': new_tx.description,
+                'category': new_tx.category_name,
+                'user_id': new_tx.user_id
+            },
+            church_id=current_user.church_id
+        )
+        
         flash('Lançamento registrado com sucesso!', 'success')
         return redirect(url_for('finance.dashboard'))
         
@@ -280,6 +527,126 @@ def add_transaction():
     payment_methods = PaymentMethod.query.filter_by(church_id=current_user.church_id, is_active=True).all()
     today = datetime.utcnow().date().isoformat()
     return render_template('finance/add.html', members=members, categories=categories, payment_methods=payment_methods, today=today)
+
+@finance_bp.route('/transaction/edit/<int:id>', methods=['POST'])
+@login_required
+def edit_transaction(id):
+    """Editar uma transação existente"""
+    if not can_manage_finance():
+        return jsonify({'success': False, 'message': 'Acesso negado.'}), 403
+    
+    transaction = Transaction.query.get_or_404(id)
+    
+    # Verificar permissão
+    if not is_admin() and transaction.church_id != current_user.church_id:
+        return jsonify({'success': False, 'message': 'Acesso negado.'}), 403
+    
+    # Guardar valores antigos
+    old_values = {
+        'type': transaction.type,
+        'amount': transaction.amount,
+        'description': transaction.description,
+        'category_id': transaction.category_id,
+        'category_name': transaction.category_name,
+        'payment_method_id': transaction.payment_method_id,
+        'payment_method_name': transaction.payment_method_name,
+        'user_id': transaction.user_id,
+        'date': transaction.date.strftime('%Y-%m-%d') if transaction.date else None
+    }
+    
+    # Atualizar valores
+    transaction.type = request.form.get('type', transaction.type)
+    transaction.amount = float(request.form.get('amount', transaction.amount))
+    transaction.description = request.form.get('description', transaction.description)
+    transaction.date = datetime.strptime(request.form.get('date'), '%Y-%m-%d') if request.form.get('date') else transaction.date
+    
+    category_id = request.form.get('category_id')
+    if category_id:
+        category = TransactionCategory.query.get(int(category_id))
+        if category:
+            transaction.category_id = category.id
+            transaction.category_name = category.name
+    
+    payment_method_id = request.form.get('payment_method_id')
+    if payment_method_id:
+        payment_method = PaymentMethod.query.get(int(payment_method_id))
+        if payment_method:
+            transaction.payment_method_id = payment_method.id
+            transaction.payment_method_name = payment_method.name
+    
+    user_id = request.form.get('user_id')
+    transaction.user_id = int(user_id) if user_id and user_id != '' else None
+    
+    try:
+        db.session.commit()
+        
+        # LOG: Edição de transação
+        log_action(
+            action='UPDATE',
+            module='FINANCE',
+            description=f"Lançamento editado: {transaction.description}",
+            old_values=old_values,
+            new_values={
+                'type': transaction.type,
+                'amount': transaction.amount,
+                'description': transaction.description,
+                'category': transaction.category_name,
+                'payment_method': transaction.payment_method_name,
+                'user_id': transaction.user_id,
+                'date': transaction.date.strftime('%Y-%m-%d') if transaction.date else None
+            },
+            church_id=transaction.church_id
+        )
+        
+        return jsonify({'success': True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@finance_bp.route('/transaction/delete/<int:id>', methods=['POST'])
+@login_required
+def delete_transaction(id):
+    """Exclui um lançamento financeiro (apenas para usuários com permissão)."""
+    if not can_manage_finance():
+        return jsonify({'success': False, 'message': 'Acesso negado.'}), 403
+
+    transaction = Transaction.query.get_or_404(id)
+
+    # Verificar permissão específica para a igreja
+    if not is_admin() and transaction.church_id != current_user.church_id:
+        return jsonify({'success': False, 'message': 'Acesso negado a este lançamento.'}), 403
+
+    # Guardar dados antes de excluir para o log
+    tx_data = {
+        'id': transaction.id,
+        'type': transaction.type,
+        'amount': transaction.amount,
+        'description': transaction.description,
+        'category': transaction.category_name,
+        'payment_method': transaction.payment_method_name,
+        'user_id': transaction.user_id,
+        'date': transaction.date.strftime('%d/%m/%Y') if transaction.date else None
+    }
+
+    try:
+        db.session.delete(transaction)
+        db.session.commit()
+        
+        # LOG: Exclusão de transação
+        log_action(
+            action='DELETE',
+            module='FINANCE',
+            description=f"Exclusão de lançamento: {transaction.description} (R$ {transaction.amount})",
+            old_values=tx_data,
+            church_id=transaction.church_id
+        )
+        
+        flash('Lançamento excluído com sucesso!', 'success')
+        return jsonify({'success': True})
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Erro ao excluir transação {id}: {str(e)}")
+        return jsonify({'success': False, 'message': 'Erro ao excluir. Tente novamente.'}), 500
 
 @finance_bp.route('/report')
 @login_required
@@ -432,6 +799,21 @@ def add_asset():
         )
         db.session.add(new_asset)
         db.session.commit()
+        
+        # LOG: Criação de bem
+        log_action(
+            action='CREATE',
+            module='ASSET',
+            description=f"Novo bem cadastrado: {new_asset.name} (R$ {new_asset.value})",
+            new_values={
+                'id': new_asset.id,
+                'name': new_asset.name,
+                'category': new_asset.category,
+                'value': new_asset.value
+            },
+            church_id=current_user.church_id
+        )
+        
         flash('Bem cadastrado!', 'success')
         return redirect(url_for('finance.dashboard'))
     return render_template('finance/add_asset.html')
@@ -453,6 +835,23 @@ def add_maintenance(id):
         )
         db.session.add(log)
         db.session.commit()
+        
+        # LOG: Registro de manutenção
+        log_action(
+            action='CREATE',
+            module='MAINTENANCE',
+            description=f"Manutenção registrada para {asset.name}: {log.description} (R$ {log.cost})",
+            new_values={
+                'id': log.id,
+                'asset_id': asset.id,
+                'asset_name': asset.name,
+                'description': log.description,
+                'cost': log.cost,
+                'type': log.type
+            },
+            church_id=asset.church_id
+        )
+        
         flash('Manutenção registrada!', 'success')
         return redirect(url_for('finance.dashboard'))
     return render_template('finance/add_maintenance.html', asset=asset)
@@ -491,6 +890,23 @@ def add_ministry_transaction(ministry_id):
         )
         db.session.add(new_tx)
         db.session.commit()
+        
+        # LOG: Transação de ministério
+        log_action(
+            action='CREATE',
+            module='MINISTRY_FINANCE',
+            description=f"Lançamento em {ministry.name}: {new_tx.description} (R$ {new_tx.amount})",
+            new_values={
+                'id': new_tx.id,
+                'ministry_id': ministry.id,
+                'ministry_name': ministry.name,
+                'amount': new_tx.amount,
+                'description': new_tx.description,
+                'type': new_tx.type
+            },
+            church_id=ministry.church_id
+        )  # <-- FECHA A CHAMADA DO log_action
+        
         flash('Lançamento do ministério registrado!', 'success')
         return redirect(url_for('finance.ministry_finance', ministry_id=ministry.id))
         

@@ -124,7 +124,8 @@
                             </thead>
                             <tbody>
                                 {% for tx in transactions %}
-                                <tr>
+                                <!-- CORREÇÃO: Adicionado data-transaction-id na linha -->
+                                <tr data-transaction-id="{{ tx.id }}">
                                     <td class="px-4 small">{{ tx.date.strftime('%d/%m/%Y') }}</td>
                                     <td>
                                         <span class="badge bg-{{ 'success' if tx.type == 'income' else 'danger' }} bg-opacity-10 text-{{ 'success' if tx.type == 'income' else 'danger' }} px-3 py-2">
@@ -153,6 +154,10 @@
                                         <a href="{{ url_for('finance.download_receipt', tx_id=tx.id) }}" class="btn btn-sm btn-outline-primary rounded-pill px-3">
                                             <i class="bi bi-download me-1"></i> Recibo
                                         </a>
+                                        <!-- CORREÇÃO: tx.id em vez de transactions.id, e passando a descrição -->
+                                        <button type="button" class="btn btn-sm btn-danger" onclick="confirmarExclusao({{ tx.id }}, '{{ tx.description|replace("'", "\\'") }}')">
+                                            <i class="bi bi-trash"></i> Excluir
+                                        </button>
                                         {% else %}
                                         <span class="text-muted small">-</span>
                                         {% endif %}
@@ -245,6 +250,64 @@
         </div>
     </div>
 </div>
+
+<!-- Modal de Confirmação de Exclusão -->
+<div class="modal fade" id="modalExcluir" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-danger text-white">
+        <h5 class="modal-title">Confirmar Exclusão</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <p>Tem certeza que deseja excluir este lançamento? <strong>Esta ação é irreversível.</strong></p>
+        <p id="descricaoTransacao"></p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-danger" id="btnConfirmarExclusao">Sim, Excluir</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+let transacaoIdParaExcluir = null;
+
+function confirmarExclusao(transactionId, descricao) {
+    transacaoIdParaExcluir = transactionId;
+    document.getElementById('descricaoTransacao').innerText = `Lançamento: ${descricao || 'Sem descrição'}`;
+    new bootstrap.Modal(document.getElementById('modalExcluir')).show();
+}
+
+document.getElementById('btnConfirmarExclusao').addEventListener('click', function() {
+    if (!transacaoIdParaExcluir) return;
+
+    fetch(`/finance/transaction/delete/${transacaoIdParaExcluir}`, {
+        method: 'POST',
+        headers: { 
+            'X-Requested-With': 'XMLHttpRequest',
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            bootstrap.Modal.getInstance(document.getElementById('modalExcluir')).hide();
+            // Remove a linha da tabela
+            document.querySelector(`tr[data-transaction-id="${transacaoIdParaExcluir}"]`).remove();
+            // Opcional: atualiza os totais
+            location.reload();
+        } else {
+            alert('Erro: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Erro:', error);
+        alert('Erro na requisição: ' + error);
+    });
+});
+</script>
 
 <style>
 .extra-small { font-size: 0.75rem; }

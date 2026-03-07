@@ -924,3 +924,76 @@ def member_card_upload_temp(id):
         })
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)}), 500
+    
+@admin_bp.route('/logs')
+@login_required
+def view_logs():
+    """Visualização de logs do sistema"""
+    # Verificar permissão
+    is_global = is_global_admin()
+    is_pastor = current_user.church_role and current_user.church_role.is_lead_pastor
+    
+    if not (is_global or is_pastor):
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('members.dashboard'))
+    
+    from app.core.models import SystemLog, Church
+    
+    # Filtros
+    church_id = request.args.get('church_id', type=int)
+    module = request.args.get('module')
+    action = request.args.get('action')
+    start_date = request.args.get('start_date')
+    end_date = request.args.get('end_date')
+    page = request.args.get('page', 1, type=int)
+    
+    # Query base
+    query = SystemLog.query
+    
+    # Filtrar por igreja (pastor só vê sua igreja)
+    if is_pastor and not is_global:
+        query = query.filter_by(church_id=current_user.church_id)
+    elif church_id:
+        query = query.filter_by(church_id=church_id)
+    
+    # Aplicar filtros
+    if module:
+        query = query.filter_by(module=module)
+    if action:
+        query = query.filter_by(action=action)
+    if start_date:
+        query = query.filter(SystemLog.created_at >= datetime.strptime(start_date, '%Y-%m-%d'))
+    if end_date:
+        query = query.filter(SystemLog.created_at <= datetime.strptime(end_date, '%Y-%m-%d') + timedelta(days=1))
+    
+    # Ordenar e paginar
+    logs = query.order_by(SystemLog.created_at.desc()).paginate(page=page, per_page=50)
+    
+    # Lista de igrejas para filtro (apenas admin global)
+    churches = Church.query.all() if is_global else []
+    
+    return render_template('admin/logs.html', logs=logs, churches=churches)
+
+@admin_bp.route('/log-details/<int:log_id>')
+@login_required
+def log_details(log_id):
+    """Retorna detalhes de um log específico (valores antigos/novos)"""
+    from app.core.models import SystemLog
+    
+    log = SystemLog.query.get_or_404(log_id)
+    
+    # Verificar permissão
+    is_global = is_global_admin()
+    is_pastor = current_user.church_role and current_user.church_role.is_lead_pastor
+    
+    if not (is_global or is_pastor):
+        return jsonify({'error': 'Acesso negado'}), 403
+    
+    # Pastor só vê logs da sua igreja
+    if is_pastor and not is_global and log.church_id != current_user.church_id:
+        return jsonify({'error': 'Acesso negado'}), 403
+    
+    return jsonify({
+        'old_values': log.old_values,
+        'new_values': log.new_values
+    })
