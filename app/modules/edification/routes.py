@@ -1,6 +1,7 @@
 from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app
 from flask_login import login_required, current_user
 from app.core.models import db, Devotional, Study, KidsActivity, StudyQuestion, Media, Ministry, Album, BibleStory, BibleQuiz
+from app.utils.logger import log_action  # <-- ÚNICA LINHA ADICIONADA
 from datetime import datetime
 from PIL import Image
 from werkzeug.utils import secure_filename
@@ -55,6 +56,17 @@ def add_devotional():
         )
         db.session.add(new_dev)
         db.session.commit()
+        
+        # === LOG ADICIONADO ===
+        log_action(
+            action='CREATE',
+            module='DEVOTIONAL',
+            description=f"Novo devocional: {new_dev.title}",
+            new_values={'id': new_dev.id, 'title': new_dev.title},
+            church_id=current_user.church_id
+        )
+        # ======================
+        
         flash('Devocional publicado!', 'success')
         return redirect(url_for('edification.list_devotionals'))
     
@@ -68,12 +80,26 @@ def edit_devotional(id):
         return redirect(url_for('edification.devotionals'))
     
     dev = Devotional.query.get_or_404(id)
+    old_values = {'title': dev.title, 'verse': dev.verse}
+    
     if request.method == 'POST':
         dev.title = request.form.get('title')
         dev.content = request.form.get('content')
         dev.verse = request.form.get('verse')
         dev.date = datetime.strptime(request.form.get('date'), '%Y-%m-%d').date()
         db.session.commit()
+        
+        # === LOG ADICIONADO ===
+        log_action(
+            action='UPDATE',
+            module='DEVOTIONAL',
+            description=f"Devocional editado: {dev.title}",
+            old_values=old_values,
+            new_values={'title': dev.title, 'verse': dev.verse},
+            church_id=current_user.church_id
+        )
+        # ======================
+        
         flash('Devocional atualizado!', 'success')
         return redirect(url_for('edification.list_devotionals'))
     
@@ -87,6 +113,18 @@ def delete_devotional(id):
         return redirect(url_for('edification.devotionals'))
     
     dev = Devotional.query.get_or_404(id)
+    dev_data = {'id': dev.id, 'title': dev.title}
+    
+    # === LOG ANTES DE DELETAR ===
+    log_action(
+        action='DELETE',
+        module='DEVOTIONAL',
+        description=f"Devocional excluído: {dev_data['title']}",
+        old_values=dev_data,
+        church_id=current_user.church_id
+    )
+    # ============================
+    
     db.session.delete(dev)
     db.session.commit()
     flash('Devocional excluído!', 'info')
@@ -138,8 +176,18 @@ def add_study():
         db.session.add(new_study)
         db.session.commit()
         
+        # === LOG ADICIONADO ===
+        log_action(
+            action='CREATE',
+            module='STUDY',
+            description=f"Novo estudo: {new_study.title}",
+            new_values={'id': new_study.id, 'title': new_study.title},
+            church_id=current_user.church_id
+        )
+        # ======================
+        
         if request.form.get('generate_ai_questions'):
-            question_count = 7  # Aumentado para 10
+            question_count = 7
             try:
                 if file_path:
                     ai_data = generate_questions(file_path, type='adult', count=question_count, is_file=True)
@@ -153,17 +201,28 @@ def add_study():
                     flash(f'Erro na IA: {ai_data["error"]}', 'danger')
                 elif "questions" in ai_data:
                     for q_data in ai_data["questions"]:
-                        correct_letter = q_data["correct_option"].upper()  # 'A', 'B', 'C' ou 'D' direto
+                        correct_letter = q_data["correct_option"].upper()
                         new_q = StudyQuestion(
                             study_id=new_study.id,
                             question_text=q_data["question"],
                             options=json.dumps(q_data["options"]),
-                            correct_option=correct_letter,  # ← string letra, igual ao Kids
+                            correct_option=correct_letter,
                             explanation=q_data.get("explanation"),
                             is_published=False
                         )
                         db.session.add(new_q)
                     db.session.commit()
+                    
+                    # === LOG ADICIONADO ===
+                    log_action(
+                        action='GENERATE',
+                        module='STUDY_QUESTIONS',
+                        description=f"Questões geradas por IA para estudo: {new_study.title}",
+                        new_values={'study_id': new_study.id, 'questions_count': len(ai_data["questions"])},
+                        church_id=current_user.church_id
+                    )
+                    # ======================
+                    
                     flash(f'{len(ai_data["questions"])} questões geradas pela IA aguardando revisão!', 'success')
                     return redirect(url_for('edification.review_study_questions', study_id=new_study.id))
             except Exception as e:
@@ -187,8 +246,10 @@ def review_study_questions(study_id):
     if request.method == 'POST':
         action = request.form.get('action')
         if action == 'regenerate':
+            old_questions = [{'id': q.id, 'text': q.question_text} for q in questions]
+            
             StudyQuestion.query.filter_by(study_id=study_id, is_published=False).delete()
-            question_count = 7  # Aumentado para 10
+            question_count = 7
             ai_data = generate_questions(study.content, type='adult', count=question_count)
             if "questions" in ai_data:
                 correct_map = {'A': 1, 'B': 2, 'C': 3, 'D': 4}
@@ -204,18 +265,53 @@ def review_study_questions(study_id):
                     )
                     db.session.add(new_q)
                 db.session.commit()
+                
+                # === LOG ADICIONADO ===
+                log_action(
+                    action='REGENERATE',
+                    module='STUDY_QUESTIONS',
+                    description=f"Questões regeneradas para estudo: {study.title}",
+                    old_values={'old_questions': old_questions},
+                    new_values={'new_questions_count': len(ai_data["questions"])},
+                    church_id=current_user.church_id
+                )
+                # ======================
+                
                 flash('Novas questões geradas com sucesso!', 'success')
             return redirect(url_for('edification.review_study_questions', study_id=study_id))
         
-        # Resto do código de revisão e publicação permanece igual
         published_ids = request.form.getlist('publish_ids[]')
         correct_map = {'A': 1, 'B': 2, 'C': 3, 'D': 4}
         for q in questions:
+            old_text = q.question_text
+            old_correct = q.correct_option
+            
             q.question_text = request.form.get(f'question_{q.id}')
             q.correct_option = correct_map.get(request.form.get(f'correct_{q.id}'), 1)
             q.is_published = str(q.id) in published_ids
+            
+            if old_text != q.question_text or old_correct != q.correct_option:
+                log_action(
+                    action='UPDATE',
+                    module='STUDY_QUESTIONS',
+                    description="Questão de estudo editada",
+                    old_values={'text': old_text, 'correct': old_correct},
+                    new_values={'text': q.question_text, 'correct': q.correct_option},
+                    church_id=current_user.church_id
+                )
         
         db.session.commit()
+        
+        # === LOG ADICIONADO ===
+        log_action(
+            action='PUBLISH',
+            module='STUDY_QUESTIONS',
+            description=f"Questões publicadas para estudo: {study.title}",
+            new_values={'published_count': len(published_ids)},
+            church_id=current_user.church_id
+        )
+        # ======================
+        
         flash('Questões revisadas e publicadas!', 'success')
         return redirect(url_for('edification.study_detail', id=study_id))
         
@@ -284,6 +380,16 @@ def add_bible_story():
     )
     db.session.add(new_story)
     db.session.commit()
+    
+    # === LOG ADICIONADO ===
+    log_action(
+        action='CREATE',
+        module='KIDS_STORY',
+        description=f"Nova história infantil: {new_story.title}",
+        new_values={'id': new_story.id, 'title': new_story.title},
+        church_id=current_user.church_id
+    )
+    # ======================
 
     if request.form.get('generate_ai_questions'):
         try:
@@ -316,6 +422,17 @@ def add_bible_story():
                     new_story.game_data = json.dumps(ai_data["game_words"])
                 
                 db.session.commit()
+                
+                # === LOG ADICIONADO ===
+                log_action(
+                    action='GENERATE',
+                    module='KIDS_QUESTIONS',
+                    description=f"Questões geradas para história: {new_story.title}",
+                    new_values={'story_id': new_story.id, 'questions_count': len(ai_data["questions"])},
+                    church_id=current_user.church_id
+                )
+                # ======================
+                
                 flash('História adicionada e questões geradas pela IA aguardando revisão!', 'success')
                 return redirect(url_for('edification.review_kids_questions', story_id=new_story.id))
         except Exception as e:
@@ -336,6 +453,8 @@ def review_kids_questions(story_id):
     if request.method == 'POST':
         action = request.form.get('action')
         if action == 'regenerate':
+            old_questions = [{'id': q.id, 'question': q.question} for q in questions]
+            
             BibleQuiz.query.filter_by(story_id=story_id, is_published=False).delete()
             ai_data = generate_questions(story.content, type='kids', count=7)
             if "questions" in ai_data:
@@ -357,16 +476,52 @@ def review_kids_questions(story_id):
                     story.game_data = json.dumps(ai_data["game_words"])
                     
                 db.session.commit()
+                
+                # === LOG ADICIONADO ===
+                log_action(
+                    action='REGENERATE',
+                    module='KIDS_QUESTIONS',
+                    description=f"Questões regeneradas para história: {story.title}",
+                    old_values={'old_questions': old_questions},
+                    new_values={'new_questions_count': len(ai_data["questions"])},
+                    church_id=current_user.church_id
+                )
+                # ======================
+                
                 flash('Novas questões geradas!', 'success')
             return redirect(url_for('edification.review_kids_questions', story_id=story_id))
         
         published_ids = request.form.getlist('publish_ids[]')
         for q in questions:
+            old_question = q.question
+            old_correct = q.correct_option
+            
             q.question = request.form.get(f'question_{q.id}')
             q.correct_option = request.form.get(f'correct_{q.id}')
             q.is_published = str(q.id) in published_ids
+            
+            if old_question != q.question or old_correct != q.correct_option:
+                log_action(
+                    action='UPDATE',
+                    module='KIDS_QUESTIONS',
+                    description="Questão infantil editada",
+                    old_values={'question': old_question, 'correct': old_correct},
+                    new_values={'question': q.question, 'correct': q.correct_option},
+                    church_id=current_user.church_id
+                )
         
         db.session.commit()
+        
+        # === LOG ADICIONADO ===
+        log_action(
+            action='PUBLISH',
+            module='KIDS_QUESTIONS',
+            description=f"Questões publicadas para história: {story.title}",
+            new_values={'published_count': len(published_ids)},
+            church_id=current_user.church_id
+        )
+        # ======================
+        
         flash('Questões infantis revisadas e publicadas!', 'success')
         return redirect(url_for('edification.manage_kids'))
         
@@ -377,7 +532,20 @@ def review_kids_questions(story_id):
 def delete_bible_story(id):
     if not current_user.can_manage_kids and not (current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder']): 
         return redirect(url_for('edification.kids'))
+    
     story = BibleStory.query.get_or_404(id)
+    story_data = {'id': story.id, 'title': story.title}
+    
+    # === LOG ANTES DE DELETAR ===
+    log_action(
+        action='DELETE',
+        module='KIDS_STORY',
+        description=f"História infantil excluída: {story_data['title']}",
+        old_values=story_data,
+        church_id=current_user.church_id
+    )
+    # ============================
+    
     db.session.delete(story)
     db.session.commit()
     flash('História removida.', 'info')
@@ -398,6 +566,17 @@ def add_kids_activity():
         )
         db.session.add(new_act)
         db.session.commit()
+        
+        # === LOG ADICIONADO ===
+        log_action(
+            action='CREATE',
+            module='KIDS_ACTIVITY',
+            description=f"Nova atividade infantil: {new_act.title}",
+            new_values={'id': new_act.id, 'title': new_act.title},
+            church_id=current_user.church_id
+        )
+        # ======================
+        
         flash('Atividade adicionada!', 'success')
         return redirect(url_for('edification.manage_kids'))
     
@@ -539,6 +718,16 @@ def add_media():
             db.session.add(album)
             db.session.flush()  # Gera ID
             album_id = album.id
+            
+            # === LOG ADICIONADO ===
+            log_action(
+                action='CREATE',
+                module='ALBUM',
+                description=f"Novo álbum criado via upload: {album.title}",
+                new_values={'id': album.id, 'title': album.title},
+                church_id=current_user.church_id
+            )
+            # ======================
         
         count = 0
         for file in files:
@@ -604,6 +793,17 @@ def add_media():
                 continue
             
         db.session.commit()
+        
+        # === LOG ADICIONADO ===
+        log_action(
+            action='CREATE',
+            module='MEDIA',
+            description=f"{count} mídia(s) adicionada(s)",
+            new_values={'count': count, 'album_id': album_id},
+            church_id=current_user.church_id
+        )
+        # ======================
+        
         flash(f'{count} mídias adicionadas com sucesso!', 'success')
         
         # Redirecionamento seguro
@@ -647,13 +847,25 @@ def delete_album(id):
         flash('Acesso negado.', 'danger')
         return redirect(url_for('edification.gallery'))
     
+    album_data = {'id': album.id, 'title': album.title}
+    
     for media in album.media_items:
         if media.file_path and os.path.exists(current_app.config['UPLOAD_FOLDER'] + '/' + media.file_path.replace('uploads/', '')):
             try:
                 os.remove(current_app.config['UPLOAD_FOLDER'] + '/' + media.file_path.replace('uploads/', ''))
             except:
                 pass
-                
+    
+    # === LOG ANTES DE DELETAR ===
+    log_action(
+        action='DELETE',
+        module='ALBUM',
+        description=f"Álbum excluído: {album_data['title']}",
+        old_values=album_data,
+        church_id=current_user.church_id
+    )
+    # ============================
+    
     db.session.delete(album)
     db.session.commit()
     flash('Álbum e todas as suas mídias foram excluídos.', 'info')
@@ -667,6 +879,12 @@ def edit_media(id):
     if not (current_user.can_manage_media or (current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder']) or (media.ministry and media.ministry.leader_id == current_user.id)):
         flash('Acesso negado.', 'danger')
         return redirect(url_for('edification.gallery'))
+    
+    old_values = {
+        'title': media.title,
+        'description': media.description,
+        'ministry_id': media.ministry_id
+    }
     
     ministries = Ministry.query.filter_by(church_id=current_user.church_id).all()
     
@@ -705,6 +923,18 @@ def edit_media(id):
                     return redirect(request.url)
         
         db.session.commit()
+        
+        # === LOG ADICIONADO ===
+        log_action(
+            action='UPDATE',
+            module='MEDIA',
+            description=f"Mídia editada: {media.title}",
+            old_values=old_values,
+            new_values={'title': media.title, 'description': media.description},
+            church_id=current_user.church_id
+        )
+        # ======================
+        
         flash('Mídia atualizada com sucesso!', 'success')
         return redirect(url_for('edification.gallery'))
     
@@ -719,11 +949,23 @@ def delete_media(id):
         flash('Acesso negado.', 'danger')
         return redirect(url_for('edification.gallery'))
     
+    media_data = {'id': media.id, 'title': media.title}
+    
     if media.file_path and os.path.exists(current_app.config['UPLOAD_FOLDER'] + '/' + media.file_path.replace('uploads/', '')):
         try:
             os.remove(current_app.config['UPLOAD_FOLDER'] + '/' + media.file_path.replace('uploads/', ''))
         except:
             pass
+    
+    # === LOG ANTES DE DELETAR ===
+    log_action(
+        action='DELETE',
+        module='MEDIA',
+        description=f"Mídia excluída: {media_data['title']}",
+        old_values=media_data,
+        church_id=current_user.church_id
+    )
+    # ============================
     
     db.session.delete(media)
     db.session.commit()
@@ -739,6 +981,7 @@ def edit_study(id):
         return redirect(url_for('edification.studies'))
     
     study = Study.query.get_or_404(id)
+    old_values = {'title': study.title, 'category': study.category}
     
     if request.method == 'POST':
         study.title = request.form.get('title')
@@ -748,13 +991,25 @@ def edit_study(id):
         regenerate_questions = 'regenerate_questions' in request.form
         
         db.session.commit()
+        
+        # === LOG ADICIONADO ===
+        log_action(
+            action='UPDATE',
+            module='STUDY',
+            description=f"Estudo editado: {study.title}",
+            old_values=old_values,
+            new_values={'title': study.title, 'category': study.category},
+            church_id=current_user.church_id
+        )
+        # ======================
+        
         flash('Estudo atualizado com sucesso!', 'success')
         
         if regenerate_questions:
-            # Deleta questões antigas (todas ou só não publicadas - aqui deleta todas para simplificar)
+            # Deleta questões antigas
             StudyQuestion.query.filter_by(study_id=study.id).delete()
             
-            question_count = 7  # Mantido em 10, como você pediu
+            question_count = 7
             try:
                 ai_data = generate_questions(study.content, type='adult', count=question_count)
                 
@@ -762,17 +1017,28 @@ def edit_study(id):
                     flash(f'Erro na IA: {ai_data["error"]}', 'danger')
                 elif "questions" in ai_data:
                     for q_data in ai_data["questions"]:
-                        correct_letter = q_data["correct_option"].upper()  # 'A', 'B', 'C' ou 'D' direto
+                        correct_letter = q_data["correct_option"].upper()
                         new_q = StudyQuestion(
                             study_id=study.id,
                             question_text=q_data["question"],
                             options=json.dumps(q_data["options"]),
-                            correct_option=correct_letter,  # ← string letra, igual ao Kids
+                            correct_option=correct_letter,
                             explanation=q_data.get("explanation"),
                             is_published=False
                         )
                         db.session.add(new_q)
                     db.session.commit()
+                    
+                    # === LOG ADICIONADO ===
+                    log_action(
+                        action='GENERATE',
+                        module='STUDY_QUESTIONS',
+                        description=f"Questões regeneradas para estudo: {study.title}",
+                        new_values={'study_id': study.id, 'questions_count': len(ai_data["questions"])},
+                        church_id=current_user.church_id
+                    )
+                    # ======================
+                    
                     flash(f'{len(ai_data["questions"])} novas questões geradas pela IA aguardando revisão!', 'success')
                     return redirect(url_for('edification.review_study_questions', study_id=study.id))
             except Exception as e:
@@ -782,8 +1048,6 @@ def edit_study(id):
     
     return render_template('edification/edit_study.html', study=study)
 
-
-
 @edification_bp.route('/study/delete/<int:id>', methods=['POST'])
 @login_required
 def delete_study(id):
@@ -792,9 +1056,20 @@ def delete_study(id):
         return redirect(url_for('edification.studies'))
     
     study = Study.query.get_or_404(id)
+    study_data = {'id': study.id, 'title': study.title}
     
-    # Deleta questões associadas para evitar orphans no banco
+    # Deleta questões associadas
     StudyQuestion.query.filter_by(study_id=id).delete()
+    
+    # === LOG ANTES DE DELETAR ===
+    log_action(
+        action='DELETE',
+        module='STUDY',
+        description=f"Estudo excluído: {study_data['title']}",
+        old_values=study_data,
+        church_id=current_user.church_id
+    )
+    # ============================
     
     db.session.delete(study)
     db.session.commit()
