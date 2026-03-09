@@ -2,6 +2,7 @@
 from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app
 from flask_login import login_user, logout_user, current_user, login_required
 from app.core.models import db, User, Church
+from app.utils.logger import log_action  # <-- ÚNICA LINHA ADICIONADA
 from werkzeug.utils import secure_filename
 from datetime import datetime
 import os
@@ -86,13 +87,19 @@ def login():
         password = request.form.get('password')
         user = User.query.filter_by(email=email).first()
         if user and user.check_password(password):
-            # Verificação de e-mail desativada temporariamente conforme solicitado
-            # if not user.is_email_verified:
-            #     flash('Por favor, verifique seu e-mail antes de fazer login.', 'warning')
-            #     return redirect(url_for('auth.login'))
-            
             if user.status == 'active':
                 login_user(user)
+                
+                # === LOG ADICIONADO ===
+                #log_action(
+                #    action='LOGIN',
+                #    module='AUTH',
+                #    description=f"Login realizado: {user.name}",
+                #    new_values={'user_id': user.id, 'email': user.email},
+                #    church_id=user.church_id
+                #)
+                # ======================
+                
                 flash('Login bem-sucedido!', 'success')
                 return redirect(url_for('members.dashboard'))
             elif user.status == 'pending':
@@ -182,8 +189,15 @@ def register():
         db.session.add(new_user)
         db.session.commit()
         
-        # Envio de e-mail desativado temporariamente conforme solicitado
-        # send_verification_email(new_user)
+        # === LOG ADICIONADO ===
+        #log_action(
+        #    action='REGISTER',
+        #    module='AUTH',
+        #    description=f"Novo registro: {new_user.name}",
+        #    new_values={'id': new_user.id, 'name': new_user.name, 'email': new_user.email},
+        #    church_id=church.id
+        #)
+        # ======================
         
         flash('Cadastro realizado com sucesso! Agora aguarde a aprovação da liderança para acessar o sistema.', 'success')
         return redirect(url_for('auth.login'))
@@ -196,6 +210,17 @@ def verify_email(token):
     user.is_email_verified = True
     user.email_verification_token = None
     db.session.commit()
+    
+    # === LOG ADICIONADO ===
+    log_action(
+        action='VERIFY_EMAIL',
+        module='AUTH',
+        description=f"E-mail verificado: {user.name}",
+        new_values={'user_id': user.id, 'email': user.email},
+        church_id=user.church_id
+    )
+    # ======================
+    
     flash('E-mail verificado com sucesso! Agora aguarde a aprovação da liderança.', 'success')
     return redirect(url_for('auth.login'))
 
@@ -218,6 +243,16 @@ def resend_verification():
 @auth_bp.route('/logout')
 @login_required
 def logout():
+    # === LOG ADICIONADO ===
+    #log_action(
+    #    action='LOGOUT',
+    #    module='AUTH',
+    #    description=f"Logout realizado: {current_user.name}",
+    #    new_values={'user_id': current_user.id},
+    #    church_id=current_user.church_id
+    #)
+    # ======================
+    
     logout_user()
     flash('Logout realizado com sucesso.', 'info')
     return redirect(url_for('auth.login'))
@@ -227,12 +262,40 @@ def logout():
 def approve_member(user_id):
     member = User.query.get_or_404(user_id)
     action = request.form.get('action')
+    old_status = member.status
+    
     if action == 'approve':
         member.status = 'active'
+        
+        # === LOG DE APROVAÇÃO ===
+        log_action(
+            action='APPROVE',
+            module='MEMBERS',
+            description=f"Membro aprovado: {member.name}",
+            old_values={'status': old_status},
+            new_values={'status': 'active', 'id': member.id, 'name': member.name},
+            church_id=member.church_id
+        )
+        # ========================
+        
         flash('Membro aprovado com sucesso!', 'success')
+        
     elif action == 'reject':
         member.status = 'rejected'
+        
+        # === LOG DE REJEIÇÃO ===
+        log_action(
+            action='REJECT',
+            module='MEMBERS',
+            description=f"Membro rejeitado: {member.name}",
+            old_values={'status': old_status},
+            new_values={'status': 'rejected', 'id': member.id, 'name': member.name},
+            church_id=member.church_id
+        )
+        # ========================
+        
         flash('Solicitação de membro rejeitada.', 'info')
+        
     db.session.commit()
     return redirect(request.referrer or url_for('members.dashboard'))
 
@@ -251,6 +314,17 @@ def change_password():
         else:
             current_user.set_password(new_password)
             db.session.commit()
+            
+            # === LOG ADICIONADO ===
+            log_action(
+                action='CHANGE_PASSWORD',
+                module='AUTH',
+                description=f"Senha alterada: {current_user.name}",
+                new_values={'user_id': current_user.id},
+                church_id=current_user.church_id
+            )
+            # ======================
+            
             flash('Senha alterada com sucesso!', 'success')
             return redirect(url_for('members.profile'))
             
