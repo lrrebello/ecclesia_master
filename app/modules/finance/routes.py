@@ -915,3 +915,47 @@ def add_ministry_transaction(ministry_id):
     payment_methods = PaymentMethod.query.filter_by(church_id=current_user.church_id, is_active=True).all()
     today = datetime.utcnow().date().isoformat()
     return render_template('finance/add_ministry_tx.html', ministry=ministry, members=members, categories=categories, payment_methods=payment_methods, today=today)
+
+@finance_bp.route('/ministry/debt/pay/<int:tx_id>', methods=['GET'])
+@login_required
+def pay_debt(tx_id):
+    """Marcar uma dívida do ministério como paga"""
+    from app.core.models import MinistryTransaction, Ministry
+    from app.utils.logger import log_action
+    
+    tx = MinistryTransaction.query.get_or_404(tx_id)
+    ministry = Ministry.query.get(tx.ministry_id)
+    
+    # Verificar permissão
+    is_leader = ministry.leader_id == current_user.id
+    if not (is_leader or can_manage_finance()):
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('members.dashboard'))
+    
+    if not tx.is_debt:
+        flash('Esta transação não é uma dívida.', 'warning')
+        return redirect(url_for('finance.ministry_finance', ministry_id=ministry.id))
+    
+    old_values = {'is_paid': tx.is_paid}
+    tx.is_paid = True
+    
+    try:
+        db.session.commit()
+        
+        # Log da ação
+        log_action(
+            action='UPDATE',
+            module='MINISTRY_FINANCE',
+            description=f"Dívida paga: {tx.description} (R$ {tx.amount})",
+            old_values=old_values,
+            new_values={'is_paid': True},
+            church_id=ministry.church_id
+        )
+        
+        flash('Dívida marcada como paga!', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Erro ao processar pagamento: {str(e)}', 'danger')
+        current_app.logger.error(f"Erro ao pagar dívida {tx_id}: {str(e)}")
+    
+    return redirect(url_for('finance.ministry_finance', ministry_id=ministry.id))
