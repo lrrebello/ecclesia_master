@@ -14,7 +14,13 @@ def can_manage_members():
     return current_user.can_approve_members or (current_user.church_role and current_user.church_role.name == 'Administrador Global' or current_user.church_role.is_lead_pastor)
 
 def can_manage_ministries():
-    return current_user.can_manage_ministries or (current_user.church_role and current_user.church_role.name == 'Administrador Global' or current_user.church_role.is_lead_pastor)
+    return (
+        current_user.can_manage_ministries or 
+        (current_user.church_role and (
+            current_user.church_role.name == 'Administrador Global' or 
+            current_user.church_role.is_lead_pastor
+        ))
+    )
 
 @members_bp.route('/dashboard')
 @login_required

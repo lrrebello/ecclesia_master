@@ -39,6 +39,7 @@ class Church(db.Model):
     assets = db.relationship('Asset', backref='church', lazy=True)
     roles = db.relationship('ChurchRole', backref='church', lazy=True, cascade="all, delete-orphan")
 
+
 class ChurchRole(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(80), nullable=False)
