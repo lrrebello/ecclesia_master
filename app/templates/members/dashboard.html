@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+
 {% block content %}
 <div class="row g-4">
     <!-- Devocional e Agenda -->
@@ -19,32 +20,36 @@
         </div>
         {% endif %}
 
-        <!-- Card Devocional -->
-        <div class="card devotional-card border-0 p-4 mb-4 shadow-lg overflow-hidden position-relative">
-            <div class="card-body position-relative z-1">
-                <span class="badge bg-white text-primary px-3 py-2 mb-3 shadow-sm">Palavra do Dia</span>
+        <!-- Card Devocional - Usando o mesmo estilo que funciona no preview -->
+        <div class="card border-0 mb-4 shadow-lg overflow-hidden position-relative" 
+            style="background: linear-gradient(135deg, var(--devotional-gradient-start), var(--devotional-gradient-end)); border-radius: 1rem; min-height: 250px;">
+            <div class="card-body p-4" 
+                style="background: var(--devotional-overlay-light); color: var(--devotional-text); position: relative; z-index: 2; backdrop-filter: blur(2px);">
+                <span class="badge mb-3" 
+                    style="background: var(--devotional-badge-bg) !important; color: var(--devotional-badge-text) !important; padding: 0.5rem 1rem; border-radius: 2rem; font-weight: 600; display: inline-block;">
+                    Palavra do Dia
+                </span>
                 {% if devotional %}
-                    <h2 class="fw-bold mb-3 text-white">{{ devotional.title }}</h2>
-                    <div class="fs-5 text-white opacity-95 mb-3">{{ devotional.content | safe }}</div>
+                    <h2 style="color: inherit; font-size: 1.8rem; font-weight: 700; margin-bottom: 1rem;">{{ devotional.title }}</h2>
+                    <div style="color: inherit; font-size: 1.1rem; line-height: 1.6; margin-bottom: 1.5rem; opacity: 0.95;">{{ devotional.content | safe }}</div>
                     {% if devotional.verse %}
-                    <div class="p-3 bg-white bg-opacity-10 rounded-3 border border-white border-opacity-10">
-                        <p class="fst-italic mb-0 text-white">"{{ devotional.verse }}"</p>
+                    <div style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 0.75rem; padding: 1rem; margin-top: 1rem; backdrop-filter: blur(2px);">
+                        <p style="font-style: italic; margin: 0; color: inherit; opacity: 0.9;">"{{ devotional.verse }}"</p>
                     </div>
                     {% endif %}
                     {% if devotional.date != datetime.utcnow().date() %}
-                    <div class="mt-3 small text-white opacity-75">
-                        <i class="bi bi-info-circle me-1"></i> Devocional de {{ devotional.date.strftime('%d/%m') }}
+                    <div style="margin-top: 1rem; font-size: 0.85rem; opacity: 0.7; display: flex; align-items: center; gap: 0.5rem; color: inherit;">
+                        <i class="bi bi-info-circle"></i>
+                        <span>Devocional de {{ devotional.date.strftime('%d/%m') }}</span>
                     </div>
                     {% endif %}
                 {% else %}
-                    <h2 class="fw-bold mb-3 text-white">Bem-vindo ao Ecclesia Master</h2>
-                    <p class="fs-5 text-white opacity-90">"Tudo o que fizerem, façam de todo o coração, como para o Senhor."</p>
+                    <h2 style="color: inherit; font-size: 1.8rem; font-weight: 700; margin-bottom: 1rem;">Bem-vindo ao Ecclesia Master</h2>
+                    <div style="color: inherit; font-size: 1.1rem; line-height: 1.6; margin-bottom: 1.5rem;">"Tudo o que fizerem, façam de todo o coração, como para o Senhor."</div>
+                    <div style="font-style: italic; color: inherit; opacity: 0.9;">Colossenses 3:23</div>
                 {% endif %}
             </div>
-            <!-- Decoração de fundo -->
-            <div class="position-absolute bottom-0 end-0 opacity-10 mb-n4 me-n4">
-                <i class="bi bi-book-half" style="font-size: 10rem;"></i>
-            </div>
+            <i class="bi bi-book-half" style="position: absolute; bottom: -20px; right: -20px; font-size: 10rem; color: var(--devotional-icon-color, rgba(255,255,255,0.15)); transform: rotate(-10deg); z-index: 1; pointer-events: none;"></i>
         </div>
 
         <!-- Card Agenda -->
@@ -104,7 +109,7 @@
                     <div class="list-group-item border-0 border-bottom px-3 py-3 {{ 'bg-danger bg-opacity-10' if alert.is_today else '' }}">
                         <div class="d-flex justify-content-between align-items-center">
                             <div class="text-truncate" style="max-width: 70%;">
-                                <span class="fw-bold small d-block mb-1 {{ 'text-danger' if alert.is_today else 'text-main' }}">{{ alert.name }}</span>
+                                <span class="fw-bold small d-block mb-1 {{ 'text-danger' if alert.is_today else 'text-primary' }}">{{ alert.name }}</span>
                                 <span class="badge bg-secondary bg-opacity-10 text-muted extra-small">{{ alert.ministry }}</span>
                             </div>
                             <div class="text-end">
@@ -145,7 +150,7 @@
                 </a>
                 {% endif %}
 
-                <a href="{{ url_for('edification.kids') }}" class="btn btn-outline-warning text-start border-2 fw-semibold py-2 text-dark">
+                <a href="{{ url_for('edification.kids') }}" class="btn btn-outline-warning text-start border-2 fw-semibold py-2">
                     <i class="bi bi-balloon me-2"></i> Ecclesia Kids
                 </a>
 
@@ -203,7 +208,7 @@
                             {% for p in pending_members %}
                             <tr>
                                 <td class="ps-4">
-                                    <div class="fw-bold text-main">{{ p.name }}</div>
+                                    <div class="fw-bold text-primary">{{ p.name }}</div>
                                     <small class="text-muted">Inscrito em {{ p.created_at.strftime('%d/%m/%Y') if p.created_at else 'Recente' }}</small>
                                 </td>
                                 <td class="small">{{ p.email }}</td>
@@ -222,23 +227,4 @@
         </div>
     </div>
 </div>
-
-<style>
-.extra-small { font-size: 0.7rem; }
-.letter-spacing-1 { letter-spacing: 1px; }
-.shadow-xs { box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
-.text-main { color: var(--text-main); }
-.pulse { animation: pulse-animation 2s infinite; }
-@keyframes pulse-animation {
-    0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
-    70% { transform: scale(1.05); box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
-    100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
-}
-
-/* Dark Mode Overrides */
-[data-theme="dark"] .card-header { background-color: rgba(255,255,255,0.05) !important; }
-[data-theme="dark"] .bg-light { background-color: rgba(255,255,255,0.05) !important; }
-[data-theme="dark"] .btn-light { background-color: rgba(255,255,255,0.1); color: white; border: 0; }
-[data-theme="dark"] .list-group-item { border-color: rgba(255,255,255,0.05) !important; }
-</style>
 {% endblock %}

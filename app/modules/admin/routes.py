@@ -1136,3 +1136,151 @@ def log_details(log_id):
         'old_values': log.old_values,
         'new_values': log.new_values
     })
+
+# ==================== TEMAS PERSONALIZADOS ====================
+
+@admin_bp.route('/church/<int:church_id>/theme', methods=['GET', 'POST'])
+@login_required
+def edit_church_theme(church_id):
+    """Configurar tema personalizado da igreja"""
+    from app.core.models import ChurchTheme
+    import os
+    
+    church = Church.query.get_or_404(church_id)
+    if not can_edit_church(church):
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('admin.list_churches'))
+    
+    # Buscar ou criar tema (sempre existe, nunca é deletado)
+    theme = ChurchTheme.query.filter_by(church_id=church.id).first()
+    if not theme:
+        theme = ChurchTheme(church_id=church.id)
+        db.session.add(theme)
+        db.session.commit()
+    
+    if request.method == 'POST':
+        action = request.form.get('action')
+        
+        if action == 'reset':
+            # RESTAURAR PADRÃO: mantém o registro, apenas desativa personalização
+            theme.is_custom = False
+            
+            # ===== LIMPAR LOGOS =====
+            # Remove os caminhos do banco
+            theme.logo_light = None
+            theme.logo_dark = None
+            
+            # Opcional: deleta os arquivos físicos do disco
+            for logo_type in ['light', 'dark']:
+                logo_attr = f'logo_{logo_type}'
+                old_logo = getattr(theme, logo_attr, None)
+                if old_logo:
+                    # Constrói o caminho completo do arquivo
+                    full_path = os.path.join(
+                        current_app.config['UPLOAD_FOLDER'],
+                        'churches',
+                        'themes',
+                        os.path.basename(old_logo)
+                    )
+                    # Tenta remover o arquivo se existir
+                    if os.path.exists(full_path):
+                        try:
+                            os.remove(full_path)
+                        except Exception as e:
+                            current_app.logger.warning(f"Não foi possível remover o logo {logo_type}: {e}")
+            
+            db.session.commit()
+            
+            log_action(
+                action='RESET',
+                module='THEME',
+                description=f"Tema restaurado para o padrão para {church.name} (logos removidos)",
+                church_id=church.id
+            )
+            
+            flash('Tema restaurado para o padrão! Logos removidos. Você pode personalizar novamente quando quiser.', 'success')
+            return redirect(url_for('admin.edit_church_theme', church_id=church.id))
+        
+        # SALVAR TEMA PERSONALIZADO
+        theme.is_custom = True
+        
+        # Cores do tema claro
+        theme.light_primary = request.form.get('light_primary', '#4f46e5')
+        theme.light_primary_hover = request.form.get('light_primary_hover', '#4338ca')
+        theme.light_secondary = request.form.get('light_secondary', '#64748b')
+        theme.light_success = request.form.get('light_success', '#10b981')
+        theme.light_danger = request.form.get('light_danger', '#ef4444')
+        theme.light_warning = request.form.get('light_warning', '#f59e0b')
+        theme.light_info = request.form.get('light_info', '#06b6d4')
+        theme.light_bg_main = request.form.get('light_bg_main', '#f8fafc')
+        theme.light_bg_card = request.form.get('light_bg_card', '#ffffff')
+        theme.light_text_main = request.form.get('light_text_main', '#1e293b')
+        theme.light_text_muted = request.form.get('light_text_muted', '#64748b')
+        theme.light_border = request.form.get('light_border', '#e2e8f0')
+        theme.light_sidebar_bg = request.form.get('light_sidebar_bg', '#1e293b')
+        theme.light_sidebar_text = request.form.get('light_sidebar_text', '#f8fafc')
+        theme.light_input_bg = request.form.get('light_input_bg', '#ffffff')
+        
+        # Cores do tema escuro
+        theme.dark_primary = request.form.get('dark_primary', '#6366f1')
+        theme.dark_primary_hover = request.form.get('dark_primary_hover', '#818cf8')
+        theme.dark_secondary = request.form.get('dark_secondary', '#94a3b8')
+        theme.dark_success = request.form.get('dark_success', '#34d399')
+        theme.dark_danger = request.form.get('dark_danger', '#f87171')
+        theme.dark_warning = request.form.get('dark_warning', '#fbbf24')
+        theme.dark_info = request.form.get('dark_info', '#22d3ee')
+        theme.dark_bg_main = request.form.get('dark_bg_main', '#0f172a')
+        theme.dark_bg_card = request.form.get('dark_bg_card', '#1e293b')
+        theme.dark_text_main = request.form.get('dark_text_main', '#f1f5f9')
+        theme.dark_text_muted = request.form.get('dark_text_muted', '#94a3b8')
+        theme.dark_border = request.form.get('dark_border', '#334155')
+        theme.dark_sidebar_bg = request.form.get('dark_sidebar_bg', '#020617')
+        theme.dark_sidebar_text = request.form.get('dark_sidebar_text', '#f1f5f9')
+        theme.dark_input_bg = request.form.get('dark_input_bg', '#1e293b')
+        
+        # CAMPOS DO DEVOCIONAL
+        theme.devotional_gradient_start = request.form.get('devotional_gradient_start', '#4f46e5')
+        theme.devotional_gradient_end = request.form.get('devotional_gradient_end', '#06b6d4')
+        theme.devotional_text_color = request.form.get('devotional_text_color', '#ffffff')
+        theme.devotional_badge_bg = request.form.get('devotional_badge_bg', '#ffffff')
+        theme.devotional_badge_text = request.form.get('devotional_badge_text', '#4f46e5')
+        theme.devotional_icon_color = request.form.get('devotional_icon_color', '#ffffff')
+        theme.devotional_icon_opacity = request.form.get('devotional_icon_opacity', '15%')
+        
+        # Overlays (vêm como rgba dos campos hidden)
+        theme.devotional_overlay_light = request.form.get('devotional_overlay_light', 'rgba(0,0,0,0.4)')
+        theme.devotional_overlay_dark = request.form.get('devotional_overlay_dark', 'rgba(0,0,0,0.6)')
+        
+        # CSS personalizado
+        theme.custom_css = request.form.get('custom_css')
+        
+        # Upload de logos (CORRIGIDO: sem 'uploads' duplicado)
+        for logo_type in ['light', 'dark']:
+            file = request.files.get(f'logo_{logo_type}')
+            if file and file.filename:
+                filename = secure_filename(file.filename)
+                new_filename = f"{church.id}_{logo_type}_{filename}"
+                relative_path = f'uploads/churches/themes/{new_filename}'
+                full_path = os.path.join(
+                    current_app.config['UPLOAD_FOLDER'], 
+                    'churches', 
+                    'themes', 
+                    new_filename
+                )
+                os.makedirs(os.path.dirname(full_path), exist_ok=True)
+                file.save(full_path)
+                setattr(theme, f'logo_{logo_type}', relative_path)
+        
+        db.session.commit()
+        
+        log_action(
+            action='UPDATE',
+            module='THEME',
+            description=f"Tema personalizado para {church.name}",
+            church_id=church.id
+        )
+        
+        flash('Tema personalizado salvo com sucesso!', 'success')
+        return redirect(url_for('admin.edit_church_theme', church_id=church.id))
+    
+    return render_template('admin/church_theme.html', church=church, theme=theme)

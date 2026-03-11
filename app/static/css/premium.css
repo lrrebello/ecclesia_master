@@ -1,4 +1,11 @@
+/* ==============================================
+   premium.css - Tema Profissional para Ecclesia
+   Versão Final - Com suporte a temas personalizados
+   ============================================== */
+
+/* === Variáveis Base (tema claro) === */
 :root {
+    /* Cores primárias da igreja (dinâmicas) */
     --primary: #4f46e5;
     --primary-hover: #4338ca;
     --secondary: #64748b;
@@ -6,169 +13,478 @@
     --danger: #ef4444;
     --warning: #f59e0b;
     --info: #06b6d4;
+    
+    /* Cores de fundo e texto - MODO CLARO */
     --bg-main: #f8fafc;
     --bg-card: #ffffff;
-    --text-main: #1e293b;
+    --bg-sidebar: #1e293b;
+    --bg-input: #ffffff;
+    --bg-hover: rgba(79, 70, 229, 0.08);
+    
+    /* Cores de texto - MODO CLARO */
+    --text-primary: #1e293b;
+    --text-secondary: #334155;
     --text-muted: #64748b;
+    --text-inverse: #f8fafc;
+    --text-sidebar: #f8fafc;
+    
+    /* Cores de borda */
     --border: #e2e8f0;
-    --sidebar-bg: #1e293b;
-    --sidebar-text: #f8fafc;
-    --input-bg: #ffffff;
+    --border-light: #f1f5f9;
+    
+    /* Utilitários */
+    --shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    --shadow-hover: 0 8px 20px rgba(0, 0, 0, 0.1);
+    --radius: 1rem;
+    --transition: all 0.2s ease;
+    
+    /* Overlay para cards com fundo imagem */
+    --overlay-light: rgba(0, 0, 0, 0.4);
+    --overlay-dark: rgba(0, 0, 0, 0.6);
+    
+    /* ===== CARD DEVOCIONAL - VALORES PADRÃO ===== */
+    --devotional-gradient-start: #4f46e5;
+    --devotional-gradient-end: #06b6d4;
+    --devotional-overlay-light: rgba(0,0,0,0.4);
+    --devotional-overlay-dark: rgba(0,0,0,0.6);
+    --devotional-text: #ffffff;
+    --devotional-badge-bg: #ffffff;
+    --devotional-badge-text: #4f46e5;
+    --devotional-icon-color: rgba(255,255,255,0.15);
 }
 
+/* === Variáveis - MODO ESCURO === */
 [data-theme="dark"] {
+    --primary: #6366f1;
+    --primary-hover: #818cf8;
+    --secondary: #94a3b8;
+    --success: #34d399;
+    --danger: #f87171;
+    --warning: #fbbf24;
+    --info: #22d3ee;
+    
+    /* Cores de fundo */
     --bg-main: #0f172a;
     --bg-card: #1e293b;
-    --text-main: #f1f5f9;
+    --bg-sidebar: #020617;
+    --bg-input: #1e293b;
+    --bg-hover: rgba(99, 102, 241, 0.15);
+    
+    /* Cores de texto */
+    --text-primary: #f1f5f9;
+    --text-secondary: #cbd5e1;
     --text-muted: #94a3b8;
+    --text-inverse: #0f172a;
+    --text-sidebar: #f1f5f9;
+    
+    /* Cores de borda */
     --border: #334155;
-    --sidebar-bg: #020617;
-    --input-bg: #1e293b;
-    --sidebar-text: #f1f5f9;
+    --border-light: #475569;
+    
+    /* Sombras */
+    --shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    --shadow-hover: 0 8px 20px rgba(0, 0, 0, 0.4);
 }
 
-/* === Base Global === */
+/* === Reset e Base === */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
 body {
     font-family: 'Inter', sans-serif;
     background-color: var(--bg-main);
-    color: var(--text-main);
+    color: var(--text-primary);
+    line-height: 1.5;  /* ← VOLTA AO NORMAL */
+    transition: background-color 0.3s, color 0.3s;
+    min-height: 100vh;  /* ← VOLTA A OCUPAR A TELA TODA */
     margin: 0;
-    transition: background-color 0.3s ease, color 0.3s ease;
+    padding: 0;
+}
+
+/* === Tipografia === */
+h1, h2, h3, h4, h5, h6 {
+    color: var(--text-primary);
+    font-weight: 600;
+    line-height: 1.2;
+    margin-bottom: 0.5rem;
+}
+
+p {
+    color: var(--text-secondary);
+    margin-bottom: 1rem;
+}
+
+.text-muted {
+    color: var(--text-muted) !important;
+}
+
+/* === Links === */
+a {
+    color: var(--primary);
+    text-decoration: none;
+    transition: var(--transition);
+}
+
+a:hover {
+    color: var(--primary-hover);
 }
 
 /* === Sidebar === */
 .sidebar {
-    background-color: var(--sidebar-bg);
-    color: var(--sidebar-text);
-    min-height: 100vh;
-    padding: 2rem 1rem;
+    width: 260px;
+    height: 100vh;
+    position: fixed;
+    left: 0;
+    top: 0;
+    z-index: 1000;
+    background-color: var(--bg-sidebar);
+    color: var(--text-sidebar);
+    border-right: 1px solid var(--border);
+    padding: 1.5rem;
+    overflow-y: auto;
+    transition: background-color 0.3s;
+}
+
+.sidebar .logo {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 2rem;
+    padding: 0.5rem;
+}
+
+.sidebar .logo i {
+    color: var(--primary);
+    font-size: 2rem;
+}
+
+.sidebar .logo h4 {
+    color: var(--text-sidebar);
+    font-weight: 700;
+    margin: 0;
+}
+
+/* Links da sidebar */
+.nav-link {
+    padding: 0.75rem 1rem;
+    border-radius: 10px;
+    color: var(--text-sidebar);
+    opacity: 0.85;
+    margin-bottom: 0.3rem;
+    transition: var(--transition);
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    text-decoration: none;
+}
+
+.nav-link i {
+    font-size: 1.2rem;
+    width: 1.5rem;
+    color: var(--text-sidebar);
+}
+
+.nav-link:hover {
+    opacity: 1;
+    background-color: var(--primary);
+    color: #ffffff;
+}
+
+.nav-link:hover i {
+    color: #ffffff;
+}
+
+.nav-link.active {
+    opacity: 1;
+    background-color: var(--primary);
+    color: #ffffff;
+    font-weight: 500;
+}
+
+.nav-link.active i {
+    color: #ffffff;
 }
 
 /* === Main Content === */
 .main-content {
-    padding: 2rem;
+    margin-left: 260px;
+    padding: 1rem 2rem;  /* ← Apenas 1rem em cima/baixo */
+    background-color: var(--bg-main);
+    min-height: calc(100vh - 60px);  /* ← Um pouco menor que a tela */
 }
 
 /* === Cards === */
 .card {
     background-color: var(--bg-card);
     border: 1px solid var(--border);
-    border-radius: 1rem;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-    transition: transform 0.15s ease, box-shadow 0.15s ease;
-    contain: content; /* ajuda na performance */
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    transition: var(--transition);
+    overflow: hidden;
 }
 
 .card:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
+    box-shadow: var(--shadow-hover);
+    transform: translateY(-2px);
 }
 
-/* === Botões === */
-.btn-primary {
-    background-color: var(--primary);
-    border-color: var(--primary);
+.card-header {
+    background-color: transparent;
+    border-bottom: 1px solid var(--border);
+    padding: 1.25rem;
 }
 
-.btn-primary:hover {
-    background-color: var(--primary-hover);
+.card-body {
+    padding: 1.5rem;
 }
 
-/* === Formulários === */
-.form-control, .form-select {
-    background-color: var(--input-bg);
-    border-color: var(--border);
-    color: var(--text-main);
+.card-footer {
+    background-color: transparent;
+    border-top: 1px solid var(--border);
+    padding: 1rem 1.5rem;
 }
 
-.form-control:focus, .form-select:focus {
-    border-color: var(--primary);
-    box-shadow: 0 0 0 0.2rem rgba(79, 70, 229, 0.15);
-}
-
-/* === Devotional Card (sem blur pesado) */
+/* === CARD DEVOCIONAL - VERSÃO BONITA E CORRIGIDA === */
 .devotional-card {
-    background: linear-gradient(135deg, var(--primary), var(--info));
-    color: rgb(248, 246, 246);
     position: relative;
     overflow: hidden;
+    border-radius: 1rem;
+    min-height: 250px;
+    border: none;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+}
+
+/* Gradiente no fundo (agora no próprio card) */
+.devotional-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(135deg, var(--devotional-gradient-start), var(--devotional-gradient-end));
+    z-index: 0;
+}
+
+/* Overlay (agora separado) */
+.devotional-card::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: var(--devotional-overlay-light);
+    z-index: 1;
+    pointer-events: none;
+}
+
+[data-theme="dark"] .devotional-card::after {
+    background: var(--devotional-overlay-dark);
 }
 
 .devotional-card .card-body {
     position: relative;
     z-index: 2;
-    background: rgba(114, 119, 150, 0.315); /* overlay simples e leve */
-    border-radius: 1rem;
     padding: 2rem 1.5rem;
-    color: rgb(119, 113, 113) !important;
-    text-shadow: 0 1px 3px rgba(0,0,0,0.6);
+    color: var(--devotional-text);
+    background: transparent;
 }
 
-.devotional-card .position-absolute i.bi-book-half {
-    font-size: 7rem;
-    opacity: 0.07;
+.devotional-card .card-body * {
+    color: var(--devotional-text) !important;
+}
+
+.devotional-card .badge {
+    background-color: var(--devotional-badge-bg) !important;
+    color: var(--devotional-badge-text) !important;
+    font-weight: 600;
+    padding: 0.5rem 1rem;
+    border-radius: 2rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    margin-bottom: 1rem;
+    display: inline-block;
+}
+
+.devotional-card h2 {
+    font-size: 1.8rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    line-height: 1.2;
+}
+
+.devotional-card .devotional-content {
+    font-size: 1.1rem;
+    line-height: 1.6;
+    margin-bottom: 1.5rem;
+    opacity: 0.95;
+}
+
+.devotional-card .verse-container {
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 0.75rem;
+    padding: 1rem;
+    margin-top: 1rem;
+    backdrop-filter: blur(2px);
+}
+
+.devotional-card .verse-text {
+    font-style: italic;
+    margin: 0;
+    font-size: 1rem;
+    opacity: 0.9;
+}
+
+.devotional-card .date-info {
+    margin-top: 1rem;
+    font-size: 0.85rem;
+    opacity: 0.7;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.devotional-card .bi-book-half {
+    position: absolute;
+    bottom: -20px;
+    right: -20px;
+    font-size: 10rem;
+    color: var(--devotional-icon-color);
+    transform: rotate(-10deg);
+    z-index: 1;
+    opacity: 0.15;
+    pointer-events: none;
+}
+
+/* === Botões === */
+.btn {
+    padding: 0.6rem 1.2rem;
+    border-radius: 10px;
+    font-weight: 500;
+    transition: var(--transition);
+    border: none;
+    cursor: pointer;
+}
+
+.btn-primary {
+    background-color: var(--primary);
     color: white;
 }
 
-/* Dark mode do devotional */
-[data-theme="dark"] .devotional-card {
-    background: linear-gradient(135deg, #45436d, #4b619c);
+.btn-primary:hover {
+    background-color: var(--primary-hover);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
 }
 
-/* === Modal Otimizado === */
-.modal-content {
-    background-color: var(--bg-card);
+.btn-secondary {
+    background-color: var(--secondary);
+    color: white;
+}
+
+.btn-secondary:hover {
+    background-color: var(--secondary);
+    opacity: 0.9;
+    transform: translateY(-1px);
+}
+
+.btn-outline {
+    background-color: transparent;
     border: 1px solid var(--border);
-    border-radius: 1rem;
-    box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+    color: var(--text-primary);
 }
 
-.modal-header, .modal-footer {
-    border-color: var(--border);
+.btn-outline:hover {
+    background-color: var(--bg-hover);
+    border-color: var(--primary);
 }
 
-/* === Media Queries para Mobile (reduz carga) === */
-@media (max-width: 768px) {
-    .main-content {
-        padding: 1.5rem;
-    }
-
-    .card {
-        box-shadow: 0 1px 4px rgba(0,0,0,0.08); /* sombra mais leve */
-    }
-
-    .card:hover {
-        transform: none; /* desativa hover em mobile pra economizar */
-    }
-
-    .devotional-card .card-body {
-        padding: 1.5rem 1rem;
-        background: rgba(0, 0, 0, 0.65); /* overlay mais forte sem precisar de blur */
-    }
-
-    .devotional-card h2 {
-        font-size: 1.5rem;
-    }
-
-    .stats-card {
-        flex-direction: column;
-        text-align: center;
-    }
+/* === Formulários === */
+.form-control, .form-select {
+    background-color: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 0.6rem 1rem;
+    color: var(--text-primary);
+    transition: var(--transition);
 }
 
-/* === Utilitários === */
-.text-muted { color: var(--text-muted) !important; }
-.extra-small { font-size: 0.75rem; }
-.letter-spacing-1 { letter-spacing: 1px; }
-
-/* === Fixes Dark Mode === */
-[data-theme="dark"] .alert-warning {
-    background-color: #422006 !important;
-    color: #fef3c7 !important;
+.form-control:focus, .form-select:focus {
+    border-color: var(--primary);
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
 }
 
-[data-theme="dark"] .bg-success.bg-opacity-10 { background-color: rgba(16, 185, 129, 0.15) !important; }
-[data-theme="dark"] .bg-danger.bg-opacity-10   { background-color: rgba(239, 68, 68,   0.15) !important; }
+.form-label {
+    color: var(--text-secondary);
+    font-weight: 500;
+    margin-bottom: 0.3rem;
+}
+
+/* === Tabelas === */
+.table {
+    color: var(--text-primary);
+}
+
+.table thead th {
+    color: var(--text-secondary);
+    font-weight: 600;
+    border-bottom: 2px solid var(--border);
+}
+
+.table td {
+    color: var(--text-primary);
+    border-bottom: 1px solid var(--border);
+}
+
+/* === Alertas === */
+.alert {
+    border-radius: var(--radius);
+    border: none;
+    padding: 1rem 1.5rem;
+}
+
+.alert-success {
+    background-color: rgba(16, 185, 129, 0.1);
+    color: var(--success);
+}
+
+.alert-danger {
+    background-color: rgba(239, 68, 68, 0.1);
+    color: var(--danger);
+}
+
+.alert-warning {
+    background-color: rgba(245, 158, 11, 0.1);
+    color: var(--warning);
+}
+
+.alert-info {
+    background-color: rgba(6, 182, 212, 0.1);
+    color: var(--info);
+}
+
+/* === Stats Cards === */
+.stats-card {
+    padding: 1.5rem;
+    border-radius: var(--radius);
+    background: linear-gradient(135deg, var(--primary), var(--info));
+    color: white;
+}
+
+.stats-card .stats-number {
+    font-size: 2rem;
+    font-weight: 700;
+}
+
+.stats-card .stats-label {
+    opacity: 0.9;
+    font-size: 0.9rem;
+}
 
 /* === Theme Toggle === */
 .theme-toggle {
@@ -182,4 +498,100 @@ body {
     align-items: center;
     justify-content: center;
     transition: background 0.2s ease;
+}
+
+.theme-toggle:hover {
+    transform: rotate(15deg);
+    background: var(--border);
+}
+
+/* === Mobile Responsivo === */
+@media (max-width: 991.98px) {
+    .sidebar {
+        display: none !important;
+    }
+    
+    .main-content {
+        margin-left: 0;
+        padding: 1.5rem;
+    }
+    
+    .mobile-navbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background-color: var(--bg-card);
+        padding: 0.8rem 1.2rem;
+        border-bottom: 1px solid var(--border);
+        position: sticky;
+        top: 0;
+        z-index: 1001;
+    }
+    
+    .devotional-card .card-body {
+        padding: 1.5rem 1rem;
+    }
+    
+    .devotional-card h2 {
+        font-size: 1.4rem;
+    }
+    
+    .devotional-card .devotional-content {
+        font-size: 1rem;
+    }
+}
+
+/* === Utilitários de Espaçamento === */
+.gap-1 { gap: 0.25rem; }
+.gap-2 { gap: 0.5rem; }
+.gap-3 { gap: 1rem; }
+.gap-4 { gap: 1.5rem; }
+.gap-5 { gap: 2rem; }
+
+.extra-small { font-size: 0.75rem; }
+.letter-spacing-1 { letter-spacing: 1px; }
+.shadow-xs { box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+
+/* === Animações === */
+.fade-in {
+    animation: fadeIn 0.3s ease-in;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.pulse {
+    animation: pulse-animation 2s infinite;
+}
+
+@keyframes pulse-animation {
+    0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+    70% { transform: scale(1.05); box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+    100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+}
+
+/* === Fixes Dark Mode === */
+[data-theme="dark"] .alert-warning {
+    background-color: #422006 !important;
+    color: #fef3c7 !important;
+}
+
+[data-theme="dark"] .bg-success.bg-opacity-10 { 
+    background-color: rgba(16, 185, 129, 0.15) !important; 
+}
+
+[data-theme="dark"] .bg-danger.bg-opacity-10 { 
+    background-color: rgba(239, 68, 68, 0.15) !important; 
+}
+
+[data-theme="dark"] .btn-light { 
+    background-color: rgba(255,255,255,0.1); 
+    color: white; 
+    border: 0; 
+}
+
+[data-theme="dark"] .list-group-item { 
+    border-color: rgba(255,255,255,0.05) !important; 
 }

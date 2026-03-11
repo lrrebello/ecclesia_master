@@ -81,6 +81,14 @@
     </a>
     {% endif %}
 
+    <!-- NOVO LINK: Personalizar Tema (para pastores líderes) -->
+    {% if current_user.church and (current_user.church_role.is_lead_pastor or current_user.church_role.name == 'Administrador Global') %}
+    <a class="nav-link {{ 'active' if 'edit_church_theme' in request.endpoint }}" 
+       href="{{ url_for('admin.edit_church_theme', church_id=current_user.church.id) }}">
+        <i class="bi bi-palette me-2"></i> Personalizar Tema
+    </a>
+    {% endif %}
+
     {% if current_user.church_role and current_user.church_role.is_lead_pastor %}
     <a class="nav-link {{ 'active' if 'edit_my_church' in request.endpoint }}" href="{{ url_for('admin.edit_my_church') }}">
         <i class="bi bi-gear me-2"></i> Dados da Congregação

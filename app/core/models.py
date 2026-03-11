@@ -318,3 +318,67 @@ class SystemLog(db.Model):
     
     user = db.relationship('User', backref=db.backref('logs', lazy='dynamic'))
     church = db.relationship('Church', backref=db.backref('logs', lazy='dynamic'))
+
+class ChurchTheme(db.Model):
+    __tablename__ = 'church_themes'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    church_id = db.Column(db.Integer, db.ForeignKey('church.id'), nullable=False, unique=True)
+    is_custom = db.Column(db.Boolean, default=False)  # Se usa tema personalizado ou padrão
+    
+    # Tema Claro
+    light_primary = db.Column(db.String(7), default='#4f46e5')
+    light_primary_hover = db.Column(db.String(7), default='#4338ca')
+    light_secondary = db.Column(db.String(7), default='#64748b')
+    light_success = db.Column(db.String(7), default='#10b981')
+    light_danger = db.Column(db.String(7), default='#ef4444')
+    light_warning = db.Column(db.String(7), default='#f59e0b')
+    light_info = db.Column(db.String(7), default='#06b6d4')
+    light_bg_main = db.Column(db.String(7), default='#f8fafc')
+    light_bg_card = db.Column(db.String(7), default='#ffffff')
+    light_text_main = db.Column(db.String(7), default='#1e293b')
+    light_text_muted = db.Column(db.String(7), default='#64748b')
+    light_border = db.Column(db.String(7), default='#e2e8f0')
+    light_sidebar_bg = db.Column(db.String(7), default='#1e293b')
+    light_sidebar_text = db.Column(db.String(7), default='#f8fafc')
+    light_input_bg = db.Column(db.String(7), default='#ffffff')
+    
+    # Tema Escuro
+    dark_primary = db.Column(db.String(7), default='#6366f1')
+    dark_primary_hover = db.Column(db.String(7), default='#818cf8')
+    dark_secondary = db.Column(db.String(7), default='#94a3b8')
+    dark_success = db.Column(db.String(7), default='#34d399')
+    dark_danger = db.Column(db.String(7), default='#f87171')
+    dark_warning = db.Column(db.String(7), default='#fbbf24')
+    dark_info = db.Column(db.String(7), default='#22d3ee')
+    dark_bg_main = db.Column(db.String(7), default='#0f172a')
+    dark_bg_card = db.Column(db.String(7), default='#1e293b')
+    dark_text_main = db.Column(db.String(7), default='#f1f5f9')
+    dark_text_muted = db.Column(db.String(7), default='#94a3b8')
+    dark_border = db.Column(db.String(7), default='#334155')
+    dark_sidebar_bg = db.Column(db.String(7), default='#020617')
+    dark_sidebar_text = db.Column(db.String(7), default='#f1f5f9')
+    dark_input_bg = db.Column(db.String(7), default='#1e293b')
+
+    # Variáveis específicas do Devocional
+    devotional_overlay_light = db.Column(db.String(7), default='rgba(0,0,0,0.4)')
+    devotional_overlay_dark = db.Column(db.String(7), default='rgba(0,0,0,0.6)')
+    devotional_text_color = db.Column(db.String(7), default='#ffffff')
+    devotional_badge_bg = db.Column(db.String(7), default='#ffffff')
+    devotional_badge_text = db.Column(db.String(7), default='#4f46e5')
+    devotional_gradient_start = db.Column(db.String(7), default='#4f46e5')
+    devotional_gradient_end = db.Column(db.String(7), default='#06b6d4')
+    
+    # Logos
+    logo_light = db.Column(db.String(255), nullable=True)
+    logo_dark = db.Column(db.String(255), nullable=True)
+    
+    # CSS personalizado extra
+    custom_css = db.Column(db.Text, nullable=True)
+    
+    # Metadados
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, onupdate=datetime.utcnow)
+    
+    # Relacionamento
+    church = db.relationship('Church', backref=db.backref('theme', uselist=False))

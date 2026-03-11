@@ -6,8 +6,9 @@
     <title>Ecclesia Master - Gestão Eclesiástica</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    
+    <!-- Otimização de Modais -->
     <style>
-        /* Otimização de Modais para evitar piscadas e lentidão */
         .modal.fade .modal-dialog {
             transition: transform 0.15s ease-out !important;
         }
@@ -19,137 +20,288 @@
             opacity: 0.5;
         }
     </style>
+    
+    <!-- Fontes -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/premium.css') }}">
+    
+    <!-- ===== VARIÁVEIS DO TEMA ===== -->
     <style>
         :root {
-            --sidebar-width: 260px;
+            /* TEMA PADRÃO - VALORES FIXOS */
+            --primary-default: #4f46e5;
+            --primary-hover-default: #4338ca;
+            --secondary-default: #64748b;
+            --success-default: #10b981;
+            --danger-default: #ef4444;
+            --warning-default: #f59e0b;
+            --info-default: #06b6d4;
+            --bg-main-default: #f8fafc;
+            --bg-card-default: #ffffff;
+            --sidebar-bg-default: #1e293b;
+            --sidebar-text-default: #f8fafc;
+            --input-bg-default: #ffffff;
+            --text-main-default: #1e293b;
+            --text-muted-default: #64748b;
+            --border-default: #e2e8f0;
+            
+            /* CARD DEVOCIONAL - PADRÃO */
+            --devotional-gradient-start-default: #4f46e5;
+            --devotional-gradient-end-default: #06b6d4;
+            --devotional-overlay-light-default: rgba(0,0,0,0.4);
+            --devotional-overlay-dark-default: rgba(0,0,0,0.6);
+            --devotional-text-default: #ffffff;
+            --devotional-badge-bg-default: #ffffff;
+            --devotional-badge-text-default: #4f46e5;
+            --devotional-icon-color-default: rgba(255,255,255,0.15);
         }
-        body { 
-            font-family: 'Inter', sans-serif; 
-            background-color: var(--bg-main); 
-            color: var(--text-main);
-            transition: background-color 0.3s, color 0.3s;
+
+        /* VALORES ATIVOS */
+        :root {
+            --primary: var(--primary-default);
+            --primary-hover: var(--primary-hover-default);
+            --secondary: var(--secondary-default);
+            --success: var(--success-default);
+            --danger: var(--danger-default);
+            --warning: var(--warning-default);
+            --info: var(--info-default);
+            --bg-main: var(--bg-main-default);
+            --bg-card: var(--bg-card-default);
+            --sidebar-bg: var(--sidebar-bg-default);
+            --sidebar-text: var(--sidebar-text-default);
+            --input-bg: var(--input-bg-default);
+            --text-main: var(--text-main-default);
+            --text-muted: var(--text-muted-default);
+            --border: var(--border-default);
+            
+            --devotional-gradient-start: var(--devotional-gradient-start-default);
+            --devotional-gradient-end: var(--devotional-gradient-end-default);
+            --devotional-overlay-light: var(--devotional-overlay-light-default);
+            --devotional-overlay-dark: var(--devotional-overlay-dark-default);
+            --devotional-text: var(--devotional-text-default);
+            --devotional-badge-bg: var(--devotional-badge-bg-default);
+            --devotional-badge-text: var(--devotional-badge-text-default);
+            --devotional-icon-color: var(--devotional-icon-color-default);
         }
-        
-        /* Sidebar Desktop */
-        .sidebar {
-            width: var(--sidebar-width);
-            height: 100vh;
-            position: fixed;
-            left: 0;
-            top: 0;
-            z-index: 1000;
-            background-color: var(--sidebar-bg);
-            color: var(--sidebar-text);
-            border-right: 1px solid var(--border);
-            padding: 1.5rem;
-            overflow-y: auto;
-            transition: background-color 0.3s;
+
+        /* TEMA ESCURO PADRÃO */
+        [data-theme="dark"] {
+            --primary: #6366f1;
+            --primary-hover: #818cf8;
+            --secondary: #94a3b8;
+            --success: #34d399;
+            --danger: #f87171;
+            --warning: #fbbf24;
+            --info: #22d3ee;
+            --bg-main: #0f172a;
+            --bg-card: #1e293b;
+            --sidebar-bg: #020617;
+            --sidebar-text: #f1f5f9;
+            --input-bg: #1e293b;
+            --text-main: #f1f5f9;
+            --text-muted: #94a3b8;
+            --border: #334155;
         }
-        
-        .main-content {
-            margin-left: var(--sidebar-width);
-            padding: 2rem;
-            min-height: 100vh;
-            background-color: var(--bg-main);
+
+        /* ===== TEMA PERSONALIZADO DA IGREJA ===== */
+        {% if current_user.is_authenticated and current_user.church and current_user.church.theme and current_user.church.theme.is_custom %}
+            {% set t = current_user.church.theme %}
+            :root {
+                --primary: {{ t.light_primary }} !important;
+                --primary-hover: {{ t.light_primary_hover }} !important;
+                --secondary: {{ t.light_secondary }} !important;
+                --success: {{ t.light_success }} !important;
+                --danger: {{ t.light_danger }} !important;
+                --warning: {{ t.light_warning }} !important;
+                --info: {{ t.light_info }} !important;
+                --bg-main: {{ t.light_bg_main }} !important;
+                --bg-card: {{ t.light_bg_card }} !important;
+                --sidebar-bg: {{ t.light_sidebar_bg }} !important;
+                --sidebar-text: {{ t.light_sidebar_text }} !important;
+                --input-bg: {{ t.light_input_bg }} !important;
+                --text-main: {{ t.light_text_main }} !important;
+                --text-muted: {{ t.light_text_muted }} !important;
+                --border: {{ t.light_border }} !important;
+                
+                --devotional-gradient-start: {{ t.devotional_gradient_start }} !important;
+                --devotional-gradient-end: {{ t.devotional_gradient_end }} !important;
+                --devotional-overlay-light: {{ t.devotional_overlay_light }} !important;
+                --devotional-overlay-dark: {{ t.devotional_overlay_dark }} !important;
+                --devotional-text: {{ t.devotional_text_color }} !important;
+                --devotional-badge-bg: {{ t.devotional_badge_bg }} !important;
+                --devotional-badge-text: {{ t.devotional_badge_text }} !important;
+                --devotional-icon-color: {{ t.devotional_icon_color|default('rgba(255,255,255,0.15)') }} !important;
+            }
+
+            /* Tema Escuro Personalizado */
+            [data-theme="dark"] {
+                --primary: {{ t.dark_primary }} !important;
+                --primary-hover: {{ t.dark_primary_hover }} !important;
+                --secondary: {{ t.dark_secondary }} !important;
+                --success: {{ t.dark_success }} !important;
+                --danger: {{ t.dark_danger }} !important;
+                --warning: {{ t.dark_warning }} !important;
+                --info: {{ t.dark_info }} !important;
+                --bg-main: {{ t.dark_bg_main }} !important;
+                --bg-card: {{ t.dark_bg_card }} !important;
+                --sidebar-bg: {{ t.dark_sidebar_bg }} !important;
+                --sidebar-text: {{ t.dark_sidebar_text }} !important;
+                --input-bg: {{ t.dark_input_bg }} !important;
+                --text-main: {{ t.dark_text_main }} !important;
+                --text-muted: {{ t.dark_text_muted }} !important;
+                --border: {{ t.dark_border }} !important;
+            }
+        {% endif %}
+
+        /* ===== FORÇAR TODOS OS ELEMENTOS ===== */
+        /* Sidebar e Offcanvas */
+        .sidebar,
+        .offcanvas,
+        .offcanvas-header,
+        .offcanvas-body,
+        .sidebar *:not(i),
+        .offcanvas *:not(i) {
+            background-color: var(--sidebar-bg) !important;
+            color: var(--sidebar-text) !important;
+            border-color: var(--border) !important;
         }
-        
-        .nav-link {
-            padding: 0.8rem 1rem;
-            border-radius: 10px;
-            color: var(--sidebar-text);
-            opacity: 0.75;
-            margin-bottom: 0.3rem;
-            transition: all 0.3s;
-            display: flex;
-            align-items: center;
-            text-decoration: none;
+
+        .sidebar .nav-link,
+        .offcanvas .nav-link {
+            color: var(--sidebar-text) !important;
         }
-        
-        .nav-link:hover, .nav-link.active {
-            opacity: 1;
-            background-color: rgba(255, 255, 255, 0.15);
-            color: #fff;
-            font-weight: 600;
+
+        .sidebar .nav-link i,
+        .offcanvas .nav-link i {
+            color: var(--sidebar-text) !important;
         }
-        
-        [data-theme="dark"] .nav-link:hover, [data-theme="dark"] .nav-link.active {
-            background-color: var(--primary);
+
+        .sidebar .nav-link:hover,
+        .sidebar .nav-link.active,
+        .offcanvas .nav-link:hover,
+        .offcanvas .nav-link.active {
+            background-color: var(--primary) !important;
+            color: white !important;
+        }
+
+        .sidebar .nav-link:hover i,
+        .sidebar .nav-link.active i,
+        .offcanvas .nav-link:hover i,
+        .offcanvas .nav-link.active i {
+            color: white !important;
+        }
+
+        .sidebar .logo h4,
+        .offcanvas-title {
+            color: var(--sidebar-text) !important;
+        }
+
+        .sidebar hr,
+        .offcanvas hr {
+            border-color: var(--border) !important;
+            opacity: 0.2 !important;
+        }
+
+        /* Cards e elementos principais */
+        .card {
+            background-color: var(--bg-card) !important;
+            border-color: var(--border) !important;
+        }
+
+        body {
+            background-color: var(--bg-main) !important;
+            color: var(--text-main) !important;
+        }
+
+        .text-muted {
+            color: var(--text-muted) !important;
+        }
+
+        .btn-primary {
+            background-color: var(--primary) !important;
+            border-color: var(--primary) !important;
+        }
+
+        .btn-primary:hover {
+            background-color: var(--primary-hover) !important;
+        }
+
+        .btn-secondary {
+            background-color: var(--secondary) !important;
+            border-color: var(--secondary) !important;
+        }
+
+        /* Formulários */
+        .form-control,
+        .form-select {
+            background-color: var(--input-bg) !important;
+            border-color: var(--border) !important;
+            color: var(--text-main) !important;
+        }
+
+        /* Links */
+        a:not(.nav-link) {
+            color: var(--primary) !important;
+        }
+
+        a:not(.nav-link):hover {
+            color: var(--primary-hover) !important;
+        }
+
+        /* Alertas */
+        .alert-success { background-color: rgba(16, 185, 129, 0.1) !important; color: var(--success) !important; }
+        .alert-danger { background-color: rgba(239, 68, 68, 0.1) !important; color: var(--danger) !important; }
+        .alert-warning { background-color: rgba(245, 158, 11, 0.1) !important; color: var(--warning) !important; }
+        .alert-info { background-color: rgba(6, 182, 212, 0.1) !important; color: var(--info) !important; }
+
+        /* Theme Toggle */
+        .theme-toggle {
+            background-color: var(--bg-card) !important;
+            border-color: var(--border) !important;
+            color: var(--text-main) !important;
+        }
+
+        .theme-toggle:hover {
+            background-color: var(--border) !important;
         }
 
         /* Mobile Navbar */
         .mobile-navbar {
+            background-color: var(--bg-card) !important;
+            border-bottom-color: var(--border) !important;
+        }
+        /* Esconder mobile-navbar no desktop */
+        .mobile-navbar {
             display: none;
-            background-color: var(--bg-card);
-            padding: 0.8rem 1.2rem;
-            border-bottom: 1px solid var(--border);
-            position: sticky;
-            top: 0;
-            z-index: 1001;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-        }
-
-        /* Offcanvas / Mobile Menu */
-        .offcanvas {
-            background-color: var(--sidebar-bg);
-            color: var(--sidebar-text);
-        }
-        .offcanvas-header {
-            border-bottom: 1px solid rgba(255,255,255,0.1);
-        }
-        .offcanvas-title { color: #fff; }
-        .btn-close-white { filter: invert(1) grayscale(100%) brightness(200%); }
-
-        /* Ajustes de Contraste */
-        .card {
-            border: 1px solid var(--border);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-        }
-        [data-theme="dark"] .card {
-            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
         }
 
         @media (max-width: 991.98px) {
-            .sidebar { display: none !important; }
-            .main-content { margin-left: 0; padding: 1.2rem; }
-            .mobile-navbar { display: flex; justify-content: space-between; align-items: center; }
-        }
-
-        /* Theme Toggle Button Polishing */
-        .theme-toggle {
-            cursor: pointer;
-            padding: 0.6rem;
-            border-radius: 12px;
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            color: var(--text-main);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: 42px;
-            height: 42px;
-            transition: all 0.3s;
-        }
-        .theme-toggle:hover {
-            transform: rotate(15deg);
-            background: var(--border);
+            .mobile-navbar {
+                display: flex !important;
+            }
         }
     </style>
+
+    <!-- ===== CSS PRINCIPAL ===== -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/premium.css') }}">
 </head>
 <body>
     {% if current_user.is_authenticated %}
     <!-- Mobile Navbar -->
     <div class="mobile-navbar">
         <div class="d-flex align-items-center">
-            <i class="bi bi-lightning-charge-fill text-primary fs-4 me-2"></i>
+            {% if current_user.church and current_user.church.theme and current_user.church.theme.logo_light %}
+                <img src="{{ url_for('static', filename=current_user.church.theme.logo_light) }}" 
+                     alt="Logo" style="max-height: 40px; margin-right: 0.5rem;">
+            {% else %}
+                <i class="bi bi-lightning-charge-fill" style="color: var(--primary); font-size: 1.8rem; margin-right: 0.5rem;"></i>
+            {% endif %}
             <span class="fw-bold h5 mb-0" style="color: var(--text-main)">Ecclesia</span>
         </div>
         <div class="d-flex align-items-center gap-2">
             <div class="theme-toggle" onclick="toggleTheme()">
                 <i class="bi bi-moon-stars" id="theme-icon-mobile"></i>
             </div>
-            <button class="btn btn-primary btn-sm rounded-3 px-2" type="button" data-bs-toggle="offcanvas" data-bs-target="#mobileMenu">
+            <button class="btn btn-sm rounded-3 px-2" style="background-color: var(--primary); color: white;" type="button" data-bs-toggle="offcanvas" data-bs-target="#mobileMenu">
                 <i class="bi bi-list fs-4"></i>
             </button>
         </div>
@@ -158,8 +310,13 @@
     <!-- Sidebar Desktop -->
     <div class="sidebar d-none d-lg-block">
         <div class="d-flex align-items-center mb-4 px-2">
-            <i class="bi bi-lightning-charge-fill text-primary fs-3 me-2"></i>
-            <h4 class="mb-0 fw-bold text-white">Ecclesia</h4>
+            {% if current_user.church and current_user.church.theme and current_user.church.theme.logo_light %}
+                <img src="{{ url_for('static', filename=current_user.church.theme.logo_light) }}" 
+                     alt="Logo" style="max-height: 40px; margin-right: 0.75rem;">
+            {% else %}
+                <i class="bi bi-lightning-charge-fill" style="color: var(--primary); font-size: 2rem; margin-right: 0.5rem;"></i>
+            {% endif %}
+            <h4 class="mb-0 fw-bold" style="color: var(--sidebar-text);">Ecclesia</h4>
         </div>
         {% include 'includes/_nav_links.html' %}
     </div>
@@ -181,7 +338,7 @@
         <header class="d-flex justify-content-between align-items-center mb-4 d-none d-lg-flex">
             <div>
                 <h5 class="text-muted mb-0 small">Bem-vindo,</h5>
-                <h3 class="fw-bold mb-0">{{ current_user.name }}</h3>
+                <h3 class="fw-bold mb-0" style="color: var(--text-main);">{{ current_user.name }}</h3>
             </div>
             <div class="theme-toggle shadow-sm" onclick="toggleTheme()">
                 <i class="bi bi-moon-stars" id="theme-icon"></i>
@@ -226,7 +383,6 @@
             }
         }
 
-        // Initialize theme
         const savedTheme = localStorage.getItem('theme') || 'light';
         if (savedTheme === 'dark') {
             document.documentElement.setAttribute('data-theme', 'dark');
@@ -235,5 +391,11 @@
             updateIcons('light');
         }
     </script>
+    <script>
+    // Função para atualizar preview em tempo real (chamada pela tela de temas)
+    window.updateThemePreview = function(variable, value) {
+        document.documentElement.style.setProperty(variable, value);
+    };
+</script>
 </body>
 </html>
