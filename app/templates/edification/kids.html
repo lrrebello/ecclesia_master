@@ -1,19 +1,22 @@
 {% extends "base.html" %}
+
 {% block content %}
-<div class="container py-5">
-    <!-- Cabeçalho -->
-    <div class="d-flex justify-content-between align-items-center mb-5">
+<div class="container py-3 py-md-5">
+    <!-- Cabeçalho Responsivo -->
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4 mb-md-5 gap-3">
         <div>
-            <h1 class="fw-bold text-warning display-4"><i class="bi bi-balloon-heart-fill me-2"></i>Ecclesia Kids</h1>
-            <p class="text-muted fs-5">Espaço especial para nossas crianças crescerem na Palavra!</p>
+            <h1 class="fw-bold text-warning display-5 display-md-4">
+                <i class="bi bi-balloon-heart-fill me-2"></i>Ecclesia Kids
+            </h1>
+            <p class="text-muted fs-6 fs-md-5">Espaço especial para nossas crianças crescerem na Palavra!</p>
         </div>
-        <div class="d-flex gap-2">
+        <div class="d-flex flex-wrap gap-2 w-100 w-md-auto">
             {% if current_user.can_manage_kids or (current_user.church_role and current_user.church_role.name == 'Administrador Global' or current_user.church_role.is_lead_pastor) %}
-            <a href="{{ url_for('edification.manage_kids') }}" class="btn btn-outline-dark btn-lg fw-bold rounded-pill shadow-sm">
-                <i class="bi bi-gear me-2"></i> Gerenciar
+            <a href="{{ url_for('edification.manage_kids') }}" class="btn btn-outline-dark fw-bold rounded-pill shadow-sm flex-fill flex-md-grow-0">
+                <i class="bi bi-gear me-2"></i> <span class="d-none d-sm-inline">Gerenciar</span>
             </a>
-            <a href="{{ url_for('edification.add_kids_activity') }}" class="btn btn-warning btn-lg fw-bold rounded-pill shadow-sm">
-                <i class="bi bi-plus-lg me-2"></i> Nova Atividade
+            <a href="{{ url_for('edification.add_kids_activity') }}" class="btn btn-warning fw-bold rounded-pill shadow-sm flex-fill flex-md-grow-0">
+                <i class="bi bi-plus-lg me-2"></i> <span class="d-none d-sm-inline">Nova Atividade</span>
             </a>
             {% endif %}
         </div>
@@ -21,83 +24,89 @@
 
     <!-- Seção de Jogos -->
     <div class="mb-5">
-        <h3 class="fw-bold mb-4"><i class="bi bi-controller me-2 text-warning"></i>Hora de Brincar e Aprender</h3>
-        <div class="row g-4">
+        <h3 class="fw-bold mb-3 mb-md-4 fs-2 fs-md-1">
+            <i class="bi bi-controller me-2 text-warning"></i>Hora de Brincar e Aprender
+        </h3>
+        <div class="row g-3 g-md-4">
             <!-- Jogo da Memória -->
-            <div class="col-md-6 col-lg-4">
-                <div class="card h-100 border-0 shadow-sm text-center p-4 card-hover-warning" style="background: linear-gradient(135deg, #fff 0%, #fff9e6 100%);">
-                    <div class="display-1 mb-3">🧩</div>
-                    <h4 class="fw-bold">Jogo da Memória</h4>
-                    <p class="text-muted small">Teste sua memória com os personagens da Bíblia!</p>
-                    <button class="btn btn-warning fw-bold rounded-pill w-100 mt-auto" type="button" data-bs-toggle="modal" data-bs-target="#modalMemory">
-                        Escolher História
+            <div class="col-12 col-sm-6 col-lg-3">
+                <div class="card h-100 border-0 shadow-sm text-center p-3 p-md-4 card-hover-warning" style="background: linear-gradient(135deg, #fff 0%, #fff9e6 100%);">
+                    <div class="display-3 display-md-1 mb-2 mb-md-3">🧩</div>
+                    <h5 class="fw-bold fs-6 fs-md-5">Jogo da Memória</h5>
+                    <p class="text-muted small d-none d-md-block">Teste sua memória com os personagens da Bíblia!</p>
+                    <p class="text-muted small d-block d-md-none">Memória bíblica</p>
+                    <button class="btn btn-warning fw-bold rounded-pill w-100 mt-auto btn-sm" type="button" data-bs-toggle="modal" data-bs-target="#modalMemory">
+                        Jogar
                     </button>
                 </div>
             </div>
 
             <!-- Quem Sou Eu? -->
-            <div class="col-md-6 col-lg-4">
-                <div class="card h-100 border-0 shadow-sm text-center p-4 card-hover-warning" style="background: linear-gradient(135deg, #fff 0%, #e6f7ff 100%);">
-                    <div class="display-1 mb-3">👤</div>
-                    <h4 class="fw-bold">Quem Sou Eu?</h4>
-                    <p class="text-muted small">Adivinhe o personagem bíblico através das dicas!</p>
-                    <button class="btn btn-info text-white fw-bold rounded-pill w-100 mt-auto" type="button" data-bs-toggle="modal" data-bs-target="#modalWhoAmI">
-                        Escolher História
+            <div class="col-12 col-sm-6 col-lg-3">
+                <div class="card h-100 border-0 shadow-sm text-center p-3 p-md-4 card-hover-warning" style="background: linear-gradient(135deg, #fff 0%, #e6f7ff 100%);">
+                    <div class="display-3 display-md-1 mb-2 mb-md-3">👤</div>
+                    <h5 class="fw-bold fs-6 fs-md-5">Quem Sou Eu?</h5>
+                    <p class="text-muted small d-none d-md-block">Adivinhe o personagem bíblico através das dicas!</p>
+                    <p class="text-muted small d-block d-md-none">Adivinhe o personagem</p>
+                    <button class="btn btn-info text-white fw-bold rounded-pill w-100 mt-auto btn-sm" type="button" data-bs-toggle="modal" data-bs-target="#modalWhoAmI">
+                        Jogar
                     </button>
                 </div>
             </div>
 
             <!-- Caça-Palavras -->
-            <div class="col-md-6 col-lg-4">
-                <div class="card h-100 border-0 shadow-sm text-center p-4 card-hover-warning" style="background: linear-gradient(135deg, #fff 0%, #fff0f0 100%);">
-                    <div class="display-1 mb-3">🔍</div>
-                    <h4 class="fw-bold">Caça-Palavras</h4>
-                    <p class="text-muted small">Encontre as palavras da história bíblica!</p>
-                    <button class="btn btn-danger fw-bold rounded-pill w-100 mt-auto" type="button" data-bs-toggle="modal" data-bs-target="#modalWordSearch">
-                        Escolher História
+            <div class="col-12 col-sm-6 col-lg-3">
+                <div class="card h-100 border-0 shadow-sm text-center p-3 p-md-4 card-hover-warning" style="background: linear-gradient(135deg, #fff 0%, #fff0f0 100%);">
+                    <div class="display-3 display-md-1 mb-2 mb-md-3">🔍</div>
+                    <h5 class="fw-bold fs-6 fs-md-5">Caça-Palavras</h5>
+                    <p class="text-muted small d-none d-md-block">Encontre as palavras da história bíblica!</p>
+                    <p class="text-muted small d-block d-md-none">Encontre palavras</p>
+                    <button class="btn btn-danger fw-bold rounded-pill w-100 mt-auto btn-sm" type="button" data-bs-toggle="modal" data-bs-target="#modalWordSearch">
+                        Jogar
                     </button>
                 </div>
             </div>
 
             <!-- Palavras Cruzadas -->
-            <div class="col-md-6 col-lg-4">
-                <div class="card h-100 border-0 shadow-sm text-center p-4 card-hover-warning" style="background: linear-gradient(135deg, #fff 0%, #f0f7ff 100%);">
-                    <div class="display-1 mb-3">📝</div>
-                    <h4 class="fw-bold">Palavras Cruzadas</h4>
-                    <p class="text-muted small">Complete o desafio com as dicas bíblicas!</p>
-                    <button class="btn btn-primary fw-bold rounded-pill w-100 mt-auto" type="button" data-bs-toggle="modal" data-bs-target="#modalCrossword">
-                        Escolher História
+            <div class="col-12 col-sm-6 col-lg-3">
+                <div class="card h-100 border-0 shadow-sm text-center p-3 p-md-4 card-hover-warning" style="background: linear-gradient(135deg, #fff 0%, #f0f7ff 100%);">
+                    <div class="display-3 display-md-1 mb-2 mb-md-3">📝</div>
+                    <h5 class="fw-bold fs-6 fs-md-5">Palavras Cruzadas</h5>
+                    <p class="text-muted small d-none d-md-block">Complete o desafio com as dicas bíblicas!</p>
+                    <p class="text-muted small d-block d-md-none">Desafio de palavras</p>
+                    <button class="btn btn-primary fw-bold rounded-pill w-100 mt-auto btn-sm" type="button" data-bs-toggle="modal" data-bs-target="#modalCrossword">
+                        Jogar
                     </button>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Modais de Seleção -->
+    <!-- Modais de Seleção - CORRIGIDO -->
     {% set games = [
-        {'id': 'Memory', 'title': 'Jogo da Memória', 'color': 'warning', 'route': 'edification.memory_game'},
-        {'id': 'WhoAmI', 'title': 'Quem Sou Eu?', 'color': 'info', 'route': 'edification.who_am_i'},
-        {'id': 'WordSearch', 'title': 'Caça-Palavras', 'color': 'danger', 'route': 'edification.word_search'},
-        {'id': 'Crossword', 'title': 'Palavras Cruzadas', 'color': 'primary', 'route': 'edification.crossword'}
+        {'id': 'Memory', 'title': 'Jogo da Memória', 'color': 'warning', 'route': 'memory_game'},
+        {'id': 'WhoAmI', 'title': 'Quem Sou Eu?', 'color': 'info', 'route': 'who_am_i'},
+        {'id': 'WordSearch', 'title': 'Caça-Palavras', 'color': 'danger', 'route': 'word_search'},
+        {'id': 'Crossword', 'title': 'Palavras Cruzadas', 'color': 'primary', 'route': 'crossword'}
     ] %}
 
     {% for game in games %}
     <div class="modal fade" id="modal{{ game.id }}" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-fullscreen-md-down">
             <div class="modal-content border-0 shadow rounded-4">
                 <div class="modal-header border-0 pb-0">
                     <h5 class="modal-title fw-bold text-{{ game.color }}">{{ game.title }}</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <div class="modal-body p-4">
-                    <p class="text-muted small mb-4">Selecione uma história para começar a brincar:</p>
+                <div class="modal-body p-3 p-md-4">
+                    <p class="text-muted small mb-3 mb-md-4">Selecione uma história para começar a brincar:</p>
                     <div class="d-grid gap-2">
-                        <a href="{{ url_for(game.route) }}" class="btn btn-outline-{{ game.color }} rounded-pill fw-bold text-start px-4 py-3">
+                        <a href="{{ url_for('edification.' + game.route) }}" class="btn btn-outline-{{ game.color }} rounded-pill fw-bold text-start px-3 px-md-4 py-2 py-md-3">
                             <i class="bi bi-star-fill me-2"></i> Geral (Todas as histórias)
                         </a>
                         {% for story in stories %}
-                        <a href="{{ url_for(game.route, story_id=story.id) }}" class="btn btn-light border rounded-pill fw-bold text-start px-4 py-3 hover-{{ game.color }}">
-                            <i class="bi bi-book me-2"></i> {{ story.title }}
+                        <a href="{{ url_for('edification.' + game.route, story_id=story.id) }}" class="btn btn-light border rounded-pill fw-bold text-start px-3 px-md-4 py-2 py-md-3 hover-{{ game.color }}">
+                            <i class="bi bi-book me-2"></i> {{ story.title|truncate(30) }}
                         </a>
                         {% endfor %}
                     </div>
@@ -110,30 +119,33 @@
     <!-- Bíblia Ilustrada -->
     {% if stories %}
     <div class="mb-5">
-        <h3 class="fw-bold mb-4"><i class="bi bi-book-half me-2 text-warning"></i>Bíblia Ilustrada</h3>
-        <div class="row g-4">
+        <h3 class="fw-bold mb-3 mb-md-4 fs-2 fs-md-1">
+            <i class="bi bi-book-half me-2 text-warning"></i>Bíblia Ilustrada
+        </h3>
+        <div class="row g-3 g-md-4">
             {% for story in stories %}
-            <div class="col-md-6 col-lg-4">
+            <div class="col-12 col-sm-6 col-lg-4">
                 <div class="card h-100 border-0 shadow-sm overflow-hidden rounded-4">
                     {% if story.image_path %}
                         {% if story.image_path.lower().endswith('.pdf') %}
-                        <div class="bg-danger bg-opacity-10 text-center py-4">
-                            <i class="bi bi-file-earmark-pdf display-4 text-danger opacity-50"></i>
+                        <div class="bg-danger bg-opacity-10 text-center py-3 py-md-4">
+                            <i class="bi bi-file-earmark-pdf display-4 display-md-1 text-danger opacity-50"></i>
                             <p class="small fw-bold text-danger mt-2">HISTÓRIA EM PDF</p>
                         </div>
                         {% else %}
-                        <img src="{{ story.image_path }}" class="card-img-top" alt="{{ story.title }}" style="height: 200px; object-fit: cover;">
+                        <img src="{{ story.image_path }}" class="card-img-top" alt="{{ story.title }}" style="height: 150px; object-fit: cover;">
                         {% endif %}
                     {% else %}
-                    <div class="bg-warning bg-opacity-10 text-center py-4">
-                        <i class="bi bi-book display-4 text-warning opacity-50"></i>
+                    <div class="bg-warning bg-opacity-10 text-center py-3 py-md-4">
+                        <i class="bi bi-book display-4 display-md-1 text-warning opacity-50"></i>
                     </div>
                     {% endif %}
-                    <div class="card-body p-4">
+                    <div class="card-body p-3 p-md-4">
                         <span class="badge bg-warning bg-opacity-10 text-warning mb-2">{{ story.reference }}</span>
-                        <h5 class="fw-bold">{{ story.title }}</h5>
-                        <p class="text-muted small">{{ story.content | striptags | truncate(100) }}</p>
-                        <a href="{{ url_for('edification.view_bible_story', id=story.id) }}" class="btn btn-outline-warning btn-sm rounded-pill px-4 fw-bold">Ler História</a>
+                        <h6 class="fw-bold fs-6 fs-md-5">{{ story.title }}</h6>
+                        <p class="text-muted small d-none d-md-block">{{ story.content | striptags | truncate(100) }}</p>
+                        <p class="text-muted small d-block d-md-none">{{ story.content | striptags | truncate(50) }}</p>
+                        <a href="{{ url_for('edification.view_bible_story', id=story.id) }}" class="btn btn-outline-warning btn-sm rounded-pill px-4 fw-bold">Ler</a>
                     </div>
                 </div>
             </div>
@@ -144,20 +156,23 @@
 
     <!-- Atividades e Conteúdos -->
     <div>
-        <h3 class="fw-bold mb-4"><i class="bi bi-journal-text me-2 text-warning"></i>Atividades e Lições</h3>
-        <div class="row g-4">
+        <h3 class="fw-bold mb-3 mb-md-4 fs-2 fs-md-1">
+            <i class="bi bi-journal-text me-2 text-warning"></i>Atividades e Lições
+        </h3>
+        <div class="row g-3 g-md-4">
             {% for act in activities %}
-            <div class="col-md-6 col-lg-4">
+            <div class="col-12 col-sm-6 col-lg-4">
                 <div class="card h-100 border-0 shadow-sm overflow-hidden rounded-4" style="border-left: 5px solid #ffc107 !important;">
-                    <div class="card-body p-4">
-                        <div class="d-flex justify-content-between align-items-start mb-3">
-                            <h5 class="fw-bold mb-0">{{ act.title }}</h5>
+                    <div class="card-body p-3 p-md-4">
+                        <div class="d-flex justify-content-between align-items-start mb-2 mb-md-3">
+                            <h6 class="fw-bold mb-0 fs-6 fs-md-5">{{ act.title|truncate(25) }}</h6>
                             <span class="badge bg-light text-warning border border-warning x-small">{{ act.age_group }}</span>
                         </div>
-                        <p class="text-muted small mb-4">{{ act.content|truncate(150) }}</p>
+                        <p class="text-muted small d-none d-md-block mb-3 mb-md-4">{{ act.content|truncate(150) }}</p>
+                        <p class="text-muted small d-block d-md-none mb-3">{{ act.content|truncate(80) }}</p>
                         <div class="d-flex justify-content-between align-items-center mt-auto">
                             <small class="text-muted"><i class="bi bi-calendar3 me-1"></i>{{ act.created_at.strftime('%d/%m/%Y') }}</small>
-                            <button class="btn btn-sm btn-link text-warning fw-bold p-0 text-decoration-none">Ver Detalhes</button>
+                            <button class="btn btn-sm btn-link text-warning fw-bold p-0 text-decoration-none">Ver</button>
                         </div>
                     </div>
                 </div>
@@ -179,11 +194,11 @@
     transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
 .card-hover-warning:hover {
-    transform: translateY(-10px);
+    transform: translateY(-5px);
     box-shadow: 0 15px 30px rgba(255, 193, 7, 0.15) !important;
 }
 .x-small {
-    font-size: 0.7rem;
+    font-size: 0.6rem;
     font-weight: 800;
 }
 .pulse {
@@ -203,6 +218,29 @@
 
 .modal-body .btn {
     transition: all 0.2s ease;
+    font-size: 0.9rem;
+}
+
+/* Ajustes para mobile */
+@media (max-width: 767.98px) {
+    .display-1 { font-size: 3rem; }
+    .display-4 { font-size: 2rem; }
+    .card-body .btn-sm { 
+        padding: 0.4rem 0.8rem;
+        font-size: 0.8rem;
+    }
+    .badge.x-small {
+        font-size: 0.5rem;
+    }
+    .modal-fullscreen-md-down {
+        margin: 0;
+        height: 100%;
+        max-width: 100%;
+    }
+    .modal-fullscreen-md-down .modal-content {
+        border-radius: 0;
+        min-height: 100vh;
+    }
 }
 </style>
 {% endblock %}
