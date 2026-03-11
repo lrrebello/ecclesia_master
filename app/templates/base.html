@@ -264,20 +264,10 @@
             background-color: var(--border) !important;
         }
 
-        /* Mobile Navbar */
+        /* Mobile Navbar - APENAS CORES (display controlado pelo premium.css) */
         .mobile-navbar {
             background-color: var(--bg-card) !important;
             border-bottom-color: var(--border) !important;
-        }
-        /* Esconder mobile-navbar no desktop */
-        .mobile-navbar {
-            display: none;
-        }
-
-        @media (max-width: 991.98px) {
-            .mobile-navbar {
-                display: flex !important;
-            }
         }
     </style>
 
@@ -392,10 +382,9 @@
         }
     </script>
     <script>
-    // Função para atualizar preview em tempo real (chamada pela tela de temas)
     window.updateThemePreview = function(variable, value) {
         document.documentElement.style.setProperty(variable, value);
     };
-</script>
+    </script>
 </body>
 </html>

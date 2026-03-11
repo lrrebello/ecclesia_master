@@ -97,11 +97,16 @@ body {
     font-family: 'Inter', sans-serif;
     background-color: var(--bg-main);
     color: var(--text-primary);
-    line-height: 1.5;  /* ← VOLTA AO NORMAL */
+    line-height: 1.5;
     transition: background-color 0.3s, color 0.3s;
-    min-height: 100vh;  /* ← VOLTA A OCUPAR A TELA TODA */
+    min-height: 100vh;
     margin: 0;
     padding: 0;
+}
+
+/* === Esconder mobile-navbar no desktop (AQUI ESTÁ A CORREÇÃO!) === */
+.mobile-navbar {
+    display: none;
 }
 
 /* === Tipografia === */
@@ -211,9 +216,9 @@ a:hover {
 /* === Main Content === */
 .main-content {
     margin-left: 260px;
-    padding: 1rem 2rem;  /* ← Apenas 1rem em cima/baixo */
+    padding: 1rem 2rem;
     background-color: var(--bg-main);
-    min-height: calc(100vh - 60px);  /* ← Um pouco menor que a tela */
+    min-height: calc(100vh - 60px);
 }
 
 /* === Cards === */
@@ -257,7 +262,7 @@ a:hover {
     box-shadow: 0 10px 30px rgba(0,0,0,0.15);
 }
 
-/* Gradiente no fundo (agora no próprio card) */
+/* Gradiente no fundo */
 .devotional-card::before {
     content: '';
     position: absolute;
@@ -269,7 +274,7 @@ a:hover {
     z-index: 0;
 }
 
-/* Overlay (agora separado) */
+/* Overlay */
 .devotional-card::after {
     content: '';
     position: absolute;
@@ -517,7 +522,7 @@ a:hover {
     }
     
     .mobile-navbar {
-        display: flex;
+        display: flex !important;
         justify-content: space-between;
         align-items: center;
         background-color: var(--bg-card);
