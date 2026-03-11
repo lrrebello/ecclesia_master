@@ -361,8 +361,8 @@ class ChurchTheme(db.Model):
     dark_input_bg = db.Column(db.String(7), default='#1e293b')
 
     # Variáveis específicas do Devocional
-    devotional_overlay_light = db.Column(db.String(7), default='rgba(0,0,0,0.4)')
-    devotional_overlay_dark = db.Column(db.String(7), default='rgba(0,0,0,0.6)')
+    devotional_overlay_light = db.Column(db.Text, default='rgba(0,0,0,0.4)')  # ← String(7) → Text
+    devotional_overlay_dark = db.Column(db.Text, default='rgba(0,0,0,0.6)')    # ← String(7) → Text
     devotional_text_color = db.Column(db.String(7), default='#ffffff')
     devotional_badge_bg = db.Column(db.String(7), default='#ffffff')
     devotional_badge_text = db.Column(db.String(7), default='#4f46e5')
