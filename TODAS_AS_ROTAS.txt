@@ -1,0 +1,4419 @@
+# ===== MÓDULO ADMIN ===== #
+# Arquivo completo: app/modules/admin/routes.py
+# Consolidado com Gestão Global de Membros (filtros/totalizador) e Gestão de Cargos por Filial
+# Atualizado para usar campo is_lead_pastor em vez de nome fixo 'Pastor Líder'
+# + Nova rota para configuração do layout do cartão de membro
+# + LOGS ADICIONADOS (sem alterar estrutura original)
+
+from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app, jsonify
+from flask_login import login_required, current_user
+from app.core.models import Church, db, User, ChurchRole
+from app.utils.logger import log_action  # <-- ÚNICA LINHA ADICIONADA
+from werkzeug.utils import secure_filename
+import os
+from datetime import datetime
+from PIL import Image, ImageDraw, ImageFont, ImageOps
+from io import BytesIO
+from flask import send_file
+import textwrap  # Para quebrar linhas longas se necessário
+import uuid
+import json
+
+admin_bp = Blueprint('admin', __name__)
+
+def is_global_admin():
+    return current_user.church_role and current_user.church_role.name == 'Administrador Global'
+
+def can_edit_church(church):
+    """Verifica se o usuário pode editar dados/layout da congregação"""
+    if is_global_admin():
+        return True
+    if current_user.church_id == church.id and current_user.church_role and current_user.church_role.is_lead_pastor:
+        return True
+    return False
+
+# ==================== GESTÃO DE CONGREGAÇÕES ====================
+
+@admin_bp.route('/churches')
+@login_required
+def list_churches():
+    if not is_global_admin():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('members.dashboard'))
+    churches = Church.query.all()
+    return render_template('admin/churches.html', churches=churches)
+
+@admin_bp.route('/church/add', methods=['GET', 'POST'])
+@login_required
+def add_church():
+    if not is_global_admin():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('members.dashboard'))
+    
+    if request.method == 'POST':
+        country = request.form.get('country', '')
+        euro_countries = ['Portugal', 'Espanha', 'França', 'Alemanha', 'Itália', 'Bélgica', 'Holanda', 'Luxemburgo', 'Irlanda', 'Grécia', 'Áustria', 'Finlândia']
+        currency = '€' if country in euro_countries else 'R$'
+        
+        new_church = Church(
+            name=request.form.get('name'),
+            address=request.form.get('address'),
+            city=request.form.get('city'),
+            country=country,
+            nif=request.form.get('nif'),
+            email=request.form.get('email'),
+            currency_symbol=currency,
+            is_main=bool(request.form.get('is_main')),
+            postal_code=request.form.get('postal_code'),
+            concelho=request.form.get('concelho'),
+            localidade=request.form.get('localidade')
+        )
+
+        file = request.files.get('logo')
+        if file and file.filename:
+            filename = secure_filename(file.filename)
+            logos_dir = os.path.join(current_app.config['UPLOAD_FOLDER'], 'churches', 'logos')
+            os.makedirs(logos_dir, exist_ok=True)
+            full_path = os.path.join(logos_dir, filename)
+            file.save(full_path)
+            new_church.logo_path = f'uploads/churches/logos/{filename}'
+
+        db.session.add(new_church)
+        db.session.commit()
+        
+        # === LOG ADICIONADO ===
+        log_action(
+            action='CREATE',
+            module='CHURCH',
+            description=f"Nova congregação criada: {new_church.name}",
+            new_values={'id': new_church.id, 'name': new_church.name},
+            church_id=new_church.id
+        )
+        # ======================
+        
+        flash('Congregação cadastrada com sucesso!', 'success')
+        return redirect(url_for('admin.list_churches'))
+        
+    return render_template('admin/add_church.html')
+
+@admin_bp.route('/church/edit/<int:id>', methods=['GET', 'POST'])
+@login_required
+def edit_church(id):
+    church = Church.query.get_or_404(id)
+    if not can_edit_church(church):
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('admin.list_churches'))
+    
+    old_values = {'name': church.name, 'address': church.address, 'city': church.city}
+    
+    if request.method == 'POST':
+        country = request.form.get('country', '')
+        euro_countries = ['Portugal', 'Espanha', 'França', 'Alemanha', 'Itália', 'Bélgica', 'Holanda', 'Luxemburgo', 'Irlanda', 'Grécia', 'Áustria', 'Finlândia']
+        church.currency_symbol = '€' if country in euro_countries else 'R$'
+        
+        church.name = request.form.get('name')
+        church.address = request.form.get('address')
+        church.city = request.form.get('city')
+        church.country = country
+        church.nif = request.form.get('nif')
+        church.email = request.form.get('email')
+        church.is_main = bool(request.form.get('is_main'))
+        church.postal_code = request.form.get('postal_code')
+        church.concelho = request.form.get('concelho')
+        church.localidade = request.form.get('localidade')
+
+        file = request.files.get('logo')
+        if file and file.filename:
+            filename = secure_filename(file.filename)
+            logos_dir = os.path.join(current_app.config['UPLOAD_FOLDER'], 'churches', 'logos')
+            os.makedirs(logos_dir, exist_ok=True)
+            full_path = os.path.join(logos_dir, filename)
+            file.save(full_path)
+            church.logo_path = f'uploads/churches/logos/{filename}'
+        
+        card_front = request.files.get('member_card_front')
+        if card_front and card_front.filename:
+            filename = secure_filename(card_front.filename)
+            cards_dir = os.path.join(current_app.config['UPLOAD_FOLDER'], 'churches', 'member_cards')
+            os.makedirs(cards_dir, exist_ok=True)
+            full_path = os.path.join(cards_dir, f'front_{church.id}_{filename}')
+            card_front.save(full_path)
+            church.member_card_front = f'uploads/churches/member_cards/front_{church.id}_{filename}'
+        
+        card_back = request.files.get('member_card_back')
+        if card_back and card_back.filename:
+            filename = secure_filename(card_back.filename)
+            cards_dir = os.path.join(current_app.config['UPLOAD_FOLDER'], 'churches', 'member_cards')
+            os.makedirs(cards_dir, exist_ok=True)
+            full_path = os.path.join(cards_dir, f'back_{church.id}_{filename}')
+            card_back.save(full_path)
+            church.member_card_back = f'uploads/churches/member_cards/back_{church.id}_{filename}'
+
+        db.session.commit()
+        
+        # === LOG ADICIONADO ===
+        log_action(
+            action='UPDATE',
+            module='CHURCH',
+            description=f"Congregação editada: {church.name}",
+            old_values=old_values,
+            new_values={'name': church.name, 'address': church.address},
+            church_id=church.id
+        )
+        # ======================
+        
+        flash('Congregação atualizada!', 'success')
+        return redirect(url_for('admin.list_churches'))
+    
+    return render_template('admin/edit_church.html', church=church)
+
+@admin_bp.route('/church/delete/<int:id>', methods=['POST'])
+@login_required
+def delete_church(id):
+    if not is_global_admin():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('members.dashboard'))
+    
+    church = Church.query.get_or_404(id)
+    
+    if church.is_main and Church.query.filter_by(is_main=True).count() <= 1:
+        if Church.query.count() <= 1:
+            flash('Não é possível excluir a única congregação do sistema.', 'warning')
+            return redirect(url_for('admin.list_churches'))
+
+    church_data = {'id': church.id, 'name': church.name}
+    
+    
+    try:
+        User.query.filter_by(church_id=id).update({User.church_id: None})
+        
+        # === LOG ADICIONADO ===
+        log_action(
+            action='DELETE',
+            module='CHURCH',
+            description=f"Congregação excluída: {church.name}",
+            old_values=church_data,
+            church_id=church.id
+        )
+        # ======================
+        db.session.delete(church)
+        db.session.commit()
+        
+        
+        
+        flash(f'Congregação {church.name} excluída com sucesso!', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Erro ao excluir congregação: {str(e)}', 'danger')
+        
+    return redirect(url_for('admin.list_churches'))
+
+@admin_bp.route('/my-church', methods=['GET', 'POST'])
+@login_required
+def edit_my_church():
+    church = current_user.church
+    if not church or not can_edit_church(church):
+        flash('Acesso negado ou você não está vinculado a nenhuma congregação.', 'danger')
+        return redirect(url_for('members.dashboard'))
+    
+    old_values = {'name': church.name, 'address': church.address}
+    
+    if request.method == 'POST':
+        country = request.form.get('country', '')
+        euro_countries = ['Portugal', 'Espanha', 'França', 'Alemanha', 'Itália', 'Bélgica', 'Holanda', 'Luxemburgo', 'Irlanda', 'Grécia', 'Áustria', 'Finlândia']
+        church.currency_symbol = '€' if country in euro_countries else 'R$'
+        
+        church.name = request.form.get('name')
+        church.address = request.form.get('address')
+        church.city = request.form.get('city')
+        church.country = country
+        church.nif = request.form.get('nif')
+        church.email = request.form.get('email')
+        church.postal_code = request.form.get('postal_code')
+        church.concelho = request.form.get('concelho')
+        church.localidade = request.form.get('localidade')
+
+        file = request.files.get('logo')
+        if file and file.filename:
+            filename = secure_filename(file.filename)
+            logos_dir = os.path.join(current_app.config['UPLOAD_FOLDER'], 'churches', 'logos')
+            os.makedirs(logos_dir, exist_ok=True)
+            full_path = os.path.join(logos_dir, filename)
+            file.save(full_path)
+            church.logo_path = f'uploads/churches/logos/{filename}'
+        
+        card_front = request.files.get('member_card_front')
+        if card_front and card_front.filename:
+            filename = secure_filename(card_front.filename)
+            cards_dir = os.path.join(current_app.config['UPLOAD_FOLDER'], 'churches', 'member_cards')
+            os.makedirs(cards_dir, exist_ok=True)
+            full_path = os.path.join(cards_dir, f'front_{church.id}_{filename}')
+            card_front.save(full_path)
+            church.member_card_front = f'uploads/churches/member_cards/front_{church.id}_{filename}'
+        
+        card_back = request.files.get('member_card_back')
+        if card_back and card_back.filename:
+            filename = secure_filename(card_back.filename)
+            cards_dir = os.path.join(current_app.config['UPLOAD_FOLDER'], 'churches', 'member_cards')
+            os.makedirs(cards_dir, exist_ok=True)
+            full_path = os.path.join(cards_dir, f'back_{church.id}_{filename}')
+            card_back.save(full_path)
+            church.member_card_back = f'uploads/churches/member_cards/back_{church.id}_{filename}'
+
+        db.session.commit()
+        
+        # === LOG ADICIONADO ===
+        log_action(
+            action='UPDATE',
+            module='CHURCH',
+            description=f"Dados da congregação atualizados por pastor líder: {church.name}",
+            old_values=old_values,
+            new_values={'name': church.name},
+            church_id=church.id
+        )
+        # ======================
+        
+        flash('Dados da congregação atualizados com sucesso!', 'success')
+        return redirect(url_for('admin.edit_my_church'))
+    
+    return render_template('admin/edit_my_church.html', church=church)
+
+# ==================== CONFIGURAÇÃO DO LAYOUT DO CARTÃO DE MEMBRO ====================
+
+@admin_bp.route('/church/<int:church_id>/card-layout', methods=['GET', 'POST'])
+@login_required
+def edit_card_layout(church_id):
+    church = Church.query.get_or_404(church_id)
+    
+    if not can_edit_church(church):
+        flash('Acesso negado. Apenas administradores globais ou pastores líderes desta congregação podem configurar o layout do cartão.', 'danger')
+        return redirect(url_for('admin.list_churches'))
+    
+    if request.method == 'POST':
+        try:
+            data = request.get_json()
+            old_front = church.card_front_layout
+            old_back = church.card_back_layout
+            
+            church.card_front_layout = data.get('front', {})
+            church.card_back_layout = data.get('back', {})
+            db.session.commit()
+            
+            # === LOG ADICIONADO ===
+            log_action(
+                action='UPDATE',
+                module='CARD_LAYOUT',
+                description=f"Layout do cartão de membro atualizado para {church.name}",
+                old_values={'front': old_front, 'back': old_back},
+                new_values={'front': church.card_front_layout, 'back': church.card_back_layout},
+                church_id=church.id
+            )
+            # ======================
+            
+            return jsonify({'success': True, 'message': 'Layout do cartão salvo com sucesso!'})
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({'success': False, 'error': str(e)}), 500
+    
+    return render_template('admin/edit_card_layout.html', church=church)
+
+# ==================== GESTÃO DE MEMBROS ====================
+
+@admin_bp.route('/members')
+@login_required
+def list_members():
+    if not is_global_admin():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('members.dashboard'))
+    
+    church_id = request.args.get('church_id', type=int)
+    role_id = request.args.get('role_id', type=int)
+    
+    query = User.query
+    selected_church = None
+    selected_role = None
+    
+    if church_id:
+        selected_church = Church.query.get(church_id)
+        if selected_church:
+            query = query.filter_by(church_id=church_id)
+    
+    if role_id:
+        selected_role = ChurchRole.query.get(role_id)
+        if selected_role:
+            query = query.filter_by(church_role_id=role_id)
+    
+    members = query.order_by(User.name).all()
+    total_members = len(members)
+    
+    churches = Church.query.order_by(Church.name).all()
+    roles = ChurchRole.query.order_by(ChurchRole.name).all()
+    
+    return render_template(
+        'admin/members.html',
+        members=members,
+        churches=churches,
+        roles=roles,
+        selected_church=selected_church,
+        selected_role=selected_role,
+        current_church_id=church_id,
+        current_role_id=role_id,
+        total_members=total_members
+    )
+
+@admin_bp.route('/member/add', methods=['GET', 'POST'])
+@login_required
+def add_member():
+    if not is_global_admin():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('admin.list_members'))
+
+    churches = Church.query.all()
+    
+    if request.method == 'POST':
+        name = request.form.get('name')
+        email = request.form.get('email')
+        birth_date_str = request.form.get('birth_date')
+        birth_date = datetime.strptime(birth_date_str, '%Y-%m-%d').date() if birth_date_str else None
+        
+        new_user = User(
+            name=name,
+            email=email,
+            birth_date=birth_date,
+            documents=request.form.get('documents'),
+            address=request.form.get('address'),
+            phone=request.form.get('phone'),
+            gender=request.form.get('gender'),
+            church_id=int(request.form.get('church_id')) if request.form.get('church_id') else None,
+            status=request.form.get('status', 'active'),
+            postal_code=request.form.get('postal_code'),
+            concelho=request.form.get('concelho'),
+            localidade=request.form.get('localidade'),
+            education_level=request.form.get('education_level')
+        )
+        new_user.set_password(request.form.get('password'))
+        db.session.add(new_user)
+        db.session.commit()
+        
+        # === LOG ADICIONADO ===
+        log_action(
+            action='CREATE',
+            module='MEMBERS',
+            description=f"Novo membro adicionado: {new_user.name}",
+            new_values={'id': new_user.id, 'name': new_user.name, 'email': new_user.email},
+            church_id=new_user.church_id
+        )
+        # ======================
+        
+        flash('Membro criado com sucesso!', 'success')
+        return redirect(url_for('admin.list_members'))
+    
+    return render_template('admin/add_member.html', churches=churches)
+
+@admin_bp.route('/member/edit/<int:id>', methods=['GET', 'POST'])
+@login_required
+def edit_member(id):
+    if not is_global_admin():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('admin.list_members'))
+
+    member = User.query.get_or_404(id)
+    churches = Church.query.all()
+    roles = ChurchRole.query.filter_by(church_id=member.church_id).order_by(ChurchRole.order, ChurchRole.name).all() if member.church_id else []
+
+    old_values = {'name': member.name, 'email': member.email, 'status': member.status}
+
+    if request.method == 'POST':
+        member.name = request.form.get('name')
+        member.email = request.form.get('email')
+        birth_date_str = request.form.get('birth_date')
+        member.birth_date = datetime.strptime(birth_date_str, '%Y-%m-%d').date() if birth_date_str else None
+        member.gender = request.form.get('gender')
+        member.documents = request.form.get('documents')
+        member.tax_id = request.form.get('tax_id')
+        member.address = request.form.get('address')
+        member.phone = request.form.get('phone')
+        member.church_id = int(request.form.get('church_id')) if request.form.get('church_id') else None
+        member.church_role_id = int(request.form.get('church_role_id')) if request.form.get('church_role_id') else None
+        member.status = request.form.get('status', 'active')
+        
+        member.postal_code = request.form.get('postal_code')
+        member.concelho = request.form.get('concelho')
+        member.localidade = request.form.get('localidade')
+        member.education_level = request.form.get('education_level')
+        
+        file = request.files.get('profile_photo')
+        if file and file.filename:
+            filename = secure_filename(file.filename)
+            profiles_dir = os.path.join(current_app.config['UPLOAD_FOLDER'], 'profiles')
+            os.makedirs(profiles_dir, exist_ok=True)
+            full_path = os.path.join(profiles_dir, filename)
+            file.save(full_path)
+            member.profile_photo = f'uploads/profiles/{filename}'
+        
+        db.session.commit()
+        
+        # === LOG ADICIONADO ===
+        log_action(
+            action='UPDATE',
+            module='MEMBERS',
+            description=f"Membro editado: {member.name}",
+            old_values=old_values,
+            new_values={'name': member.name, 'email': member.email, 'status': member.status},
+            church_id=member.church_id
+        )
+        # ======================
+        
+        flash('Membro atualizado com sucesso!', 'success')
+        return redirect(url_for('admin.list_members'))
+    
+    return render_template('admin/edit_member.html', member=member, churches=churches, roles=roles)
+
+@admin_bp.route('/member/card-preview/<int:id>')
+@login_required
+def member_card_preview(id):
+    """Tela de pré-visualização e edição do cartão de membro"""
+    member = User.query.get_or_404(id)
+    
+    is_global = is_global_admin()
+    is_lead_pastor = (
+        current_user.church_role 
+        and current_user.church_role.is_lead_pastor 
+        and current_user.church_role == member.church_role
+    )
+    
+    if not (is_global or is_lead_pastor):
+        flash('Acesso negado. Você não tem permissão para gerar o cartão deste membro.', 'danger')
+        return redirect(url_for('members.dashboard'))
+    
+    church = member.church
+    if not church:
+        flash('Membro não vinculado a nenhuma congregação.', 'danger')
+        return redirect(url_for('members.dashboard'))
+    
+    return render_template('admin/member_card_preview.html', member=member, church=church)
+
+
+@admin_bp.route('/member/card/<int:id>')
+@login_required
+def member_card(id):
+    member = User.query.get_or_404(id)
+    
+    is_global = is_global_admin()
+    is_lead_pastor = (
+        current_user.church_role 
+        and current_user.church_role.is_lead_pastor 
+        and current_user.church_id == member.church_id
+    )
+    
+    if not (is_global or is_lead_pastor):
+        flash('Acesso negado. Você não tem permissão para gerar o cartão deste membro.', 'danger')
+        return redirect(url_for('members.dashboard'))
+    
+    church = member.church
+    if not church:
+        flash('Membro não vinculado a nenhuma congregação.', 'danger')
+        return redirect(url_for('members.dashboard'))
+    
+    # Tamanho final da imagem (alta resolução para impressão nítida)
+    WIDTH, HEIGHT = 1200, 756
+    
+    def generate_card_side(background_path, layout, fields_data, is_front=False):
+        # Cria imagem base
+        if background_path and os.path.exists(os.path.join(current_app.static_folder, background_path)):
+            bg_path = os.path.join(current_app.static_folder, background_path)
+            img = Image.open(bg_path).convert('RGBA')
+            img = img.resize((WIDTH, HEIGHT), Image.LANCZOS)
+        else:
+            img = Image.new('RGBA', (WIDTH, HEIGHT), (255, 255, 255, 255))
+        
+        draw = ImageDraw.Draw(img)
+        
+        # Fontes maiores e com suporte a acentos (use uma font com UTF-8 no servidor)
+        try:
+            font_path = "fonts/DejaVuSans.ttf"  # Ou "times.ttf" se preferir serifada
+            font_normal = ImageFont.truetype(font_path, 20)   # Aumentado
+            font_bold = ImageFont.truetype(font_path, 25)     # Aumentado para nome/títulos
+            font_small = ImageFont.truetype(font_path, 15)    # Aumentado para textos menores
+        except:
+            font_normal = ImageFont.load_default()
+            font_bold = font_normal
+            font_small = font_normal
+        
+        # Desenha cada campo
+        for field, data in layout.items():
+            if field not in fields_data:
+                continue
+            x = int(data.get('x', 0) * (WIDTH / 856))
+            y = int(data.get('y', 0) * (HEIGHT / 540))
+            w = int(data.get('width', 200) * (WIDTH / 856))
+            h = int(data.get('height', 40) * (HEIGHT / 540))
+            text = str(fields_data[field])
+            
+            # Sem fundo branco (já que a arte tem blanks) — se quiser, descomente:
+            # draw.rectangle((x, y, x + w, y + h), fill=(255, 255, 255, 220))
+            
+            # Escolhe fonte baseada no campo
+            font = font_bold if field in ['name', 'role', 'filiacao', 'signature'] else font_small if field in ['disclaimer'] else font_normal
+            
+            # Quebra linha para textos longos
+            lines = textwrap.wrap(text, width=int(w / 8))  # Ajuste width para caber melhor (menor número = mais quebras)
+            current_y = y + 5
+            for line in lines:
+                draw.text((x + 10, current_y), line, fill=(0, 0, 0), font=font)
+                current_y += font.getbbox(line)[3] + 5  # Altura + espaçamento
+        
+        # Foto de perfil (apenas na frente)
+        if is_front and member.profile_photo and 'photo' in layout:
+            photo_data = layout['photo']
+            photo_x = int(photo_data.get('x', 40) * (WIDTH / 856))
+            photo_y = int(photo_data.get('y', 140) * (HEIGHT / 540))
+            photo_w = int(photo_data.get('width', 220) * (WIDTH / 856))
+            photo_h = int(photo_data.get('height', 280) * (HEIGHT / 540))
+            
+            photo_path = os.path.join(current_app.static_folder, member.profile_photo)
+            if os.path.exists(photo_path):
+                photo = Image.open(photo_path).convert('RGBA')
+                # Redimensiona usando o size exato do layout, com fit e crop
+                photo = ImageOps.fit(photo, (photo_w, photo_h), Image.LANCZOS)
+                img.paste(photo, (photo_x, photo_y), photo)
+        
+        return img
+
+    # Dados para frente
+    front_layout = church.card_front_layout or {}
+    front_data = {
+        'name': member.name or '',
+        'role': member.church_role.name if member.church_role else 'Membro',
+        'marital_status': member.marital_status or 'Não informado',
+        'birth_date': member.birth_date.strftime('%d/%m/%Y') if member.birth_date else 'Não informado',
+    }
+    
+    # Dados para verso
+    back_layout = church.card_back_layout or {}
+    back_data = {
+        'filiacao': church.name or 'Não informado',
+        'document': member.tax_id or member.documents or 'Não informado',
+        'conversion_date': member.conversion_date.strftime('%d/%m/%Y') if member.conversion_date else 'Não informado',
+        'baptism_date': member.baptism_date.strftime('%d/%m/%Y') if member.baptism_date else 'Não informado',
+        'disclaimer': 'Este documento tem validade enquanto o(a) titular permanecer em plena comunhão como membro da Assembleia de Deus IEAD Jesus para as Nações em Aveiro - Portugal.',
+        'signature': 'Pr. Fernando Telles dos Santos\nPresidente da IEAD Jesus Para as Nações'
+    }
+    
+    # Gera as imagens
+    front_img = generate_card_side(church.member_card_front, front_layout, front_data, is_front=True)
+    back_img = generate_card_side(church.member_card_back, back_layout, back_data, is_front=False)
+    
+    # Junta frente + verso verticalmente com espaço
+    total_height = front_img.height + back_img.height + 60
+    combined = Image.new('RGB', (max(front_img.width, back_img.width), total_height), (255, 255, 255))
+    combined.paste(front_img, ((combined.width - front_img.width) // 2, 0))
+    combined.paste(back_img, ((combined.width - back_img.width) // 2, front_img.height + 60))
+    
+    # Salva em memória e envia como PNG
+    img_io = BytesIO()
+    combined.save(img_io, 'PNG', quality=95)
+    img_io.seek(0)
+    
+    return send_file(
+        img_io,
+        mimetype='image/png',
+        as_attachment=True,
+        download_name=f'cartao_membro_{member.name.replace(" ", "_")}.png'
+    )
+
+
+# ==================== GESTÃO DE CARGOS LOCAIS (Pastor Líder) ====================
+
+@admin_bp.route('/roles')
+@login_required
+def list_roles():
+    if not current_user.church_role or (
+        not is_global_admin() and not current_user.church_role.is_lead_pastor
+    ):
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('members.dashboard'))
+    
+    roles = ChurchRole.query.filter_by(church_id=current_user.church_id)\
+                   .order_by(ChurchRole.order, ChurchRole.name).all()
+    return render_template('admin/list_roles.html', roles=roles)
+
+
+@admin_bp.route('/role/add', methods=['GET', 'POST'])
+@login_required
+def add_role():
+    if not current_user.church_role or (
+        not is_global_admin() and not current_user.church_role.is_lead_pastor
+    ):
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('admin.list_roles'))
+    
+    if request.method == 'POST':
+        new_role = ChurchRole(
+            name=request.form.get('name'),
+            description=request.form.get('description'),
+            order=int(request.form.get('order') or 0),
+            church_id=current_user.church_id,
+            is_lead_pastor='is_lead_pastor' in request.form,
+            is_active=True
+        )
+        db.session.add(new_role)
+        db.session.commit()
+        
+        # === LOG ADICIONADO ===
+        log_action(
+            action='CREATE',
+            module='ROLE',
+            description=f"Novo cargo criado: {new_role.name}",
+            new_values={'id': new_role.id, 'name': new_role.name},
+            church_id=current_user.church_id
+        )
+        # ======================
+        
+        flash('Cargo criado com sucesso!', 'success')
+        return redirect(url_for('admin.list_roles'))
+    
+    return render_template('admin/add_role.html')
+
+
+@admin_bp.route('/role/edit/<int:id>', methods=['GET', 'POST'])
+@login_required
+def edit_role(id):
+    role = ChurchRole.query.get_or_404(id)
+    
+    if not current_user.church_role or (
+        not is_global_admin() 
+        and (not current_user.church_role.is_lead_pastor or role.church_id != current_user.church_id)
+    ):
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('admin.list_roles'))
+    
+    old_values = {'name': role.name, 'description': role.description}
+    
+    if request.method == 'POST':
+        role.name = request.form.get('name')
+        role.description = request.form.get('description')
+        role.order = int(request.form.get('order') or 0)
+        role.is_active = 'is_active' in request.form
+        role.is_lead_pastor = 'is_lead_pastor' in request.form
+        db.session.commit()
+        
+        # === LOG ADICIONADO ===
+        log_action(
+            action='UPDATE',
+            module='ROLE',
+            description=f"Cargo editado: {role.name}",
+            old_values=old_values,
+            new_values={'name': role.name, 'is_active': role.is_active},
+            church_id=role.church_id
+        )
+        # ======================
+        
+        flash('Cargo atualizado!', 'success')
+        return redirect(url_for('admin.list_roles'))
+    
+    return render_template('admin/edit_role.html', role=role)
+
+
+@admin_bp.route('/role/delete/<int:id>')
+@login_required
+def delete_role(id):
+    role = ChurchRole.query.get_or_404(id)
+    
+    if not current_user.church_role or (
+        not is_global_admin() 
+        and (not current_user.church_role.is_lead_pastor or role.church_id != current_user.church_id)
+    ):
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('admin.list_roles'))
+    
+    role_data = {'id': role.id, 'name': role.name}
+    # === LOG ADICIONADO ===
+    log_action(
+        action='DELETE',
+        module='ROLE',
+        description=f"Cargo excluído: {role_data['name']}",
+        old_values=role_data,
+        church_id=role.church_id
+    )
+    # ======================    
+    db.session.delete(role)
+    db.session.commit()
+    
+
+    
+    flash('Cargo excluído com sucesso!', 'success')
+    return redirect(url_for('admin.list_roles'))
+
+# ==================== GESTÃO DE CARGOS POR FILIAL (ADMIN GLOBAL) ====================
+
+@admin_bp.route('/church-roles')
+@login_required
+def list_church_roles():
+    if not is_global_admin():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('members.dashboard'))
+    
+    churches = Church.query.order_by(Church.name).all()
+    return render_template('admin/church_roles_select.html', churches=churches)
+
+
+@admin_bp.route('/church-roles/<int:church_id>')
+@login_required
+def list_church_roles_by_id(church_id):
+    if not is_global_admin():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('members.dashboard'))
+    
+    church = Church.query.get_or_404(church_id)
+    roles = ChurchRole.query.filter_by(church_id=church_id)\
+                   .order_by(ChurchRole.order, ChurchRole.name).all()
+    
+    return render_template('admin/church_roles_list.html', church=church, roles=roles)
+
+
+@admin_bp.route('/church-roles/<int:church_id>/add', methods=['GET', 'POST'])
+@login_required
+def add_church_role(church_id):
+    if not is_global_admin():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('members.dashboard'))
+    
+    church = Church.query.get_or_404(church_id)
+    
+    if request.method == 'POST':
+        new_role = ChurchRole(
+            name=request.form.get('name'),
+            description=request.form.get('description'),
+            order=int(request.form.get('order') or 0),
+            church_id=church_id,
+            is_lead_pastor='is_lead_pastor' in request.form,
+            is_active=True
+        )
+        db.session.add(new_role)
+        db.session.commit()
+        
+        # === LOG ADICIONADO ===
+        log_action(
+            action='CREATE',
+            module='ROLE',
+            description=f"Novo cargo criado por admin global para {church.name}: {new_role.name}",
+            new_values={'id': new_role.id, 'name': new_role.name},
+            church_id=church_id
+        )
+        # ======================
+        
+        flash('Cargo criado com sucesso!', 'success')
+        return redirect(url_for('admin.list_church_roles_by_id', church_id=church_id))
+    
+    return render_template('admin/add_church_role.html', church=church)
+
+
+@admin_bp.route('/church-roles/<int:church_id>/edit/<int:role_id>', methods=['GET', 'POST'])
+@login_required
+def edit_church_role(church_id, role_id):
+    if not is_global_admin():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('members.dashboard'))
+    
+    church = Church.query.get_or_404(church_id)
+    role = ChurchRole.query.get_or_404(role_id)
+    
+    if role.church_id != church_id:
+        flash('Cargo não encontrado nesta congregação.', 'danger')
+        return redirect(url_for('admin.list_church_roles_by_id', church_id=church_id))
+    
+    old_values = {'name': role.name, 'description': role.description}
+    
+    if request.method == 'POST':
+        role.name = request.form.get('name')
+        role.description = request.form.get('description')
+        role.order = int(request.form.get('order') or 0)
+        role.is_active = 'is_active' in request.form
+        role.is_lead_pastor = 'is_lead_pastor' in request.form
+        db.session.commit()
+        
+        # === LOG ADICIONADO ===
+        log_action(
+            action='UPDATE',
+            module='ROLE',
+            description=f"Cargo editado por admin global em {church.name}: {role.name}",
+            old_values=old_values,
+            new_values={'name': role.name, 'is_active': role.is_active},
+            church_id=church_id
+        )
+        # ======================
+        
+        flash('Cargo atualizado!', 'success')
+        return redirect(url_for('admin.list_church_roles_by_id', church_id=church_id))
+    
+    return render_template('admin/edit_church_role.html', church=church, role=role)
+
+
+@admin_bp.route('/church-roles/<int:church_id>/delete/<int:role_id>')
+@login_required
+def delete_church_role(church_id, role_id):
+    if not is_global_admin():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('members.dashboard'))
+    
+    church = Church.query.get_or_404(church_id)
+    role = ChurchRole.query.get_or_404(role_id)
+    
+    if role.church_id != church_id:
+        flash('Cargo não encontrado nesta congregação.', 'danger')
+        return redirect(url_for('admin.list_church_roles_by_id', church_id=church_id))
+    
+    role_data = {'id': role.id, 'name': role.name}
+    # === LOG ADICIONADO ===
+    log_action(
+        action='DELETE',
+        module='ROLE',
+        description=f"Cargo excluído por admin global em {church.name}: {role_data['name']}",
+        old_values=role_data,
+        church_id=church_id
+    )
+    # ======================    
+    db.session.delete(role)
+    db.session.commit()
+    
+
+    
+    flash('Cargo excluído com sucesso!', 'success')
+    return redirect(url_for('admin.list_church_roles_by_id', church_id=church_id))
+
+@admin_bp.route('/member/card-generate/<int:id>', methods=['POST'])
+@login_required
+def member_card_generate(id):
+    """Gera o cartao PNG com foto customizada e zoom"""
+    member = User.query.get_or_404(id)
+    
+    is_global = is_global_admin()
+    is_lead_pastor = (
+        current_user.church_role 
+        and current_user.church_role.is_lead_pastor 
+        and current_user.church_role == member.church_role
+    )
+    
+    if not (is_global or is_lead_pastor):
+        return jsonify({'success': False, 'message': 'Acesso negado'}), 403
+    
+    church = member.church
+    if not church:
+        return jsonify({'success': False, 'message': 'Membro nao vinculado a nenhuma congregacao'}), 400
+    
+    WIDTH, HEIGHT = 1200, 756
+    
+    def generate_card_side_custom(background_path, layout, fields_data, custom_photo_path=None, photo_zoom=1.0, photo_offset_x=0, photo_offset_y=0, is_front=False):
+        # Cria imagem base
+        if background_path and os.path.exists(os.path.join(current_app.static_folder, background_path)):
+            bg_path = os.path.join(current_app.static_folder, background_path)
+            img = Image.open(bg_path).convert('RGBA')
+            img = img.resize((WIDTH, HEIGHT), Image.LANCZOS)
+        else:
+            img = Image.new('RGBA', (WIDTH, HEIGHT), (255, 255, 255, 255))
+        
+        draw = ImageDraw.Draw(img)
+        
+        try:
+            font_path = "fonts/DejaVuSans.ttf"
+            font_normal = ImageFont.truetype(font_path, 20)
+            font_bold = ImageFont.truetype(font_path, 25)
+            font_small = ImageFont.truetype(font_path, 15)
+        except:
+            font_normal = ImageFont.load_default()
+            font_bold = font_normal
+            font_small = font_normal
+        
+        for field, data in layout.items():
+            if field not in fields_data:
+                continue
+            x = int(data.get('x', 0) * (WIDTH / 856))
+            y = int(data.get('y', 0) * (HEIGHT / 540))
+            w = int(data.get('width', 200) * (WIDTH / 856))
+            h = int(data.get('height', 40) * (HEIGHT / 540))
+            text = str(fields_data[field])
+            
+            font = font_bold if field in ['name', 'role', 'filiacao', 'signature'] else font_small if field in ['disclaimer'] else font_normal
+            
+            lines = textwrap.wrap(text, width=int(w / 8))
+            current_y = y + 5
+            for line in lines:
+                draw.text((x + 10, current_y), line, fill=(0, 0, 0), font=font)
+                current_y += font.getbbox(line)[3] + 5
+        
+        if is_front and 'photo' in layout:
+            photo_data = layout['photo']
+            photo_x = int(photo_data.get('x', 40) * (WIDTH / 856))
+            photo_y = int(photo_data.get('y', 140) * (HEIGHT / 540))
+            photo_w = int(photo_data.get('width', 220) * (WIDTH / 856))
+            photo_h = int(photo_data.get('height', 280) * (HEIGHT / 540))
+            
+            photo_path_to_use = custom_photo_path if custom_photo_path else member.profile_photo
+            
+            if photo_path_to_use:
+                if custom_photo_path and custom_photo_path.startswith('/'):
+                    photo_file_path = custom_photo_path
+                else:
+                    photo_file_path = os.path.join(current_app.static_folder, photo_path_to_use)
+                
+                if os.path.exists(photo_file_path):
+                    photo = Image.open(photo_file_path).convert('RGBA')
+                    photo_resized = ImageOps.fit(photo, (photo_w, photo_h), Image.LANCZOS)
+                    if photo_zoom != 1.0:
+                        zoomed_w = int(photo_resized.width * photo_zoom)
+                        zoomed_h = int(photo_resized.height * photo_zoom)
+                        photo_resized = photo_resized.resize((zoomed_w, zoomed_h), Image.LANCZOS)
+                    center_x = (photo_w - photo_resized.width) // 2
+                    center_y = (photo_h - photo_resized.height) // 2
+                    scale_factor = (WIDTH / 856)
+                    scaled_offset_x = int(photo_offset_x * scale_factor)
+                    scaled_offset_y = int(photo_offset_y * scale_factor)
+                    final_x = center_x + scaled_offset_x
+                    final_y = center_y + scaled_offset_y
+                    final_x = max(0, min(final_x, photo_w - photo_resized.width))
+                    final_y = max(0, min(final_y, photo_h - photo_resized.height))
+                    temp_img = Image.new('RGBA', (photo_w, photo_h), (0, 0, 0, 0))
+                    temp_img.paste(photo_resized, (final_x, final_y), photo_resized)
+                    img.paste(temp_img, (photo_x, photo_y), temp_img)
+        
+        return img
+    
+    data = request.get_json()
+    photo_zoom = float(data.get('photo_zoom', 1.0))
+    photo_offset_x = float(data.get('photo_offset_x', 0))
+    photo_offset_y = float(data.get('photo_offset_y', 0))
+    custom_photo_path = data.get('custom_photo_path')
+    
+    front_layout = church.card_front_layout or {}
+    front_data = {
+        'name': member.name or '',
+        'role': member.church_role.name if member.church_role else 'Membro',
+        'marital_status': member.marital_status or 'Nao informado',
+        'birth_date': member.birth_date.strftime('%d/%m/%Y') if member.birth_date else 'Nao informado',
+    }
+    
+    back_layout = church.card_back_layout or {}
+    back_data = {
+        'filiacao': church.name or 'Nao informado',
+        'document': member.tax_id or member.documents or 'Nao informado',
+        'conversion_date': member.conversion_date.strftime('%d/%m/%Y') if member.conversion_date else 'Nao informado',
+        'baptism_date': member.baptism_date.strftime('%d/%m/%Y') if member.baptism_date else 'Nao informado',
+        'disclaimer': 'Este documento tem validade enquanto o(a) titular permanecer em plena comunhao como membro da Assembleia de Deus IEAD Jesus para as Nacoes em Aveiro - Portugal.',
+        'signature': 'Pr. Fernando Telles dos Santos\nPresidente da IEAD Jesus Para as Nacoes'
+    }
+    
+    front_img = generate_card_side_custom(
+        church.member_card_front, 
+        front_layout, 
+        front_data, 
+        custom_photo_path=custom_photo_path,
+        photo_zoom=photo_zoom,
+        photo_offset_x=photo_offset_x,
+        photo_offset_y=photo_offset_y,
+        is_front=True
+    )
+    back_img = generate_card_side_custom(
+        church.member_card_back, 
+        back_layout, 
+        back_data, 
+        is_front=False
+    )
+    
+    total_height = front_img.height + back_img.height + 60
+    combined = Image.new('RGB', (max(front_img.width, back_img.width), total_height), (255, 255, 255))
+    combined.paste(front_img, ((combined.width - front_img.width) // 2, 0))
+    combined.paste(back_img, ((combined.width - back_img.width) // 2, front_img.height + 60))
+    
+    img_io = BytesIO()
+    combined.save(img_io, 'PNG', quality=95)
+    img_io.seek(0)
+    
+    # === LOG ADICIONADO ===
+    log_action(
+        action='GENERATE',
+        module='CARD',
+        description=f"Cartão de membro gerado para: {member.name}",
+        new_values={'member_id': member.id},
+        church_id=member.church_id
+    )
+    # ======================
+    
+    return send_file(
+        img_io,
+        mimetype='image/png',
+        as_attachment=True,
+        download_name=f'cartao_membro_{member.name.replace(" ", "_")}.png'
+    )
+
+
+@admin_bp.route('/member/card-upload-temp/<int:id>', methods=['POST'])
+@login_required
+def member_card_upload_temp(id):
+    """Upload temporario de foto para pre-visualizacao"""
+    member = User.query.get_or_404(id)
+    
+    is_global = is_global_admin()
+    is_lead_pastor = (
+        current_user.church_role 
+        and current_user.church_role.is_lead_pastor 
+        and current_user.church_role == member.church_role
+    )
+    
+    if not (is_global or is_lead_pastor):
+        return jsonify({'success': False, 'message': 'Acesso negado'}), 403
+    
+    file = request.files.get('photo')
+    if not file or not file.filename:
+        return jsonify({'success': False, 'message': 'Nenhum arquivo enviado'}), 400
+    
+    try:
+        filename = secure_filename(file.filename)
+        temp_dir = os.path.join(current_app.config['UPLOAD_FOLDER'], 'temp_card_photos')
+        os.makedirs(temp_dir, exist_ok=True)
+        
+        unique_filename = f"{uuid.uuid4()}_{filename}"
+        full_path = os.path.join(temp_dir, unique_filename)
+        file.save(full_path)
+        
+        return jsonify({
+            'success': True,
+            'photo_path': full_path,
+            'photo_url': f"/static/uploads/temp_card_photos/{unique_filename}"
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+# ==================== LOGS DO SISTEMA ====================
+
+@admin_bp.route('/logs')
+@login_required
+def view_logs():
+    """Visualização de logs do sistema"""
+    from app.core.models import SystemLog, Church
+    
+    is_global = is_global_admin()
+    is_pastor = current_user.church_role and current_user.church_role.is_lead_pastor
+    
+    if not (is_global or is_pastor):
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('members.dashboard'))
+    
+    church_id = request.args.get('church_id', type=int)
+    page = request.args.get('page', 1, type=int)
+    
+    query = SystemLog.query
+    
+    if is_pastor and not is_global:
+        query = query.filter_by(church_id=current_user.church_id)
+    elif church_id:
+        query = query.filter_by(church_id=church_id)
+    
+    logs = query.order_by(SystemLog.created_at.desc()).paginate(page=page, per_page=50)
+    churches = Church.query.all() if is_global else []
+    
+    return render_template('admin/logs.html', logs=logs, churches=churches)
+
+
+@admin_bp.route('/log-details/<int:log_id>')
+@login_required
+def log_details(log_id):
+    """Retorna detalhes de um log específico"""
+    from app.core.models import SystemLog
+    
+    log = SystemLog.query.get_or_404(log_id)
+    
+    is_global = is_global_admin()
+    is_pastor = current_user.church_role and current_user.church_role.is_lead_pastor
+    
+    if not (is_global or is_pastor):
+        return jsonify({'error': 'Acesso negado'}), 403
+    
+    if is_pastor and not is_global and log.church_id != current_user.church_id:
+        return jsonify({'error': 'Acesso negado'}), 403
+    
+    return jsonify({
+        'old_values': log.old_values,
+        'new_values': log.new_values
+    })
+
+# ==================== TEMAS PERSONALIZADOS ====================
+
+@admin_bp.route('/church/<int:church_id>/theme', methods=['GET', 'POST'])
+@login_required
+def edit_church_theme(church_id):
+    """Configurar tema personalizado da igreja"""
+    from app.core.models import ChurchTheme
+    import os
+    
+    church = Church.query.get_or_404(church_id)
+    if not can_edit_church(church):
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('admin.list_churches'))
+    
+    # Buscar ou criar tema (sempre existe, nunca é deletado)
+    theme = ChurchTheme.query.filter_by(church_id=church.id).first()
+    if not theme:
+        theme = ChurchTheme(church_id=church.id)
+        db.session.add(theme)
+        db.session.commit()
+    
+    if request.method == 'POST':
+        action = request.form.get('action')
+        
+        if action == 'reset':
+            # RESTAURAR PADRÃO: mantém o registro, apenas desativa personalização
+            theme.is_custom = False
+            
+            # ===== LIMPAR LOGOS =====
+            # Remove os caminhos do banco
+            theme.logo_light = None
+            theme.logo_dark = None
+            
+            # Opcional: deleta os arquivos físicos do disco
+            for logo_type in ['light', 'dark']:
+                logo_attr = f'logo_{logo_type}'
+                old_logo = getattr(theme, logo_attr, None)
+                if old_logo:
+                    # Constrói o caminho completo do arquivo
+                    full_path = os.path.join(
+                        current_app.config['UPLOAD_FOLDER'],
+                        'churches',
+                        'themes',
+                        os.path.basename(old_logo)
+                    )
+                    # Tenta remover o arquivo se existir
+                    if os.path.exists(full_path):
+                        try:
+                            os.remove(full_path)
+                        except Exception as e:
+                            current_app.logger.warning(f"Não foi possível remover o logo {logo_type}: {e}")
+            
+            db.session.commit()
+            
+            log_action(
+                action='RESET',
+                module='THEME',
+                description=f"Tema restaurado para o padrão para {church.name} (logos removidos)",
+                church_id=church.id
+            )
+            
+            flash('Tema restaurado para o padrão! Logos removidos. Você pode personalizar novamente quando quiser.', 'success')
+            return redirect(url_for('admin.edit_church_theme', church_id=church.id))
+        
+        # SALVAR TEMA PERSONALIZADO
+        theme.is_custom = True
+        
+        # Cores do tema claro
+        theme.light_primary = request.form.get('light_primary', '#4f46e5')
+        theme.light_primary_hover = request.form.get('light_primary_hover', '#4338ca')
+        theme.light_secondary = request.form.get('light_secondary', '#64748b')
+        theme.light_success = request.form.get('light_success', '#10b981')
+        theme.light_danger = request.form.get('light_danger', '#ef4444')
+        theme.light_warning = request.form.get('light_warning', '#f59e0b')
+        theme.light_info = request.form.get('light_info', '#06b6d4')
+        theme.light_bg_main = request.form.get('light_bg_main', '#f8fafc')
+        theme.light_bg_card = request.form.get('light_bg_card', '#ffffff')
+        theme.light_text_main = request.form.get('light_text_main', '#1e293b')
+        theme.light_text_muted = request.form.get('light_text_muted', '#64748b')
+        theme.light_border = request.form.get('light_border', '#e2e8f0')
+        theme.light_sidebar_bg = request.form.get('light_sidebar_bg', '#1e293b')
+        theme.light_sidebar_text = request.form.get('light_sidebar_text', '#f8fafc')
+        theme.light_input_bg = request.form.get('light_input_bg', '#ffffff')
+        
+        # Cores do tema escuro
+        theme.dark_primary = request.form.get('dark_primary', '#6366f1')
+        theme.dark_primary_hover = request.form.get('dark_primary_hover', '#818cf8')
+        theme.dark_secondary = request.form.get('dark_secondary', '#94a3b8')
+        theme.dark_success = request.form.get('dark_success', '#34d399')
+        theme.dark_danger = request.form.get('dark_danger', '#f87171')
+        theme.dark_warning = request.form.get('dark_warning', '#fbbf24')
+        theme.dark_info = request.form.get('dark_info', '#22d3ee')
+        theme.dark_bg_main = request.form.get('dark_bg_main', '#0f172a')
+        theme.dark_bg_card = request.form.get('dark_bg_card', '#1e293b')
+        theme.dark_text_main = request.form.get('dark_text_main', '#f1f5f9')
+        theme.dark_text_muted = request.form.get('dark_text_muted', '#94a3b8')
+        theme.dark_border = request.form.get('dark_border', '#334155')
+        theme.dark_sidebar_bg = request.form.get('dark_sidebar_bg', '#020617')
+        theme.dark_sidebar_text = request.form.get('dark_sidebar_text', '#f1f5f9')
+        theme.dark_input_bg = request.form.get('dark_input_bg', '#1e293b')
+        
+        # CAMPOS DO DEVOCIONAL
+        theme.devotional_gradient_start = request.form.get('devotional_gradient_start', '#4f46e5')
+        theme.devotional_gradient_end = request.form.get('devotional_gradient_end', '#06b6d4')
+        theme.devotional_text_color = request.form.get('devotional_text_color', '#ffffff')
+        theme.devotional_badge_bg = request.form.get('devotional_badge_bg', '#ffffff')
+        theme.devotional_badge_text = request.form.get('devotional_badge_text', '#4f46e5')
+        theme.devotional_icon_color = request.form.get('devotional_icon_color', '#ffffff')
+        theme.devotional_icon_opacity = request.form.get('devotional_icon_opacity', '15%')
+        
+        # Overlays (vêm como rgba dos campos hidden)
+        theme.devotional_overlay_light = request.form.get('devotional_overlay_light', 'rgba(0,0,0,0.4)')
+        theme.devotional_overlay_dark = request.form.get('devotional_overlay_dark', 'rgba(0,0,0,0.6)')
+        
+        # CSS personalizado
+        theme.custom_css = request.form.get('custom_css')
+        
+        # Upload de logos (CORRIGIDO: sem 'uploads' duplicado)
+        for logo_type in ['light', 'dark']:
+            file = request.files.get(f'logo_{logo_type}')
+            if file and file.filename:
+                filename = secure_filename(file.filename)
+                new_filename = f"{church.id}_{logo_type}_{filename}"
+                relative_path = f'uploads/churches/themes/{new_filename}'
+                full_path = os.path.join(
+                    current_app.config['UPLOAD_FOLDER'], 
+                    'churches', 
+                    'themes', 
+                    new_filename
+                )
+                os.makedirs(os.path.dirname(full_path), exist_ok=True)
+                file.save(full_path)
+                setattr(theme, f'logo_{logo_type}', relative_path)
+        
+        db.session.commit()
+        
+        log_action(
+            action='UPDATE',
+            module='THEME',
+            description=f"Tema personalizado para {church.name}",
+            church_id=church.id
+        )
+        
+        flash('Tema personalizado salvo com sucesso!', 'success')
+        return redirect(url_for('admin.edit_church_theme', church_id=church.id))
+    
+    return render_template('admin/church_theme.html', church=church, theme=theme)
+
+# ===== MÓDULO AUTH ===== #
+# app/modules/auth/routes.py
+from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app
+from flask_login import login_user, logout_user, current_user, login_required
+from app.core.models import db, User, Church
+from app.utils.logger import log_action  # <-- ÚNICA LINHA ADICIONADA
+from werkzeug.utils import secure_filename
+from datetime import datetime
+import os
+import uuid
+
+# SendGrid imports
+from sendgrid import SendGridAPIClient
+from sendgrid.helpers.mail import Mail
+
+auth_bp = Blueprint('auth', __name__)
+
+def send_verification_email(user):
+    """
+    Envia email de verificação usando SendGrid API (não SMTP).
+    Retorna o token gerado ou None em caso de erro.
+    """
+    # Gera novo token se necessário (mas você já gera antes de chamar)
+    token = user.email_verification_token
+    if not token:
+        token = str(uuid.uuid4())
+        user.email_verification_token = token
+        db.session.commit()
+
+    # Busca nome da igreja para personalizar
+    church = Church.query.get(user.church_id) if user.church_id else None
+    church_name = church.name if church else "Ecclesia Master"
+
+    # URL de verificação
+    verification_url = url_for('auth.verify_email', token=token, _external=True)
+
+    # Mensagem HTML bonita e simples
+    html_content = f"""
+    <html>
+    <body style="font-family: Arial, sans-serif; line-height: 1.6;">
+        <h2>Olá {user.name},</h2>
+        <p>Bem-vindo à <strong>{church_name}</strong>!</p>
+        <p>Ficamos muito felizes com seu interesse em se juntar a nós.</p>
+        <p>Para ativar sua conta no sistema Ecclesia Master, clique no botão abaixo:</p>
+        <p style="text-align: center; margin: 30px 0;">
+            <a href="{verification_url}" 
+               style="background-color: #4CAF50; color: white; padding: 12px 24px; 
+                      text-decoration: none; border-radius: 5px; font-size: 16px;">
+                Verificar Meu Email Agora
+            </a>
+        </p>
+        <p>Se o botão não funcionar, copie e cole este link no navegador:</p>
+        <p><a href="{verification_url}">{verification_url}</a></p>
+        <p>Este link expira em 24 horas.</p>
+        <p>Que Deus te abençoe ricamente!</p>
+        <p>Atenciosamente,<br>Equipe {church_name}</p>
+    </body>
+    </html>
+    """
+
+    message = Mail(
+        from_email='adjesus.sede@gmail.com',  # Seu email verificado no SendGrid
+        to_emails=user.email,
+        subject=f'Verifique seu e-mail - {church_name}',
+        html_content=html_content
+    )
+
+    try:
+        sg = SendGridAPIClient(current_app.config.get('SENDGRID_API_KEY'))
+        response = sg.send(message)
+        current_app.logger.info(f"Email de verificação enviado para {user.email} - Status: {response.status_code}")
+        print(f"✓ Email enviado com sucesso para {user.email} via SendGrid")
+        return token
+    except Exception as e:
+        current_app.logger.error(f"Erro ao enviar email via SendGrid: {str(e)}")
+        print(f"✗ Erro ao enviar email: {str(e)}")
+        # Em dev, mostra o link de simulação
+        flash(f'DEBUG (envio falhou): Clique aqui para verificar: {verification_url}', 'warning')
+        return token  # Retorna token mesmo com erro para debug
+
+@auth_bp.route('/login', methods=['GET', 'POST'])
+def login():
+    if current_user.is_authenticated:
+        return redirect(url_for('members.dashboard'))
+    
+    if request.method == 'POST':
+        email = request.form.get('email')
+        password = request.form.get('password')
+        user = User.query.filter_by(email=email).first()
+        if user and user.check_password(password):
+            if user.status == 'active':
+                login_user(user)
+                
+                # === LOG ADICIONADO ===
+                #log_action(
+                #    action='LOGIN',
+                #    module='AUTH',
+                #    description=f"Login realizado: {user.name}",
+                #    new_values={'user_id': user.id, 'email': user.email},
+                #    church_id=user.church_id
+                #)
+                # ======================
+                
+                flash('Login bem-sucedido!', 'success')
+                return redirect(url_for('members.dashboard'))
+            elif user.status == 'pending':
+                flash('Sua conta está aguardando aprovação da liderança.', 'warning')
+            else:
+                flash('Sua solicitação de conta foi rejeitada.', 'danger')
+        else:
+            flash('E-mail ou senha incorretos.', 'danger')
+    
+    return render_template('auth/login.html')
+
+@auth_bp.route('/register/select-church')
+def select_church():
+    churches = Church.query.all()
+    return render_template('auth/select_church.html', churches=churches)
+
+@auth_bp.route('/register', methods=['GET', 'POST'])
+def register():
+    church_id = request.args.get('church_id') or request.form.get('church_id')
+    
+    if not church_id:
+        return redirect(url_for('auth.select_church'))
+    
+    church = Church.query.get_or_404(church_id)
+    
+    if request.method == 'POST':
+        name = request.form.get('name')
+        email = request.form.get('email')
+        password = request.form.get('password')
+        
+        birth_date_str = request.form.get('birth_date')
+        birth_date = datetime.strptime(birth_date_str, '%Y-%m-%d').date() if birth_date_str else None
+        
+        baptism_date_str = request.form.get('baptism_date')
+        baptism_date = datetime.strptime(baptism_date_str, '%Y-%m-%d').date() if baptism_date_str else None
+        
+        gender = request.form.get('gender')
+        marital_status = request.form.get('marital_status')
+        spouse_name = request.form.get('spouse_name')
+        tax_id = request.form.get('tax_id') # CPF ou NIF
+        address = request.form.get('address')
+        phone = request.form.get('phone')
+        
+        # Consentimento RGPD/LGPD
+        data_consent = 'data_consent' in request.form
+        marketing_consent = 'marketing_consent' in request.form
+        
+        if not data_consent:
+            flash('Você deve aceitar os termos de tratamento de dados para se cadastrar.', 'danger')
+            return render_template('auth/register.html', church=church)
+
+        # Upload de foto
+        profile_photo = None
+        file = request.files.get('profile_photo')
+        if file and file.filename:
+            filename = secure_filename(file.filename)
+            upload_path = os.path.join(current_app.config['UPLOAD_FOLDER'], 'profiles')
+            os.makedirs(upload_path, exist_ok=True)
+            file.save(os.path.join(upload_path, filename))
+            profile_photo = 'uploads/profiles/' + filename
+        
+        new_user = User(
+            name=name.strip() if name else '',
+            email=email.lower().strip() if email else '',
+            birth_date=birth_date,
+            baptism_date=baptism_date,
+            gender=gender,
+            marital_status=marital_status,
+            spouse_name=spouse_name if marital_status == 'Casado(a)' else None,
+            tax_id=tax_id,
+            address=address,
+            phone=phone,
+            profile_photo=profile_photo,
+            church_id=church.id,
+            status='pending',
+            data_consent=data_consent,
+            data_consent_date=datetime.utcnow(),
+            marketing_consent=marketing_consent,
+            is_email_verified=True # Definido como True por padrão enquanto a verificação está desativada
+        )
+        new_user.set_password(password)
+
+        # Gera token antes de commit (mantido para compatibilidade futura)
+        token = str(uuid.uuid4())
+        new_user.email_verification_token = token
+
+        db.session.add(new_user)
+        db.session.commit()
+        
+        # === LOG ADICIONADO ===
+        #log_action(
+        #    action='REGISTER',
+        #    module='AUTH',
+        #    description=f"Novo registro: {new_user.name}",
+        #    new_values={'id': new_user.id, 'name': new_user.name, 'email': new_user.email},
+        #    church_id=church.id
+        #)
+        # ======================
+        
+        flash('Cadastro realizado com sucesso! Agora aguarde a aprovação da liderança para acessar o sistema.', 'success')
+        return redirect(url_for('auth.login'))
+    
+    return render_template('auth/register.html', church=church)
+
+@auth_bp.route('/verify-email/<token>')
+def verify_email(token):
+    user = User.query.filter_by(email_verification_token=token).first_or_404()
+    user.is_email_verified = True
+    user.email_verification_token = None
+    db.session.commit()
+    
+    # === LOG ADICIONADO ===
+    log_action(
+        action='VERIFY_EMAIL',
+        module='AUTH',
+        description=f"E-mail verificado: {user.name}",
+        new_values={'user_id': user.id, 'email': user.email},
+        church_id=user.church_id
+    )
+    # ======================
+    
+    flash('E-mail verificado com sucesso! Agora aguarde a aprovação da liderança.', 'success')
+    return redirect(url_for('auth.login'))
+
+@auth_bp.route('/resend-verification', methods=['GET', 'POST'])
+def resend_verification():
+    if request.method == 'POST':
+        email = request.form.get('email')
+        user = User.query.filter_by(email=email).first()
+        if user:
+            if user.is_email_verified:
+                flash('Este e-mail já foi verificado. Faça login normalmente.', 'info')
+            else:
+                # token = send_verification_email(user)
+                flash('A verificação de e-mail está desativada no momento.', 'info')
+        else:
+            flash('E-mail não encontrado.', 'danger')
+        return redirect(url_for('auth.login'))
+    return render_template('auth/resend_verification.html')
+
+@auth_bp.route('/logout')
+@login_required
+def logout():
+    # === LOG ADICIONADO ===
+    #log_action(
+    #    action='LOGOUT',
+    #    module='AUTH',
+    #    description=f"Logout realizado: {current_user.name}",
+    #    new_values={'user_id': current_user.id},
+    #    church_id=current_user.church_id
+    #)
+    # ======================
+    
+    logout_user()
+    flash('Logout realizado com sucesso.', 'info')
+    return redirect(url_for('auth.login'))
+
+@auth_bp.route('/approve_member/<int:user_id>', methods=['POST'])
+@login_required
+def approve_member(user_id):
+    member = User.query.get_or_404(user_id)
+    action = request.form.get('action')
+    old_status = member.status
+    
+    if action == 'approve':
+        member.status = 'active'
+        
+        # === LOG DE APROVAÇÃO ===
+        log_action(
+            action='APPROVE',
+            module='MEMBERS',
+            description=f"Membro aprovado: {member.name}",
+            old_values={'status': old_status},
+            new_values={'status': 'active', 'id': member.id, 'name': member.name},
+            church_id=member.church_id
+        )
+        # ========================
+        
+        flash('Membro aprovado com sucesso!', 'success')
+        
+    elif action == 'reject':
+        member.status = 'rejected'
+        
+        # === LOG DE REJEIÇÃO ===
+        log_action(
+            action='REJECT',
+            module='MEMBERS',
+            description=f"Membro rejeitado: {member.name}",
+            old_values={'status': old_status},
+            new_values={'status': 'rejected', 'id': member.id, 'name': member.name},
+            church_id=member.church_id
+        )
+        # ========================
+        
+        flash('Solicitação de membro rejeitada.', 'info')
+        
+    db.session.commit()
+    return redirect(request.referrer or url_for('members.dashboard'))
+
+@auth_bp.route('/change-password', methods=['GET', 'POST'])
+@login_required
+def change_password():
+    if request.method == 'POST':
+        old_password = request.form.get('old_password')
+        new_password = request.form.get('new_password')
+        confirm_password = request.form.get('confirm_password')
+        
+        if not current_user.check_password(old_password):
+            flash('Senha atual incorreta.', 'danger')
+        elif new_password != confirm_password:
+            flash('As novas senhas não coincidem.', 'danger')
+        else:
+            current_user.set_password(new_password)
+            db.session.commit()
+            
+            # === LOG ADICIONADO ===
+            log_action(
+                action='CHANGE_PASSWORD',
+                module='AUTH',
+                description=f"Senha alterada: {current_user.name}",
+                new_values={'user_id': current_user.id},
+                church_id=current_user.church_id
+            )
+            # ======================
+            
+            flash('Senha alterada com sucesso!', 'success')
+            return redirect(url_for('members.profile'))
+            
+    return render_template('auth/change_password.html')
+
+# ===== MÓDULO EDIFICATION ===== #
+from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app
+from flask_login import login_required, current_user
+from app.core.models import db, Devotional, Study, KidsActivity, StudyQuestion, Media, Ministry, Album, BibleStory, BibleQuiz
+from app.utils.logger import log_action  # <-- ÚNICA LINHA ADICIONADA
+from datetime import datetime
+from PIL import Image
+from werkzeug.utils import secure_filename
+import os
+import json
+from PIL import Image
+import pillow_heif
+from app.utils.text_extractor import extract_text
+from app.utils.gemini_service import generate_questions
+
+# Registra suporte a HEIC
+pillow_heif.register_heif_opener()
+
+edification_bp = Blueprint('edification', __name__)
+
+def can_publish_content():
+    return current_user.can_publish_devotionals or (
+        current_user.church_role and (
+            current_user.church_role.name == 'Administrador Global' or
+            current_user.church_role.is_lead_pastor
+        )
+    )
+
+@edification_bp.route('/devotionals')
+@login_required
+def devotionals():
+    devotionals = Devotional.query.order_by(Devotional.date.desc()).all()
+    return render_template('edification/devotionals.html', devotionals=devotionals)
+
+@edification_bp.route('/devotionals/manage')
+@login_required
+def list_devotionals():
+    if not can_publish_content():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('edification.devotionals'))
+    devotionals = Devotional.query.order_by(Devotional.date.desc()).all()
+    return render_template('edification/list_devotionals.html', devotionals=devotionals)
+
+@edification_bp.route('/devotional/add', methods=['GET', 'POST'])
+@login_required
+def add_devotional():
+    if not can_publish_content():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('edification.devotionals'))
+    
+    if request.method == 'POST':
+        new_dev = Devotional(
+            title=request.form.get('title'),
+            content=request.form.get('content'),
+            verse=request.form.get('verse'),
+            date=datetime.strptime(request.form.get('date'), '%Y-%m-%d').date()
+        )
+        db.session.add(new_dev)
+        db.session.commit()
+        
+        # === LOG ADICIONADO ===
+        log_action(
+            action='CREATE',
+            module='DEVOTIONAL',
+            description=f"Novo devocional: {new_dev.title}",
+            new_values={'id': new_dev.id, 'title': new_dev.title},
+            church_id=current_user.church_id
+        )
+        # ======================
+        
+        flash('Devocional publicado!', 'success')
+        return redirect(url_for('edification.list_devotionals'))
+    
+    return render_template('edification/add_devotional.html')
+
+@edification_bp.route('/devotional/<int:id>/edit', methods=['GET', 'POST'])
+@login_required
+def edit_devotional(id):
+    if not can_publish_content():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('edification.devotionals'))
+    
+    dev = Devotional.query.get_or_404(id)
+    old_values = {'title': dev.title, 'verse': dev.verse}
+    
+    if request.method == 'POST':
+        dev.title = request.form.get('title')
+        dev.content = request.form.get('content')
+        dev.verse = request.form.get('verse')
+        dev.date = datetime.strptime(request.form.get('date'), '%Y-%m-%d').date()
+        db.session.commit()
+        
+        # === LOG ADICIONADO ===
+        log_action(
+            action='UPDATE',
+            module='DEVOTIONAL',
+            description=f"Devocional editado: {dev.title}",
+            old_values=old_values,
+            new_values={'title': dev.title, 'verse': dev.verse},
+            church_id=current_user.church_id
+        )
+        # ======================
+        
+        flash('Devocional atualizado!', 'success')
+        return redirect(url_for('edification.list_devotionals'))
+    
+    return render_template('edification/edit_devotional.html', dev=dev)
+
+@edification_bp.route('/devotional/<int:id>/delete')
+@login_required
+def delete_devotional(id):
+    if not can_publish_content():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('edification.devotionals'))
+    
+    dev = Devotional.query.get_or_404(id)
+    dev_data = {'id': dev.id, 'title': dev.title}
+    
+    # === LOG ANTES DE DELETAR ===
+    log_action(
+        action='DELETE',
+        module='DEVOTIONAL',
+        description=f"Devocional excluído: {dev_data['title']}",
+        old_values=dev_data,
+        church_id=current_user.church_id
+    )
+    # ============================
+    
+    db.session.delete(dev)
+    db.session.commit()
+    flash('Devocional excluído!', 'info')
+    return redirect(url_for('edification.list_devotionals'))
+
+@edification_bp.route('/studies')
+@login_required
+def studies():
+    studies = Study.query.order_by(Study.created_at.desc()).all()
+    return render_template('edification/studies.html', studies=studies)
+
+@edification_bp.route('/study/<int:id>')
+@login_required
+def study_detail(id):
+    study = Study.query.get_or_404(id)
+    return render_template('edification/study_detail.html', study=study)
+
+@edification_bp.route('/study/add', methods=['GET', 'POST'])
+@login_required
+def add_study():
+    if not can_publish_content():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('edification.studies'))
+    
+    if request.method == 'POST':
+        title = request.form.get('title')
+        content = request.form.get('content')
+        category = request.form.get('category')
+        
+        file = request.files.get('study_file')
+        file_path = None
+        if file and file.filename != '':
+            filename = secure_filename(file.filename)
+            file_path = os.path.join(current_app.config['UPLOAD_FOLDER'], filename)
+            file.save(file_path)
+            try:
+                extracted_text = extract_text(file_path)
+                if not content:
+                    content = extracted_text
+            except Exception as e:
+                flash(f'Erro ao extrair texto do arquivo: {str(e)}', 'warning')
+
+        new_study = Study(
+            title=title,
+            content=content,
+            category=category,
+            author_id=current_user.id
+        )
+        db.session.add(new_study)
+        db.session.commit()
+        
+        # === LOG ADICIONADO ===
+        log_action(
+            action='CREATE',
+            module='STUDY',
+            description=f"Novo estudo: {new_study.title}",
+            new_values={'id': new_study.id, 'title': new_study.title},
+            church_id=current_user.church_id
+        )
+        # ======================
+        
+        if request.form.get('generate_ai_questions'):
+            question_count = 7
+            try:
+                if file_path:
+                    ai_data = generate_questions(file_path, type='adult', count=question_count, is_file=True)
+                elif content and len(content.strip()) >= 100:
+                    ai_data = generate_questions(content, type='adult', count=question_count)
+                else:
+                    flash('Conteúdo insuficiente para gerar questões com IA.', 'warning')
+                    ai_data = {}
+                
+                if "error" in ai_data:
+                    flash(f'Erro na IA: {ai_data["error"]}', 'danger')
+                elif "questions" in ai_data:
+                    for q_data in ai_data["questions"]:
+                        correct_letter = q_data["correct_option"].upper()
+                        new_q = StudyQuestion(
+                            study_id=new_study.id,
+                            question_text=q_data["question"],
+                            options=json.dumps(q_data["options"]),
+                            correct_option=correct_letter,
+                            explanation=q_data.get("explanation"),
+                            is_published=False
+                        )
+                        db.session.add(new_q)
+                    db.session.commit()
+                    
+                    # === LOG ADICIONADO ===
+                    log_action(
+                        action='GENERATE',
+                        module='STUDY_QUESTIONS',
+                        description=f"Questões geradas por IA para estudo: {new_study.title}",
+                        new_values={'study_id': new_study.id, 'questions_count': len(ai_data["questions"])},
+                        church_id=current_user.church_id
+                    )
+                    # ======================
+                    
+                    flash(f'{len(ai_data["questions"])} questões geradas pela IA aguardando revisão!', 'success')
+                    return redirect(url_for('edification.review_study_questions', study_id=new_study.id))
+            except Exception as e:
+                flash('Estudo adicionado, mas erro ao gerar questões: {str(e)}', 'warning')
+        
+        flash('Estudo publicado com sucesso!', 'success')
+        return redirect(url_for('edification.studies'))
+    
+    return render_template('edification/add_study.html')
+
+@edification_bp.route('/study/<int:study_id>/review-questions', methods=['GET', 'POST'])
+@login_required
+def review_study_questions(study_id):
+    if not can_publish_content():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('edification.studies'))
+    
+    study = Study.query.get_or_404(study_id)
+    questions = StudyQuestion.query.filter_by(study_id=study_id).all()
+    
+    if request.method == 'POST':
+        action = request.form.get('action')
+        if action == 'regenerate':
+            old_questions = [{'id': q.id, 'text': q.question_text} for q in questions]
+            
+            StudyQuestion.query.filter_by(study_id=study_id, is_published=False).delete()
+            question_count = 7
+            ai_data = generate_questions(study.content, type='adult', count=question_count)
+            if "questions" in ai_data:
+                correct_map = {'A': 1, 'B': 2, 'C': 3, 'D': 4}
+                for q_data in ai_data["questions"]:
+                    correct_option = correct_map.get(q_data["correct_option"].upper(), 1)
+                    new_q = StudyQuestion(
+                        study_id=study_id,
+                        question_text=q_data["question"],
+                        options=json.dumps(q_data["options"]),
+                        correct_option=correct_option,
+                        explanation=q_data.get("explanation"),
+                        is_published=False
+                    )
+                    db.session.add(new_q)
+                db.session.commit()
+                
+                # === LOG ADICIONADO ===
+                log_action(
+                    action='REGENERATE',
+                    module='STUDY_QUESTIONS',
+                    description=f"Questões regeneradas para estudo: {study.title}",
+                    old_values={'old_questions': old_questions},
+                    new_values={'new_questions_count': len(ai_data["questions"])},
+                    church_id=current_user.church_id
+                )
+                # ======================
+                
+                flash('Novas questões geradas com sucesso!', 'success')
+            return redirect(url_for('edification.review_study_questions', study_id=study_id))
+        
+        published_ids = request.form.getlist('publish_ids[]')
+        correct_map = {'A': 1, 'B': 2, 'C': 3, 'D': 4}
+        for q in questions:
+            old_text = q.question_text
+            old_correct = q.correct_option
+            
+            q.question_text = request.form.get(f'question_{q.id}')
+            q.correct_option = correct_map.get(request.form.get(f'correct_{q.id}'), 1)
+            q.is_published = str(q.id) in published_ids
+            
+            if old_text != q.question_text or old_correct != q.correct_option:
+                log_action(
+                    action='UPDATE',
+                    module='STUDY_QUESTIONS',
+                    description="Questão de estudo editada",
+                    old_values={'text': old_text, 'correct': old_correct},
+                    new_values={'text': q.question_text, 'correct': q.correct_option},
+                    church_id=current_user.church_id
+                )
+        
+        db.session.commit()
+        
+        # === LOG ADICIONADO ===
+        log_action(
+            action='PUBLISH',
+            module='STUDY_QUESTIONS',
+            description=f"Questões publicadas para estudo: {study.title}",
+            new_values={'published_count': len(published_ids)},
+            church_id=current_user.church_id
+        )
+        # ======================
+        
+        flash('Questões revisadas e publicadas!', 'success')
+        return redirect(url_for('edification.study_detail', id=study_id))
+        
+    return render_template('edification/review_questions.html', study=study, questions=questions)
+
+@edification_bp.route('/kids')
+@login_required
+def kids():
+    is_kids_ministry_member = any(m.is_kids_ministry for m in current_user.ministries)
+    has_permission = (
+        current_user.can_manage_kids 
+        or (current_user.church_role and (
+            current_user.church_role.name == 'Administrador Global' 
+            or current_user.church_role.is_lead_pastor
+        ))
+    )    
+    if not has_permission and not is_kids_ministry_member:
+        flash('Acesso negado. Espaço restrito ao Ministério Kids.', 'danger')
+        return redirect(url_for('members.dashboard'))
+    
+    activities = KidsActivity.query.order_by(KidsActivity.created_at.desc()).all()
+    stories = BibleStory.query.order_by(BibleStory.order.asc()).all()
+    
+    return render_template('edification/kids.html', activities=activities, stories=stories)
+
+@edification_bp.route('/kids/manage')
+@login_required
+def manage_kids():
+    if not current_user.can_manage_kids and not (current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder']):
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('edification.kids'))
+    
+    stories = BibleStory.query.order_by(BibleStory.order.asc()).all()
+    activities = KidsActivity.query.order_by(KidsActivity.created_at.desc()).all()
+    return render_template('edification/manage_kids.html', stories=stories, activities=activities)
+
+@edification_bp.route('/kids/story/add', methods=['POST'])
+@login_required
+def add_bible_story():
+    if not current_user.can_manage_kids and not (current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder']): 
+        return redirect(url_for('edification.kids'))
+    
+    title = request.form.get('title')
+    content = request.form.get('content')
+    image_path = request.form.get('image_path')
+    
+    file = request.files.get('story_file')
+    file_path = None
+    if file and file.filename != '':
+        filename = secure_filename(file.filename)
+        file_path = os.path.join(current_app.config['UPLOAD_FOLDER'], filename)
+        file.save(file_path)
+        try:
+            extracted_text = extract_text(file_path)
+            if not content:
+                content = extracted_text
+        except Exception as e:
+            flash(f'Erro ao extrair texto do arquivo: {str(e)}', 'warning')
+
+    new_story = BibleStory(
+        title=title,
+        content=content,
+        reference=request.form.get('reference'),
+        image_path=image_path,
+        order=request.form.get('order', 0)
+    )
+    db.session.add(new_story)
+    db.session.commit()
+    
+    # === LOG ADICIONADO ===
+    log_action(
+        action='CREATE',
+        module='KIDS_STORY',
+        description=f"Nova história infantil: {new_story.title}",
+        new_values={'id': new_story.id, 'title': new_story.title},
+        church_id=current_user.church_id
+    )
+    # ======================
+
+    if request.form.get('generate_ai_questions'):
+        try:
+            if file_path:
+                ai_data = generate_questions(file_path, type='kids', count=7, is_file=True)
+            elif content and len(content.strip()) >= 100:
+                ai_data = generate_questions(content, type='kids', count=7)
+            else:
+                flash('Conteúdo insuficiente para gerar questões com IA.', 'warning')
+                ai_data = {}
+
+            if "error" in ai_data:
+                flash(f'Erro na IA: {ai_data["error"]}', 'danger')
+            elif "questions" in ai_data:
+                for q_data in ai_data["questions"]:
+                    new_q = BibleQuiz(
+                        story_id=new_story.id,
+                        question=q_data["question"],
+                        option_a=q_data["options"].get("A"),
+                        option_b=q_data["options"].get("B"),
+                        option_c=q_data["options"].get("C"),
+                        option_d=q_data["options"].get("D"),
+                        correct_option=q_data["correct_option"],
+                        explanation=q_data.get("explanation"),
+                        is_published=False
+                    )
+                    db.session.add(new_q)
+                
+                if "game_words" in ai_data:
+                    new_story.game_data = json.dumps(ai_data["game_words"])
+                
+                db.session.commit()
+                
+                # === LOG ADICIONADO ===
+                log_action(
+                    action='GENERATE',
+                    module='KIDS_QUESTIONS',
+                    description=f"Questões geradas para história: {new_story.title}",
+                    new_values={'story_id': new_story.id, 'questions_count': len(ai_data["questions"])},
+                    church_id=current_user.church_id
+                )
+                # ======================
+                
+                flash('História adicionada e questões geradas pela IA aguardando revisão!', 'success')
+                return redirect(url_for('edification.review_kids_questions', story_id=new_story.id))
+        except Exception as e:
+            flash(f'Erro ao gerar questões: {str(e)}', 'danger')
+
+    flash('História adicionada!', 'success')
+    return redirect(url_for('edification.manage_kids'))
+
+@edification_bp.route('/kids/story/<int:story_id>/review-questions', methods=['GET', 'POST'])
+@login_required
+def review_kids_questions(story_id):
+    if not current_user.can_manage_kids and not (current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder']): 
+        return redirect(url_for('edification.kids'))
+    
+    story = BibleStory.query.get_or_404(story_id)
+    questions = BibleQuiz.query.filter_by(story_id=story_id).all()
+    
+    if request.method == 'POST':
+        action = request.form.get('action')
+        if action == 'regenerate':
+            old_questions = [{'id': q.id, 'question': q.question} for q in questions]
+            
+            BibleQuiz.query.filter_by(story_id=story_id, is_published=False).delete()
+            ai_data = generate_questions(story.content, type='kids', count=7)
+            if "questions" in ai_data:
+                for q_data in ai_data["questions"]:
+                    new_q = BibleQuiz(
+                        story_id=story_id,
+                        question=q_data["question"],
+                        option_a=q_data["options"].get("A"),
+                        option_b=q_data["options"].get("B"),
+                        option_c=q_data["options"].get("C"),
+                        option_d=q_data["options"].get("D"),
+                        correct_option=q_data["correct_option"],
+                        explanation=q_data.get("explanation"),
+                        is_published=False
+                    )
+                    db.session.add(new_q)
+                
+                if "game_words" in ai_data:
+                    story.game_data = json.dumps(ai_data["game_words"])
+                    
+                db.session.commit()
+                
+                # === LOG ADICIONADO ===
+                log_action(
+                    action='REGENERATE',
+                    module='KIDS_QUESTIONS',
+                    description=f"Questões regeneradas para história: {story.title}",
+                    old_values={'old_questions': old_questions},
+                    new_values={'new_questions_count': len(ai_data["questions"])},
+                    church_id=current_user.church_id
+                )
+                # ======================
+                
+                flash('Novas questões geradas!', 'success')
+            return redirect(url_for('edification.review_kids_questions', story_id=story_id))
+        
+        published_ids = request.form.getlist('publish_ids[]')
+        for q in questions:
+            old_question = q.question
+            old_correct = q.correct_option
+            
+            q.question = request.form.get(f'question_{q.id}')
+            q.correct_option = request.form.get(f'correct_{q.id}')
+            q.is_published = str(q.id) in published_ids
+            
+            if old_question != q.question or old_correct != q.correct_option:
+                log_action(
+                    action='UPDATE',
+                    module='KIDS_QUESTIONS',
+                    description="Questão infantil editada",
+                    old_values={'question': old_question, 'correct': old_correct},
+                    new_values={'question': q.question, 'correct': q.correct_option},
+                    church_id=current_user.church_id
+                )
+        
+        db.session.commit()
+        
+        # === LOG ADICIONADO ===
+        log_action(
+            action='PUBLISH',
+            module='KIDS_QUESTIONS',
+            description=f"Questões publicadas para história: {story.title}",
+            new_values={'published_count': len(published_ids)},
+            church_id=current_user.church_id
+        )
+        # ======================
+        
+        flash('Questões infantis revisadas e publicadas!', 'success')
+        return redirect(url_for('edification.manage_kids'))
+        
+    return render_template('edification/review_kids_questions.html', story=story, questions=questions)
+
+@edification_bp.route('/kids/story/delete/<int:id>')
+@login_required
+def delete_bible_story(id):
+    if not current_user.can_manage_kids and not (current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder']): 
+        return redirect(url_for('edification.kids'))
+    
+    story = BibleStory.query.get_or_404(id)
+    story_data = {'id': story.id, 'title': story.title}
+    
+    # === LOG ANTES DE DELETAR ===
+    log_action(
+        action='DELETE',
+        module='KIDS_STORY',
+        description=f"História infantil excluída: {story_data['title']}",
+        old_values=story_data,
+        church_id=current_user.church_id
+    )
+    # ============================
+    
+    db.session.delete(story)
+    db.session.commit()
+    flash('História removida.', 'info')
+    return redirect(url_for('edification.manage_kids'))
+
+@edification_bp.route('/kids/activity/add', methods=['GET', 'POST'])
+@login_required
+def add_kids_activity():
+    if not current_user.can_manage_kids and not (current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder']):
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('edification.kids'))
+    
+    if request.method == 'POST':
+        new_act = KidsActivity(
+            title=request.form.get('title'),
+            description=request.form.get('description'),
+            age_group=request.form.get('age_group')
+        )
+        db.session.add(new_act)
+        db.session.commit()
+        
+        # === LOG ADICIONADO ===
+        log_action(
+            action='CREATE',
+            module='KIDS_ACTIVITY',
+            description=f"Nova atividade infantil: {new_act.title}",
+            new_values={'id': new_act.id, 'title': new_act.title},
+            church_id=current_user.church_id
+        )
+        # ======================
+        
+        flash('Atividade adicionada!', 'success')
+        return redirect(url_for('edification.manage_kids'))
+    
+    return render_template('edification/add_kids.html')
+
+@edification_bp.route('/kids/memory-game')
+@login_required
+def memory_game():
+    story_id = request.args.get('story_id')
+    game_data = []
+    if story_id:
+        story = BibleStory.query.get_or_404(story_id)
+        game_data = json.loads(story.game_data) if story.game_data else []
+    return render_template('edification/kids_memory_game.html', game_data=game_data)
+
+@edification_bp.route('/kids/who-am-i')
+@login_required
+def who_am_i():
+    story_id = request.args.get('story_id')
+    game_data = []
+    if story_id:
+        story = BibleStory.query.get_or_404(story_id)
+        game_data = json.loads(story.game_data) if story.game_data else []
+    return render_template('edification/kids_who_am_i.html', game_data=game_data)
+
+@edification_bp.route('/kids/puzzle')
+@login_required
+def puzzle_game():
+    story_id = request.args.get('story_id')
+    if story_id:
+        story = BibleStory.query.get_or_404(story_id)
+        image_url = story.image_path or url_for('static', filename='img/kids_default.jpg')
+    else:
+        image_url = url_for('static', filename='img/kids_default.jpg')
+    
+    return render_template('edification/kids_puzzle.html', image_url=image_url)
+
+@edification_bp.route('/kids/word-search')
+@login_required
+def word_search():
+    story_id = request.args.get('story_id')
+    story = None
+    if story_id:
+        story = BibleStory.query.get_or_404(story_id)
+    
+    return render_template('edification/kids_word_search.html', story=story)
+
+@edification_bp.route('/kids/crossword')
+@login_required
+def crossword():
+    story_id = request.args.get('story_id')
+    story = None
+    if story_id:
+        story = BibleStory.query.get_or_404(story_id)
+    
+    return render_template('edification/kids_crossword.html', story=story)
+
+@edification_bp.route('/kids/story/<int:id>')
+@login_required
+def view_bible_story(id):
+    story = BibleStory.query.get_or_404(id)
+    return render_template('edification/view_bible_story.html', story=story)
+
+@edification_bp.route('/gallery')
+@login_required
+def gallery():
+    # Se houver album_id na query string, mostra o álbum específico
+    album_id = request.args.get('album_id')
+    if album_id:
+        album = Album.query.get_or_404(album_id)
+        media_items = Media.query.filter_by(album_id=album_id).order_by(Media.created_at.desc()).all()
+        return render_template('edification/gallery_album.html', album=album, media_items=media_items)
+
+    # Galeria geral
+    album_id = request.args.get('album_id')
+    if album_id:
+        album = Album.query.get_or_404(album_id)
+        media_items = Media.query.filter_by(album_id=album_id).order_by(Media.created_at.desc()).all()
+        return render_template('edification/gallery_album.html', album=album, media_items=media_items)
+
+    # Caso contrário, mostra os álbuns e mídias avulsas
+    query_albums = Album.query.filter_by(church_id=current_user.church_id)
+    query_media = Media.query.filter_by(church_id=current_user.church_id, album_id=None)
+    
+    # Filtro por ministérios do usuário
+    ministry_ids = [m.id for m in current_user.ministries]
+    query_albums = query_albums.filter((Album.ministry_id.is_(None)) | (Album.ministry_id.in_(ministry_ids)))
+    query_media = query_media.filter((Media.ministry_id.is_(None)) | (Media.ministry_id.in_(ministry_ids)))
+    
+    ministry_id = request.args.get('ministry_id')
+    if ministry_id:
+        query_albums = query_albums.filter_by(ministry_id=ministry_id)
+        query_media = query_media.filter_by(ministry_id=ministry_id)
+    
+    albums = query_albums.order_by(Album.created_at.desc()).all()
+    media_items = query_media.order_by(Media.created_at.desc()).all()
+    ministries = Ministry.query.filter_by(church_id=current_user.church_id).all()
+    
+    # Agrupar mídias avulsas por evento
+    events_grouped = {}
+    for item in media_items:
+        evt = item.event_name or "Geral / Outros"
+        if evt not in events_grouped:
+            events_grouped[evt] = []
+        events_grouped[evt].append(item)
+    
+    return render_template('edification/gallery.html', albums=albums, events_grouped=events_grouped, ministries=ministries)
+
+@edification_bp.route('/media/add', methods=['GET', 'POST'])
+@login_required
+def add_media():
+    if not current_user.can_manage_media and not (current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder']) and not any(m.leader_id == current_user.id for m in current_user.ministries):
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('edification.gallery'))
+    
+    ministries = Ministry.query.filter_by(church_id=current_user.church_id).all()
+    
+    if request.method == 'POST':
+        title = request.form.get('title')
+        description = request.form.get('description')
+        ministry_id = request.form.get('ministry_id')
+        event_name = request.form.get('event_name')
+        group_as_album = request.form.get('group_as_album') == 'on'
+        files = request.files.getlist('file')
+        
+        if not files or not files[0].filename:
+            flash('Nenhum arquivo selecionado.', 'danger')
+            return redirect(request.url)
+        
+        album = None
+        album_id = None
+        if group_as_album and len(files) > 0:
+            album = Album(
+                title=title,
+                description=description,
+                church_id=current_user.church_id,
+                ministry_id=int(ministry_id) if ministry_id else None
+            )
+            db.session.add(album)
+            db.session.flush()  # Gera ID
+            album_id = album.id
+            
+            # === LOG ADICIONADO ===
+            log_action(
+                action='CREATE',
+                module='ALBUM',
+                description=f"Novo álbum criado via upload: {album.title}",
+                new_values={'id': album.id, 'title': album.title},
+                church_id=current_user.church_id
+            )
+            # ======================
+        
+        count = 0
+        for file in files:
+            filename = secure_filename(file.filename)
+            if not filename: continue
+            
+            file_ext = os.path.splitext(filename)[1].lower()
+            unique_filename = f"{datetime.now().strftime('%Y%m%d%H%M%S')}_{count}_{filename}"
+            
+            full_path = os.path.join(current_app.config['UPLOAD_FOLDER'], 'media', unique_filename)
+            os.makedirs(os.path.dirname(full_path), exist_ok=True)
+            
+            media_type = 'image'  # default
+            try:
+                if file_ext == '.heic':
+                    img = Image.open(file)
+                    img = img.convert('RGB')
+                    new_filename = unique_filename.rsplit('.', 1)[0] + '.jpg'
+                    full_path = os.path.join(current_app.config['UPLOAD_FOLDER'], 'media', new_filename)
+                    # Compressão e redimensionamento
+                    img = compress_and_resize_image(img)
+                    img.save(full_path, 'JPEG', quality=80, optimize=True)
+                    file_path = 'uploads/media/' + new_filename
+                else:
+                    file.save(full_path)
+                    file_path = 'uploads/media/' + unique_filename
+                    
+                    if file_ext in ['.jpg', '.jpeg', '.png', '.gif']:
+                        media_type = 'image'
+                        # Compressão para imagens comuns
+                        try:
+                            img = Image.open(full_path)
+                            img = compress_and_resize_image(img)
+                            img.save(full_path, 'JPEG', quality=80, optimize=True)
+                        except Exception as e:
+                            print(f"Erro ao comprimir {filename}: {e}")  # log silencioso
+                    elif file_ext in ['.mp4', '.mov']:
+                        media_type = 'video'
+                    elif file_ext == '.pdf':
+                        media_type = 'pdf'
+                    else:
+                        flash(f'Formato não suportado: {file_ext}', 'warning')
+                        continue
+                
+                # Garanta permissão de leitura para Caddy
+                os.chmod(full_path, 0o644)
+                
+                new_media = Media(
+                    title=title if not album else file.filename,
+                    description=description,
+                    file_path=file_path,
+                    media_type=media_type,
+                    event_name=event_name,
+                    church_id=current_user.church_id,
+                    ministry_id=int(ministry_id) if ministry_id else None,
+                    album_id=album_id
+                )
+                db.session.add(new_media)
+                count += 1
+                
+            except Exception as e:
+                flash(f'Erro ao processar arquivo {filename}: {str(e)}', 'warning')
+                continue
+            
+        db.session.commit()
+        
+        # === LOG ADICIONADO ===
+        log_action(
+            action='CREATE',
+            module='MEDIA',
+            description=f"{count} mídia(s) adicionada(s)",
+            new_values={'count': count, 'album_id': album_id},
+            church_id=current_user.church_id
+        )
+        # ======================
+        
+        flash(f'{count} mídias adicionadas com sucesso!', 'success')
+        
+        # Redirecionamento seguro
+        if album_id:
+            return redirect(url_for('edification.gallery_album', id=album_id))
+        else:
+            return redirect(url_for('edification.gallery'))
+    
+    return render_template('edification/add_media.html', ministries=ministries)
+
+
+# Função auxiliar de compressão e redimensionamento
+def compress_and_resize_image(img):
+    """
+    Redimensiona (se maior que 1920px) e comprime imagem para web.
+    """
+    max_width = 1920
+    if img.width > max_width:
+        ratio = max_width / img.width
+        new_height = int(img.height * ratio)
+        img = img.resize((max_width, new_height), Image.LANCZOS)
+    
+    # Converte para RGB se necessário
+    if img.mode in ("RGBA", "P"):
+        img = img.convert("RGB")
+    
+    return img
+
+@edification_bp.route('/gallery/album/<int:id>')
+@login_required
+def gallery_album(id):
+    album = Album.query.get_or_404(id)
+    media_items = Media.query.filter_by(album_id=id).order_by(Media.created_at.desc()).all()
+    return render_template('edification/gallery_album.html', album=album, media_items=media_items)
+
+@edification_bp.route('/album/<int:id>/delete')
+@login_required
+def delete_album(id):
+    album = Album.query.get_or_404(id)
+    if not (current_user.can_manage_media or (current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder']) or (album.ministry and album.ministry.leader_id == current_user.id)):
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('edification.gallery'))
+    
+    album_data = {'id': album.id, 'title': album.title}
+    
+    for media in album.media_items:
+        if media.file_path and os.path.exists(current_app.config['UPLOAD_FOLDER'] + '/' + media.file_path.replace('uploads/', '')):
+            try:
+                os.remove(current_app.config['UPLOAD_FOLDER'] + '/' + media.file_path.replace('uploads/', ''))
+            except:
+                pass
+    
+    # === LOG ANTES DE DELETAR ===
+    log_action(
+        action='DELETE',
+        module='ALBUM',
+        description=f"Álbum excluído: {album_data['title']}",
+        old_values=album_data,
+        church_id=current_user.church_id
+    )
+    # ============================
+    
+    db.session.delete(album)
+    db.session.commit()
+    flash('Álbum e todas as suas mídias foram excluídos.', 'info')
+    return redirect(url_for('edification.gallery'))
+
+@edification_bp.route('/media/<int:id>/edit', methods=['GET', 'POST'])
+@login_required
+def edit_media(id):
+    media = Media.query.get_or_404(id)
+    
+    if not (current_user.can_manage_media or (current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder']) or (media.ministry and media.ministry.leader_id == current_user.id)):
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('edification.gallery'))
+    
+    old_values = {
+        'title': media.title,
+        'description': media.description,
+        'ministry_id': media.ministry_id
+    }
+    
+    ministries = Ministry.query.filter_by(church_id=current_user.church_id).all()
+    
+    if request.method == 'POST':
+        media.title = request.form.get('title')
+        media.description = request.form.get('description')
+        media.ministry_id = int(request.form.get('ministry_id')) if request.form.get('ministry_id') else None
+        
+        file = request.files.get('file')
+        if file:
+            filename = secure_filename(file.filename)
+            file_ext = os.path.splitext(filename)[1].lower()
+            
+            if file_ext == '.heic':
+                img = Image.open(file)
+                new_filename = filename.replace('.heic', '.jpg', 1)
+                full_path = os.path.join(current_app.config['UPLOAD_FOLDER'], 'media', new_filename)
+                os.makedirs(os.path.dirname(full_path), exist_ok=True)
+                img.convert('RGB').save(full_path, 'JPEG', quality=95)
+                media.file_path = 'uploads/media/' + new_filename
+                media.media_type = 'image'
+            else:
+                full_path = os.path.join(current_app.config['UPLOAD_FOLDER'], 'media', filename)
+                os.makedirs(os.path.dirname(full_path), exist_ok=True)
+                file.save(full_path)
+                media.file_path = 'uploads/media/' + filename
+                
+                if file_ext in ['.jpg', '.jpeg', '.png', '.gif']:
+                    media.media_type = 'image'
+                elif file_ext in ['.mp4', '.mov']:
+                    media.media_type = 'video'
+                elif file_ext == '.pdf':
+                    media.media_type = 'pdf'
+                else:
+                    flash('Formato de arquivo não suportado.', 'danger')
+                    return redirect(request.url)
+        
+        db.session.commit()
+        
+        # === LOG ADICIONADO ===
+        log_action(
+            action='UPDATE',
+            module='MEDIA',
+            description=f"Mídia editada: {media.title}",
+            old_values=old_values,
+            new_values={'title': media.title, 'description': media.description},
+            church_id=current_user.church_id
+        )
+        # ======================
+        
+        flash('Mídia atualizada com sucesso!', 'success')
+        return redirect(url_for('edification.gallery'))
+    
+    return render_template('edification/edit_media.html', media=media, ministries=ministries)
+
+@edification_bp.route('/media/<int:id>/delete')
+@login_required
+def delete_media(id):
+    media = Media.query.get_or_404(id)
+    
+    if not (current_user.can_manage_media or (current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder']) or (media.ministry and media.ministry.leader_id == current_user.id)):
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('edification.gallery'))
+    
+    media_data = {'id': media.id, 'title': media.title}
+    
+    if media.file_path and os.path.exists(current_app.config['UPLOAD_FOLDER'] + '/' + media.file_path.replace('uploads/', '')):
+        try:
+            os.remove(current_app.config['UPLOAD_FOLDER'] + '/' + media.file_path.replace('uploads/', ''))
+        except:
+            pass
+    
+    # === LOG ANTES DE DELETAR ===
+    log_action(
+        action='DELETE',
+        module='MEDIA',
+        description=f"Mídia excluída: {media_data['title']}",
+        old_values=media_data,
+        church_id=current_user.church_id
+    )
+    # ============================
+    
+    db.session.delete(media)
+    db.session.commit()
+    flash('Mídia excluída com sucesso!', 'info')
+    return redirect(url_for('edification.gallery'))
+
+# Rotas de manutenção de Estudos (recuperadas e ajustadas)
+@edification_bp.route('/study/edit/<int:id>', methods=['GET', 'POST'])
+@login_required
+def edit_study(id):
+    if not can_publish_content():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('edification.studies'))
+    
+    study = Study.query.get_or_404(id)
+    old_values = {'title': study.title, 'category': study.category}
+    
+    if request.method == 'POST':
+        study.title = request.form.get('title')
+        study.content = request.form.get('content')
+        study.category = request.form.get('category')
+        
+        regenerate_questions = 'regenerate_questions' in request.form
+        
+        db.session.commit()
+        
+        # === LOG ADICIONADO ===
+        log_action(
+            action='UPDATE',
+            module='STUDY',
+            description=f"Estudo editado: {study.title}",
+            old_values=old_values,
+            new_values={'title': study.title, 'category': study.category},
+            church_id=current_user.church_id
+        )
+        # ======================
+        
+        flash('Estudo atualizado com sucesso!', 'success')
+        
+        if regenerate_questions:
+            # Deleta questões antigas
+            StudyQuestion.query.filter_by(study_id=study.id).delete()
+            
+            question_count = 7
+            try:
+                ai_data = generate_questions(study.content, type='adult', count=question_count)
+                
+                if "error" in ai_data:
+                    flash(f'Erro na IA: {ai_data["error"]}', 'danger')
+                elif "questions" in ai_data:
+                    for q_data in ai_data["questions"]:
+                        correct_letter = q_data["correct_option"].upper()
+                        new_q = StudyQuestion(
+                            study_id=study.id,
+                            question_text=q_data["question"],
+                            options=json.dumps(q_data["options"]),
+                            correct_option=correct_letter,
+                            explanation=q_data.get("explanation"),
+                            is_published=False
+                        )
+                        db.session.add(new_q)
+                    db.session.commit()
+                    
+                    # === LOG ADICIONADO ===
+                    log_action(
+                        action='GENERATE',
+                        module='STUDY_QUESTIONS',
+                        description=f"Questões regeneradas para estudo: {study.title}",
+                        new_values={'study_id': study.id, 'questions_count': len(ai_data["questions"])},
+                        church_id=current_user.church_id
+                    )
+                    # ======================
+                    
+                    flash(f'{len(ai_data["questions"])} novas questões geradas pela IA aguardando revisão!', 'success')
+                    return redirect(url_for('edification.review_study_questions', study_id=study.id))
+            except Exception as e:
+                flash(f'Erro ao regenerar questões: {str(e)}', 'warning')
+        
+        return redirect(url_for('edification.studies'))
+    
+    return render_template('edification/edit_study.html', study=study)
+
+@edification_bp.route('/study/delete/<int:id>', methods=['POST'])
+@login_required
+def delete_study(id):
+    if not can_publish_content():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('edification.studies'))
+    
+    study = Study.query.get_or_404(id)
+    study_data = {'id': study.id, 'title': study.title}
+    
+    # Deleta questões associadas
+    StudyQuestion.query.filter_by(study_id=id).delete()
+    
+    # === LOG ANTES DE DELETAR ===
+    log_action(
+        action='DELETE',
+        module='STUDY',
+        description=f"Estudo excluído: {study_data['title']}",
+        old_values=study_data,
+        church_id=current_user.church_id
+    )
+    # ============================
+    
+    db.session.delete(study)
+    db.session.commit()
+    
+    flash('Estudo e suas questões excluídos com sucesso!', 'info')
+    return redirect(url_for('edification.studies'))
+
+# ===== MÓDULO FINANCE ===== #
+from flask import Blueprint, render_template, redirect, url_for, flash, request, send_from_directory, jsonify, current_app, send_file
+from flask_login import login_required, current_user
+from app.core.models import (
+    Transaction, Asset, MaintenanceLog, db, User, Church, Ministry,
+    MinistryTransaction, TransactionCategory, PaymentMethod, SystemLog
+)
+from app.utils.pdf_gen import generate_receipt, generate_consolidated_receipt
+from app.utils.logger import log_action  # <-- IMPORT DO LOGGER
+from sqlalchemy import or_, func
+import os
+from datetime import datetime, timedelta, date
+
+finance_bp = Blueprint('finance', __name__)
+
+def is_admin():
+    return current_user.church_role and current_user.church_role.name == 'Administrador Global'
+
+def can_manage_finance():
+    if current_user.can_manage_finance:
+        return True
+    if not current_user.church_role:
+        return False
+    role = current_user.church_role
+    return (
+        role.name == 'Administrador Global' or
+        role.is_lead_pastor or
+        role.name == 'Tesoureiro'
+    )
+
+@finance_bp.route('/dashboard')
+@login_required
+def dashboard():
+    if not can_manage_finance():
+        return redirect(url_for('finance.member_finance'))
+    
+    # Filtros
+    search = request.args.get('search')
+    start_date = request.args.get('start_date')
+    end_date = request.args.get('end_date')
+    category_id = request.args.get('category_id')
+    payment_method_id = request.args.get('payment_method_id')
+    tx_type = request.args.get('type')
+
+    if is_admin():
+        query = Transaction.query
+        asset_query = Asset.query
+    else:
+        query = Transaction.query.filter_by(church_id=current_user.church_id)
+        asset_query = Asset.query.filter_by(church_id=current_user.church_id)
+
+    # Aplicar filtros
+    if search:
+        query = query.join(User, Transaction.user_id == User.id, isouter=True).filter(or_(
+            Transaction.description.ilike(f'%{search}%'),
+            Transaction.category_name.ilike(f'%{search}%'),
+            Transaction.payment_method_name.ilike(f'%{search}%'),
+            User.name.ilike(f'%{search}%')
+        ))
+    if start_date:
+        query = query.filter(Transaction.date >= datetime.strptime(start_date, '%Y-%m-%d'))
+    if end_date:
+        query = query.filter(Transaction.date <= datetime.strptime(end_date, '%Y-%m-%d') + timedelta(days=1))
+    if category_id:
+        query = query.filter(Transaction.category_id == category_id)
+    if payment_method_id:
+        query = query.filter(Transaction.payment_method_id == payment_method_id)
+    if tx_type:
+        query = query.filter(Transaction.type == tx_type)
+
+    transactions = query.order_by(Transaction.date.desc()).all()
+    assets = asset_query.all()
+    members = User.query.filter_by(church_id=current_user.church_id, status='active').order_by(User.name).all()
+    categories = TransactionCategory.query.filter_by(church_id=current_user.church_id, is_active=True).all()
+    payment_methods = PaymentMethod.query.filter_by(church_id=current_user.church_id, is_active=True).all()
+
+    total_income = sum(t.amount for t in transactions if t.type == 'income')
+    total_expense = sum(t.amount for t in transactions if t.type == 'expense')
+    
+    stats = {
+        'income': total_income,
+        'expense': total_expense,
+        'balance': total_income - total_expense
+    }
+    
+    return render_template('finance/dashboard.html', 
+                           transactions=transactions, 
+                           assets=assets, 
+                           stats=stats, 
+                           members=members,
+                           categories=categories,
+                           payment_methods=payment_methods,
+                           filters={'search': search, 'start_date': start_date, 'end_date': end_date, 'category_id': category_id, 'payment_method_id': payment_method_id, 'type': tx_type})
+
+@finance_bp.route('/settings', methods=['GET', 'POST'])
+@login_required
+def manage_settings():
+    if not can_manage_finance():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('finance.dashboard'))
+    
+    if request.method == 'POST':
+        form_type = request.form.get('form_type')
+        
+        if form_type == 'category':
+            name = request.form.get('name')
+            type_ = request.form.get('type')
+            if name and type_:
+                new_cat = TransactionCategory(
+                    name=name, 
+                    type=type_, 
+                    church_id=current_user.church_id,
+                    is_active=True
+                )
+                db.session.add(new_cat)
+                db.session.commit()
+                
+                # LOG: Criação de categoria
+                log_action(
+                    action='CREATE',
+                    module='FINANCE',
+                    description=f"Nova categoria {type_}: {name}",
+                    new_values={
+                        'id': new_cat.id,
+                        'name': name,
+                        'type': type_,
+                        'church_id': current_user.church_id
+                    },
+                    church_id=current_user.church_id
+                )
+                flash('Categoria cadastrada com sucesso!', 'success')
+                
+        elif form_type == 'payment_method':
+            name = request.form.get('name')
+            is_electronic = 'is_electronic' in request.form
+            if name:
+                new_method = PaymentMethod(
+                    name=name, 
+                    is_electronic=is_electronic, 
+                    church_id=current_user.church_id,
+                    is_active=True
+                )
+                db.session.add(new_method)
+                db.session.commit()
+                
+                # LOG: Criação de método de pagamento
+                log_action(
+                    action='CREATE',
+                    module='FINANCE',
+                    description=f"Novo método de pagamento: {name} {'(eletrônico)' if is_electronic else ''}",
+                    new_values={
+                        'id': new_method.id,
+                        'name': name,
+                        'is_electronic': is_electronic,
+                        'church_id': current_user.church_id
+                    },
+                    church_id=current_user.church_id
+                )
+                flash('Meio de pagamento cadastrado com sucesso!', 'success')
+                
+        return redirect(url_for('finance.manage_settings'))
+        
+    categories = TransactionCategory.query.filter_by(church_id=current_user.church_id, is_active=True).all()
+    payment_methods = PaymentMethod.query.filter_by(church_id=current_user.church_id, is_active=True).all()
+    return render_template('finance/settings.html', categories=categories, payment_methods=payment_methods)
+
+@finance_bp.route('/categories/edit/<int:id>', methods=['POST'])
+@login_required
+def edit_category(id):
+    """Editar categoria (nome ou tipo)"""
+    if not can_manage_finance():
+        return jsonify({'success': False, 'message': 'Acesso negado.'}), 403
+    
+    category = TransactionCategory.query.get_or_404(id)
+    if category.church_id != current_user.church_id:
+        return jsonify({'success': False, 'message': 'Acesso negado.'}), 403
+    
+    old_values = {
+        'name': category.name,
+        'type': category.type,
+        'is_active': category.is_active
+    }
+    
+    category.name = request.form.get('name', category.name)
+    category.type = request.form.get('type', category.type)
+    
+    try:
+        db.session.commit()
+        
+        # LOG: Edição de categoria
+        log_action(
+            action='UPDATE',
+            module='FINANCE',
+            description=f"Categoria editada: {category.name}",
+            old_values=old_values,
+            new_values={
+                'name': category.name,
+                'type': category.type,
+                'is_active': category.is_active
+            },
+            church_id=category.church_id
+        )
+        
+        return jsonify({'success': True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@finance_bp.route('/categories/delete/<int:id>', methods=['POST'])
+@login_required
+def delete_category(id):
+    if not can_manage_finance():
+        return redirect(url_for('finance.dashboard'))
+    
+    cat = TransactionCategory.query.get_or_404(id)
+    if cat.church_id == current_user.church_id:
+        old_status = cat.is_active
+        old_values = {
+            'id': cat.id,
+            'name': cat.name,
+            'type': cat.type,
+            'is_active': old_status
+        }
+        
+        cat.is_active = False
+        db.session.commit()
+        
+        # LOG: Desativação de categoria
+        log_action(
+            action='UPDATE',
+            module='FINANCE',
+            description=f"Categoria desativada: {cat.name}",
+            old_values=old_values,
+            new_values={'is_active': False},
+            church_id=cat.church_id
+        )
+        flash('Categoria desativada.', 'info')
+        
+    return redirect(url_for('finance.manage_settings'))
+
+@finance_bp.route('/categories/reactivate/<int:id>', methods=['POST'])
+@login_required
+def reactivate_category(id):
+    """Reativar categoria"""
+    if not can_manage_finance():
+        return jsonify({'success': False, 'message': 'Acesso negado.'}), 403
+    
+    cat = TransactionCategory.query.get_or_404(id)
+    if cat.church_id != current_user.church_id:
+        return jsonify({'success': False, 'message': 'Acesso negado.'}), 403
+    
+    old_status = cat.is_active
+    cat.is_active = True
+    
+    try:
+        db.session.commit()
+        
+        # LOG: Reativação de categoria
+        log_action(
+            action='UPDATE',
+            module='FINANCE',
+            description=f"Categoria reativada: {cat.name}",
+            old_values={'is_active': old_status},
+            new_values={'is_active': True},
+            church_id=cat.church_id
+        )
+        
+        return jsonify({'success': True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@finance_bp.route('/payment-methods/edit/<int:id>', methods=['POST'])
+@login_required
+def edit_payment_method(id):
+    """Editar método de pagamento"""
+    if not can_manage_finance():
+        return jsonify({'success': False, 'message': 'Acesso negado.'}), 403
+    
+    method = PaymentMethod.query.get_or_404(id)
+    if method.church_id != current_user.church_id:
+        return jsonify({'success': False, 'message': 'Acesso negado.'}), 403
+    
+    old_values = {
+        'name': method.name,
+        'is_electronic': method.is_electronic,
+        'is_active': method.is_active
+    }
+    
+    method.name = request.form.get('name', method.name)
+    method.is_electronic = 'is_electronic' in request.form
+    
+    try:
+        db.session.commit()
+        
+        # LOG: Edição de método de pagamento
+        log_action(
+            action='UPDATE',
+            module='FINANCE',
+            description=f"Método de pagamento editado: {method.name}",
+            old_values=old_values,
+            new_values={
+                'name': method.name,
+                'is_electronic': method.is_electronic,
+                'is_active': method.is_active
+            },
+            church_id=method.church_id
+        )
+        
+        return jsonify({'success': True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@finance_bp.route('/payment-methods/delete/<int:id>', methods=['POST'])
+@login_required
+def delete_payment_method(id):
+    if not can_manage_finance():
+        return redirect(url_for('finance.dashboard'))
+    
+    method = PaymentMethod.query.get_or_404(id)
+    if method.church_id == current_user.church_id:
+        old_status = method.is_active
+        old_values = {
+            'id': method.id,
+            'name': method.name,
+            'is_electronic': method.is_electronic,
+            'is_active': old_status
+        }
+        
+        method.is_active = False
+        db.session.commit()
+        
+        # LOG: Desativação de método de pagamento
+        log_action(
+            action='UPDATE',
+            module='FINANCE',
+            description=f"Método de pagamento desativado: {method.name}",
+            old_values=old_values,
+            new_values={'is_active': False},
+            church_id=method.church_id
+        )
+        flash('Meio de pagamento desativado.', 'info')
+        
+    return redirect(url_for('finance.manage_settings'))
+
+@finance_bp.route('/payment-methods/reactivate/<int:id>', methods=['POST'])
+@login_required
+def reactivate_payment_method(id):
+    """Reativar método de pagamento"""
+    if not can_manage_finance():
+        return jsonify({'success': False, 'message': 'Acesso negado.'}), 403
+    
+    method = PaymentMethod.query.get_or_404(id)
+    if method.church_id != current_user.church_id:
+        return jsonify({'success': False, 'message': 'Acesso negado.'}), 403
+    
+    old_status = method.is_active
+    method.is_active = True
+    
+    try:
+        db.session.commit()
+        
+        # LOG: Reativação de método de pagamento
+        log_action(
+            action='UPDATE',
+            module='FINANCE',
+            description=f"Método de pagamento reativado: {method.name}",
+            old_values={'is_active': old_status},
+            new_values={'is_active': True},
+            church_id=method.church_id
+        )
+        
+        return jsonify({'success': True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@finance_bp.route('/my-contributions')
+@login_required
+def member_finance():
+    transactions = Transaction.query.filter_by(user_id=current_user.id).order_by(Transaction.date.desc()).all()
+    debts = MinistryTransaction.query.filter_by(debtor_id=current_user.id, is_paid=False).all()
+    return render_template('finance/member_finance.html', transactions=transactions, debts=debts)
+
+@finance_bp.route('/my-contributions/annual-receipt', methods=['GET', 'POST'])
+@login_required
+def annual_receipt():
+    today = date.today()
+    default_start = date(today.year, 1, 1)
+    default_end = date(today.year, 12, 31)
+
+    if request.method == 'POST':
+        try:
+            start_str = request.form.get('start_date')
+            end_str = request.form.get('end_date')
+
+            start_date = datetime.strptime(start_str, '%Y-%m-%d').date() if start_str else default_start
+            end_date = datetime.strptime(end_str, '%Y-%m-%d').date() if end_str else default_end
+
+            if start_date > end_date:
+                flash('A data inicial não pode ser posterior à final.', 'danger')
+                return redirect(request.url)
+
+            transactions = Transaction.query.filter(
+                Transaction.user_id == current_user.id,
+                Transaction.date >= start_date,
+                Transaction.date <= end_date
+            ).order_by(Transaction.date.asc()).all()
+
+            if not transactions:
+                flash('Nenhuma contribuição encontrada no período selecionado.', 'warning')
+                return redirect(request.url)
+
+            filename = generate_consolidated_receipt(current_user, transactions, start_date, end_date)
+
+            receipts_dir = os.path.join(current_app.config['UPLOAD_FOLDER'], 'receipts')
+            full_path = os.path.join(receipts_dir, filename)
+
+            return send_file(
+                full_path,
+                as_attachment=True,
+                download_name=filename,
+                mimetype='application/pdf'
+            )
+
+        except ValueError as e:
+            flash(f'Formato de data inválido: {str(e)}', 'danger')
+            return redirect(request.url)
+        except Exception as e:
+            current_app.logger.error(f"Erro ao gerar recibo consolidado: {str(e)}")
+            flash('Erro ao gerar o recibo. Tente novamente.', 'danger')
+            return redirect(request.url)
+
+    return render_template(
+        'finance/annual_receipt_form.html',
+        default_start=default_start.strftime('%Y-%m-%d'),
+        default_end=default_end.strftime('%Y-%m-%d')
+    )
+
+@finance_bp.route('/ministry/<int:ministry_id>')
+@login_required
+def ministry_finance(ministry_id):
+    ministry = Ministry.query.get_or_404(ministry_id)
+    is_leader = ministry.leader_id == current_user.id
+    if not (is_leader or can_manage_finance()):
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('members.dashboard'))
+    
+    transactions = MinistryTransaction.query.filter_by(ministry_id=ministry_id).order_by(MinistryTransaction.date.desc()).all()
+    
+    income = sum(t.amount for t in transactions if t.type == 'income' and t.is_paid)
+    expense = sum(t.amount for t in transactions if t.type == 'expense')
+    debts = sum(t.amount for t in transactions if t.is_debt and not t.is_paid)
+    
+    stats = {
+        'income': income,
+        'expense': expense,
+        'balance': income - expense,
+        'pending_debts': debts
+    }
+    
+    return render_template('finance/ministry_finance.html', ministry=ministry, transactions=transactions, stats=stats)
+
+@finance_bp.route('/add', methods=['GET', 'POST'])
+@login_required
+def add_transaction():
+    if not can_manage_finance():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('finance.dashboard'))
+        
+    if request.method == 'POST':
+        user_id = request.form.get('user_id')
+        category_id = request.form.get('category_id')
+        payment_method_id = request.form.get('payment_method_id')
+        
+        category = TransactionCategory.query.get(category_id) if category_id else None
+        payment_method = PaymentMethod.query.get(payment_method_id) if payment_method_id else None
+        
+        if payment_method and payment_method.is_electronic and not user_id:
+            flash('Para pagamentos eletrônicos, a identificação do membro é obrigatória para fins fiscais.', 'danger')
+            return redirect(url_for('finance.add_transaction'))
+            
+        amount = float(request.form.get('amount') or 0)
+        is_cash = payment_method and payment_method.name.lower() in ['dinheiro', 'numerário', 'cash']
+        is_portugal = current_user.church and current_user.church.country.lower() == 'portugal'
+        
+        if is_portugal and is_cash and amount > 200:
+            flash('Conforme o Artigo 63º do EBF (Portugal), donativos superiores a 200€ não podem ser efetuados em numerário.', 'danger')
+            return redirect(url_for('finance.add_transaction'))
+
+        new_tx = Transaction(
+            type=request.form.get('type'),
+            category_id=int(category_id) if category_id else None,
+            category_name=category.name if category else "Geral",
+            payment_method_id=int(payment_method_id) if payment_method_id else None,
+            payment_method_name=payment_method.name if payment_method else "Dinheiro",
+            amount=amount,
+            description=request.form.get('description'),
+            user_id=int(user_id) if user_id and user_id != '' else None,
+            church_id=current_user.church_id,
+            date=datetime.strptime(request.form.get('date'), '%Y-%m-%d') if request.form.get('date') else datetime.utcnow()
+        )
+        db.session.add(new_tx)
+        db.session.commit()
+        
+        # LOG: Criação de transação
+        log_action(
+            action='CREATE',
+            module='FINANCE',
+            description=f"Novo lançamento: {new_tx.description} (R$ {new_tx.amount})",
+            new_values={
+                'id': new_tx.id,
+                'type': new_tx.type,
+                'amount': new_tx.amount,
+                'description': new_tx.description,
+                'category': new_tx.category_name,
+                'user_id': new_tx.user_id
+            },
+            church_id=current_user.church_id
+        )
+        
+        flash('Lançamento registrado com sucesso!', 'success')
+        return redirect(url_for('finance.dashboard'))
+        
+    members = User.query.filter_by(church_id=current_user.church_id, status='active').all()
+    categories = TransactionCategory.query.filter_by(church_id=current_user.church_id, is_active=True).all()
+    payment_methods = PaymentMethod.query.filter_by(church_id=current_user.church_id, is_active=True).all()
+    today = datetime.utcnow().date().isoformat()
+    return render_template('finance/add.html', members=members, categories=categories, payment_methods=payment_methods, today=today)
+
+@finance_bp.route('/transaction/edit/<int:id>', methods=['POST'])
+@login_required
+def edit_transaction(id):
+    """Editar uma transação existente"""
+    if not can_manage_finance():
+        return jsonify({'success': False, 'message': 'Acesso negado.'}), 403
+    
+    transaction = Transaction.query.get_or_404(id)
+    
+    # Verificar permissão
+    if not is_admin() and transaction.church_id != current_user.church_id:
+        return jsonify({'success': False, 'message': 'Acesso negado.'}), 403
+    
+    # Guardar valores antigos
+    old_values = {
+        'type': transaction.type,
+        'amount': transaction.amount,
+        'description': transaction.description,
+        'category_id': transaction.category_id,
+        'category_name': transaction.category_name,
+        'payment_method_id': transaction.payment_method_id,
+        'payment_method_name': transaction.payment_method_name,
+        'user_id': transaction.user_id,
+        'date': transaction.date.strftime('%Y-%m-%d') if transaction.date else None
+    }
+    
+    # Atualizar valores
+    transaction.type = request.form.get('type', transaction.type)
+    transaction.amount = float(request.form.get('amount', transaction.amount))
+    transaction.description = request.form.get('description', transaction.description)
+    transaction.date = datetime.strptime(request.form.get('date'), '%Y-%m-%d') if request.form.get('date') else transaction.date
+    
+    category_id = request.form.get('category_id')
+    if category_id:
+        category = TransactionCategory.query.get(int(category_id))
+        if category:
+            transaction.category_id = category.id
+            transaction.category_name = category.name
+    
+    payment_method_id = request.form.get('payment_method_id')
+    if payment_method_id:
+        payment_method = PaymentMethod.query.get(int(payment_method_id))
+        if payment_method:
+            transaction.payment_method_id = payment_method.id
+            transaction.payment_method_name = payment_method.name
+    
+    user_id = request.form.get('user_id')
+    transaction.user_id = int(user_id) if user_id and user_id != '' else None
+    
+    try:
+        db.session.commit()
+        
+        # LOG: Edição de transação
+        log_action(
+            action='UPDATE',
+            module='FINANCE',
+            description=f"Lançamento editado: {transaction.description}",
+            old_values=old_values,
+            new_values={
+                'type': transaction.type,
+                'amount': transaction.amount,
+                'description': transaction.description,
+                'category': transaction.category_name,
+                'payment_method': transaction.payment_method_name,
+                'user_id': transaction.user_id,
+                'date': transaction.date.strftime('%Y-%m-%d') if transaction.date else None
+            },
+            church_id=transaction.church_id
+        )
+        
+        return jsonify({'success': True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@finance_bp.route('/transaction/delete/<int:id>', methods=['POST'])
+@login_required
+def delete_transaction(id):
+    """Exclui um lançamento financeiro (apenas para usuários com permissão)."""
+    if not can_manage_finance():
+        return jsonify({'success': False, 'message': 'Acesso negado.'}), 403
+
+    transaction = Transaction.query.get_or_404(id)
+
+    # Verificar permissão específica para a igreja
+    if not is_admin() and transaction.church_id != current_user.church_id:
+        return jsonify({'success': False, 'message': 'Acesso negado a este lançamento.'}), 403
+
+    # Guardar dados antes de excluir para o log
+    tx_data = {
+        'id': transaction.id,
+        'type': transaction.type,
+        'amount': transaction.amount,
+        'description': transaction.description,
+        'category': transaction.category_name,
+        'payment_method': transaction.payment_method_name,
+        'user_id': transaction.user_id,
+        'date': transaction.date.strftime('%d/%m/%Y') if transaction.date else None
+    }
+
+    try:
+        db.session.delete(transaction)
+        db.session.commit()
+        
+        # LOG: Exclusão de transação
+        log_action(
+            action='DELETE',
+            module='FINANCE',
+            description=f"Exclusão de lançamento: {transaction.description} (R$ {transaction.amount})",
+            old_values=tx_data,
+            church_id=transaction.church_id
+        )
+        
+        flash('Lançamento excluído com sucesso!', 'success')
+        return jsonify({'success': True})
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Erro ao excluir transação {id}: {str(e)}")
+        return jsonify({'success': False, 'message': 'Erro ao excluir. Tente novamente.'}), 500
+
+@finance_bp.route('/report')
+@login_required
+def report():
+    if not can_manage_finance():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('finance.dashboard'))
+
+    start_date = request.args.get('start_date')
+    end_date = request.args.get('end_date')
+    
+    if start_date and end_date:
+        start = datetime.strptime(start_date, '%Y-%m-%d')
+        end = datetime.strptime(end_date, '%Y-%m-%d') + timedelta(days=1)
+    else:
+        start = (datetime.utcnow() - timedelta(days=30)).replace(hour=0, minute=0, second=0, microsecond=0)
+        end = datetime.utcnow() + timedelta(days=1)
+
+    prev_income = db.session.query(func.sum(Transaction.amount)).filter(
+        Transaction.date < start,
+        Transaction.type == 'income'
+    )
+    prev_expense = db.session.query(func.sum(Transaction.amount)).filter(
+        Transaction.date < start,
+        Transaction.type == 'expense'
+    )
+
+    if not is_admin():
+        prev_income = prev_income.filter(Transaction.church_id == current_user.church_id)
+        prev_expense = prev_expense.filter(Transaction.church_id == current_user.church_id)
+
+    initial_balance = (prev_income.scalar() or 0) - (prev_expense.scalar() or 0)
+
+    query = db.session.query(
+        Transaction.category_name, 
+        Transaction.type, 
+        func.sum(Transaction.amount)
+    ).filter(Transaction.date >= start, Transaction.date <= end)
+
+    if not is_admin():
+        query = query.filter(Transaction.church_id == current_user.church_id)
+
+    results = query.group_by(Transaction.category_name, Transaction.type).all()
+
+    period_income = sum(amount for name, type_, amount in results if type_ == 'income')
+    period_expense = sum(amount for name, type_, amount in results if type_ == 'expense')
+    final_balance = initial_balance + period_income - period_expense
+
+    stats = {
+        'initial_balance': initial_balance,
+        'period_income': period_income,
+        'period_expense': period_expense,
+        'final_balance': final_balance
+    }
+
+    return render_template('finance/report.html', 
+                           results=results, 
+                           start_date=start_date, 
+                           end_date=end_date, 
+                           stats=stats)
+
+@finance_bp.route('/export-report')
+@login_required
+def export_report():
+    if not can_manage_finance():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('finance.dashboard'))
+
+    start_date = request.args.get('start_date')
+    end_date = request.args.get('end_date')
+    category_id = request.args.get('category_id')
+    payment_method_id = request.args.get('payment_method_id')
+    user_id = request.args.get('user_id')
+    tx_type = request.args.get('type')
+    
+    if start_date and end_date:
+        start = datetime.strptime(start_date, '%Y-%m-%d')
+        end = datetime.strptime(end_date, '%Y-%m-%d') + timedelta(days=1)
+    else:
+        start = datetime.utcnow() - timedelta(days=30)
+        end = datetime.utcnow() + timedelta(days=1)
+
+    if not is_admin():
+        query = Transaction.query.filter(Transaction.church_id == current_user.church_id)
+    else:
+        query = Transaction.query
+    
+    query = query.filter(Transaction.date >= start, Transaction.date <= end)
+    
+    if category_id:
+        query = query.filter(Transaction.category_id == category_id)
+    if payment_method_id:
+        query = query.filter(Transaction.payment_method_id == payment_method_id)
+    if user_id:
+        query = query.filter(Transaction.user_id == user_id)
+    if tx_type:
+        query = query.filter(Transaction.type == tx_type)
+    
+    transactions = query.order_by(Transaction.date.asc()).all()
+    
+    total_income = sum(t.amount for t in transactions if t.type == 'income')
+    total_expense = sum(t.amount for t in transactions if t.type == 'expense')
+    balance = total_income - total_expense
+    
+    report_data = {
+        'transactions': transactions,
+        'total_income': total_income,
+        'total_expense': total_expense,
+        'balance': balance,
+        'start_date': start_date,
+        'end_date': end_date,
+        'church_name': current_user.church.name if current_user.church else 'Relatorio Financeiro',
+        'generated_at': datetime.utcnow().strftime('%d/%m/%Y %H:%M:%S')
+    }
+    
+    return render_template('finance/export_report.html', **report_data)
+
+@finance_bp.route('/receipt/<int:tx_id>')
+@login_required
+def download_receipt(tx_id):
+    tx = Transaction.query.get_or_404(tx_id)
+    if not (can_manage_finance() or tx.user_id == current_user.id):
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('finance.dashboard'))
+    
+    filename = generate_receipt(tx)
+    
+    upload_folder = current_app.config.get('UPLOAD_FOLDER', 'app/static/uploads')
+    if not os.path.isabs(upload_folder):
+        upload_folder = os.path.join(current_app.root_path, 'static/uploads')
+        
+    receipts_dir = os.path.join(upload_folder, 'receipts')
+    
+    return send_from_directory(receipts_dir, filename, as_attachment=True)
+
+@finance_bp.route('/asset/add', methods=['GET', 'POST'])
+@login_required
+def add_asset():
+    if not can_manage_finance():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('finance.dashboard'))
+    if request.method == 'POST':
+        new_asset = Asset(
+            name=request.form.get('name'),
+            category=request.form.get('category'),
+            identifier=request.form.get('identifier'),
+            value=float(request.form.get('value') or 0),
+            purchase_date=datetime.strptime(request.form.get('purchase_date'), '%Y-%m-%d').date() if request.form.get('purchase_date') else None,
+            church_id=current_user.church_id
+        )
+        db.session.add(new_asset)
+        db.session.commit()
+        
+        # LOG: Criação de bem
+        log_action(
+            action='CREATE',
+            module='ASSET',
+            description=f"Novo bem cadastrado: {new_asset.name} (R$ {new_asset.value})",
+            new_values={
+                'id': new_asset.id,
+                'name': new_asset.name,
+                'category': new_asset.category,
+                'value': new_asset.value
+            },
+            church_id=current_user.church_id
+        )
+        
+        flash('Bem cadastrado!', 'success')
+        return redirect(url_for('finance.dashboard'))
+    return render_template('finance/add_asset.html')
+
+@finance_bp.route('/asset/<int:id>/maintenance', methods=['GET', 'POST'])
+@login_required
+def add_maintenance(id):
+    asset = Asset.query.get_or_404(id)
+    if not can_manage_finance():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('finance.dashboard'))
+    if request.method == 'POST':
+        log = MaintenanceLog(
+            asset_id=asset.id,
+            description=request.form.get('description'),
+            cost=float(request.form.get('cost') or 0),
+            type=request.form.get('type'),
+            date=datetime.strptime(request.form.get('date'), '%Y-%m-%d').date() if request.form.get('date') else datetime.utcnow().date()
+        )
+        db.session.add(log)
+        db.session.commit()
+        
+        # LOG: Registro de manutenção
+        log_action(
+            action='CREATE',
+            module='MAINTENANCE',
+            description=f"Manutenção registrada para {asset.name}: {log.description} (R$ {log.cost})",
+            new_values={
+                'id': log.id,
+                'asset_id': asset.id,
+                'asset_name': asset.name,
+                'description': log.description,
+                'cost': log.cost,
+                'type': log.type
+            },
+            church_id=asset.church_id
+        )
+        
+        flash('Manutenção registrada!', 'success')
+        return redirect(url_for('finance.dashboard'))
+    return render_template('finance/add_maintenance.html', asset=asset)
+
+@finance_bp.route('/ministry/<int:ministry_id>/add', methods=['GET', 'POST'])
+@login_required
+def add_ministry_transaction(ministry_id):
+    ministry = Ministry.query.get_or_404(ministry_id)
+    is_leader = ministry.leader_id == current_user.id
+    if not (is_leader or can_manage_finance()):
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('members.dashboard'))
+        
+    if request.method == 'POST':
+        is_debt = 'is_debt' in request.form
+        debtor_id = request.form.get('debtor_id')
+        category_id = request.form.get('category_id')
+        payment_method_id = request.form.get('payment_method_id')
+        
+        category = TransactionCategory.query.get(category_id) if category_id else None
+        payment_method = PaymentMethod.query.get(payment_method_id) if payment_method_id else None
+        
+        new_tx = MinistryTransaction(
+            ministry_id=ministry.id,
+            type=request.form.get('type'),
+            category_id=int(category_id) if category_id else None,
+            category_name=category.name if category else "Geral",
+            payment_method_id=int(payment_method_id) if payment_method_id else None,
+            payment_method_name=payment_method.name if payment_method else "Dinheiro",
+            amount=float(request.form.get('amount') or 0),
+            description=request.form.get('description'),
+            date=datetime.strptime(request.form.get('date'), '%Y-%m-%d') if request.form.get('date') else datetime.utcnow(),
+            is_debt=is_debt,
+            debtor_id=int(debtor_id) if debtor_id and debtor_id != '' else None,
+            is_paid=not is_debt
+        )
+        db.session.add(new_tx)
+        db.session.commit()
+        
+        # LOG: Transação de ministério
+        log_action(
+            action='CREATE',
+            module='MINISTRY_FINANCE',
+            description=f"Lançamento em {ministry.name}: {new_tx.description} (R$ {new_tx.amount})",
+            new_values={
+                'id': new_tx.id,
+                'ministry_id': ministry.id,
+                'ministry_name': ministry.name,
+                'amount': new_tx.amount,
+                'description': new_tx.description,
+                'type': new_tx.type
+            },
+            church_id=ministry.church_id
+        )  # <-- FECHA A CHAMADA DO log_action
+        
+        flash('Lançamento do ministério registrado!', 'success')
+        return redirect(url_for('finance.ministry_finance', ministry_id=ministry.id))
+        
+    members = User.query.filter_by(church_id=current_user.church_id, status='active').all()
+    categories = TransactionCategory.query.filter_by(church_id=current_user.church_id, is_active=True).all()
+    payment_methods = PaymentMethod.query.filter_by(church_id=current_user.church_id, is_active=True).all()
+    today = datetime.utcnow().date().isoformat()
+    return render_template('finance/add_ministry_tx.html', ministry=ministry, members=members, categories=categories, payment_methods=payment_methods, today=today)
+
+@finance_bp.route('/ministry/debt/pay/<int:tx_id>', methods=['GET'])
+@login_required
+def pay_debt(tx_id):
+    """Marcar uma dívida do ministério como paga"""
+    from app.core.models import MinistryTransaction, Ministry
+    from app.utils.logger import log_action
+    
+    tx = MinistryTransaction.query.get_or_404(tx_id)
+    ministry = Ministry.query.get(tx.ministry_id)
+    
+    # Verificar permissão
+    is_leader = ministry.leader_id == current_user.id
+    if not (is_leader or can_manage_finance()):
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('members.dashboard'))
+    
+    if not tx.is_debt:
+        flash('Esta transação não é uma dívida.', 'warning')
+        return redirect(url_for('finance.ministry_finance', ministry_id=ministry.id))
+    
+    old_values = {'is_paid': tx.is_paid}
+    tx.is_paid = True
+    
+    try:
+        db.session.commit()
+        
+        # Log da ação
+        log_action(
+            action='UPDATE',
+            module='MINISTRY_FINANCE',
+            description=f"Dívida paga: {tx.description} (R$ {tx.amount})",
+            old_values=old_values,
+            new_values={'is_paid': True},
+            church_id=ministry.church_id
+        )
+        
+        flash('Dívida marcada como paga!', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Erro ao processar pagamento: {str(e)}', 'danger')
+        current_app.logger.error(f"Erro ao pagar dívida {tx_id}: {str(e)}")
+    
+    return redirect(url_for('finance.ministry_finance', ministry_id=ministry.id))
+
+# ===== MÓDULO MEMBERS ===== #
+# app/modules/members/routes.py
+from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app
+from flask_login import login_required, current_user, logout_user
+from app.core.models import User, Church, Ministry, Event, db, Devotional, Study, ChurchRole
+from app.utils.logger import log_action  # <-- IMPORT ADICIONADO
+from datetime import datetime, timedelta
+from sqlalchemy import func
+from werkzeug.utils import secure_filename
+import os
+
+members_bp = Blueprint('members', __name__)
+
+def can_manage_members():
+    return current_user.can_approve_members or (current_user.church_role and current_user.church_role.name == 'Administrador Global' or current_user.church_role.is_lead_pastor)
+
+def can_manage_ministries():
+    return (
+        current_user.can_manage_ministries or 
+        (current_user.church_role and (
+            current_user.church_role.name == 'Administrador Global' or 
+            current_user.church_role.is_lead_pastor
+        ))
+    )
+
+@members_bp.route('/dashboard')
+@login_required
+def dashboard():
+    # ... (código existente, sem alterações) ...
+    today = datetime.now().date()
+    devotional = Devotional.query.filter_by(date=today).first()
+    if not devotional:
+        devotional = Devotional.query.order_by(Devotional.date.desc()).first()
+    recent_studies = Study.query.order_by(Study.created_at.desc()).limit(3).all()
+    ministry_ids = [m.id for m in current_user.ministries]
+    personal_agenda = Event.query.filter(
+        (Event.church_id == current_user.church_id) & 
+        ((Event.ministry_id == None) | (Event.ministry_id.in_(ministry_ids))) &
+        (Event.start_time >= datetime.now())
+    ).order_by(Event.start_time.asc()).limit(5).all()
+    
+    is_global_admin = current_user.church_role and current_user.church_role.name == 'Administrador Global'
+    is_pastor = current_user.church_role and current_user.church_role and current_user.church_role.is_lead_pastor
+    led_ministries_list = [m for m in current_user.ministries if m.leader_id == current_user.id]
+    is_ministry_leader = len(led_ministries_list) > 0
+    is_authorized_for_alerts = is_global_admin or is_pastor or is_ministry_leader
+
+    pending_members = []
+    if current_user.can_approve_members or is_global_admin or is_pastor:
+        if is_global_admin:
+            pending_members = User.query.filter_by(status='pending').all()
+        else:
+            from sqlalchemy import or_
+            pending_members = User.query.filter(
+                (User.status == 'pending') & 
+                (or_(User.church_id == current_user.church_id, User.church_id == None))
+            ).all()
+
+    birthday_alerts = []
+    if is_authorized_for_alerts:
+        today = datetime.now().date()
+        future_limit = today + timedelta(days=10)
+        
+        if is_global_admin or is_pastor:
+            target_ministries = Ministry.query.filter_by(church_id=current_user.church_id).all()
+        else:
+            target_ministries = led_ministries_list
+            
+        if target_ministries:
+            seen_members = set()
+            for ministry in target_ministries:
+                for member in ministry.members:
+                    if member.birth_date and member.id not in seen_members:
+                        try:
+                            bday_this_year = member.birth_date.replace(year=today.year)
+                        except ValueError:
+                            bday_this_year = member.birth_date.replace(year=today.year, day=28)
+                        
+                        if bday_this_year < today:
+                            try:
+                                bday_this_year = bday_this_year.replace(year=today.year + 1)
+                            except ValueError:
+                                bday_this_year = bday_this_year.replace(year=today.year + 1, day=28)
+
+                        if today <= bday_this_year <= future_limit:
+                            days_until = (bday_this_year - today).days
+                            birthday_alerts.append({
+                                'name': member.name,
+                                'day': member.birth_date.day,
+                                'month': member.birth_date.strftime('%m'),
+                                'ministry': ministry.name,
+                                'is_today': days_until == 0,
+                                'days_until': days_until
+                            })
+                            seen_members.add(member.id)
+            birthday_alerts.sort(key=lambda x: x['days_until'])
+        
+    return render_template('members/dashboard.html', 
+                           devotional=devotional,
+                           studies=recent_studies,
+                           agenda=personal_agenda,
+                           pending_members=pending_members,
+                           birthday_alerts=birthday_alerts,
+                           datetime=datetime)
+
+@members_bp.route('/profile')
+@login_required
+def profile():
+    return render_template('members/profile.html')
+
+@members_bp.route('/profile/edit', methods=['GET', 'POST'])
+@login_required
+def edit_profile():
+    if request.method == 'POST':
+        old_values = {
+            'name': current_user.name,
+            'phone': current_user.phone,
+            'address': current_user.address
+        }
+        
+        current_user.name = request.form.get('name')
+        current_user.birth_date = datetime.strptime(request.form.get('birth_date'), '%Y-%m-%d').date() if request.form.get('birth_date') else current_user.birth_date
+        current_user.baptism_date = datetime.strptime(request.form.get('baptism_date'), '%Y-%m-%d').date() if request.form.get('baptism_date') else current_user.baptism_date
+        current_user.conversion_date = datetime.strptime(request.form.get('conversion_date'), '%Y-%m-%d').date() if request.form.get('conversion_date') else current_user.conversion_date
+        current_user.gender = request.form.get('gender')
+        current_user.marital_status = request.form.get('marital_status')
+        current_user.spouse_name = request.form.get('spouse_name') if request.form.get('marital_status') == 'Casado(a)' else None
+        current_user.documents = request.form.get('documents')
+        current_user.address = request.form.get('address')
+        current_user.phone = request.form.get('phone')
+        current_user.postal_code = request.form.get('postal_code')
+        current_user.concelho = request.form.get('concelho')
+        current_user.localidade = request.form.get('localidade')
+        current_user.education_level = request.form.get('education_level')
+        
+        file = request.files.get('profile_photo')
+        if file and file.filename:
+            filename = secure_filename(file.filename)
+            profiles_dir = os.path.join(current_app.config['UPLOAD_FOLDER'], 'profiles')
+            os.makedirs(profiles_dir, exist_ok=True)
+            full_path = os.path.join(profiles_dir, filename)
+            file.save(full_path)
+            current_user.profile_photo = f'uploads/profiles/{filename}'
+        
+        db.session.commit()
+        
+        # === LOG DE EDIÇÃO DE PERFIL ===
+        log_action(
+            action='UPDATE',
+            module='PROFILE',
+            description=f"Perfil atualizado: {current_user.name}",
+            old_values=old_values,
+            new_values={'name': current_user.name, 'phone': current_user.phone},
+            church_id=current_user.church_id
+        )
+        # ================================
+        
+        flash('Perfil atualizado com sucesso!', 'success')
+        return redirect(url_for('members.profile'))
+    
+    return render_template('members/edit_profile.html')
+
+@members_bp.route('/ministries')
+@login_required
+def list_ministries():
+    if current_user.church_role and current_user.church_role.name == 'Administrador Global':
+        ministries = Ministry.query.all()
+    elif can_manage_ministries():
+        ministries = Ministry.query.filter_by(church_id=current_user.church_id).all()
+    else:
+        ministries = current_user.ministries
+    return render_template('members/ministries.html', ministries=ministries)
+
+@members_bp.route('/ministry/<int:ministry_id>/manage-members')
+@login_required
+def ministry_manage_members(ministry_id):
+    ministry = Ministry.query.get_or_404(ministry_id)
+    is_leader = ministry.leader_id == current_user.id
+    is_authorized = is_leader or can_manage_ministries()
+    
+    if not is_authorized:
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('members.my_led_ministries'))
+    
+    current_members = ministry.members.all()
+    available_members = User.query.filter(
+        User.church_id == current_user.church_id,
+        User.status == 'active',
+        ~User.ministries.any(Ministry.id == ministry_id)
+    ).order_by(User.name).all()
+    
+    total_members = len(current_members)
+    gender_count = db.session.query(User.gender, func.count(User.id)).filter(
+        User.id.in_([m.id for m in current_members])
+    ).group_by(User.gender).all()
+    
+    return render_template('members/ministry_manage_members.html',
+                           ministry=ministry,
+                           current_members=current_members,
+                           available_members=available_members,
+                           total_members=total_members,
+                           gender_count=gender_count,
+                           is_leader=is_leader)
+
+@members_bp.route('/ministry/add', methods=['GET', 'POST'])
+@login_required
+def add_ministry():
+    if not can_manage_ministries():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('members.list_ministries'))
+
+    if request.method == 'POST':
+        leader_id = request.form.get('leader_id')
+        new_min = Ministry(
+            name=request.form.get('name'),
+            description=request.form.get('description'),
+            church_id=current_user.church_id,
+            leader_id=int(leader_id) if leader_id else None,
+            is_kids_ministry='is_kids_ministry' in request.form
+        )
+        db.session.add(new_min)
+        db.session.commit()
+
+        if leader_id:
+            leader = User.query.get(int(leader_id))
+            new_min.members.append(leader)
+            db.session.commit()
+
+        # === LOG DE CRIAÇÃO DE MINISTÉRIO ===
+        log_action(
+            action='CREATE',
+            module='MINISTRY',
+            description=f"Novo ministério criado: {new_min.name}",
+            new_values={'id': new_min.id, 'name': new_min.name, 'leader_id': new_min.leader_id},
+            church_id=current_user.church_id
+        )
+        # =====================================
+
+        flash('Ministério criado com sucesso!', 'success')
+        return redirect(url_for('members.list_ministries'))
+
+    potential_leaders = User.query.filter_by(
+        church_id=current_user.church_id, status='active'
+    ).all()
+    return render_template('members/add_ministry.html', leaders=potential_leaders)
+
+@members_bp.route('/ministry/<int:id>/edit', methods=['GET', 'POST'])
+@login_required
+def edit_ministry(id):
+    ministry = Ministry.query.get_or_404(id)
+
+    if not can_manage_ministries():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('members.list_ministries'))
+
+    old_values = {
+        'name': ministry.name,
+        'description': ministry.description,
+        'leader_id': ministry.leader_id,
+        'is_kids_ministry': ministry.is_kids_ministry
+    }
+
+    if request.method == 'POST':
+        ministry.name = request.form.get('name')
+        ministry.description = request.form.get('description')
+        ministry.leader_id = request.form.get('leader_id')
+        ministry.is_kids_ministry = 'is_kids_ministry' in request.form
+
+        if current_user.church_role and current_user.church_role.name == 'Administrador Global':
+            church_id = request.form.get('church_id')
+            if church_id:
+                ministry.church_id = int(church_id)
+
+        db.session.commit()
+
+        if ministry.leader_id:
+            leader = User.query.get(ministry.leader_id)
+            if leader and leader not in ministry.members:
+                ministry.members.append(leader)
+                db.session.commit()
+
+        # === LOG DE EDIÇÃO DE MINISTÉRIO ===
+        log_action(
+            action='UPDATE',
+            module='MINISTRY',
+            description=f"Ministério editado: {ministry.name}",
+            old_values=old_values,
+            new_values={
+                'name': ministry.name,
+                'leader_id': ministry.leader_id,
+                'is_kids_ministry': ministry.is_kids_ministry
+            },
+            church_id=ministry.church_id
+        )
+        # ====================================
+
+        flash('Ministério atualizado!', 'success')
+        return redirect(url_for('members.list_ministries'))
+
+    churches = Church.query.all() if (
+        current_user.church_role and current_user.church_role.name == 'Administrador Global'
+    ) else None
+    potential_leaders = User.query.filter_by(church_id=current_user.church_id, status='active').all()
+    return render_template(
+        'members/edit_ministry.html',
+        ministry=ministry,
+        leaders=potential_leaders,
+        churches=churches
+    )
+
+@members_bp.route('/ministry/<int:id>/delete')
+@login_required
+def delete_ministry(id):
+    ministry = Ministry.query.get_or_404(id)
+
+    if not can_manage_ministries():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('members.list_ministries'))
+
+    ministry_data = {'id': ministry.id, 'name': ministry.name}
+
+    # === LOG ANTES DE DELETAR ===
+    log_action(
+        action='DELETE',
+        module='MINISTRY',
+        description=f"Ministério excluído: {ministry.name}",
+        old_values=ministry_data,
+        church_id=ministry.church_id
+    )
+    # =============================
+
+    db.session.delete(ministry)
+    db.session.commit()
+    flash('Ministério excluído com sucesso!', 'success')
+    return redirect(url_for('members.list_ministries'))
+
+@members_bp.route('/agenda')
+@login_required
+def agenda():
+    ministry_ids = [m.id for m in current_user.ministries]
+    events = Event.query.filter(
+        (Event.church_id == current_user.church_id) & 
+        ((Event.ministry_id == None) | (Event.ministry_id.in_(ministry_ids))) &
+        (Event.start_time >= datetime.now() - timedelta(hours=24))
+    ).order_by(Event.start_time.asc()).all()
+    return render_template('members/agenda.html', events=events)
+
+def create_recurring_events(base_event, recurrence_type, count=12):
+    """Gera ocorrências futuras para um evento recorrente"""
+    for i in range(1, count):
+        if recurrence_type == 'weekly':
+            new_time = base_event.start_time + timedelta(weeks=i)
+        elif recurrence_type == 'monthly':
+            new_time = base_event.start_time + timedelta(days=30*i)
+        else:
+            break
+            
+        new_event = Event(
+            title=base_event.title,
+            description=base_event.description,
+            start_time=new_time,
+            location=base_event.location,
+            ministry_id=base_event.ministry_id,
+            church_id=base_event.church_id,
+            recurrence='none'
+        )
+        db.session.add(new_event)
+
+@members_bp.route('/event/add', methods=['GET', 'POST'])
+@members_bp.route('/ministry/<int:id>/event/add', methods=['GET', 'POST'])
+@login_required
+def add_event(id=None):
+    ministry = Ministry.query.get(id) if id else None
+    
+    is_authorized = current_user.can_manage_events or (
+        current_user.church_role and current_user.church_role.name == 'Administrador Global' or current_user.church_role.is_lead_pastor) or (ministry and ministry.leader_id == current_user.id)
+
+    if not is_authorized:
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('members.dashboard'))
+
+    if request.method == 'POST':
+        start_time = datetime.strptime(request.form.get('start_time'), '%Y-%m-%dT%H:%M')
+        recurrence = request.form.get('recurrence', 'none')
+        
+        new_event = Event(
+            title=request.form.get('title'),
+            description=request.form.get('description'),
+            start_time=start_time,
+            location=request.form.get('location'),
+            ministry_id=ministry.id if ministry else None,
+            church_id=current_user.church_id,
+            recurrence=recurrence
+        )
+        db.session.add(new_event)
+        
+        if recurrence != 'none':
+            create_recurring_events(new_event, recurrence)
+            
+        db.session.commit()
+
+        # === LOG DE CRIAÇÃO DE EVENTO ===
+        log_action(
+            action='CREATE',
+            module='EVENT',
+            description=f"Novo evento: {new_event.title}",
+            new_values={
+                'id': new_event.id,
+                'title': new_event.title,
+                'start_time': str(new_event.start_time),
+                'ministry_id': new_event.ministry_id
+            },
+            church_id=current_user.church_id
+        )
+        # =================================
+
+        flash('Evento(s) agendado(s) com sucesso!', 'success')
+        return redirect(url_for('members.agenda'))
+
+    return render_template('members/add_event.html', ministry=ministry)
+
+# Aliases para compatibilidade
+@members_bp.route('/ministry/<int:id>/event/add_legacy')
+def add_ministry_event(id):
+    return redirect(url_for('members.add_event', id=id))
+
+@members_bp.route('/event/add_general')
+def add_general_event():
+    return redirect(url_for('members.add_event'))
+
+@members_bp.route('/event/<int:id>/edit', methods=['GET', 'POST'])
+@login_required
+def edit_event(id):
+    event = Event.query.get_or_404(id)
+    is_authorized = (current_user.church_role and current_user.church_role.name == 'Administrador Global' or current_user.church_role.is_lead_pastor) or \
+                    (event.ministry and event.ministry.leader_id == current_user.id) or \
+                    current_user.can_manage_events
+    
+    if not is_authorized:
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('members.agenda'))
+    
+    old_values = {
+        'title': event.title,
+        'description': event.description,
+        'start_time': str(event.start_time),
+        'location': event.location,
+        'recurrence': event.recurrence
+    }
+    
+    if request.method == 'POST':
+        event.title = request.form.get('title')
+        event.description = request.form.get('description')
+        event.start_time = datetime.strptime(request.form.get('start_time'), '%Y-%m-%dT%H:%M')
+        event.location = request.form.get('location')
+        event.recurrence = request.form.get('recurrence', 'none')
+        
+        db.session.commit()
+
+        # === LOG DE EDIÇÃO DE EVENTO ===
+        log_action(
+            action='UPDATE',
+            module='EVENT',
+            description=f"Evento editado: {event.title}",
+            old_values=old_values,
+            new_values={
+                'title': event.title,
+                'start_time': str(event.start_time),
+                'location': event.location
+            },
+            church_id=event.church_id
+        )
+        # ================================
+
+        flash('Evento atualizado!', 'success')
+        return redirect(url_for('members.agenda'))
+    
+    return render_template('members/edit_event.html', event=event)
+
+@members_bp.route('/event/<int:id>/delete', methods=['POST'])
+@login_required
+def delete_event(id):
+    event = Event.query.get_or_404(id)
+    is_authorized = (current_user.church_role and current_user.church_role.name == 'Administrador Global' or current_user.church_role.is_lead_pastor) or \
+                    (event.ministry and event.ministry.leader_id == current_user.id) or \
+                    current_user.can_manage_events
+    
+    if not is_authorized:
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('members.agenda'))
+    
+    event_data = {'id': event.id, 'title': event.title}
+
+    # === LOG ANTES DE DELETAR ===
+    log_action(
+        action='DELETE',
+        module='EVENT',
+        description=f"Evento excluído: {event.title}",
+        old_values=event_data,
+        church_id=event.church_id
+    )
+    # =============================
+
+    db.session.delete(event)
+    db.session.commit()
+    flash('Evento excluído!', 'success')
+    return redirect(url_for('members.agenda'))
+
+@members_bp.route('/my-church/members')
+@login_required
+def church_members():
+    if not can_manage_members():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('members.dashboard'))
+    members = User.query.filter_by(church_id=current_user.church_id).all()
+    return render_template('members/church_members.html', members=members)
+
+@members_bp.route('/member/promote/<int:id>', methods=['GET', 'POST'])
+@login_required
+def promote_member(id):
+    if not can_manage_members():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('members.dashboard'))
+
+    member = User.query.get_or_404(id)
+    if member.church_id != current_user.church_id and not (
+        current_user.church_role and current_user.church_role.name == 'Administrador Global'
+    ):
+        flash('Este membro não pertence à sua congregação.', 'danger')
+        return redirect(url_for('members.church_members'))
+
+    old_values = {
+        'church_role_id': member.church_role_id,
+        'can_manage_ministries': member.can_manage_ministries,
+        'can_manage_finance': member.can_manage_finance,
+        'can_manage_events': member.can_manage_events,
+        'can_manage_kids': member.can_manage_kids
+    }
+
+    if request.method == 'POST':
+        new_role_id = request.form.get('church_role_id')
+        member.church_role_id = int(new_role_id) if new_role_id else None
+
+        member.can_manage_ministries = 'can_manage_ministries' in request.form
+        member.can_manage_media = 'can_manage_media' in request.form
+        member.can_publish_devotionals = 'can_publish_devotionals' in request.form
+        member.can_manage_finance = 'can_manage_finance' in request.form
+        member.can_manage_events = 'can_manage_events' in request.form
+        member.can_manage_kids = 'can_manage_kids' in request.form
+
+        db.session.commit()
+
+        # === LOG DE PROMOÇÃO DE MEMBRO ===
+        log_action(
+            action='UPDATE',
+            module='MEMBERS',
+            description=f"Cargo/permissões atualizadas para: {member.name}",
+            old_values=old_values,
+            new_values={
+                'church_role_id': member.church_role_id,
+                'can_manage_ministries': member.can_manage_ministries,
+                'can_manage_finance': member.can_manage_finance
+            },
+            church_id=member.church_id
+        )
+        # =================================
+
+        flash(f'Cargo e permissões de {member.name} atualizados!', 'success')
+        return redirect(url_for('members.church_members'))
+
+    roles = ChurchRole.query.filter_by(
+        church_id=member.church_id
+    ).order_by(ChurchRole.order, ChurchRole.name).all()
+    return render_template('members/promote_member.html', member=member, roles=roles)
+
+@members_bp.route('/member/<int:id>/delete', methods=['POST'])
+@login_required
+def delete_member(id):
+    if not can_manage_members():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('members.church_members'))
+    
+    member = User.query.get_or_404(id)
+    
+    if member.id == current_user.id:
+        flash('Você não pode excluir sua própria conta.', 'warning')
+        return redirect(url_for('members.church_members'))
+    
+    member_data = {'id': member.id, 'name': member.name, 'email': member.email}
+
+    # === LOG DE EXCLUSÃO DE MEMBRO (RESOLVE SEU PROBLEMA!) ===
+    log_action(
+        action='DELETE',
+        module='MEMBERS',
+        description=f"Membro excluído: {member.name}",
+        old_values=member_data,
+        church_id=member.church_id
+    )
+    # =========================================================
+
+    member.ministries = []
+    db.session.delete(member)
+    db.session.commit()
+    flash(f'Membro {member.name} excluído!', 'success')
+    return redirect(url_for('members.church_members'))
+
+@members_bp.route('/ministries/led-by-me')
+@login_required
+def my_led_ministries():
+    led_ministries = Ministry.query.filter_by(leader_id=current_user.id).all()
+    return render_template('members/my_led_ministries.html', led_ministries=led_ministries)
+
+@members_bp.route('/ministry/<int:ministry_id>/add-member', methods=['POST'])
+@login_required
+def ministry_add_member(ministry_id):
+    ministry = Ministry.query.get_or_404(ministry_id)
+    is_leader = ministry.leader_id == current_user.id
+    is_authorized = is_leader or can_manage_ministries()
+
+    if not is_authorized:
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('members.ministry_manage_members', ministry_id=ministry_id))
+
+    user_id = request.form.get('user_id')
+    if not user_id:
+        flash('Selecione um membro.', 'warning')
+        return redirect(url_for('members.ministry_manage_members', ministry_id=ministry_id))
+
+    member = User.query.get_or_404(int(user_id))
+    if member.church_id != ministry.church_id:
+        flash('Membro não pertence a esta congregação.', 'danger')
+    elif member not in ministry.members:
+        ministry.members.append(member)
+        db.session.commit()
+
+        # === LOG DE ADIÇÃO DE MEMBRO AO MINISTÉRIO ===
+        log_action(
+            action='UPDATE',
+            module='MINISTRY_MEMBERS',
+            description=f"Membro {member.name} adicionado ao ministério {ministry.name}",
+            new_values={'ministry_id': ministry.id, 'member_id': member.id},
+            church_id=ministry.church_id
+        )
+        # =============================================
+
+        flash(f'{member.name} adicionado ao ministério!', 'success')
+
+    return redirect(url_for('members.ministry_manage_members', ministry_id=ministry_id))
+
+@members_bp.route('/ministry/<int:ministry_id>/remove-member/<int:user_id>')
+@login_required
+def ministry_remove_member(ministry_id, user_id):
+    ministry = Ministry.query.get_or_404(ministry_id)
+    is_leader = ministry.leader_id == current_user.id
+    is_authorized = is_leader or can_manage_ministries()
+
+    if not is_authorized:
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('members.ministry_manage_members', ministry_id=ministry_id))
+
+    member = User.query.get_or_404(user_id)
+    if member in ministry.members:
+        # === LOG ANTES DE REMOVER ===
+        log_action(
+            action='UPDATE',
+            module='MINISTRY_MEMBERS',
+            description=f"Membro {member.name} removido do ministério {ministry.name}",
+            old_values={'ministry_id': ministry.id, 'member_id': member.id},
+            church_id=ministry.church_id
+        )
+        # =============================
+
+        ministry.members.remove(member)
+        db.session.commit()
+        flash(f'{member.name} removido do ministério.', 'info')
+
+    return redirect(url_for('members.ministry_manage_members', ministry_id=ministry_id))
+
+@members_bp.route('/ministry/<int:ministry_id>/agenda')
+@login_required
+def ministry_agenda(ministry_id):
+    ministry = Ministry.query.get_or_404(ministry_id)
+    is_leader = ministry.leader_id == current_user.id
+    is_authorized = is_leader or current_user.can_manage_events or (
+        current_user.church_role and current_user.church_role.name == 'Administrador Global' or current_user.church_role.is_lead_pastor)
+    
+    if not is_authorized:
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('members.my_led_ministries'))
+    
+    events = Event.query.filter(
+        Event.ministry_id == ministry_id,
+        Event.start_time >= datetime.utcnow()
+    ).order_by(Event.start_time.asc()).all()
+    
+    return render_template(
+        'members/ministry_agenda.html',
+        ministry=ministry,
+        events=events
+    )
+
+@members_bp.route('/birthdays')
+@members_bp.route('/ministry/<int:ministry_id>/birthdays')
+@login_required
+def birthday_agenda(ministry_id=None):
+    is_global_admin = current_user.church_role and current_user.church_role.name == 'Administrador Global'
+    is_pastor = current_user.church_role and current_user.church_role and current_user.church_role.is_lead_pastor
+    
+    ministry = None
+    if ministry_id:
+        ministry = Ministry.query.get_or_404(ministry_id)
+        is_leader = ministry.leader_id == current_user.id
+        if not (is_leader or is_global_admin or is_pastor):
+            flash('Acesso negado.', 'danger')
+            return redirect(url_for('members.dashboard'))
+        members = ministry.members.all()
+        title = f"Aniversariantes - {ministry.name}"
+    else:
+        if not (is_global_admin or is_pastor):
+            flash('Acesso negado.', 'danger')
+            return redirect(url_for('members.dashboard'))
+        members = User.query.filter_by(church_id=current_user.church_id, status='active').all()
+        title = "Agenda Anual de Aniversariantes"
+
+    agenda = {i: [] for i in range(1, 13)}
+    for member in members:
+        if member.birth_date:
+            month = member.birth_date.month
+            agenda[month].append({
+                'name': member.name,
+                'day': member.birth_date.day,
+                'phone': member.phone
+            })
+    
+    for month in agenda:
+        agenda[month].sort(key=lambda x: x['day'])
+
+    month_names = {
+        1: 'Janeiro', 2: 'Fevereiro', 3: 'Março', 4: 'Abril',
+        5: 'Maio', 6: 'Junho', 7: 'Julho', 8: 'Agosto',
+        9: 'Setembro', 10: 'Outubro', 11: 'Novembro', 12: 'Dezembro'
+    }
+
+    return render_template('members/birthday_agenda.html', 
+                           agenda=agenda, 
+                           month_names=month_names, 
+                           title=title,
+                           ministry=ministry)
+
+@members_bp.route('/logout')
+@login_required
+def logout():
+    logout_user()
+    flash('Logout realizado com sucesso.', 'info')
+    return redirect(url_for('auth.login'))
