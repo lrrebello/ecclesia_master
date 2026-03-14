@@ -375,15 +375,27 @@ a:hover {
     cursor: pointer;
 }
 
-.btn-primary {
-    background-color: var(--primary);
-    color: white;
+/* Botões sólidos (já existentes, mantidos) */
+/* Botão primário - FORÇADO */
+/* EMERGÊNCIA: Forçar botões primários */
+/* EMERGÊNCIA - Mas mantendo as variáveis do tema */
+.btn-primary,
+a.btn-primary,
+button.btn-primary {
+    background-color: var(--primary) !important;
+    border-color: var(--primary) !important;
+    color: #ffffff !important;
+    display: inline-block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
 }
 
-.btn-primary:hover {
-    background-color: var(--primary-hover);
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+.btn-primary:hover,
+a.btn-primary:hover,
+button.btn-primary:hover {
+    background-color: var(--primary-hover) !important;
+    border-color: var(--primary-hover) !important;
+    color: #ffffff !important;
 }
 
 .btn-secondary {
@@ -397,6 +409,142 @@ a:hover {
     transform: translateY(-1px);
 }
 
+.btn-success {
+    background-color: var(--success);
+    color: white;
+}
+
+.btn-success:hover {
+    background-color: var(--success);
+    opacity: 0.9;
+}
+
+.btn-danger {
+    background-color: var(--danger);
+    color: white;
+}
+
+.btn-danger:hover {
+    background-color: var(--danger);
+    opacity: 0.9;
+}
+
+.btn-warning {
+    background-color: var(--warning);
+    color: white;
+}
+
+.btn-warning:hover {
+    background-color: var(--warning);
+    opacity: 0.9;
+}
+
+.btn-info {
+    background-color: var(--info);
+    color: white;
+}
+
+.btn-info:hover {
+    background-color: var(--info);
+    opacity: 0.9;
+}
+
+.btn-light {
+    background-color: var(--bg-card);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+}
+
+.btn-light:hover {
+    background-color: var(--border);
+}
+
+/* === CORREÇÃO: Botões Outline === */
+.btn-outline-primary {
+    color: var(--primary) !important;
+    border: 1px solid var(--primary) !important;
+    background-color: transparent !important;
+}
+
+.btn-outline-primary:hover {
+    color: white !important;
+    background-color: var(--primary) !important;
+    border-color: var(--primary) !important;
+}
+
+.btn-outline-secondary {
+    color: var(--secondary) !important;
+    border: 1px solid var(--secondary) !important;
+    background-color: transparent !important;
+}
+
+.btn-outline-secondary:hover {
+    color: white !important;
+    background-color: var(--secondary) !important;
+    border-color: var(--secondary) !important;
+}
+
+.btn-outline-success {
+    color: var(--success) !important;
+    border: 1px solid var(--success) !important;
+    background-color: transparent !important;
+}
+
+.btn-outline-success:hover {
+    color: white !important;
+    background-color: var(--success) !important;
+    border-color: var(--success) !important;
+}
+
+.btn-outline-danger {
+    color: var(--danger) !important;
+    border: 1px solid var(--danger) !important;
+    background-color: transparent !important;
+}
+
+.btn-outline-danger:hover {
+    color: white !important;
+    background-color: var(--danger) !important;
+    border-color: var(--danger) !important;
+}
+
+.btn-outline-warning {
+    color: var(--warning) !important;
+    border: 1px solid var(--warning) !important;
+    background-color: transparent !important;
+}
+
+.btn-outline-warning:hover {
+    color: white !important;
+    background-color: var(--warning) !important;
+    border-color: var(--warning) !important;
+}
+
+.btn-outline-info {
+    color: var(--info) !important;
+    border: 1px solid var(--info) !important;
+    background-color: transparent !important;
+}
+
+.btn-outline-info:hover {
+    color: white !important;
+    background-color: var(--info) !important;
+    border-color: var(--info) !important;
+}
+
+.btn-outline-dark {
+    color: var(--text-primary) !important;
+    border: 1px solid var(--border) !important;
+    background-color: transparent !important;
+}
+
+.btn-outline-dark:hover {
+    color: white !important;
+    background-color: var(--text-primary) !important;
+    border-color: var(--text-primary) !important;
+}
+
+/* Botão outline genérico (mantido) */
 .btn-outline {
     background-color: transparent;
     border: 1px solid var(--border);
