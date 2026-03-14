@@ -441,6 +441,14 @@ def edit_member(id):
         member.localidade = request.form.get('localidade')
         member.education_level = request.form.get('education_level')
         
+                # ===== ADICIONE ESTA LINHA =====
+        if member.church_role_id:
+            new_role = ChurchRole.query.get(member.church_role_id)
+            member.is_lead_pastor = new_role.is_lead_pastor if new_role else False
+        else:
+            member.is_lead_pastor = False
+        # ================================
+
         file = request.files.get('profile_photo')
         if file and file.filename:
             filename = secure_filename(file.filename)
@@ -475,10 +483,11 @@ def member_card_preview(id):
     member = User.query.get_or_404(id)
     
     is_global = is_global_admin()
+    # Pastor líder pode gerar cartão para QUALQUER membro da sua igreja
     is_lead_pastor = (
         current_user.church_role 
-        and current_user.church_role.is_lead_pastor 
-        and current_user.church_role == member.church_role
+        and current_user.church_role.is_lead_pastor
+        and current_user.church_id == member.church_id  # ← CORRIGIDO!
     )
     
     if not (is_global or is_lead_pastor):
@@ -890,8 +899,8 @@ def member_card_generate(id):
     is_global = is_global_admin()
     is_lead_pastor = (
         current_user.church_role 
-        and current_user.church_role.is_lead_pastor 
-        and current_user.church_role == member.church_role
+        and current_user.church_role.is_lead_pastor
+        and current_user.church_id == member.church_id  # ← CORRIGIDO!
     )
     
     if not (is_global or is_lead_pastor):

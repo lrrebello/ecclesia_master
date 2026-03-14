@@ -540,6 +540,13 @@ def promote_member(id):
         new_role_id = request.form.get('church_role_id')
         member.church_role_id = int(new_role_id) if new_role_id else None
 
+        # ===== SINCRONIZAR is_lead_pastor =====
+        if member.church_role_id:
+            new_role = ChurchRole.query.get(member.church_role_id)
+            member.is_lead_pastor = new_role.is_lead_pastor if new_role else False
+        else:
+            member.is_lead_pastor = False
+
         member.can_manage_ministries = 'can_manage_ministries' in request.form
         member.can_manage_media = 'can_manage_media' in request.form
         member.can_publish_devotionals = 'can_publish_devotionals' in request.form
