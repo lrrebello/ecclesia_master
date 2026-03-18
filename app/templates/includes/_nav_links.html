@@ -15,6 +15,15 @@
     <a class="nav-link {{ 'active' if request.endpoint == 'finance.dashboard' }}" href="{{ url_for('finance.dashboard') }}">
         <i class="bi bi-cash-stack me-2"></i> Gestão Financeira
     </a>
+    <!-- NOVOS LINKS BANCÁRIOS -->
+    <a class="nav-link {{ 'active' if request.endpoint == 'finance.list_bank_accounts' }}" 
+       href="{{ url_for('finance.list_bank_accounts') }}" style="padding-left: 2.5rem;">
+        <i class="bi bi-bank me-2"></i> Contas Bancárias
+    </a>
+    <a class="nav-link {{ 'active' if request.endpoint == 'finance.list_mbway' }}" 
+       href="{{ url_for('finance.list_mbway') }}" style="padding-left: 2.5rem;">
+        <i class="bi bi-phone me-2"></i> MBWay
+    </a>
     {% endif %}
 
     <a class="nav-link {{ 'active' if request.endpoint == 'finance.member_finance' }}" href="{{ url_for('finance.member_finance') }}">
@@ -56,18 +65,36 @@
     </a>
     {% endif %}
 
-    <!-- Link "Meus Ministérios Liderados" -->
+    <!-- Link "Meus Ministérios Liderados" com NOVOS LINKS DE ADMINISTRAÇÃO -->
     {% if current_user.is_authenticated %}
         {% set has_led_ministries = namespace(value=false) %}
-        {% for ministry in current_user.ministries %}
-            {% if ministry.leader_id == current_user.id %}
+        {% for m in current_user.ministries %}
+            {% if m.leader_id == current_user.id %}
                 {% set has_led_ministries.value = true %}
             {% endif %}
         {% endfor %}
+        
         {% if has_led_ministries.value %}
         <a class="nav-link {{ 'active' if 'my_led_ministries' in request.endpoint }}" href="{{ url_for('members.my_led_ministries') }}">
             <i class="bi bi-star-fill me-2"></i> Meus Ministérios Liderados
         </a>
+        
+        <!-- LINKS PARA CADA MINISTÉRIO LIDERADO -->
+        {% for m in current_user.ministries %}
+            {% if m.leader_id == current_user.id %}
+            <div style="padding-left: 2.5rem;" class="small">
+                <span class="text-muted small px-3">{{ m.name }}</span>
+                <a class="nav-link py-1 {{ 'active' if request.endpoint == 'finance.ministry_categories' and request.args.get('ministry_id')|int == m.id }}" 
+                   href="{{ url_for('finance.ministry_categories', ministry_id=m.id) }}">
+                    <i class="bi bi-tags me-2"></i> Categorias
+                </a>
+                <a class="nav-link py-1 {{ 'active' if request.endpoint == 'finance.ministry_payment_methods' and request.args.get('ministry_id')|int == m.id }}" 
+                   href="{{ url_for('finance.ministry_payment_methods', ministry_id=m.id) }}">
+                    <i class="bi bi-credit-card me-2"></i> Métodos de Pagamento
+                </a>
+            </div>
+            {% endif %}
+        {% endfor %}
         {% endif %}
     {% endif %}
 

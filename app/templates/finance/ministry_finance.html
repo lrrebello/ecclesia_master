@@ -61,6 +61,7 @@
                             <th class="py-3">Descrição</th>
                             <th class="py-3 text-end">Valor</th>
                             <th class="px-4 py-3 text-center">Status</th>
+                            <th class="px-4 py-3 text-center">Ações</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -69,7 +70,7 @@
                             <td class="px-4">{{ tx.date.strftime('%d/%m/%Y') }}</td>
                             <td>
                                 <span class="badge bg-{{ 'success' if tx.type == 'income' else 'danger' }} bg-opacity-10 text-{{ 'success' if tx.type == 'income' else 'danger' }} px-3 py-2">
-                                    {{ tx.category }}
+                                    {{ tx.category_name }}
                                 </span>
                             </td>
                             <td>
@@ -84,18 +85,26 @@
                             <td class="px-4 text-center">
                                 {% if tx.is_debt and not tx.is_paid %}
                                 <a href="{{ url_for('finance.pay_debt', tx_id=tx.id) }}" class="btn btn-sm btn-warning rounded-pill px-3">
-                                    Marcar Pago
+                                    <i class="bi bi-cash me-1"></i> Marcar Pago
                                 </a>
                                 {% elif tx.is_debt and tx.is_paid %}
-                                <span class="badge bg-success rounded-pill px-3">Pago</span>
+                                <span class="badge bg-success rounded-pill px-3 py-2">
+                                    <i class="bi bi-check-circle me-1"></i> Pago
+                                </span>
                                 {% else %}
-                                <span class="text-muted small">-</span>
+                                <span class="text-muted small">—</span>
                                 {% endif %}
+                            </td>
+                            <td class="px-4 text-center">
+                                <!-- Botão de excluir no mesmo padrão -->
+                                <a href="javascript:void(0)" onclick="confirmarExclusao({{ tx.id }})" class="btn btn-sm btn-outline-danger rounded-pill px-3">
+                                    <i class="bi bi-trash me-1"></i> Excluir
+                                </a>
                             </td>
                         </tr>
                         {% else %}
                         <tr>
-                            <td colspan="5" class="text-center py-5 text-muted">
+                            <td colspan="6" class="text-center py-5 text-muted">
                                 <i class="bi bi-cash fs-1 d-block mb-2"></i>
                                 Nenhuma movimentação registrada para este ministério.
                             </td>
@@ -107,4 +116,28 @@
         </div>
     </div>
 </div>
+
+<script>
+function confirmarExclusao(txId) {
+    if (confirm('Tem certeza que deseja excluir este lançamento?')) {
+        fetch(`/finance/ministry/transaction/delete/${txId}`, {
+            method: 'POST',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('Erro ao excluir: ' + data.message);
+            }
+        })
+        .catch(error => {
+            alert('Erro ao excluir: ' + error);
+        });
+    }
+}
+</script>
 {% endblock %}

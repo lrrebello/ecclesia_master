@@ -1,0 +1,173 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="fw-bold">
+            <i class="bi bi-credit-card me-2"></i> Métodos de Pagamento - {{ ministry.name }}
+        </h2>
+        <button class="btn btn-primary" onclick="adicionarMetodo()">
+            <i class="bi bi-plus-lg me-2"></i> Novo Método
+        </button>
+    </div>
+
+    <div class="card border-0 shadow-sm">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="px-4 py-3">Método</th>
+                            <th class="py-3">Tipo</th>
+                            <th class="py-3">Status</th>
+                            <th class="px-4 py-3 text-center">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for method in methods %}
+                        <tr>
+                            <td class="px-4 fw-bold">{{ method.name }}</td>
+                            <td>
+                                {% if method.is_electronic %}
+                                <span class="badge bg-info bg-opacity-10 text-info px-3 py-2">
+                                    <i class="bi bi-cpu me-1"></i> Eletrônico
+                                </span>
+                                {% else %}
+                                <span class="badge bg-secondary bg-opacity-10 text-secondary px-3 py-2">
+                                    <i class="bi bi-cash me-1"></i> Físico
+                                </span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if method.is_active %}
+                                <span class="badge bg-success rounded-pill px-3">Ativo</span>
+                                {% else %}
+                                <span class="badge bg-secondary rounded-pill px-3">Inativo</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-4 text-center">
+                                <button class="btn btn-sm btn-outline-danger rounded-pill px-3" 
+                                        onclick="toggleStatus({{ method.id }}, {{ 'true' if method.is_active else 'false' }})">
+                                    <i class="bi bi-arrow-repeat"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger rounded-pill px-3" 
+                                        onclick="deletarMetodo({{ method.id }}, '{{ method.name }}')">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="4" class="text-center py-5 text-muted">
+                                <i class="bi bi-credit-card fs-1 d-block mb-2"></i>
+                                Nenhum método de pagamento cadastrado para este ministério.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Novo Método -->
+<div class="modal fade" id="modalMetodo" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title">Novo Método de Pagamento</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="formMetodo">
+                <div class="modal-body p-4">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Nome do Método</label>
+                        <input type="text" class="form-control" id="method_name" required>
+                        <small class="text-muted">Ex: Cantina - Dinheiro, Cantina - Cartão</small>
+                    </div>
+                    <div class="mb-3">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="method_electronic">
+                            <label class="form-check-label fw-bold" for="method_electronic">É meio eletrônico?</label>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Salvar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+function adicionarMetodo() {
+    new bootstrap.Modal(document.getElementById('modalMetodo')).show();
+}
+
+document.getElementById('formMetodo').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    fetch(`/finance/ministry/{{ ministry.id }}/payment-methods/add`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({
+            'name': document.getElementById('method_name').value,
+            'is_electronic': document.getElementById('method_electronic').checked
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            bootstrap.Modal.getInstance(document.getElementById('modalMetodo')).hide();
+            location.reload();
+        } else {
+            alert('Erro: ' + data.message);
+        }
+    });
+});
+
+function deletarMetodo(methodId, nome) {
+    if (!confirm(`Tem certeza que deseja excluir o método "${nome}"?`)) return;
+    
+    fetch(`/finance/ministry/payment-method/delete/${methodId}`, {
+        method: 'POST',
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('Erro: ' + data.message);
+        }
+    })
+    .catch(error => {
+        alert('Erro na requisição: ' + error);
+    });
+}
+
+function toggleStatus(methodId, isActive) {
+    const action = isActive ? 'desativar' : 'reativar';
+    if (!confirm(`Tem certeza que deseja ${action} este método?`)) return;
+    
+    fetch(`/finance/ministry/payment-method/${methodId}/toggle`, {
+        method: 'POST'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('Erro: ' + data.message);
+        }
+    });
+}
+</script>
+{% endblock %}

@@ -193,20 +193,37 @@ class Transaction(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
     church_id = db.Column(db.Integer, db.ForeignKey('church.id'))
     receipt_path = db.Column(db.String(255))
+    bank_account_id = db.Column(db.Integer, db.ForeignKey('bank_accounts.id'), nullable=True)
+    bank_account = db.relationship('BankAccount', backref='transactions')
     
     category = db.relationship('TransactionCategory', backref='transactions')
     payment_method = db.relationship('PaymentMethod', backref='transactions')
     church = db.relationship('Church', backref='transactions')
     user = db.relationship('User', backref='transactions')
 
+
 class MinistryTransaction(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     ministry_id = db.Column(db.Integer, db.ForeignKey('ministry.id'), nullable=False)
     type = db.Column(db.String(10)) # income, expense
+    
+    # Categorias (geral - já existente)
     category_id = db.Column(db.Integer, db.ForeignKey('transaction_category.id'), nullable=True)
     category_name = db.Column(db.String(100))
+    
+    # 🔥 NOVO: Categoria personalizada do ministério
+    ministry_category_id = db.Column(db.Integer, db.ForeignKey('ministry_categories.id'), nullable=True)
+    
+    # Métodos de pagamento (geral - já existente)
     payment_method_id = db.Column(db.Integer, db.ForeignKey('payment_method.id'), nullable=True)
     payment_method_name = db.Column(db.String(100))
+    
+    # 🔥 NOVO: Método de pagamento personalizado do ministério
+    ministry_payment_method_id = db.Column(db.Integer, db.ForeignKey('ministry_payment_methods.id'), nullable=True)
+    
+    # 🔥 NOVO: Conta bancária (opcional)
+    bank_account_id = db.Column(db.Integer, db.ForeignKey('bank_accounts.id'), nullable=True)
+    
     amount = db.Column(db.Float, nullable=False)
     date = db.Column(db.DateTime, default=datetime.utcnow)
     description = db.Column(db.Text)
@@ -214,9 +231,32 @@ class MinistryTransaction(db.Model):
     debtor_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
     is_paid = db.Column(db.Boolean, default=True) # Se for débito, marca se já foi pago
     
+    # Relacionamentos EXISTENTES (mantidos iguais)
     category = db.relationship('TransactionCategory')
     payment_method = db.relationship('PaymentMethod')
     debtor = db.relationship('User', backref='debts')
+    
+    # 🔥 NOVOS relacionamentos COM primaryjoin EXPLÍCITO
+    ministry_category = db.relationship(
+        'MinistryCategory',
+        primaryjoin="MinistryTransaction.ministry_category_id == MinistryCategory.id",
+        backref=db.backref('ministry_transactions', lazy='dynamic'),
+        foreign_keys=[ministry_category_id]
+    )
+    
+    ministry_payment_method = db.relationship(
+        'MinistryPaymentMethod',
+        primaryjoin="MinistryTransaction.ministry_payment_method_id == MinistryPaymentMethod.id",
+        backref=db.backref('ministry_transactions', lazy='dynamic'),
+        foreign_keys=[ministry_payment_method_id]
+    )
+    
+    bank_account = db.relationship(
+        'BankAccount',
+        primaryjoin="MinistryTransaction.bank_account_id == BankAccount.id",
+        backref=db.backref('ministry_transactions', lazy='dynamic'),
+        foreign_keys=[bank_account_id]
+    )
 
 class KidsActivity(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -382,3 +422,72 @@ class ChurchTheme(db.Model):
     
     # Relacionamento
     church = db.relationship('Church', backref=db.backref('theme', uselist=False))
+
+# ==================== NOVAS CLASSES PARA MÓDULO BANCÁRIO (NÃO ALTERAM O EXISTENTE) ====================
+
+class BankAccount(db.Model):
+    __tablename__ = 'bank_accounts'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    church_id = db.Column(db.Integer, db.ForeignKey('church.id'), nullable=False)
+    ministry_id = db.Column(db.Integer, db.ForeignKey('ministry.id'), nullable=True)
+    bank_name = db.Column(db.String(100), nullable=False)
+    account_type = db.Column(db.String(20))
+    account_number = db.Column(db.String(50), nullable=False)
+    agency = db.Column(db.String(20))
+    iban = db.Column(db.String(34))
+    swift = db.Column(db.String(20))
+    pix_key = db.Column(db.String(100))
+    mbway_phone = db.Column(db.String(20))
+    is_active = db.Column(db.Boolean, default=True)
+    notes = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, onupdate=datetime.utcnow)
+    
+    # Relacionamentos - SEM BACKREFS CONFLITANTES
+    church = db.relationship('Church', backref=db.backref('bank_accounts', lazy='dynamic'))
+    ministry = db.relationship('Ministry', backref=db.backref('bank_accounts', lazy='dynamic'))
+
+
+class MBWay(db.Model):
+    __tablename__ = 'mbway'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    church_id = db.Column(db.Integer, db.ForeignKey('church.id'), nullable=False)
+    ministry_id = db.Column(db.Integer, db.ForeignKey('ministry.id'), nullable=True)
+    phone_number = db.Column(db.String(20), nullable=False)
+    description = db.Column(db.String(100))
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Relacionamentos - SEM BACKREFS CONFLITANTES
+    church = db.relationship('Church', backref=db.backref('mbway_numbers', lazy='dynamic'))
+    ministry = db.relationship('Ministry', backref=db.backref('mbway_numbers', lazy='dynamic'))
+
+
+class MinistryCategory(db.Model):
+    __tablename__ = 'ministry_categories'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    ministry_id = db.Column(db.Integer, db.ForeignKey('ministry.id'), nullable=False)
+    name = db.Column(db.String(100), nullable=False)
+    type = db.Column(db.String(10), nullable=False)  # 'income', 'expense'
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Relacionamentos - SEM BACKREFS CONFLITANTES
+    ministry = db.relationship('Ministry', backref=db.backref('custom_categories', lazy='dynamic'))
+
+
+class MinistryPaymentMethod(db.Model):
+    __tablename__ = 'ministry_payment_methods'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    ministry_id = db.Column(db.Integer, db.ForeignKey('ministry.id'), nullable=False)
+    name = db.Column(db.String(100), nullable=False)
+    is_electronic = db.Column(db.Boolean, default=False)
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Relacionamentos - SEM BACKREFS CONFLITANTES
+    ministry = db.relationship('Ministry', backref=db.backref('custom_payment_methods', lazy='dynamic'))

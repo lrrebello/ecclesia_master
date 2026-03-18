@@ -1,0 +1,160 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="fw-bold">
+            <i class="bi bi-phone me-2"></i> Números MBWay
+        </h2>
+        <a href="{{ url_for('finance.add_mbway') }}" class="btn btn-primary">
+            <i class="bi bi-plus-lg me-2"></i> Novo MBWay
+        </a>
+    </div>
+
+    <!-- MBWay da Igreja -->
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0"><i class="bi bi-building me-2"></i> MBWay da Congregação</h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="px-4 py-3">Número</th>
+                            <th class="py-3">Descrição</th>
+                            <th class="py-3">Status</th>
+                            <th class="px-4 py-3 text-center">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for mb in church_mbway %}
+                        <tr>
+                            <td class="px-4 fw-bold">{{ mb.phone_number }}</td>
+                            <td>{{ mb.description or '-' }}</td>
+                            <td>
+                                {% if mb.is_active %}
+                                <span class="badge bg-success rounded-pill px-3">Ativo</span>
+                                {% else %}
+                                <span class="badge bg-secondary rounded-pill px-3">Inativo</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-4 text-center">
+                                <button type="button" class="btn btn-sm btn-outline-danger rounded-pill px-3" 
+                                        onclick="confirmarExclusao({{ mb.id }}, '{{ mb.phone_number }}')">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="4" class="text-center py-5 text-muted">
+                                <i class="bi bi-phone fs-1 d-block mb-2"></i>
+                                Nenhum número MBWay cadastrado para a congregação.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- MBWay de Ministérios -->
+    {% if ministry_mbway %}
+    <div class="card border-0 shadow-sm">
+        <div class="card-header bg-info text-white">
+            <h5 class="mb-0"><i class="bi bi-diagram-3 me-2"></i> MBWay de Ministérios</h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="px-4 py-3">Ministério</th>
+                            <th class="py-3">Número</th>
+                            <th class="py-3">Descrição</th>
+                            <th class="py-3">Status</th>
+                            <th class="px-4 py-3 text-center">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for mb in ministry_mbway %}
+                        <tr>
+                            <td class="px-4 fw-bold">{{ mb.ministry.name }}</td>
+                            <td>{{ mb.phone_number }}</td>
+                            <td>{{ mb.description or '-' }}</td>
+                            <td>
+                                {% if mb.is_active %}
+                                <span class="badge bg-success rounded-pill px-3">Ativo</span>
+                                {% else %}
+                                <span class="badge bg-secondary rounded-pill px-3">Inativo</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-4 text-center">
+                                <button type="button" class="btn btn-sm btn-outline-danger rounded-pill px-3" 
+                                        onclick="confirmarExclusao({{ mb.id }}, '{{ mb.phone_number }}')">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Modal de Confirmação -->
+<div class="modal fade" id="modalExcluir" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title">Confirmar Exclusão</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Tem certeza que deseja excluir este número MBWay?</p>
+                <p id="descricaoMBWay"></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-danger" id="btnConfirmarExclusao">Sim, Excluir</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let mbwayIdParaExcluir = null;
+
+function confirmarExclusao(id, numero) {
+    mbwayIdParaExcluir = id;
+    document.getElementById('descricaoMBWay').innerText = `Número: ${numero}`;
+    new bootstrap.Modal(document.getElementById('modalExcluir')).show();
+}
+
+document.getElementById('btnConfirmarExclusao').addEventListener('click', function() {
+    if (!mbwayIdParaExcluir) return;
+
+    fetch(`/finance/mbway/delete/${mbwayIdParaExcluir}`, {
+        method: 'POST',
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            bootstrap.Modal.getInstance(document.getElementById('modalExcluir')).hide();
+            location.reload();
+        } else {
+            alert('Erro: ' + data.message);
+        }
+    })
+    .catch(error => {
+        alert('Erro na requisição: ' + error);
+    });
+});
+</script>
+{% endblock %}

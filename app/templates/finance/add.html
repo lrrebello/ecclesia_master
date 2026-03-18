@@ -45,6 +45,46 @@
                                 </select>
                                 <div class="form-text extra-small">Gerencie os meios de pagamento nas configurações.</div>
                             </div>
+                            <!-- Conta Bancária (novo campo) -->
+                            <div class="col-md-12 mt-3">
+                                <div class="card border-0 bg-light">
+                                    <div class="card-body p-3">
+                                        <div class="d-flex align-items-center mb-2">
+                                            <i class="bi bi-bank2 text-primary me-2"></i>
+                                            <label class="form-label fw-bold mb-0">VINCULAR A CONTA BANCÁRIA</label>
+                                        </div>
+                                        <select name="bank_account_id" class="form-select bg-white border-0 shadow-sm">
+                                            <option value="">-- Não vincular a nenhuma conta --</option>
+                                            <optgroup label="Contas da Congregação">
+                                                {% for account in church_bank_accounts %}
+                                                <option value="{{ account.id }}" 
+                                                        data-type="church"
+                                                        {% if account.mbway_phone %}data-mbway="{{ account.mbway_phone }}"{% endif %}>
+                                                    {{ account.bank_name }} - {{ account.account_number }}
+                                                    {% if account.mbway_phone %} (MBWay: {{ account.mbway_phone }}){% endif %}
+                                                </option>
+                                                {% endfor %}
+                                            </optgroup>
+                                            {% if ministry_bank_accounts %}
+                                            <optgroup label="Contas de Ministérios">
+                                                {% for account in ministry_bank_accounts %}
+                                                <option value="{{ account.id }}" 
+                                                        data-type="ministry"
+                                                        data-ministry="{{ account.ministry.name }}">
+                                                    {{ account.ministry.name }}: {{ account.bank_name }} - {{ account.account_number }}
+                                                </option>
+                                                {% endfor %}
+                                            </optgroup>
+                                            {% endif %}
+                                        </select>
+                                        <div class="form-text extra-small mt-2">
+                                            <i class="bi bi-info-circle me-1"></i>
+                                            Selecione a conta onde o valor foi creditado/debitado. 
+                                            <strong class="text-primary">Se não vincular, a transação ficará apenas no registro geral.</strong>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                             <div class="col-md-6" id="member_select_div">
                                 <label class="form-label fw-bold small">MEMBRO VINCULADO <span id="required_label" class="text-danger d-none">* FISCAL</span></label>
                                 <select name="user_id" id="user_id" class="form-select bg-light border-0">

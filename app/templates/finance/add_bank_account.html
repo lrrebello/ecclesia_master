@@ -1,0 +1,176 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="bi bi-bank me-2"></i> Nova Conta Bancária</h5>
+                </div>
+                <div class="card-body p-4">
+                    <form method="POST">
+                        <div class="row g-3">
+                            <!-- Para quem é a conta -->
+                            <div class="col-md-12">
+                                <label class="form-label fw-bold">Vincular a:</label>
+                                <select name="ministry_id" class="form-select">
+                                    <option value="">Igreja (Conta Geral)</option>
+                                    {% for ministry in ministries %}
+                                    <option value="{{ ministry.id }}">{{ ministry.name }}</option>
+                                    {% endfor %}
+                                </select>
+                                <small class="text-muted">Deixe em branco para conta da igreja</small>
+                            </div>
+
+                            <!-- Dados do Banco -->
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Banco *</label>
+                                <input type="text" name="bank_name" class="form-control" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Tipo de Conta *</label>
+                                <select name="account_type" class="form-select" required>
+                                    <option value="corrente">Corrente</option>
+                                    <option value="poupanca">Poupança</option>
+                                    <option value="investimento">Investimento</option>
+                                </select>
+                            </div>
+
+                            <div class="col-md-4">
+                                <label class="form-label fw-bold">Agência</label>
+                                <input type="text" name="agency" class="form-control">
+                            </div>
+                            <div class="col-md-8">
+                                <label class="form-label fw-bold">Número da Conta *</label>
+                                <input type="text" name="account_number" class="form-control" required>
+                            </div>
+
+                            <!-- Dados Internacionais -->
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">IBAN</label>
+                                <input type="text" name="iban" class="form-control" placeholder="PT50 0000 0000 0000 0000 0000 0">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">SWIFT / BIC</label>
+                                <input type="text" name="swift" class="form-control" placeholder="BCOMPTPL">
+                            </div>
+
+                            <!-- Pagamentos Digitais -->
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Chave PIX (Brasil)</label>
+                                <input type="text" name="pix_key" class="form-control" placeholder="CPF, e-mail ou telefone">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">MBWay (Portugal)</label>
+                                <input type="text" name="mbway_phone" class="form-control" placeholder="+351 000 000 000">
+                            </div>
+
+                            <!-- Observações -->
+                            <div class="col-md-12">
+                                <label class="form-label fw-bold">Observações</label>
+                                <textarea name="notes" class="form-control" rows="3" placeholder="Informações adicionais..."></textarea>
+                            </div>
+
+                            <!-- Status -->
+                            <div class="col-md-12">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" name="is_active" id="is_active" checked>
+                                    <label class="form-check-label fw-bold" for="is_active">Conta Ativa</label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <hr class="my-4">
+
+                        <div class="d-flex gap-2 justify-content-end">
+                            <a href="{{ url_for('finance.list_bank_accounts') }}" class="btn btn-light px-4">Cancelar</a>
+                            <button type="submit" class="btn btn-primary px-5">Salvar Conta</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+// Máscaras e validações
+document.addEventListener('DOMContentLoaded', function() {
+    // Máscara para IBAN (formata enquanto digita)
+    const ibanInput = document.querySelector('input[name="iban"]');
+    if (ibanInput) {
+        ibanInput.addEventListener('input', function(e) {
+            let value = e.target.value.replace(/\s/g, '').toUpperCase();
+            // Remove tudo que não for letra ou número
+            value = value.replace(/[^A-Z0-9]/g, '');
+            // Limita a 25 caracteres (PT + 23 dígitos)
+            if (value.length > 25) {
+                value = value.slice(0, 25);
+            }
+            // Formata com espaços a cada 4 caracteres
+            if (value.length > 4) {
+                value = value.match(/.{1,4}/g).join(' ');
+            }
+            e.target.value = value;
+        });
+    }
+    
+    // Máscara para telefone (formato português)
+    const phoneInput = document.querySelector('input[name="mbway_phone"]');
+    if (phoneInput) {
+        phoneInput.addEventListener('input', function(e) {
+            let value = e.target.value.replace(/\D/g, '');
+            
+            // Se tiver mais de 9 dígitos, limita
+            if (value.length > 9) {
+                value = value.slice(0, 9);
+            }
+            
+            // Formata como 910 000 000
+            if (value.length > 3) {
+                value = value.replace(/^(\d{3})(\d{0,3})(\d{0,3})/, '$1 $2 $3').trim();
+            }
+            e.target.value = value;
+        });
+        
+        // Placeholder mais amigável
+        phoneInput.placeholder = "910 000 000";
+    }
+    
+    // Validação antes de enviar
+    const form = document.querySelector('form');
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            const iban = ibanInput?.value.replace(/\s/g, '') || '';
+            
+            // Validar IBAN português se preenchido
+            if (iban && !/^PT\d{23}$/i.test(iban)) {
+                e.preventDefault();
+                alert('IBAN português deve ter 25 caracteres: PT seguido de 23 dígitos');
+                return false;
+            }
+            
+            const phone = phoneInput?.value.replace(/\s/g, '') || '';
+            
+            // Validar telefone português se preenchido
+            if (phone) {
+                const phoneDigits = phone.replace(/[^\d+]/g, '');
+                if (phoneDigits.startsWith('+351')) {
+                    if (phoneDigits.length !== 13) { // +351 + 9 dígitos = 13
+                        e.preventDefault();
+                        alert('Telefone português deve ter 9 dígitos após +351');
+                        return false;
+                    }
+                } else if (phoneDigits.length === 9) {
+                    // OK, vai ser formatado no backend
+                } else {
+                    e.preventDefault();
+                    alert('Telefone português deve ter 9 dígitos (ex: 910000000 ou +351910000000)');
+                    return false;
+                }
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

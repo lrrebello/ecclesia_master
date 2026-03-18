@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="fw-bold">
+            <i class="bi bi-tags me-2"></i> Categorias - {{ ministry.name }}
+        </h2>
+        <button class="btn btn-primary" onclick="adicionarCategoria()">
+            <i class="bi bi-plus-lg me-2"></i> Nova Categoria
+        </button>
+    </div>
+
+    <div class="card border-0 shadow-sm">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="px-4 py-3">Categoria</th>
+                            <th class="py-3">Tipo</th>
+                            <th class="py-3">Status</th>
+                            <th class="px-4 py-3 text-center">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for cat in categories %}
+                        <tr>
+                            <td class="px-4 fw-bold">{{ cat.name }}</td>
+                            <td>
+                                <span class="badge bg-{{ 'success' if cat.type == 'income' else 'danger' }} bg-opacity-10 text-{{ 'success' if cat.type == 'income' else 'danger' }} px-3 py-2">
+                                    {{ 'Entrada' if cat.type == 'income' else 'Saída' }}
+                                </span>
+                            </td>
+                            <td>
+                                {% if cat.is_active %}
+                                <span class="badge bg-success rounded-pill px-3">Ativa</span>
+                                {% else %}
+                                <span class="badge bg-secondary rounded-pill px-3">Inativa</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-4 text-center">
+                                <button class="btn btn-sm btn-outline-danger rounded-pill px-3" 
+                                        onclick="toggleStatus({{ cat.id }}, {{ 'true' if cat.is_active else 'false' }})">
+                                    <i class="bi bi-arrow-repeat"></i>
+                                </button>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="4" class="text-center py-5 text-muted">
+                                <i class="bi bi-tags fs-1 d-block mb-2"></i>
+                                Nenhuma categoria cadastrada para este ministério.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Nova Categoria -->
+<div class="modal fade" id="modalCategoria" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title">Nova Categoria</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="formCategoria">
+                <div class="modal-body p-4">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Nome da Categoria</label>
+                        <input type="text" class="form-control" id="cat_name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Tipo</label>
+                        <select class="form-select" id="cat_type" required>
+                            <option value="income">Entrada (Receita)</option>
+                            <option value="expense">Saída (Despesa)</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Salvar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+function adicionarCategoria() {
+    new bootstrap.Modal(document.getElementById('modalCategoria')).show();
+}
+
+document.getElementById('formCategoria').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    fetch(`/finance/ministry/{{ ministry.id }}/categories/add`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({
+            'name': document.getElementById('cat_name').value,
+            'type': document.getElementById('cat_type').value
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            bootstrap.Modal.getInstance(document.getElementById('modalCategoria')).hide();
+            location.reload();
+        } else {
+            alert('Erro: ' + data.message);
+        }
+    });
+});
+
+function toggleStatus(catId, isActive) {
+    const action = isActive ? 'desativar' : 'reativar';
+    if (!confirm(`Tem certeza que deseja ${action} esta categoria?`)) return;
+    
+    fetch(`/finance/ministry/category/${catId}/toggle`, {
+        method: 'POST'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('Erro: ' + data.message);
+        }
+    });
+}
+</script>
+{% endblock %}

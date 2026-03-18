@@ -2,13 +2,59 @@ from flask import Blueprint, render_template, redirect, url_for, flash, request,
 from flask_login import login_required, current_user
 from app.core.models import (
     Transaction, Asset, MaintenanceLog, db, User, Church, Ministry,
-    MinistryTransaction, TransactionCategory, PaymentMethod, SystemLog
+    MinistryTransaction, TransactionCategory, PaymentMethod, SystemLog,
+    BankAccount, MBWay, MinistryCategory, MinistryPaymentMethod
 )
 from app.utils.pdf_gen import generate_receipt, generate_consolidated_receipt
 from app.utils.logger import log_action  # <-- IMPORT DO LOGGER
 from sqlalchemy import or_, func
 import os
 from datetime import datetime, timedelta, date
+
+import re
+
+def validar_iban(iban):
+    """Valida e formata IBAN português"""
+    if not iban:
+        return True, None
+    
+    # Remove espaços e converte para maiúsculas
+    iban = re.sub(r'\s+', '', iban).upper()
+    
+    # IBAN português tem 25 caracteres (PT + 23 dígitos)
+    if not re.match(r'^PT\d{23}$', iban):
+        return False, "IBAN português deve começar com 'PT' seguido de 23 dígitos (25 caracteres no total)"
+    
+    return True, iban
+
+
+def validar_telefone_portugal(telefone):
+    """Valida e formata telefone português"""
+    if not telefone:
+        return True, None
+    
+    # Remove espaços, traços e outros caracteres
+    telefone = re.sub(r'[\s\-\(\)]', '', telefone)
+    
+    # Se começar com +351, mantém
+    if telefone.startswith('+351'):
+        numero = telefone[4:]
+        if len(numero) == 9 and numero.isdigit():
+            return True, telefone
+    # Se começar com 00351
+    elif telefone.startswith('00351'):
+        numero = telefone[5:]
+        if len(numero) == 9 and numero.isdigit():
+            return True, '+351' + numero
+    # Se for número nacional (9 dígitos)
+    elif len(telefone) == 9 and telefone.isdigit():
+        return True, '+351' + telefone
+    # Se for número com 9 dígitos começando com 9 (telemóvel)
+    elif len(telefone) == 9 and telefone.isdigit() and telefone[0] == '9':
+        return True, '+351' + telefone
+    
+    # Mensagem mais amigável
+    return False, "Telefone deve ter 9 dígitos (ex: 910000000 ou +351 910 000 000)"
 
 finance_bp = Blueprint('finance', __name__)
 
@@ -446,11 +492,38 @@ def ministry_finance(ministry_id):
         flash('Acesso negado.', 'danger')
         return redirect(url_for('members.dashboard'))
     
+    # Busca todas as transações
     transactions = MinistryTransaction.query.filter_by(ministry_id=ministry_id).order_by(MinistryTransaction.date.desc()).all()
     
-    income = sum(t.amount for t in transactions if t.type == 'income' and t.is_paid)
-    expense = sum(t.amount for t in transactions if t.type == 'expense')
-    debts = sum(t.amount for t in transactions if t.is_debt and not t.is_paid)
+    income = 0
+    expense = 0
+    debts = 0
+    
+    for tx in transactions:
+        # Verifica PRIMEIRO ministry_category_id (categorias personalizadas), DEPOIS category_id (categorias gerais)
+        if tx.ministry_category_id:
+            category = MinistryCategory.query.get(tx.ministry_category_id)
+            if category:
+                tx.category_name = category.name
+            else:
+                tx.category_name = "Sem categoria"
+        elif tx.category_id:
+            category = TransactionCategory.query.get(tx.category_id)
+            if category:
+                tx.category_name = category.name
+            else:
+                tx.category_name = "Sem categoria"
+        else:
+            tx.category_name = "Sem categoria"
+        
+        # Calcula os stats
+        if tx.type == 'income' and tx.is_paid:
+            income += tx.amount
+        elif tx.type == 'expense':
+            expense += tx.amount
+        
+        if tx.is_debt and not tx.is_paid:
+            debts += tx.amount
     
     stats = {
         'income': income,
@@ -459,7 +532,56 @@ def ministry_finance(ministry_id):
         'pending_debts': debts
     }
     
-    return render_template('finance/ministry_finance.html', ministry=ministry, transactions=transactions, stats=stats)
+    return render_template(
+        'finance/ministry_finance.html', 
+        ministry=ministry, 
+        transactions=transactions, 
+        stats=stats
+    )
+
+@finance_bp.route('/ministry/transaction/delete/<int:tx_id>', methods=['POST'])
+@login_required
+def delete_ministry_transaction(tx_id):
+    """Excluir uma transação do ministério"""
+    from app.core.models import MinistryTransaction, Ministry
+    
+    tx = MinistryTransaction.query.get_or_404(tx_id)
+    ministry = Ministry.query.get(tx.ministry_id)
+    
+    # Verificar permissão
+    is_leader = ministry.leader_id == current_user.id
+    if not (is_leader or can_manage_finance()):
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('members.dashboard'))
+    
+    # Guardar dados para o log
+    tx_data = {
+        'id': tx.id,
+        'type': tx.type,
+        'amount': tx.amount,
+        'description': tx.description,
+        'ministry_id': tx.ministry_id
+    }
+    
+    try:
+        db.session.delete(tx)
+        db.session.commit()
+        
+        # LOG: Exclusão de transação
+        log_action(
+            action='DELETE',
+            module='MINISTRY_FINANCE',
+            description=f"Exclusão de lançamento do ministério {ministry.name}: {tx.description or 'Sem descrição'} (R$ {tx.amount})",
+            old_values=tx_data,
+            church_id=ministry.church_id
+        )
+        
+        flash('Lançamento excluído com sucesso!', 'success')
+        return jsonify({'success': True})
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Erro ao excluir transação de ministério {tx_id}: {str(e)}")
+        return jsonify({'success': False, 'message': 'Erro ao excluir. Tente novamente.'}), 500
 
 @finance_bp.route('/add', methods=['GET', 'POST'])
 @login_required
@@ -472,6 +594,7 @@ def add_transaction():
         user_id = request.form.get('user_id')
         category_id = request.form.get('category_id')
         payment_method_id = request.form.get('payment_method_id')
+        bank_account_id = request.form.get('bank_account_id')  # NOVO: conta bancária
         
         category = TransactionCategory.query.get(category_id) if category_id else None
         payment_method = PaymentMethod.query.get(payment_method_id) if payment_method_id else None
@@ -488,12 +611,25 @@ def add_transaction():
             flash('Conforme o Artigo 63º do EBF (Portugal), donativos superiores a 200€ não podem ser efetuados em numerário.', 'danger')
             return redirect(url_for('finance.add_transaction'))
 
+        # Busca informações da conta bancária para o log
+        bank_account = None
+        bank_account_info = ""
+        if bank_account_id:
+            bank_account = BankAccount.query.get(bank_account_id)
+            if bank_account:
+                bank_account_info = f" | Conta: {bank_account.bank_name} - {bank_account.account_number}"
+            else:
+                bank_account_info = " | Conta não encontrada"
+        else:
+            bank_account_info = " | Sem vínculo bancário"
+
         new_tx = Transaction(
             type=request.form.get('type'),
             category_id=int(category_id) if category_id else None,
             category_name=category.name if category else "Geral",
             payment_method_id=int(payment_method_id) if payment_method_id else None,
             payment_method_name=payment_method.name if payment_method else "Dinheiro",
+            bank_account_id=int(bank_account_id) if bank_account_id else None,  # NOVO: salva o ID da conta
             amount=amount,
             description=request.form.get('description'),
             user_id=int(user_id) if user_id and user_id != '' else None,
@@ -503,18 +639,21 @@ def add_transaction():
         db.session.add(new_tx)
         db.session.commit()
         
-        # LOG: Criação de transação
+        # LOG: Criação de transação com informação da conta
         log_action(
             action='CREATE',
             module='FINANCE',
-            description=f"Novo lançamento: {new_tx.description} (R$ {new_tx.amount})",
+            description=f"Novo lançamento: {new_tx.description or 'Sem descrição'} ({current_user.church.currency_symbol or 'R$'} {new_tx.amount:.2f}){bank_account_info}",
             new_values={
                 'id': new_tx.id,
                 'type': new_tx.type,
-                'amount': new_tx.amount,
+                'amount': float(new_tx.amount),
                 'description': new_tx.description,
                 'category': new_tx.category_name,
-                'user_id': new_tx.user_id
+                'payment_method': new_tx.payment_method_name,
+                'user_id': new_tx.user_id,
+                'bank_account_id': new_tx.bank_account_id,
+                'bank_account_name': bank_account.bank_name if bank_account else None
             },
             church_id=current_user.church_id
         )
@@ -522,11 +661,39 @@ def add_transaction():
         flash('Lançamento registrado com sucesso!', 'success')
         return redirect(url_for('finance.dashboard'))
         
+    # GET - buscar dados para o formulário
     members = User.query.filter_by(church_id=current_user.church_id, status='active').all()
     categories = TransactionCategory.query.filter_by(church_id=current_user.church_id, is_active=True).all()
     payment_methods = PaymentMethod.query.filter_by(church_id=current_user.church_id, is_active=True).all()
+    
+    # NOVO: buscar contas bancárias disponíveis
+    church_bank_accounts = BankAccount.query.filter_by(
+        church_id=current_user.church_id,
+        ministry_id=None,
+        is_active=True
+    ).all()
+    
+    # Contas de ministérios (se tiver permissão)
+    ministry_bank_accounts = []
+    if can_manage_finance():
+        ministries = Ministry.query.filter_by(church_id=current_user.church_id).all()
+        for ministry in ministries:
+            if is_admin() or ministry.leader_id == current_user.id:
+                accounts = BankAccount.query.filter_by(
+                    ministry_id=ministry.id,
+                    is_active=True
+                ).all()
+                ministry_bank_accounts.extend(accounts)
+    
     today = datetime.utcnow().date().isoformat()
-    return render_template('finance/add.html', members=members, categories=categories, payment_methods=payment_methods, today=today)
+    
+    return render_template('finance/add.html', 
+                           members=members, 
+                           categories=categories, 
+                           payment_methods=payment_methods,
+                           church_bank_accounts=church_bank_accounts,  # NOVO
+                           ministry_bank_accounts=ministry_bank_accounts,  # NOVO
+                           today=today)
 
 @finance_bp.route('/transaction/edit/<int:id>', methods=['POST'])
 @login_required
@@ -541,7 +708,7 @@ def edit_transaction(id):
     if not is_admin() and transaction.church_id != current_user.church_id:
         return jsonify({'success': False, 'message': 'Acesso negado.'}), 403
     
-    # Guardar valores antigos
+    # Guardar valores antigos (incluindo conta bancária)
     old_values = {
         'type': transaction.type,
         'amount': transaction.amount,
@@ -551,6 +718,7 @@ def edit_transaction(id):
         'payment_method_id': transaction.payment_method_id,
         'payment_method_name': transaction.payment_method_name,
         'user_id': transaction.user_id,
+        'bank_account_id': transaction.bank_account_id,  # NOVO
         'date': transaction.date.strftime('%Y-%m-%d') if transaction.date else None
     }
     
@@ -577,22 +745,39 @@ def edit_transaction(id):
     user_id = request.form.get('user_id')
     transaction.user_id = int(user_id) if user_id and user_id != '' else None
     
+    # NOVO: atualizar conta bancária
+    bank_account_id = request.form.get('bank_account_id')
+    old_bank_account_id = old_values['bank_account_id']
+    transaction.bank_account_id = int(bank_account_id) if bank_account_id else None
+    
+    # Buscar informações da conta para o log
+    bank_account = None
+    bank_account_info = ""
+    if transaction.bank_account_id:
+        bank_account = BankAccount.query.get(transaction.bank_account_id)
+        if bank_account:
+            bank_account_info = f" | Conta: {bank_account.bank_name} - {bank_account.account_number}"
+    else:
+        bank_account_info = " | Sem vínculo bancário"
+    
     try:
         db.session.commit()
         
-        # LOG: Edição de transação
+        # LOG: Edição de transação com informação da conta
         log_action(
             action='UPDATE',
             module='FINANCE',
-            description=f"Lançamento editado: {transaction.description}",
+            description=f"Lançamento editado: {transaction.description or 'Sem descrição'}{bank_account_info}",
             old_values=old_values,
             new_values={
                 'type': transaction.type,
-                'amount': transaction.amount,
+                'amount': float(transaction.amount),
                 'description': transaction.description,
                 'category': transaction.category_name,
                 'payment_method': transaction.payment_method_name,
                 'user_id': transaction.user_id,
+                'bank_account_id': transaction.bank_account_id,
+                'bank_account_name': bank_account.bank_name if bank_account else None,
                 'date': transaction.date.strftime('%Y-%m-%d') if transaction.date else None
             },
             church_id=transaction.church_id
@@ -856,66 +1041,6 @@ def add_maintenance(id):
         return redirect(url_for('finance.dashboard'))
     return render_template('finance/add_maintenance.html', asset=asset)
 
-@finance_bp.route('/ministry/<int:ministry_id>/add', methods=['GET', 'POST'])
-@login_required
-def add_ministry_transaction(ministry_id):
-    ministry = Ministry.query.get_or_404(ministry_id)
-    is_leader = ministry.leader_id == current_user.id
-    if not (is_leader or can_manage_finance()):
-        flash('Acesso negado.', 'danger')
-        return redirect(url_for('members.dashboard'))
-        
-    if request.method == 'POST':
-        is_debt = 'is_debt' in request.form
-        debtor_id = request.form.get('debtor_id')
-        category_id = request.form.get('category_id')
-        payment_method_id = request.form.get('payment_method_id')
-        
-        category = TransactionCategory.query.get(category_id) if category_id else None
-        payment_method = PaymentMethod.query.get(payment_method_id) if payment_method_id else None
-        
-        new_tx = MinistryTransaction(
-            ministry_id=ministry.id,
-            type=request.form.get('type'),
-            category_id=int(category_id) if category_id else None,
-            category_name=category.name if category else "Geral",
-            payment_method_id=int(payment_method_id) if payment_method_id else None,
-            payment_method_name=payment_method.name if payment_method else "Dinheiro",
-            amount=float(request.form.get('amount') or 0),
-            description=request.form.get('description'),
-            date=datetime.strptime(request.form.get('date'), '%Y-%m-%d') if request.form.get('date') else datetime.utcnow(),
-            is_debt=is_debt,
-            debtor_id=int(debtor_id) if debtor_id and debtor_id != '' else None,
-            is_paid=not is_debt
-        )
-        db.session.add(new_tx)
-        db.session.commit()
-        
-        # LOG: Transação de ministério
-        log_action(
-            action='CREATE',
-            module='MINISTRY_FINANCE',
-            description=f"Lançamento em {ministry.name}: {new_tx.description} (R$ {new_tx.amount})",
-            new_values={
-                'id': new_tx.id,
-                'ministry_id': ministry.id,
-                'ministry_name': ministry.name,
-                'amount': new_tx.amount,
-                'description': new_tx.description,
-                'type': new_tx.type
-            },
-            church_id=ministry.church_id
-        )  # <-- FECHA A CHAMADA DO log_action
-        
-        flash('Lançamento do ministério registrado!', 'success')
-        return redirect(url_for('finance.ministry_finance', ministry_id=ministry.id))
-        
-    members = User.query.filter_by(church_id=current_user.church_id, status='active').all()
-    categories = TransactionCategory.query.filter_by(church_id=current_user.church_id, is_active=True).all()
-    payment_methods = PaymentMethod.query.filter_by(church_id=current_user.church_id, is_active=True).all()
-    today = datetime.utcnow().date().isoformat()
-    return render_template('finance/add_ministry_tx.html', ministry=ministry, members=members, categories=categories, payment_methods=payment_methods, today=today)
-
 @finance_bp.route('/ministry/debt/pay/<int:tx_id>', methods=['GET'])
 @login_required
 def pay_debt(tx_id):
@@ -959,3 +1084,671 @@ def pay_debt(tx_id):
         current_app.logger.error(f"Erro ao pagar dívida {tx_id}: {str(e)}")
     
     return redirect(url_for('finance.ministry_finance', ministry_id=ministry.id))
+
+# ==================== ROTAS PARA CONTAS BANCÁRIAS ====================
+
+@finance_bp.route('/bank-accounts')
+@login_required
+def list_bank_accounts():
+    """Listar contas bancárias da igreja"""
+    if not can_manage_finance():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('finance.dashboard'))
+    
+    church_accounts = BankAccount.query.filter_by(
+        church_id=current_user.church_id, 
+        ministry_id=None
+    ).all()
+    
+    # Contas de ministérios (se for líder ou admin)
+    ministry_accounts = []
+    if can_manage_finance():
+        ministries = Ministry.query.filter_by(church_id=current_user.church_id).all()
+        for ministry in ministries:
+            if is_admin() or ministry.leader_id == current_user.id:
+                accounts = BankAccount.query.filter_by(ministry_id=ministry.id).all()
+                ministry_accounts.extend(accounts)
+    
+    return render_template('finance/bank_accounts.html', 
+                           church_accounts=church_accounts,
+                           ministry_accounts=ministry_accounts)
+
+
+@finance_bp.route('/bank-account/add', methods=['GET', 'POST'])
+@login_required
+def add_bank_account():
+    """Adicionar nova conta bancária"""
+    if not can_manage_finance():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('finance.dashboard'))
+    
+    if request.method == 'POST':
+        ministry_id = request.form.get('ministry_id')
+        
+        # Verificar permissão para conta de ministério
+        if ministry_id:
+            ministry = Ministry.query.get(ministry_id)
+            if not (is_admin() or (ministry and ministry.leader_id == current_user.id)):
+                flash('Acesso negado a este ministério.', 'danger')
+                return redirect(url_for('finance.list_bank_accounts'))
+        
+        # Coletar dados
+        bank_name = request.form.get('bank_name', '').strip()
+        account_number = request.form.get('account_number', '').strip()
+        iban = request.form.get('iban', '').strip()
+        mbway_phone = request.form.get('mbway_phone', '').strip()
+        
+        # Validações básicas
+        if not bank_name:
+            flash('Nome do banco é obrigatório.', 'danger')
+            return redirect(request.url)
+        
+        if not account_number:
+            flash('Número da conta é obrigatório.', 'danger')
+            return redirect(request.url)
+        
+        # Validar IBAN se fornecido
+        if iban:
+            valido, resultado = validar_iban(iban)
+            if not valido:
+                flash(f'IBAN inválido: {resultado}', 'danger')
+                return redirect(request.url)
+            iban = resultado
+        
+        # Validar telefone MBWay se fornecido
+        mbway_created = False
+        if mbway_phone:
+            valido, resultado = validar_telefone_portugal(mbway_phone)
+            if not valido:
+                flash(f'Telefone MBWay inválido: {resultado}', 'danger')
+                return redirect(request.url)
+            mbway_phone = resultado
+            
+            # Verificar se já existe este telefone MBWay
+            existing_mbway = MBWay.query.filter_by(
+                phone_number=mbway_phone,
+                church_id=current_user.church_id
+            ).first()
+            
+            if not existing_mbway:
+                # Criar registro MBWay automaticamente
+                new_mbway = MBWay(
+                    church_id=current_user.church_id,
+                    ministry_id=int(ministry_id) if ministry_id else None,
+                    phone_number=mbway_phone,
+                    description=f"MBWay da conta {bank_name} - {account_number}",
+                    is_active=True
+                )
+                db.session.add(new_mbway)
+                mbway_created = True
+                flash('Número MBWay cadastrado automaticamente!', 'success')
+        
+        # Criar conta bancária
+        new_account = BankAccount(
+            church_id=current_user.church_id,
+            ministry_id=int(ministry_id) if ministry_id else None,
+            bank_name=bank_name,
+            account_type=request.form.get('account_type'),
+            account_number=account_number,
+            agency=request.form.get('agency', '').strip(),
+            iban=iban if iban else None,
+            swift=request.form.get('swift', '').strip() or None,
+            pix_key=request.form.get('pix_key', '').strip() or None,
+            mbway_phone=mbway_phone if mbway_phone else None,
+            notes=request.form.get('notes', '').strip() or None,
+            is_active=True
+        )
+        
+        try:
+            db.session.add(new_account)
+            db.session.commit()
+            
+            log_action(
+                action='CREATE',
+                module='BANK_ACCOUNT',
+                description=f"Nova conta bancária: {new_account.bank_name} - {new_account.account_number}",
+                new_values={'id': new_account.id, 'bank': new_account.bank_name},
+                church_id=current_user.church_id
+            )
+            
+            if mbway_created:
+                flash('Conta bancária e MBWay cadastrados com sucesso!', 'success')
+            else:
+                flash('Conta bancária cadastrada com sucesso!', 'success')
+                
+            return redirect(url_for('finance.list_bank_accounts'))
+            
+        except Exception as e:
+            db.session.rollback()
+            current_app.logger.error(f"Erro ao criar conta bancária: {str(e)}")
+            flash('Erro ao cadastrar conta bancária. Verifique os dados.', 'danger')
+            return redirect(request.url)
+    
+    # GET - carregar formulário
+    ministries = Ministry.query.filter_by(church_id=current_user.church_id).all()
+    return render_template('finance/add_bank_account.html', ministries=ministries)
+
+
+@finance_bp.route('/bank-account/edit/<int:id>', methods=['GET', 'POST'])
+@login_required
+def edit_bank_account(id):
+    """Editar conta bancária"""
+    if not can_manage_finance():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('finance.dashboard'))
+    
+    account = BankAccount.query.get_or_404(id)
+    
+    # Verificar permissão
+    if account.ministry_id:
+        ministry = Ministry.query.get(account.ministry_id)
+        if not (is_admin() or (ministry and ministry.leader_id == current_user.id)):
+            flash('Acesso negado.', 'danger')
+            return redirect(url_for('finance.list_bank_accounts'))
+    
+    if request.method == 'POST':
+        # Validações (mesmas do add)
+        mbway_phone = request.form.get('mbway_phone', '').strip()
+        
+        if mbway_phone:
+            valido, resultado = validar_telefone_portugal(mbway_phone)
+            if not valido:
+                flash(f'Telefone MBWay inválido: {resultado}', 'danger')
+                return redirect(request.url)
+            mbway_phone = resultado
+        
+        old_phone = account.mbway_phone
+        
+        # Atualizar conta
+        account.bank_name = request.form.get('bank_name')
+        account.account_type = request.form.get('account_type')
+        account.account_number = request.form.get('account_number')
+        account.agency = request.form.get('agency')
+        account.iban = request.form.get('iban') or None
+        account.swift = request.form.get('swift') or None
+        account.pix_key = request.form.get('pix_key') or None
+        account.mbway_phone = mbway_phone or None
+        account.notes = request.form.get('notes')
+        account.is_active = 'is_active' in request.form
+        
+        # Se mudou o telefone MBWay, atualizar/ criar registro MBWay
+        if mbway_phone and mbway_phone != old_phone:
+            # Verificar se já existe MBWay com este número
+            existing = MBWay.query.filter_by(
+                phone_number=mbway_phone,
+                church_id=current_user.church_id
+            ).first()
+            
+            if not existing:
+                new_mbway = MBWay(
+                    church_id=current_user.church_id,
+                    ministry_id=account.ministry_id,
+                    phone_number=mbway_phone,
+                    description=f"MBWay da conta {account.bank_name} - {account.account_number}",
+                    is_active=True
+                )
+                db.session.add(new_mbway)
+                flash('Número MBWay atualizado automaticamente!', 'success')
+        
+        db.session.commit()
+        
+        log_action(
+            action='UPDATE',
+            module='BANK_ACCOUNT',
+            description=f"Conta bancária editada: {account.bank_name}",
+            church_id=current_user.church_id
+        )
+        
+        flash('Conta bancária atualizada!', 'success')
+        return redirect(url_for('finance.list_bank_accounts'))
+    
+    return render_template('finance/edit_bank_account.html', account=account)
+
+
+@finance_bp.route('/bank-account/delete/<int:id>', methods=['POST'])
+@login_required
+def delete_bank_account(id):
+    """Excluir conta bancária"""
+    if not can_manage_finance():
+        return jsonify({'success': False, 'message': 'Acesso negado.'}), 403
+    
+    account = BankAccount.query.get_or_404(id)
+    
+    # Verificar permissão
+    if account.ministry_id:
+        ministry = Ministry.query.get(account.ministry_id)
+        if not (is_admin() or (ministry and ministry.leader_id == current_user.id)):
+            return jsonify({'success': False, 'message': 'Acesso negado.'}), 403
+    
+    account_data = {'id': account.id, 'bank': account.bank_name}
+    
+    try:
+        db.session.delete(account)
+        db.session.commit()
+        
+        log_action(
+            action='DELETE',
+            module='BANK_ACCOUNT',
+            description=f"Conta bancária excluída: {account.bank_name}",
+            old_values=account_data,
+            church_id=current_user.church_id
+        )
+        
+        return jsonify({'success': True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+# ==================== ROTAS PARA MBWAY ====================
+
+@finance_bp.route('/mbway')
+@login_required
+def list_mbway():
+    """Listar números MBWay"""
+    if not can_manage_finance():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('finance.dashboard'))
+    
+    church_mbway = MBWay.query.filter_by(
+        church_id=current_user.church_id,
+        ministry_id=None
+    ).all()
+    
+    ministry_mbway = []
+    if can_manage_finance():
+        ministries = Ministry.query.filter_by(church_id=current_user.church_id).all()
+        for ministry in ministries:
+            if is_admin() or ministry.leader_id == current_user.id:
+                numbers = MBWay.query.filter_by(ministry_id=ministry.id).all()
+                ministry_mbway.extend(numbers)
+    
+    return render_template('finance/mbway.html', 
+                           church_mbway=church_mbway,
+                           ministry_mbway=ministry_mbway)
+
+
+@finance_bp.route('/mbway/add', methods=['GET', 'POST'])
+@login_required
+def add_mbway():
+    """Adicionar número MBWay"""
+    if not can_manage_finance():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('finance.dashboard'))
+    
+    if request.method == 'POST':
+        ministry_id = request.form.get('ministry_id')
+        
+        # Verificar permissão
+        if ministry_id:
+            ministry = Ministry.query.get(ministry_id)
+            if not (is_admin() or (ministry and ministry.leader_id == current_user.id)):
+                flash('Acesso negado.', 'danger')
+                return redirect(url_for('finance.list_mbway'))
+        
+        new_mbway = MBWay(
+            church_id=current_user.church_id,
+            ministry_id=int(ministry_id) if ministry_id else None,
+            phone_number=request.form.get('phone_number'),
+            description=request.form.get('description'),
+            is_active=True
+        )
+        db.session.add(new_mbway)
+        db.session.commit()
+        
+        log_action(
+            action='CREATE',
+            module='MBWAY',
+            description=f"Novo MBWay: {new_mbway.phone_number}",
+            new_values={'id': new_mbway.id, 'phone': new_mbway.phone_number},
+            church_id=current_user.church_id
+        )
+        
+        flash('Número MBWay cadastrado!', 'success')
+        return redirect(url_for('finance.list_mbway'))
+    
+    ministries = Ministry.query.filter_by(church_id=current_user.church_id).all()
+    return render_template('finance/add_mbway.html', ministries=ministries)
+
+
+# ==================== ATUALIZAÇÃO DAS ROTAS DE MINISTÉRIO ====================
+
+@finance_bp.route('/ministry/<int:ministry_id>/categories')
+@login_required
+def ministry_categories(ministry_id):
+    """Gerenciar categorias do ministério"""
+    ministry = Ministry.query.get_or_404(ministry_id)
+    if not (is_admin() or ministry.leader_id == current_user.id or can_manage_finance()):
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('members.dashboard'))
+    
+    categories = MinistryCategory.query.filter_by(ministry_id=ministry_id).all()
+    return render_template('finance/ministry_categories.html', 
+                           ministry=ministry, 
+                           categories=categories)
+
+
+@finance_bp.route('/ministry/<int:ministry_id>/categories/add', methods=['POST'])
+@login_required
+def add_ministry_category(ministry_id):
+    """Adicionar categoria personalizada para ministério"""
+    ministry = Ministry.query.get_or_404(ministry_id)
+    if not (is_admin() or ministry.leader_id == current_user.id):
+        return jsonify({'success': False, 'message': 'Acesso negado.'}), 403
+    
+    name = request.form.get('name')
+    type_ = request.form.get('type')
+    
+    if not name or not type_:
+        return jsonify({'success': False, 'message': 'Nome e tipo obrigatórios.'}), 400
+    
+    new_cat = MinistryCategory(
+        ministry_id=ministry_id,
+        name=name,
+        type=type_
+    )
+    db.session.add(new_cat)
+    db.session.commit()
+    
+    log_action(
+        action='CREATE',
+        module='MINISTRY_FINANCE',
+        description=f"Nova categoria no ministério {ministry.name}: {name}",
+        new_values={'id': new_cat.id, 'name': name},
+        church_id=ministry.church_id
+    )
+    
+    return jsonify({'success': True, 'id': new_cat.id})
+
+
+@finance_bp.route('/ministry/<int:ministry_id>/payment-methods')
+@login_required
+def ministry_payment_methods(ministry_id):
+    """Gerenciar métodos de pagamento do ministério"""
+    ministry = Ministry.query.get_or_404(ministry_id)
+    if not (is_admin() or ministry.leader_id == current_user.id or can_manage_finance()):
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('members.dashboard'))
+    
+    methods = MinistryPaymentMethod.query.filter_by(ministry_id=ministry_id).all()
+    return render_template('finance/ministry_payment_methods.html', 
+                           ministry=ministry, 
+                           methods=methods)
+
+
+@finance_bp.route('/ministry/<int:ministry_id>/payment-methods/add', methods=['POST'])
+@login_required
+def add_ministry_payment_method(ministry_id):
+    ministry = Ministry.query.get_or_404(ministry_id)
+    if not (is_admin() or ministry.leader_id == current_user.id):
+        return jsonify({'success': False, 'message': 'Acesso negado.'}), 403
+    
+    name = request.form.get('name')
+    
+    # CORREÇÃO: tratar o valor corretamente
+    raw_value = request.form.get('is_electronic')
+    is_electronic = raw_value == 'true'  # Se for 'true', vira True; qualquer outra coisa vira False
+    
+    print(f"🔍 raw_value: {raw_value}, is_electronic: {is_electronic}")
+    
+    if not name:
+        return jsonify({'success': False, 'message': 'Nome obrigatório.'}), 400
+    
+    new_method = MinistryPaymentMethod(
+        ministry_id=ministry_id,
+        name=name,
+        is_electronic=is_electronic,
+        is_active=True
+    )
+    db.session.add(new_method)
+    db.session.commit()
+    
+    # LOG CORRETO (sem os ...)
+    log_action(
+        action='CREATE',
+        module='MINISTRY_FINANCE',
+        description=f"Novo método de pagamento no ministério {ministry.name}: {name}",
+        new_values={'id': new_method.id, 'name': name},
+        church_id=ministry.church_id
+    )
+    
+    return jsonify({'success': True, 'id': new_method.id})
+
+
+# ==================== ATUALIZAÇÃO DA ROTA DE ADIÇÃO DE TRANSAÇÃO DE MINISTÉRIO ====================
+
+@finance_bp.route('/ministry/<int:ministry_id>/add', methods=['GET', 'POST'])
+@login_required
+def add_ministry_transaction(ministry_id):
+    ministry = Ministry.query.get_or_404(ministry_id)
+    is_leader = ministry.leader_id == current_user.id
+    if not (is_leader or can_manage_finance()):
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('members.dashboard'))
+        
+    if request.method == 'POST':
+        is_debt = 'is_debt' in request.form
+        debtor_id = request.form.get('debtor_id')
+        
+        # Novos campos para categorias e métodos personalizados
+        use_custom = request.form.get('use_custom') == 'on'
+        
+        # === VALIDAÇÃO DO TIPO VS CATEGORIA ===
+        tipo_selecionado = request.form.get('type')
+        categoria_tipo = None
+        erro_tipo = False
+        
+        if use_custom:
+            # Verificar categoria do ministério
+            ministry_category_id = request.form.get('ministry_category_id')
+            if ministry_category_id:
+                ministry_category = MinistryCategory.query.get(ministry_category_id)
+                if ministry_category:
+                    categoria_tipo = ministry_category.type
+                    if categoria_tipo != tipo_selecionado:
+                        flash(f'A categoria "{ministry_category.name}" é do tipo {categoria_tipo}, mas você selecionou {tipo_selecionado}.', 'danger')
+                        erro_tipo = True
+        else:
+            # Verificar categoria geral
+            category_id = request.form.get('category_id')
+            if category_id:
+                category = TransactionCategory.query.get(category_id)
+                if category:
+                    categoria_tipo = category.type
+                    if categoria_tipo != tipo_selecionado:
+                        flash(f'A categoria "{category.name}" é do tipo {categoria_tipo}, mas você selecionou {tipo_selecionado}.', 'danger')
+                        erro_tipo = True
+        
+        if erro_tipo:
+            return redirect(request.url)
+        # ======================================
+        
+        if use_custom:
+            # Usar categorias e métodos do ministério
+            ministry_category_id = request.form.get('ministry_category_id')
+            ministry_payment_method_id = request.form.get('ministry_payment_method_id')
+            
+            ministry_category = MinistryCategory.query.get(ministry_category_id) if ministry_category_id else None
+            ministry_payment_method = MinistryPaymentMethod.query.get(ministry_payment_method_id) if ministry_payment_method_id else None
+            
+            category_name = ministry_category.name if ministry_category else "Geral"
+            payment_method_name = ministry_payment_method.name if ministry_payment_method else "Dinheiro"
+        else:
+            # Usar categorias e métodos gerais (padrão atual)
+            category_id = request.form.get('category_id')
+            payment_method_id = request.form.get('payment_method_id')
+            
+            category = TransactionCategory.query.get(category_id) if category_id else None
+            payment_method = PaymentMethod.query.get(payment_method_id) if payment_method_id else None
+            
+            category_name = category.name if category else "Geral"
+            payment_method_name = payment_method.name if payment_method else "Dinheiro"
+        
+        # Conta bancária (opcional)
+        bank_account_id = request.form.get('bank_account_id')
+        
+        new_tx = MinistryTransaction(
+            ministry_id=ministry.id,
+            type=tipo_selecionado,
+            category_id=int(category_id) if not use_custom and category_id else None,
+            category_name=category_name if not use_custom else None,
+            ministry_category_id=int(ministry_category_id) if use_custom and ministry_category_id else None,
+            payment_method_id=int(payment_method_id) if not use_custom and payment_method_id else None,
+            payment_method_name=payment_method_name if not use_custom else None,
+            ministry_payment_method_id=int(ministry_payment_method_id) if use_custom and ministry_payment_method_id else None,
+            bank_account_id=int(bank_account_id) if bank_account_id else None,
+            amount=float(request.form.get('amount') or 0),
+            description=request.form.get('description'),
+            date=datetime.strptime(request.form.get('date'), '%Y-%m-%d') if request.form.get('date') else datetime.utcnow(),
+            is_debt=is_debt,
+            debtor_id=int(debtor_id) if debtor_id and debtor_id != '' else None,
+            is_paid=not is_debt
+        )
+        db.session.add(new_tx)
+        db.session.commit()
+        
+        log_action(
+            action='CREATE',
+            module='MINISTRY_FINANCE',
+            description=f"Lançamento em {ministry.name}: {new_tx.description} (R$ {new_tx.amount})",
+            new_values={
+                'id': new_tx.id,
+                'ministry_id': ministry.id,
+                'amount': new_tx.amount
+            },
+            church_id=ministry.church_id
+        )
+        
+        flash('Lançamento do ministério registrado!', 'success')
+        return redirect(url_for('finance.ministry_finance', ministry_id=ministry.id))
+    
+    # GET - carregar dados para o formulário
+    members = User.query.filter_by(church_id=current_user.church_id, status='active').all()
+    
+    # Categorias e métodos (gerais e do ministério)
+    general_categories = TransactionCategory.query.filter_by(church_id=current_user.church_id, is_active=True).all()
+    general_payment_methods = PaymentMethod.query.filter_by(church_id=current_user.church_id, is_active=True).all()
+    
+    ministry_categories = MinistryCategory.query.filter_by(ministry_id=ministry.id, is_active=True).all()
+    ministry_payment_methods = MinistryPaymentMethod.query.filter_by(ministry_id=ministry.id, is_active=True).all()
+    
+    # Contas bancárias disponíveis
+    bank_accounts = BankAccount.query.filter(
+        db.or_(
+            BankAccount.church_id == current_user.church_id,
+            BankAccount.ministry_id == ministry.id
+        ),
+        BankAccount.is_active == True
+    ).all()
+    
+    today = datetime.utcnow().date().isoformat()
+    
+    return render_template('finance/add_ministry_tx.html', 
+                           ministry=ministry, 
+                           members=members,
+                           general_categories=general_categories,
+                           general_payment_methods=general_payment_methods,
+                           ministry_categories=ministry_categories,
+                           ministry_payment_methods=ministry_payment_methods,
+                           bank_accounts=bank_accounts,
+                           today=today)
+
+@finance_bp.route('/ministry/payment-method/delete/<int:id>', methods=['POST'])
+@login_required
+def delete_ministry_payment_method(id):
+    """Excluir método de pagamento do ministério"""
+    method = MinistryPaymentMethod.query.get_or_404(id)
+    ministry = method.ministry
+    
+    # Verificar permissão
+    if not (is_admin() or ministry.leader_id == current_user.id):
+        return jsonify({'success': False, 'message': 'Acesso negado.'}), 403
+    
+    method_data = {'id': method.id, 'name': method.name}
+    
+    try:
+        db.session.delete(method)
+        db.session.commit()
+        
+        log_action(
+            action='DELETE',
+            module='MINISTRY_FINANCE',
+            description=f"Método de pagamento excluído: {method.name}",
+            old_values=method_data,
+            church_id=ministry.church_id
+        )
+        
+        return jsonify({'success': True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': str(e)}), 500
+    
+@finance_bp.route('/bank-account/<int:account_id>')
+@login_required
+def bank_account_detail(account_id):
+    """Detalhes e extrato de uma conta bancária específica"""
+    if not can_manage_finance():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('finance.dashboard'))
+    
+    account = BankAccount.query.get_or_404(account_id)
+    
+    # Verificar permissão
+    if account.ministry_id:
+        ministry = Ministry.query.get(account.ministry_id)
+        if not (is_admin() or (ministry and ministry.leader_id == current_user.id)):
+            flash('Acesso negado.', 'danger')
+            return redirect(url_for('finance.list_bank_accounts'))
+    elif account.church_id != current_user.church_id:
+        if not is_admin():
+            flash('Acesso negado.', 'danger')
+            return redirect(url_for('finance.list_bank_accounts'))
+    
+    # Filtros
+    start_date = request.args.get('start_date')
+    end_date = request.args.get('end_date')
+    tx_type = request.args.get('type')
+    
+    # Query base - transações desta conta
+    query = Transaction.query.filter_by(bank_account_id=account_id)
+    
+    # Aplicar filtros
+    if start_date:
+        query = query.filter(Transaction.date >= datetime.strptime(start_date, '%Y-%m-%d'))
+    if end_date:
+        query = query.filter(Transaction.date <= datetime.strptime(end_date, '%Y-%m-%d') + timedelta(days=1))
+    if tx_type:
+        query = query.filter(Transaction.type == tx_type)
+    
+    transactions = query.order_by(Transaction.date.desc()).all()
+    
+    # Calcular saldos
+    total_income = sum(t.amount for t in transactions if t.type == 'income')
+    total_expense = sum(t.amount for t in transactions if t.type == 'expense')
+    balance = total_income - total_expense
+    
+    # Buscar transações MBWay associadas a esta conta (se tiver MBWay)
+    mbway_transactions = []
+    if account.mbway_phone:
+        # Se tivesse uma tabela de transações MBWay, buscaria aqui
+        pass
+    
+    stats = {
+        'income': total_income,
+        'expense': total_expense,
+        'balance': balance,
+        'transaction_count': len(transactions)
+    }
+    
+    return render_template(
+        'finance/bank_account_detail.html',
+        account=account,
+        transactions=transactions,
+        stats=stats,
+        mbway_transactions=mbway_transactions,
+        filters={
+            'start_date': start_date,
+            'end_date': end_date,
+            'type': tx_type
+        }
+    )

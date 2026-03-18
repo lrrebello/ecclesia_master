@@ -1,0 +1,226 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="fw-bold">
+            <i class="bi bi-bank me-2"></i> Contas Bancárias
+        </h2>
+        <a href="{{ url_for('finance.add_bank_account') }}" class="btn btn-primary">
+            <i class="bi bi-plus-lg me-2"></i> Nova Conta
+        </a>
+    </div>
+
+    <!-- Contas da Igreja -->
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0"><i class="bi bi-building me-2"></i> Contas da Congregação</h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="px-4 py-3">Banco</th>
+                            <th class="py-3">Tipo</th>
+                            <th class="py-3">Agência</th>
+                            <th class="py-3">Conta</th>
+                            <th class="py-3">IBAN</th>
+                            <th class="py-3">PIX/MBWay</th>
+                            <th class="py-3">Status</th>
+                            <th class="px-4 py-3 text-center">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for account in church_accounts %}
+                        <tr>
+                            <td class="px-4">
+                                <a href="{{ url_for('finance.bank_account_detail', account_id=account.id) }}" class="text-decoration-none">
+                                    <div class="fw-bold text-primary">{{ account.bank_name }}</div>
+                                </a>
+                                <small class="text-muted">
+                                    {% if account.notes %}
+                                        {{ account.notes|truncate(30) }}
+                                    {% else %}
+                                        <span class="text-muted fst-italic">Sem observações</span>
+                                    {% endif %}
+                                </small>
+                            </td>
+                            <td>
+                                <span class="badge bg-info bg-opacity-10 text-info px-3 py-2">
+                                    {{ account.account_type|capitalize }}
+                                </span>
+                            </td>
+                            <td>{{ account.agency or '-' }}</td>
+                            <td>{{ account.account_number }}</td>
+                            <td>
+                                {% if account.iban %}
+                                <span class="small">{{ account.iban }}</span>
+                                {% else %}
+                                <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if account.pix_key %}
+                                <span class="badge bg-success bg-opacity-10 text-success">PIX</span>
+                                {% endif %}
+                                {% if account.mbway_phone %}
+                                <span class="badge bg-info bg-opacity-10 text-info">MBWay</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if account.is_active %}
+                                <span class="badge bg-success rounded-pill px-3">Ativa</span>
+                                {% else %}
+                                <span class="badge bg-secondary rounded-pill px-3">Inativa</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-4 text-center">
+                                <a href="{{ url_for('finance.edit_bank_account', id=account.id) }}" class="btn btn-sm btn-outline-primary rounded-pill px-3">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                                <button type="button" class="btn btn-sm btn-outline-danger rounded-pill px-3" 
+                                        onclick="confirmarExclusao({{ account.id }}, '{{ account.bank_name }}')">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="8" class="text-center py-5 text-muted">
+                                <i class="bi bi-bank2 fs-1 d-block mb-2"></i>
+                                Nenhuma conta bancária cadastrada para a congregação.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Contas de Ministérios -->
+    {% if ministry_accounts %}
+    <div class="card border-0 shadow-sm">
+        <div class="card-header bg-info text-white">
+            <h5 class="mb-0"><i class="bi bi-diagram-3 me-2"></i> Contas de Ministérios</h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="px-4 py-3">Ministério</th>
+                            <th class="py-3">Banco</th>
+                            <th class="py-3">Tipo</th>
+                            <th class="py-3">Agência</th>
+                            <th class="py-3">Conta</th>
+                            <th class="py-3">IBAN</th>
+                            <th class="py-3">Status</th>
+                            <th class="px-4 py-3 text-center">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for account in ministry_accounts %}
+                        <tr>
+                            <td class="px-4">
+                                <a href="{{ url_for('finance.bank_account_detail', account_id=account.id) }}" class="text-decoration-none">
+                                    <div class="fw-bold text-primary">{{ account.ministry.name }}</div>
+                                </a>
+                            </td>
+                            <td>{{ account.bank_name }}</td>
+                            <td>
+                                <span class="badge bg-info bg-opacity-10 text-info px-3 py-2">
+                                    {{ account.account_type|capitalize }}
+                                </span>
+                            </td>
+                            <td>{{ account.agency or '-' }}</td>
+                            <td>{{ account.account_number }}</td>
+                            <td>
+                                {% if account.iban %}
+                                <span class="small">{{ account.iban }}</span>
+                                {% else %}
+                                <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if account.is_active %}
+                                <span class="badge bg-success rounded-pill px-3">Ativa</span>
+                                {% else %}
+                                <span class="badge bg-secondary rounded-pill px-3">Inativa</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-4 text-center">
+                                <a href="{{ url_for('finance.edit_bank_account', id=account.id) }}" class="btn btn-sm btn-outline-primary rounded-pill px-3">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                                <button type="button" class="btn btn-sm btn-outline-danger rounded-pill px-3" 
+                                        onclick="confirmarExclusao({{ account.id }}, '{{ account.bank_name }}')">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Modal de Confirmação de Exclusão -->
+<div class="modal fade" id="modalExcluir" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title">Confirmar Exclusão</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Tem certeza que deseja excluir esta conta bancária? <strong>Esta ação é irreversível.</strong></p>
+                <p id="descricaoConta"></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-danger" id="btnConfirmarExclusao">Sim, Excluir</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let contaIdParaExcluir = null;
+
+function confirmarExclusao(contaId, descricao) {
+    contaIdParaExcluir = contaId;
+    document.getElementById('descricaoConta').innerText = `Conta: ${descricao}`;
+    new bootstrap.Modal(document.getElementById('modalExcluir')).show();
+}
+
+document.getElementById('btnConfirmarExclusao').addEventListener('click', function() {
+    if (!contaIdParaExcluir) return;
+
+    fetch(`/finance/bank-account/delete/${contaIdParaExcluir}`, {
+        method: 'POST',
+        headers: { 
+            'X-Requested-With': 'XMLHttpRequest',
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            bootstrap.Modal.getInstance(document.getElementById('modalExcluir')).hide();
+            location.reload();
+        } else {
+            alert('Erro: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Erro:', error);
+        alert('Erro na requisição: ' + error);
+    });
+});
+</script>
+{% endblock %}

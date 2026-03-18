@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="bi bi-pencil me-2"></i> Editar Conta Bancária</h5>
+                </div>
+                <div class="card-body p-4">
+                    <form method="POST">
+                        <div class="row g-3">
+                            <!-- Para quem é a conta (readonly) -->
+                            <div class="col-md-12">
+                                <label class="form-label fw-bold">Vinculada a:</label>
+                                <input type="text" class="form-control" value="{{ account.ministry.name if account.ministry else 'Igreja (Conta Geral)' }}" readonly>
+                            </div>
+
+                            <!-- Dados do Banco -->
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Banco *</label>
+                                <input type="text" name="bank_name" class="form-control" value="{{ account.bank_name }}" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Tipo de Conta *</label>
+                                <select name="account_type" class="form-select" required>
+                                    <option value="corrente" {{ 'selected' if account.account_type == 'corrente' }}>Corrente</option>
+                                    <option value="poupanca" {{ 'selected' if account.account_type == 'poupanca' }}>Poupança</option>
+                                    <option value="investimento" {{ 'selected' if account.account_type == 'investimento' }}>Investimento</option>
+                                </select>
+                            </div>
+
+                            <div class="col-md-4">
+                                <label class="form-label fw-bold">Agência</label>
+                                <input type="text" name="agency" class="form-control" value="{{ account.agency or '' }}">
+                            </div>
+                            <div class="col-md-8">
+                                <label class="form-label fw-bold">Número da Conta *</label>
+                                <input type="text" name="account_number" class="form-control" value="{{ account.account_number }}" required>
+                            </div>
+
+                            <!-- Dados Internacionais -->
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">IBAN</label>
+                                <input type="text" name="iban" class="form-control" value="{{ account.iban or '' }}">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">SWIFT / BIC</label>
+                                <input type="text" name="swift" class="form-control" value="{{ account.swift or '' }}">
+                            </div>
+
+                            <!-- Pagamentos Digitais -->
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Chave PIX (Brasil)</label>
+                                <input type="text" name="pix_key" class="form-control" value="{{ account.pix_key or '' }}">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">MBWay (Portugal)</label>
+                                <input type="text" name="mbway_phone" class="form-control" value="{{ account.mbway_phone or '' }}">
+                            </div>
+
+                            <!-- Observações -->
+                            <div class="col-md-12">
+                                <label class="form-label fw-bold">Observações</label>
+                                <textarea name="notes" class="form-control" rows="3">{{ account.notes or '' }}</textarea>
+                            </div>
+
+                            <!-- Status -->
+                            <div class="col-md-12">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" name="is_active" id="is_active" {{ 'checked' if account.is_active }}>
+                                    <label class="form-check-label fw-bold" for="is_active">Conta Ativa</label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <hr class="my-4">
+
+                        <div class="d-flex gap-2 justify-content-end">
+                            <a href="{{ url_for('finance.list_bank_accounts') }}" class="btn btn-light px-4">Cancelar</a>
+                            <button type="submit" class="btn btn-primary px-5">Salvar Alterações</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

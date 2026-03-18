@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-6">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="bi bi-phone me-2"></i> Novo Número MBWay</h5>
+                </div>
+                <div class="card-body p-4">
+                    <form method="POST">
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Vincular a:</label>
+                            <select name="ministry_id" class="form-select">
+                                <option value="">Igreja (Geral)</option>
+                                {% for ministry in ministries %}
+                                <option value="{{ ministry.id }}">{{ ministry.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Número de Telefone *</label>
+                            <input type="text" name="phone_number" class="form-control" placeholder="+351 000 000 000" required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Descrição</label>
+                            <input type="text" name="description" class="form-control" placeholder="Ex: Tesoureiro, Cantina, etc.">
+                        </div>
+
+                        <div class="mb-3">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" name="is_active" id="is_active" checked>
+                                <label class="form-check-label fw-bold" for="is_active">Ativo</label>
+                            </div>
+                        </div>
+
+                        <hr class="my-4">
+
+                        <div class="d-flex gap-2 justify-content-end">
+                            <a href="{{ url_for('finance.list_mbway') }}" class="btn btn-light px-4">Cancelar</a>
+                            <button type="submit" class="btn btn-primary px-5">Salvar</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

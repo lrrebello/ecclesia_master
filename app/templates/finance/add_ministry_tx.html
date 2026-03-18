@@ -1,75 +1,139 @@
 {% extends "base.html" %}
+
 {% block content %}
 <div class="container py-4">
     <div class="row justify-content-center">
         <div class="col-md-8">
             <div class="card border-0 shadow-sm">
-                <div class="card-body p-5">
-                    <h3 class="fw-bold mb-4">Novo Lançamento: {{ ministry.name }}</h3>
-                    
-                    <form method="POST">
-                        <div class="row g-3">
-                            <div class="col-md-6">
-                                <label class="form-label fw-bold">Tipo de Movimentação</label>
-                                <select name="type" id="type_select" class="form-select" required onchange="filterCategories(); toggleDebtFields(this.value)">
-                                    <option value="income">Entrada (Arrecadação/Venda)</option>
-                                    <option value="expense">Saída (Gasto/Pagamento)</option>
-                                </select>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label fw-bold">Categoria</label>
-                                <select name="category_id" id="category_select" class="form-select" required>
-                                    <option value="">Selecione...</option>
-                                    {% for cat in categories %}
-                                    <option value="{{ cat.id }}" data-type="{{ cat.type }}">{{ cat.name }}</option>
-                                    {% endfor %}
-                                </select>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label fw-bold">Valor ({{ current_user.church.currency_symbol if current_user.church else 'R$' }})</label>
-                                <input type="number" step="0.01" name="amount" class="form-control" placeholder="0.00" required>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label fw-bold">Data</label>
-                                <input type="date" name="date" class="form-control" value="{{ today }}" required>
-                            </div>
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="bi bi-plus-circle me-2"></i> Novo Lançamento - {{ ministry.name }}</h5>
+                </div>
+                <div class="card-body p-4">
+                    <form method="POST" id="txForm">
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Tipo de Movimentação</label>
+                            <select name="type" class="form-select" required onchange="toggleTipo(this.value)">
+                                <option value="income">Entrada (Receita)</option>
+                                <option value="expense">Saída (Despesa)</option>
+                            </select>
+                        </div>
 
-                            <div class="col-md-12">
-                                <label class="form-label fw-bold">Meio de Pagamento</label>
-                                <select name="payment_method_id" class="form-select" required>
-                                    <option value="">Selecione o meio...</option>
-                                    {% for method in payment_methods %}
-                                    <option value="{{ method.id }}">{{ method.name }}</option>
-                                    {% endfor %}
-                                </select>
-                            </div>
-                            
-                            <div class="col-12" id="debt_option_container">
-                                <div class="form-check form-switch">
-                                    <input class="form-check-input" type="checkbox" name="is_debt" id="is_debt" onchange="toggleDebtorSelect(this.checked)">
-                                    <label class="form-check-label fw-bold" for="is_debt">Põe na conta? (Débito pendente)</label>
-                                </div>
-                            </div>
-    
-                            <div class="col-12 d-none" id="debtor_container">
-                                <label class="form-label fw-bold">Membro Devedor</label>
-                                <select name="debtor_id" class="form-select">
-                                    <option value="">Selecione o membro...</option>
-                                    {% for member in members %}
-                                    <option value="{{ member.id }}">{{ member.name }}</option>
-                                    {% endfor %}
-                                </select>
-                            </div>
-    
-                            <div class="col-12">
-                                <label class="form-label fw-bold">Descrição / Observação</label>
-                                <textarea name="description" class="form-control" rows="3" placeholder="Ex: Venda de salgados na cantina..."></textarea>
+                        <!-- Opção de usar categorias personalizadas -->
+                        <div class="mb-3">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="use_custom" name="use_custom" onchange="toggleCategorias()">
+                                <label class="form-check-label fw-bold" for="use_custom">
+                                    Usar categorias personalizadas do ministério
+                                </label>
                             </div>
                         </div>
-    
-                        <div class="mt-5 d-flex gap-2">
-                            <button type="submit" class="btn btn-primary px-5 fw-bold">Salvar Lançamento</button>
+
+                        <!-- Categorias Gerais -->
+                        <div id="general_categories" class="mb-3">
+                            <label class="form-label fw-bold">Categoria</label>
+                            <select name="category_id" class="form-select">
+                                <option value="">Selecione...</option>
+                                {% for cat in general_categories %}
+                                <option value="{{ cat.id }}" data-type="{{ cat.type }}">{{ cat.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <!-- Categorias Personalizadas do Ministério -->
+                        <div id="ministry_categories" class="mb-3" style="display: none;">
+                            <label class="form-label fw-bold">Categoria (Ministério)</label>
+                            <select name="ministry_category_id" class="form-select">
+                                <option value="">Selecione...</option>
+                                {% for cat in ministry_categories %}
+                                <option value="{{ cat.id }}" data-type="{{ cat.type }}">{{ cat.name }}</option>
+                                {% endfor %}
+                            </select>
+                            <small class="text-muted d-block">
+                                <a href="{{ url_for('finance.ministry_categories', ministry_id=ministry.id) }}" target="_blank">
+                                    Gerenciar categorias
+                                </a>
+                            </small>
+                        </div>
+
+                        <!-- Métodos de Pagamento Gerais -->
+                        <div id="general_methods" class="mb-3">
+                            <label class="form-label fw-bold">Método de Pagamento</label>
+                            <select name="payment_method_id" class="form-select">
+                                <option value="">Selecione...</option>
+                                {% for method in general_payment_methods %}
+                                <option value="{{ method.id }}">{{ method.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <!-- Métodos de Pagamento Personalizados do Ministério -->
+                        <div id="ministry_methods" class="mb-3" style="display: none;">
+                            <label class="form-label fw-bold">Método de Pagamento (Ministério)</label>
+                            <select name="ministry_payment_method_id" class="form-select">
+                                <option value="">Selecione...</option>
+                                {% for method in ministry_payment_methods %}
+                                <option value="{{ method.id }}">{{ method.name }}</option>
+                                {% endfor %}
+                            </select>
+                            <small class="text-muted d-block">
+                                <a href="{{ url_for('finance.ministry_payment_methods', ministry_id=ministry.id) }}" target="_blank">
+                                    Gerenciar métodos
+                                </a>
+                            </small>
+                        </div>
+
+                        <!-- Conta Bancária -->
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Conta Bancária (opcional)</label>
+                            <select name="bank_account_id" class="form-select">
+                                <option value="">Selecione...</option>
+                                {% for account in bank_accounts %}
+                                <option value="{{ account.id }}">
+                                    {{ account.bank_name }} - {{ account.account_number }}
+                                    {% if account.ministry %} ({{ account.ministry.name }}){% endif %}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Valor</label>
+                            <input type="number" step="0.01" name="amount" class="form-control" required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Data</label>
+                            <input type="date" name="date" class="form-control" value="{{ today }}" required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Descrição</label>
+                            <textarea name="description" class="form-control" rows="3"></textarea>
+                        </div>
+
+                        <!-- Opção "Põe na conta" (apenas para despesas) -->
+                        <div id="debt_option" class="mb-3" style="display: none;">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="is_debt" name="is_debt" onchange="toggleDebtor()">
+                                <label class="form-check-label fw-bold" for="is_debt">Põe na conta? (Débito pendente)</label>
+                            </div>
+                        </div>
+
+                        <div id="debtor_section" class="mb-3" style="display: none;">
+                            <label class="form-label fw-bold">Membro Devedor</label>
+                            <select name="debtor_id" class="form-select">
+                                <option value="">Selecione...</option>
+                                {% for member in members %}
+                                <option value="{{ member.id }}">{{ member.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <hr class="my-4">
+
+                        <div class="d-flex gap-2 justify-content-end">
                             <a href="{{ url_for('finance.ministry_finance', ministry_id=ministry.id) }}" class="btn btn-light px-4">Cancelar</a>
+                            <button type="submit" class="btn btn-primary px-5">Salvar Lançamento</button>
                         </div>
                     </form>
                 </div>
@@ -79,40 +143,132 @@
 </div>
 
 <script>
-function filterCategories() {
-    const type = document.getElementById('type_select').value;
-    const catSelect = document.getElementById('category_select');
-    const options = catSelect.querySelectorAll('option');
-    catSelect.value = ""; 
-    options.forEach(opt => {
-        if (opt.value === "") return;
-        opt.style.display = (opt.getAttribute('data-type') === type) ? "block" : "none";
-    });
+function toggleTipo(tipo) {
+    const debtOption = document.getElementById('debt_option');
+    if (tipo === 'income') {  // <--- SÓ MUDAR AQUI de 'expense' para 'income'
+        debtOption.style.display = 'block';
+    } else {
+        debtOption.style.display = 'none';
+        document.getElementById('debtor_section').style.display = 'none';
+        document.getElementById('is_debt').checked = false;
+    }
 }
 
-function toggleDebtFields(type) {
-    const container = document.getElementById('debt_option_container');
-    const debtorContainer = document.getElementById('debtor_container');
-    const isDebtCheckbox = document.getElementById('is_debt');
+function toggleCategorias() {
+    const useCustom = document.getElementById('use_custom').checked;
+    const generalCat = document.getElementById('general_categories');
+    const ministryCat = document.getElementById('ministry_categories');
+    const generalMethod = document.getElementById('general_methods');
+    const ministryMethod = document.getElementById('ministry_methods');
     
-    if (type === 'expense') {
-        container.classList.add('d-none');
-        debtorContainer.classList.add('d-none');
-        isDebtCheckbox.checked = false;
+    if (useCustom) {
+        generalCat.style.display = 'none';
+        ministryCat.style.display = 'block';
+        generalMethod.style.display = 'none';
+        ministryMethod.style.display = 'block';
     } else {
-        container.classList.remove('d-none');
+        generalCat.style.display = 'block';
+        ministryCat.style.display = 'none';
+        generalMethod.style.display = 'block';
+        ministryMethod.style.display = 'none';
+    }
+    
+    // Reaplica o filtro quando mudar o tipo de categoria
+    filtrarCategorias();
+}
+
+function toggleDebtor() {
+    const isDebt = document.getElementById('is_debt').checked;
+    const debtorSection = document.getElementById('debtor_section');
+    debtorSection.style.display = isDebt ? 'block' : 'none';
+}
+
+// Função principal de filtro
+function filtrarCategorias() {
+    const tipo = document.querySelector('select[name="type"]').value;
+    const useCustom = document.getElementById('use_custom').checked;
+    
+    // Escolhe qual select filtrar baseado no checkbox
+    const selectId = useCustom ? 'select[name="ministry_category_id"]' : 'select[name="category_id"]';
+    const select = document.querySelector(selectId);
+    
+    if (!select) return;
+    
+    console.log('Filtrando categorias do tipo:', tipo);
+    
+    // Percorre todas as options (exceto a primeira que é "Selecione...")
+    for (let i = 1; i < select.options.length; i++) {
+        const option = select.options[i];
+        const optionType = option.getAttribute('data-type');
+        
+        // Mostra apenas se for do tipo correto
+        if (optionType === tipo) {
+            option.style.display = '';
+        } else {
+            option.style.display = 'none';
+        }
+    }
+    
+    // Se a opção selecionada estiver oculta, limpa a seleção
+    if (select.selectedOptions[0] && select.selectedOptions[0].style.display === 'none') {
+        select.value = '';
     }
 }
 
-function toggleDebtorSelect(checked) {
-    const container = document.getElementById('debtor_container');
-    if (checked) {
-        container.classList.remove('d-none');
-    } else {
-        container.classList.add('d-none');
+// Inicialização
+document.addEventListener('DOMContentLoaded', function() {
+    // ===========================================
+    // PARTE 1: Verificar categorias personalizadas
+    // ===========================================
+    const hasCustomCategories = {{ 'true' if ministry_categories else 'false' }};
+    const hasCustomMethods = {{ 'true' if ministry_payment_methods else 'false' }};
+    
+    console.log('Categorias personalizadas:', hasCustomCategories);
+    console.log('Métodos personalizados:', hasCustomMethods);
+    
+    // Se houver alguma personalização, marcar a opção
+    if (hasCustomCategories || hasCustomMethods) {
+        const useCustomCheckbox = document.getElementById('use_custom');
+        if (useCustomCheckbox) {
+            useCustomCheckbox.checked = true;
+            toggleCategorias();
+        }
     }
-}
-
-document.addEventListener('DOMContentLoaded', filterCategories);
+    
+    // ===========================================
+    // PARTE 2: Configurar eventos
+    // ===========================================
+    
+    // Adiciona evento ao select de tipo
+    const tipoSelect = document.querySelector('select[name="type"]');
+    if (tipoSelect) {
+        tipoSelect.addEventListener('change', function() {
+            filtrarCategorias();
+            toggleTipo(this.value);
+        });
+        
+        // --- NOVO: Chamar toggleTipo no carregamento com o valor inicial ---
+        // Pega o valor atual do select (que vem como "income" por padrão)
+        const valorInicial = tipoSelect.value;
+        toggleTipo(valorInicial);
+    }
+    
+    // Adiciona evento ao checkbox de categorias personalizadas
+    const useCustomCheckbox = document.getElementById('use_custom');
+    if (useCustomCheckbox) {
+        useCustomCheckbox.addEventListener('change', function() {
+            toggleCategorias();
+        });
+    }
+    
+    // Adiciona evento ao checkbox de débito
+    const isDebtCheckbox = document.getElementById('is_debt');
+    if (isDebtCheckbox) {
+        isDebtCheckbox.addEventListener('change', toggleDebtor);
+    }
+    
+    // Filtro inicial
+    setTimeout(filtrarCategorias, 150);
+});
 </script>
 {% endblock %}
