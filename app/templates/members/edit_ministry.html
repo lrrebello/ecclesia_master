@@ -40,8 +40,8 @@
                             <label class="form-label fw-bold small text-uppercase">Líder Principal</label>
                             <select name="leader_id" class="form-select bg-light border-0">
                                 <option value="">Selecione um líder...</option>
-                                {% for leader in leaders %}
-                                <option value="{{ leader.id }}" {{ 'selected' if ministry.leader_id == leader.id }}>{{ leader.name }}</option>
+                                {% for member in ministry.members %}
+                                <option value="{{ member.id }}" {{ 'selected' if ministry.leader_id == member.id }}>{{ member.name }}</option>
                                 {% endfor %}
                             </select>
                             <small class="text-muted">Responsável principal pelo ministério</small>
@@ -52,8 +52,8 @@
                             <label class="form-label fw-bold small text-uppercase">Vice-Líder</label>
                             <select name="vice_leader_id" class="form-select bg-light border-0">
                                 <option value="">Selecione um vice-líder...</option>
-                                {% for leader in leaders %}
-                                <option value="{{ leader.id }}" {{ 'selected' if ministry.vice_leader_id == leader.id }}>{{ leader.name }}</option>
+                                {% for member in ministry.members %}
+                                <option value="{{ member.id }}" {{ 'selected' if ministry.vice_leader_id == member.id }}>{{ member.name }}</option>
                                 {% endfor %}
                             </select>
                             <small class="text-muted">Vice-líder tem as mesmas permissões administrativas</small>
@@ -61,28 +61,28 @@
                     </div>
                 </div>
                 
-                <!-- Seção de Líderes Adicionais com Checkboxes -->
+                <!-- Seção de Líderes Adicionais com Checkboxes (apenas membros) -->
                 <div class="mb-3">
                     <label class="form-label fw-bold small text-uppercase">Líderes Adicionais</label>
                     <div class="card bg-light border-0">
                         <div class="card-body p-3">
                             <div class="row g-2">
                                 {% set has_available = false %}
-                                {% for leader in leaders %}
-                                    {% if leader.id != ministry.leader_id and leader.id != ministry.vice_leader_id %}
+                                {% for member in ministry.members %}
+                                    {% if member.id != ministry.leader_id and member.id != ministry.vice_leader_id %}
                                         {% set has_available = true %}
                                         <div class="col-md-6">
                                             <div class="form-check">
                                                 <input type="checkbox" 
                                                        name="extra_leaders" 
-                                                       value="{{ leader.id }}"
-                                                       id="extra_leader_{{ leader.id }}"
+                                                       value="{{ member.id }}"
+                                                       id="extra_leader_{{ member.id }}"
                                                        class="form-check-input"
-                                                       {{ 'checked' if ministry.extra_leaders and leader.id in ministry.extra_leaders else '' }}>
-                                                <label class="form-check-label" for="extra_leader_{{ leader.id }}">
-                                                    {{ leader.name }}
-                                                    {% if leader.church_role %}
-                                                    <small class="text-muted">({{ leader.church_role.name }})</small>
+                                                       {{ 'checked' if ministry.extra_leaders and member.id in ministry.extra_leaders else '' }}>
+                                                <label class="form-check-label" for="extra_leader_{{ member.id }}">
+                                                    {{ member.name }}
+                                                    {% if member.church_role %}
+                                                    <small class="text-muted">({{ member.church_role.name }})</small>
                                                     {% endif %}
                                                 </label>
                                             </div>
@@ -92,7 +92,16 @@
                             </div>
                             
                             {% if not has_available %}
-                            <p class="text-muted small mb-0 text-center">Nenhum outro membro disponível para ser líder adicional.</p>
+                            <p class="text-muted small mb-0 text-center">
+                                {% if ministry.members.count() == 0 %}
+                                    Este ministério ainda não tem membros. 
+                                    <a href="{{ url_for('members.ministry_manage_members', ministry_id=ministry.id) }}" class="text-decoration-none">
+                                        Adicione membros primeiro
+                                    </a>.
+                                {% else %}
+                                    Todos os membros já são líderes ou vice-líderes.
+                                {% endif %}
+                            </p>
                             {% endif %}
                         </div>
                     </div>
@@ -100,6 +109,11 @@
                         <i class="bi bi-info-circle me-1"></i>
                         Marque os membros que terão permissões administrativas (mesmas que líder e vice).
                         Líder e Vice já estão listados acima.
+                        {% if ministry.members.count() > 0 %}
+                        <br>
+                        <i class="bi bi-people me-1"></i>
+                        <strong>{{ ministry.members.count() }}</strong> membro(s) no total.
+                        {% endif %}
                     </small>
                 </div>
                 
@@ -166,7 +180,7 @@
                     {% endif %}
                     {% if ministry.extra_leaders %}
                         {% for leader_id in ministry.extra_leaders %}
-                            {% set leader = leaders|selectattr('id', 'equalto', leader_id)|first %}
+                            {% set leader = ministry.members|selectattr('id', 'equalto', leader_id)|first %}
                             {% if leader %}
                             <span class="badge bg-secondary px-3 py-2">
                                 <i class="bi bi-person-check me-1"></i> {{ leader.name }}
@@ -178,6 +192,17 @@
                 {% if not ministry.leader and not ministry.vice_leader and not ministry.extra_leaders %}
                 <p class="text-muted small mt-2">Nenhum líder definido para este ministério.</p>
                 {% endif %}
+            </div>
+            
+            <!-- Link para gerenciar membros -->
+            <hr class="my-3">
+            <div class="text-center">
+                <a href="{{ url_for('members.ministry_manage_members', ministry_id=ministry.id) }}" class="btn btn-outline-primary btn-sm">
+                    <i class="bi bi-people me-1"></i> Gerenciar Membros do Ministério
+                </a>
+                <small class="text-muted d-block mt-2">
+                    Adicione ou remova membros do ministério nesta página.
+                </small>
             </div>
         </div>
     </div>
