@@ -537,7 +537,17 @@ def church_members():
         flash('Acesso negado.', 'danger')
         return redirect(url_for('members.dashboard'))
     
-    # ========== FILTROS ==========
+    # ========== ESTATÍSTICAS (TOTAIS REAIS) ==========
+    query_base = User.query.filter_by(church_id=current_user.church_id)
+    
+    stats = {
+        'total': query_base.count(),
+        'active': query_base.filter_by(status='active').count(),
+        'pending': query_base.filter_by(status='pending').count(),
+        'baptized': query_base.filter(User.baptism_date.isnot(None)).count()
+    }
+    
+    # ========== FILTROS (para a tabela) ==========
     search = request.args.get('search', '').strip()
     role_id = request.args.get('role_id')
     status_filter = request.args.get('status')
@@ -547,7 +557,7 @@ def church_members():
     page = request.args.get('page', 1, type=int)
     per_page = 20
     
-    # Query base
+    # Query com filtros
     query = User.query.filter_by(church_id=current_user.church_id)
     
     # Aplicar filtros
@@ -594,6 +604,7 @@ def church_members():
     return render_template('members/church_members.html', 
                            members=members, 
                            roles=roles,
+                           stats=stats,  # ← NOVO: estatísticas reais
                            pagination=pagination)
 
 @members_bp.route('/member/promote/<int:id>', methods=['GET', 'POST'])
