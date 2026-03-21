@@ -3,29 +3,65 @@
 <div class="container py-4">
     <div class="d-flex justify-content-between align-items-center mb-5">
         <div>
-            <h1 class="fw-bold text-primary"><i class="bi bi-star-fill me-2"></i>Meus Ministérios Liderados</h1>
-            <p class="text-muted">Aqui você gerencia os ministérios nos quais é líder.</p>
+            <h1 class="fw-bold text-primary">
+                <i class="bi bi-star-fill me-2"></i>Meus Ministérios Liderados
+            </h1>
+            <p class="text-muted">Aqui você gerencia os ministérios nos quais é líder ou vice-líder.</p>
         </div>
+        {% if can_manage_ministries() %}
+        <a href="{{ url_for('members.add_ministry') }}" class="btn btn-primary">
+            <i class="bi bi-plus-lg me-2"></i> Novo Ministério
+        </a>
+        {% endif %}
     </div>
 
     <div class="row g-4">
         {% for ministry in led_ministries %}
         <div class="col-md-6 col-lg-4">
-            <div class="card h-100 border-0 shadow-sm">
+            <div class="card h-100 border-0 shadow-sm hover-shadow transition">
                 <div class="card-body p-4">
-                    <h5 class="fw-bold mb-3">{{ ministry.name }}</h5>
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <h5 class="fw-bold mb-0">{{ ministry.name }}</h5>
+                        {% if ministry.is_kids_ministry %}
+                        <span class="badge bg-warning text-dark">
+                            <i class="bi bi-stars me-1"></i> Kids
+                        </span>
+                        {% endif %}
+                    </div>
                     <p class="text-muted small mb-4">{{ ministry.description or 'Sem descrição' }}</p>
                     
                     <div class="mb-4">
-                        <label class="small fw-bold text-muted d-block mb-1">LÍDER</label>
-                        <div class="d-flex align-items-center">
-                            <i class="bi bi-person-badge me-2 text-primary"></i>
-                            <span>Você</span>
+                        <label class="small fw-bold text-muted d-block mb-2">LIDERANÇA</label>
+                        <div class="d-flex flex-column gap-2">
+                            <div class="d-flex align-items-center">
+                                <i class="bi bi-person-badge me-2 text-primary"></i>
+                                <span>
+                                    <strong>Líder:</strong> 
+                                    {% if ministry.leader %}
+                                        {{ ministry.leader.name }}
+                                        {% if ministry.leader_id == current_user.id %}
+                                            <span class="badge bg-primary ms-1">Você</span>
+                                        {% endif %}
+                                    {% else %}
+                                        <span class="text-muted">Não definido</span>
+                                    {% endif %}
+                                </span>
+                            </div>
+                            {% if ministry.vice_leader %}
+                            <div class="d-flex align-items-center">
+                                <i class="bi bi-person me-2 text-info"></i>
+                                <span>
+                                    <strong>Vice:</strong> {{ ministry.vice_leader.name }}
+                                    {% if ministry.vice_leader_id == current_user.id %}
+                                        <span class="badge bg-info ms-1">Você</span>
+                                    {% endif %}
+                                </span>
+                            </div>
+                            {% endif %}
                         </div>
                     </div>
 
                     <div class="d-grid gap-2">
-                        <!-- Botões sempre aparecem para o líder -->
                         <a href="{{ url_for('members.ministry_manage_members', ministry_id=ministry.id) }}" class="btn btn-outline-primary">
                             <i class="bi bi-people me-1"></i> Gerenciar Membros
                         </a>
@@ -38,6 +74,11 @@
                         <a href="{{ url_for('members.birthday_agenda', ministry_id=ministry.id) }}" class="btn btn-outline-danger">
                             <i class="bi bi-calendar-heart me-1"></i> Aniversariantes
                         </a>
+                        {% if can_manage_ministries() %}
+                        <a href="{{ url_for('members.edit_ministry', id=ministry.id) }}" class="btn btn-outline-secondary">
+                            <i class="bi bi-pencil me-1"></i> Editar Ministério
+                        </a>
+                        {% endif %}
                     </div>
                 </div>
             </div>
@@ -45,9 +86,27 @@
         {% else %}
         <div class="col-12 text-center py-5">
             <i class="bi bi-star fs-1 text-muted opacity-50 d-block mb-3"></i>
-            <p class="text-muted">Você ainda não lidera nenhum ministério.</p>
+            <p class="text-muted mb-2">Você ainda não lidera nenhum ministério.</p>
+            {% if can_manage_ministries() %}
+            <a href="{{ url_for('members.add_ministry') }}" class="btn btn-primary mt-2">
+                <i class="bi bi-plus-lg me-2"></i> Criar meu primeiro ministério
+            </a>
+            {% endif %}
         </div>
         {% endfor %}
     </div>
 </div>
+
+<style>
+.hover-shadow {
+    transition: all 0.3s ease;
+}
+.hover-shadow:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 1rem 3rem rgba(0,0,0,.175) !important;
+}
+.transition {
+    transition: all 0.3s ease;
+}
+</style>
 {% endblock %}

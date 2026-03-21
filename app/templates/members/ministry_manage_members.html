@@ -1,76 +1,180 @@
-<!-- Arquivo completo: app/templates/members/ministry_manage_members.html (adicionando endereço e phone para líderes) -->
 {% extends "base.html" %}
 
 {% block content %}
 <div class="container py-4">
-    <h1 class="fw-bold text-primary mb-4">Gerenciar Membros do Ministério: {{ ministry.name }}</h1>
-    
-    <a href="{{ url_for('members.my_led_ministries') }}" class="btn btn-outline-secondary mb-3">
-        ← Voltar para Meus Ministérios Liderados
-    </a>
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="fw-bold text-primary mb-0">Gerenciar Membros</h1>
+            <p class="text-muted mt-1">{{ ministry.name }}</p>
+        </div>
+        <a href="{{ url_for('members.my_led_ministries') }}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-2"></i> Voltar
+        </a>
+    </div>
     
     <div class="row mb-4">
         <div class="col-md-6">
-            <div class="card shadow-sm">
+            <div class="card border-0 shadow-sm">
                 <div class="card-body">
-                    <h5>Estatísticas</h5>
-                    <p>Total de Membros: {{ total_members }}</p>
-                    <p>Distribuição por Gênero:</p>
-                    <ul>
-                        {% for gender, count in gender_count %}
-                        <li>{{ gender or 'Não informado' }}: {{ count }}</li>
-                        {% endfor %}
-                    </ul>
+                    <h5 class="fw-bold mb-3">
+                        <i class="bi bi-graph-up me-2 text-primary"></i> Estatísticas
+                    </h5>
+                    <div class="row">
+                        <div class="col-6">
+                            <div class="bg-light rounded p-3 text-center">
+                                <small class="text-muted text-uppercase">Total de Membros</small>
+                                <h3 class="fw-bold text-primary mb-0">{{ total_members }}</h3>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="bg-light rounded p-3">
+                                <small class="text-muted text-uppercase d-block mb-2">Distribuição por Gênero</small>
+                                {% for gender, count in gender_count %}
+                                <div class="d-flex justify-content-between small">
+                                    <span>{{ gender or 'Não informado' }}</span>
+                                    <span class="fw-bold">{{ count }}</span>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Card com informações do ministério -->
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <h5 class="fw-bold mb-3">
+                        <i class="bi bi-info-circle me-2 text-info"></i> Informações do Ministério
+                    </h5>
+                    <div class="row g-2">
+                        <div class="col-6">
+                            <small class="text-muted d-block">Líder Principal</small>
+                            <span class="fw-bold">
+                                {% if ministry.leader %}
+                                    {{ ministry.leader.name }}
+                                    <span class="badge bg-primary ms-1">Líder</span>
+                                {% else %}
+                                    <span class="text-muted">Não definido</span>
+                                {% endif %}
+                            </span>
+                        </div>
+                        <div class="col-6">
+                            <small class="text-muted d-block">Vice-Líder</small>
+                            <span class="fw-bold">
+                                {% if ministry.vice_leader %}
+                                    {{ ministry.vice_leader.name }}
+                                    <span class="badge bg-info ms-1">Vice</span>
+                                {% else %}
+                                    <span class="text-muted">Não definido</span>
+                                {% endif %}
+                            </span>
+                        </div>
+                    </div>
+                    {% if ministry.description %}
+                    <hr class="my-3">
+                    <small class="text-muted d-block">Descrição</small>
+                    <p class="small mb-0">{{ ministry.description }}</p>
+                    {% endif %}
                 </div>
             </div>
         </div>
     </div>
     
-    <h5 class="mb-3">Membros Atuais</h5>
-    <div class="table-responsive mb-4">
-        <table class="table table-hover">
-            <thead>
-                <tr>
-                    <th>Nome</th>
-                    <th>E-mail</th>
-                    {% if is_leader %}
-                    <th>Endereço</th>
-                    <th>Telefone</th>
-                    {% endif %}
-                    <th>Ações</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for member in current_members %}
-                <tr>
-                    <td>{{ member.name }}</td>
-                    <td>{{ member.email }}</td>
-                    {% if is_leader %}
-                    <td>{{ member.address or 'Não informado' }}</td>
-                    <td>{{ member.phone or 'Não informado' }}</td>
-                    {% endif %}
-                    <td>
-                        <form method="POST" action="{{ url_for('members.ministry_remove_member', ministry_id=ministry.id, user_id=member.id) }}">
-                            <button type="submit" class="btn btn-sm btn-danger">Remover</button>
-                        </form>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+    <div class="card border-0 shadow-sm">
+        <div class="card-header bg-transparent border-0 pt-4 pb-0">
+            <h5 class="fw-bold mb-0">
+                <i class="bi bi-people me-2"></i> Membros Atuais
+            </h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="bg-light">
+                        <tr>
+                            <th class="px-4 py-3">Nome</th>
+                            <th class="py-3">E-mail</th>
+                            {% if is_leader %}
+                            <th class="py-3">Endereço</th>
+                            <th class="py-3">Telefone</th>
+                            {% endif %}
+                            <th class="px-4 py-3 text-center">Ações</th>
+                        </thead>
+                    <tbody>
+                        {% for member in current_members %}
+                        <tr>
+                            <td class="px-4">
+                                {{ member.name }}
+                                {% if member.id == ministry.leader_id %}
+                                    <span class="badge bg-primary ms-2">Líder</span>
+                                {% endif %}
+                                {% if member.id == ministry.vice_leader_id %}
+                                    <span class="badge bg-info ms-2">Vice-Líder</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ member.email }}</td>
+                            {% if is_leader %}
+                            <td>{{ member.address or 'Não informado' }}</td>
+                            <td>{{ member.phone or 'Não informado' }}</td>
+                            {% endif %}
+                            <td class="px-4 text-center">
+                                {% if member.id != ministry.leader_id and member.id != ministry.vice_leader_id %}
+                                <form method="POST" action="{{ url_for('members.ministry_remove_member', ministry_id=ministry.id, user_id=member.id) }}" class="d-inline">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger rounded-pill px-3" onclick="return confirm('Tem certeza que deseja remover {{ member.name }}?')">
+                                        <i class="bi bi-person-x me-1"></i> Remover
+                                    </button>
+                                </form>
+                                {% else %}
+                                <span class="badge bg-secondary opacity-50 px-3 py-2">Líder</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="{{ 5 if is_leader else 3 }}" class="text-center py-5 text-muted">
+                                <i class="bi bi-people fs-1 d-block mb-2"></i>
+                                Nenhum membro neste ministério.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
     
-    <h5 class="mb-3">Adicionar Membro</h5>
-    <form method="POST" action="{{ url_for('members.ministry_add_member', ministry_id=ministry.id) }}">
-        <div class="input-group">
-            <select name="user_id" class="form-select">
-                <option value="">Selecionar Membro</option>
-                {% for member in available_members %}
-                <option value="{{ member.id }}">{{ member.name }}</option>
-                {% endfor %}
-            </select>
-            <button type="submit" class="btn btn-primary">Adicionar</button>
+    {% if available_members %}
+    <div class="card border-0 shadow-sm mt-4">
+        <div class="card-header bg-transparent border-0 pt-4 pb-0">
+            <h5 class="fw-bold mb-0">
+                <i class="bi bi-person-plus me-2"></i> Adicionar Novo Membro
+            </h5>
         </div>
-    </form>
+        <div class="card-body">
+            <form method="POST" action="{{ url_for('members.ministry_add_member', ministry_id=ministry.id) }}" class="row g-3">
+                <div class="col-md-8">
+                    <select name="user_id" class="form-select" required>
+                        <option value="">Selecione um membro...</option>
+                        {% for member in available_members %}
+                        <option value="{{ member.id }}">{{ member.name }} ({{ member.email }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="bi bi-plus-lg me-2"></i> Adicionar Membro
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    {% else %}
+    <div class="alert alert-info mt-4 mb-0">
+        <i class="bi bi-info-circle me-2"></i>
+        Não há membros disponíveis para adicionar. Todos os membros ativos já estão neste ministério.
+    </div>
+    {% endif %}
 </div>
 {% endblock %}

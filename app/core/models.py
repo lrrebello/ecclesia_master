@@ -122,7 +122,10 @@ class Ministry(db.Model):
     description = db.Column(db.Text)
     church_id = db.Column(db.Integer, db.ForeignKey('church.id'))
     leader_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    vice_leader_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
     is_kids_ministry = db.Column(db.Boolean, default=False)
+    extra_leaders = db.Column(db.JSON, default=[])  # 🔥 Lista de IDs extras
+
     
     events = db.relationship('Event', backref='ministry', lazy=True)
     leader = db.relationship('User', foreign_keys=[leader_id])

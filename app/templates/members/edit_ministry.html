@@ -1,48 +1,184 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="row justify-content-center">
-    <div class="col-md-6">
+    <div class="col-md-8">
         <div class="card border-0 shadow-sm p-4">
-            <h3 class="fw-bold mb-4">Editar Ministério</h3>
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h3 class="fw-bold mb-0">Editar Ministério</h3>
+                <a href="{{ url_for('members.list_ministries') }}" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-left me-2"></i> Voltar
+                </a>
+            </div>
+            
             <form method="POST">
                 <div class="mb-3">
-                    <label class="form-label small fw-bold">NOME DO MINISTÉRIO</label>
+                    <label class="form-label fw-bold small text-uppercase">Nome do Ministério</label>
                     <input type="text" name="name" class="form-control bg-light border-0" value="{{ ministry.name }}" required>
                 </div>
+                
                 <div class="mb-3">
-                    <label class="form-label small fw-bold">DESCRIÇÃO</label>
-                    <textarea name="description" class="form-control bg-light border-0" rows="3">{{ ministry.description or '' }}</textarea>
+                    <label class="form-label fw-bold small text-uppercase">Descrição</label>
+                    <textarea name="description" class="form-control bg-light border-0" rows="3" placeholder="Descreva a missão e atividades do ministério...">{{ ministry.description or '' }}</textarea>
                 </div>
+                
                 {% if churches %}
                 <div class="mb-3">
-                    <label class="form-label small fw-bold">FILIAL / CONGREGAÇÃO</label>
-                    <select name="church_id" class="form-select bg-light border-0" required>
+                    <label class="form-label fw-bold small text-uppercase">Filial / Congregação</label>
+                    <select name="church_id" class="form-select bg-light border-0">
                         <option value="">Selecione uma filial...</option>
                         {% for church in churches %}
                         <option value="{{ church.id }}" {{ 'selected' if ministry.church_id == church.id }}>{{ church.name }}</option>
                         {% endfor %}
                     </select>
+                    <small class="text-muted">Selecione apenas se este ministério pertence a uma filial específica</small>
                 </div>
                 {% endif %}
-                <div class="mb-3">
-                    <label class="form-label small fw-bold">LÍDER DO MINISTÉRIO</label>
-                    <select name="leader_id" class="form-select bg-light border-0" required>
-                        <option value="">Selecione um líder...</option>
-                        {% for leader in leaders %}
-                        <option value="{{ leader.id }}" {{ 'selected' if ministry.leader_id == leader.id }}>{{ leader.name }}</option>
-                        {% endfor %}
-                    </select>
+                
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label class="form-label fw-bold small text-uppercase">Líder Principal</label>
+                            <select name="leader_id" class="form-select bg-light border-0">
+                                <option value="">Selecione um líder...</option>
+                                {% for leader in leaders %}
+                                <option value="{{ leader.id }}" {{ 'selected' if ministry.leader_id == leader.id }}>{{ leader.name }}</option>
+                                {% endfor %}
+                            </select>
+                            <small class="text-muted">Responsável principal pelo ministério</small>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label class="form-label fw-bold small text-uppercase">Vice-Líder</label>
+                            <select name="vice_leader_id" class="form-select bg-light border-0">
+                                <option value="">Selecione um vice-líder...</option>
+                                {% for leader in leaders %}
+                                <option value="{{ leader.id }}" {{ 'selected' if ministry.vice_leader_id == leader.id }}>{{ leader.name }}</option>
+                                {% endfor %}
+                            </select>
+                            <small class="text-muted">Vice-líder tem as mesmas permissões administrativas</small>
+                        </div>
+                    </div>
                 </div>
+                
+                <!-- Seção de Líderes Adicionais com Checkboxes -->
+                <div class="mb-3">
+                    <label class="form-label fw-bold small text-uppercase">Líderes Adicionais</label>
+                    <div class="card bg-light border-0">
+                        <div class="card-body p-3">
+                            <div class="row g-2">
+                                {% set has_available = false %}
+                                {% for leader in leaders %}
+                                    {% if leader.id != ministry.leader_id and leader.id != ministry.vice_leader_id %}
+                                        {% set has_available = true %}
+                                        <div class="col-md-6">
+                                            <div class="form-check">
+                                                <input type="checkbox" 
+                                                       name="extra_leaders" 
+                                                       value="{{ leader.id }}"
+                                                       id="extra_leader_{{ leader.id }}"
+                                                       class="form-check-input"
+                                                       {{ 'checked' if ministry.extra_leaders and leader.id in ministry.extra_leaders else '' }}>
+                                                <label class="form-check-label" for="extra_leader_{{ leader.id }}">
+                                                    {{ leader.name }}
+                                                    {% if leader.church_role %}
+                                                    <small class="text-muted">({{ leader.church_role.name }})</small>
+                                                    {% endif %}
+                                                </label>
+                                            </div>
+                                        </div>
+                                    {% endif %}
+                                {% endfor %}
+                            </div>
+                            
+                            {% if not has_available %}
+                            <p class="text-muted small mb-0 text-center">Nenhum outro membro disponível para ser líder adicional.</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <small class="text-muted mt-2 d-block">
+                        <i class="bi bi-info-circle me-1"></i>
+                        Marque os membros que terão permissões administrativas (mesmas que líder e vice).
+                        Líder e Vice já estão listados acima.
+                    </small>
+                </div>
+                
                 <div class="form-check mb-3">
                     <input type="checkbox" name="is_kids_ministry" class="form-check-input" id="is_kids" {{ 'checked' if ministry.is_kids_ministry }}>
-                    <label class="form-check-label" for="is_kids">Este é um Ministério Kids (libera acesso ao Espaço Kids)</label>
+                    <label class="form-check-label" for="is_kids">
+                        <i class="bi bi-stars me-1"></i> Este é um Ministério Kids
+                    </label>
+                    <div class="small text-muted mt-1">Libera acesso ao Espaço Kids para os líderes deste ministério</div>
                 </div>
-                <div class="d-grid mt-4">
-                    <button type="submit" class="btn btn-primary btn-lg py-3 fw-bold shadow-sm">
-                        Salvar Alterações
+                
+                <hr class="my-4">
+                
+                <div class="d-flex gap-3">
+                    <button type="submit" class="btn btn-primary px-5 py-2 fw-bold">
+                        <i class="bi bi-check-lg me-2"></i> Salvar Alterações
                     </button>
+                    <a href="{{ url_for('members.list_ministries') }}" class="btn btn-outline-secondary px-4 py-2">
+                        Cancelar
+                    </a>
                 </div>
             </form>
+        </div>
+        
+        <!-- Card de Informações do Ministério -->
+        <div class="card border-0 shadow-sm p-4 mt-4">
+            <h5 class="fw-bold mb-3">
+                <i class="bi bi-info-circle me-2"></i> Informações do Ministério
+            </h5>
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <div class="bg-light rounded p-3">
+                        <small class="text-muted text-uppercase">Total de Membros</small>
+                        <h4 class="fw-bold mb-0">{{ ministry.members.count() }}</h4>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="bg-light rounded p-3">
+                        <small class="text-muted text-uppercase">Total de Líderes</small>
+                        <h4 class="fw-bold mb-0">
+                            {% set leader_count = 0 %}
+                            {% if ministry.leader_id %}{% set leader_count = leader_count + 1 %}{% endif %}
+                            {% if ministry.vice_leader_id %}{% set leader_count = leader_count + 1 %}{% endif %}
+                            {% if ministry.extra_leaders %}{% set leader_count = leader_count + ministry.extra_leaders|length %}{% endif %}
+                            {{ leader_count }}
+                        </h4>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Lista de Líderes Atuais -->
+            <div class="mt-3">
+                <small class="text-muted text-uppercase d-block mb-2">Líderes Atuais</small>
+                <div class="d-flex flex-wrap gap-2">
+                    {% if ministry.leader %}
+                    <span class="badge bg-primary px-3 py-2">
+                        <i class="bi bi-star-fill me-1"></i> {{ ministry.leader.name }} (Líder)
+                    </span>
+                    {% endif %}
+                    {% if ministry.vice_leader %}
+                    <span class="badge bg-info px-3 py-2">
+                        <i class="bi bi-star me-1"></i> {{ ministry.vice_leader.name }} (Vice)
+                    </span>
+                    {% endif %}
+                    {% if ministry.extra_leaders %}
+                        {% for leader_id in ministry.extra_leaders %}
+                            {% set leader = leaders|selectattr('id', 'equalto', leader_id)|first %}
+                            {% if leader %}
+                            <span class="badge bg-secondary px-3 py-2">
+                                <i class="bi bi-person-check me-1"></i> {{ leader.name }}
+                            </span>
+                            {% endif %}
+                        {% endfor %}
+                    {% endif %}
+                </div>
+                {% if not ministry.leader and not ministry.vice_leader and not ministry.extra_leaders %}
+                <p class="text-muted small mt-2">Nenhum líder definido para este ministério.</p>
+                {% endif %}
+            </div>
         </div>
     </div>
 </div>

@@ -2,18 +2,34 @@
 from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app
 from flask_login import login_required, current_user, logout_user
 from app.core.models import User, Church, Ministry, Event, db, Devotional, Study, ChurchRole
-from app.utils.logger import log_action  # <-- IMPORT ADICIONADO
+from app.utils.logger import log_action
 from datetime import datetime, timedelta
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from werkzeug.utils import secure_filename
 import os
 
 members_bp = Blueprint('members', __name__)
 
+def is_ministry_leader(ministry):
+    """Verifica se o usuário atual é líder/vice ou está na lista extra"""
+    if not current_user.is_authenticated:
+        return False
+    
+    # Verifica líder e vice (existentes)
+    if ministry.leader_id == current_user.id or ministry.vice_leader_id == current_user.id:
+        return True
+    
+    # Verifica na lista extra
+    if ministry.extra_leaders and current_user.id in ministry.extra_leaders:
+        return True
+    
+    return False
+
 def can_manage_members():
     return current_user.can_approve_members or (current_user.church_role and current_user.church_role.name == 'Administrador Global' or current_user.church_role.is_lead_pastor)
 
 def can_manage_ministries():
+    """Verifica se o usuário tem permissão para gerenciar ministérios (global)"""
     return (
         current_user.can_manage_ministries or 
         (current_user.church_role and (
@@ -25,7 +41,6 @@ def can_manage_ministries():
 @members_bp.route('/dashboard')
 @login_required
 def dashboard():
-    # ... (código existente, sem alterações) ...
     today = datetime.now().date()
     devotional = Devotional.query.filter_by(date=today).first()
     if not devotional:
@@ -39,17 +54,22 @@ def dashboard():
     ).order_by(Event.start_time.asc()).limit(5).all()
     
     is_global_admin = current_user.church_role and current_user.church_role.name == 'Administrador Global'
-    is_pastor = current_user.church_role and current_user.church_role and current_user.church_role.is_lead_pastor
-    led_ministries_list = [m for m in current_user.ministries if m.leader_id == current_user.id]
-    is_ministry_leader = len(led_ministries_list) > 0
-    is_authorized_for_alerts = is_global_admin or is_pastor or is_ministry_leader
+    is_pastor = current_user.church_role and current_user.church_role.is_lead_pastor
+    
+    # Lista ministérios onde o usuário é líder (incluindo extra_leaders)
+    led_ministries_list = []
+    for m in current_user.ministries:
+        if is_ministry_leader(m):
+            led_ministries_list.append(m)
+    
+    is_ministry_leader_flag = len(led_ministries_list) > 0
+    is_authorized_for_alerts = is_global_admin or is_pastor or is_ministry_leader_flag
 
     pending_members = []
     if current_user.can_approve_members or is_global_admin or is_pastor:
         if is_global_admin:
             pending_members = User.query.filter_by(status='pending').all()
         else:
-            from sqlalchemy import or_
             pending_members = User.query.filter(
                 (User.status == 'pending') & 
                 (or_(User.church_id == current_user.church_id, User.church_id == None))
@@ -143,7 +163,6 @@ def edit_profile():
         
         db.session.commit()
         
-        # === LOG DE EDIÇÃO DE PERFIL ===
         log_action(
             action='UPDATE',
             module='PROFILE',
@@ -152,7 +171,6 @@ def edit_profile():
             new_values={'name': current_user.name, 'phone': current_user.phone},
             church_id=current_user.church_id
         )
-        # ================================
         
         flash('Perfil atualizado com sucesso!', 'success')
         return redirect(url_for('members.profile'))
@@ -174,7 +192,7 @@ def list_ministries():
 @login_required
 def ministry_manage_members(ministry_id):
     ministry = Ministry.query.get_or_404(ministry_id)
-    is_leader = ministry.leader_id == current_user.id
+    is_leader = is_ministry_leader(ministry)
     is_authorized = is_leader or can_manage_ministries()
     
     if not is_authorized:
@@ -215,6 +233,7 @@ def add_ministry():
             description=request.form.get('description'),
             church_id=current_user.church_id,
             leader_id=int(leader_id) if leader_id else None,
+            extra_leaders=[],  # Inicializa lista vazia
             is_kids_ministry='is_kids_ministry' in request.form
         )
         db.session.add(new_min)
@@ -225,7 +244,6 @@ def add_ministry():
             new_min.members.append(leader)
             db.session.commit()
 
-        # === LOG DE CRIAÇÃO DE MINISTÉRIO ===
         log_action(
             action='CREATE',
             module='MINISTRY',
@@ -233,7 +251,6 @@ def add_ministry():
             new_values={'id': new_min.id, 'name': new_min.name, 'leader_id': new_min.leader_id},
             church_id=current_user.church_id
         )
-        # =====================================
 
         flash('Ministério criado com sucesso!', 'success')
         return redirect(url_for('members.list_ministries'))
@@ -247,8 +264,10 @@ def add_ministry():
 @login_required
 def edit_ministry(id):
     ministry = Ministry.query.get_or_404(id)
-
-    if not can_manage_ministries():
+    
+    # CORRIGIDO: usa is_ministry_leader para verificar acesso
+    is_leader = is_ministry_leader(ministry)
+    if not (is_leader or can_manage_ministries()):
         flash('Acesso negado.', 'danger')
         return redirect(url_for('members.list_ministries'))
 
@@ -256,13 +275,18 @@ def edit_ministry(id):
         'name': ministry.name,
         'description': ministry.description,
         'leader_id': ministry.leader_id,
+        'vice_leader_id': ministry.vice_leader_id,
+        'extra_leaders': ministry.extra_leaders,
         'is_kids_ministry': ministry.is_kids_ministry
     }
 
     if request.method == 'POST':
         ministry.name = request.form.get('name')
         ministry.description = request.form.get('description')
-        ministry.leader_id = request.form.get('leader_id')
+        ministry.leader_id = request.form.get('leader_id') if request.form.get('leader_id') else None
+        ministry.vice_leader_id = request.form.get('vice_leader_id') if request.form.get('vice_leader_id') else None
+        extra_leaders_ids = request.form.getlist('extra_leaders')
+        ministry.extra_leaders = [int(id) for id in extra_leaders_ids if id]
         ministry.is_kids_ministry = 'is_kids_ministry' in request.form
 
         if current_user.church_role and current_user.church_role.name == 'Administrador Global':
@@ -272,13 +296,20 @@ def edit_ministry(id):
 
         db.session.commit()
 
+        # Adiciona todos os líderes como membros
+        all_leaders = []
         if ministry.leader_id:
-            leader = User.query.get(ministry.leader_id)
+            all_leaders.append(ministry.leader_id)
+        if ministry.vice_leader_id:
+            all_leaders.append(ministry.vice_leader_id)
+        all_leaders.extend(ministry.extra_leaders)
+        
+        for leader_id in all_leaders:
+            leader = User.query.get(leader_id)
             if leader and leader not in ministry.members:
                 ministry.members.append(leader)
-                db.session.commit()
+        db.session.commit()
 
-        # === LOG DE EDIÇÃO DE MINISTÉRIO ===
         log_action(
             action='UPDATE',
             module='MINISTRY',
@@ -287,11 +318,12 @@ def edit_ministry(id):
             new_values={
                 'name': ministry.name,
                 'leader_id': ministry.leader_id,
+                'vice_leader_id': ministry.vice_leader_id,
+                'extra_leaders': ministry.extra_leaders,
                 'is_kids_ministry': ministry.is_kids_ministry
             },
             church_id=ministry.church_id
         )
-        # ====================================
 
         flash('Ministério atualizado!', 'success')
         return redirect(url_for('members.list_ministries'))
@@ -318,7 +350,6 @@ def delete_ministry(id):
 
     ministry_data = {'id': ministry.id, 'name': ministry.name}
 
-    # === LOG ANTES DE DELETAR ===
     log_action(
         action='DELETE',
         module='MINISTRY',
@@ -326,7 +357,6 @@ def delete_ministry(id):
         old_values=ministry_data,
         church_id=ministry.church_id
     )
-    # =============================
 
     db.session.delete(ministry)
     db.session.commit()
@@ -345,7 +375,6 @@ def agenda():
     return render_template('members/agenda.html', events=events)
 
 def create_recurring_events(base_event, recurrence_type, count=12):
-    """Gera ocorrências futuras para um evento recorrente"""
     for i in range(1, count):
         if recurrence_type == 'weekly':
             new_time = base_event.start_time + timedelta(weeks=i)
@@ -372,7 +401,7 @@ def add_event(id=None):
     ministry = Ministry.query.get(id) if id else None
     
     is_authorized = current_user.can_manage_events or (
-        current_user.church_role and current_user.church_role.name == 'Administrador Global' or current_user.church_role.is_lead_pastor) or (ministry and ministry.leader_id == current_user.id)
+        current_user.church_role and (current_user.church_role.name == 'Administrador Global' or current_user.church_role.is_lead_pastor)) or (ministry and is_ministry_leader(ministry))
 
     if not is_authorized:
         flash('Acesso negado.', 'danger')
@@ -398,7 +427,6 @@ def add_event(id=None):
             
         db.session.commit()
 
-        # === LOG DE CRIAÇÃO DE EVENTO ===
         log_action(
             action='CREATE',
             module='EVENT',
@@ -411,7 +439,6 @@ def add_event(id=None):
             },
             church_id=current_user.church_id
         )
-        # =================================
 
         flash('Evento(s) agendado(s) com sucesso!', 'success')
         return redirect(url_for('members.agenda'))
@@ -431,8 +458,8 @@ def add_general_event():
 @login_required
 def edit_event(id):
     event = Event.query.get_or_404(id)
-    is_authorized = (current_user.church_role and current_user.church_role.name == 'Administrador Global' or current_user.church_role.is_lead_pastor) or \
-                    (event.ministry and event.ministry.leader_id == current_user.id) or \
+    is_authorized = (current_user.church_role and (current_user.church_role.name == 'Administrador Global' or current_user.church_role.is_lead_pastor)) or \
+                    (event.ministry and is_ministry_leader(event.ministry)) or \
                     current_user.can_manage_events
     
     if not is_authorized:
@@ -456,7 +483,6 @@ def edit_event(id):
         
         db.session.commit()
 
-        # === LOG DE EDIÇÃO DE EVENTO ===
         log_action(
             action='UPDATE',
             module='EVENT',
@@ -469,7 +495,6 @@ def edit_event(id):
             },
             church_id=event.church_id
         )
-        # ================================
 
         flash('Evento atualizado!', 'success')
         return redirect(url_for('members.agenda'))
@@ -480,8 +505,8 @@ def edit_event(id):
 @login_required
 def delete_event(id):
     event = Event.query.get_or_404(id)
-    is_authorized = (current_user.church_role and current_user.church_role.name == 'Administrador Global' or current_user.church_role.is_lead_pastor) or \
-                    (event.ministry and event.ministry.leader_id == current_user.id) or \
+    is_authorized = (current_user.church_role and (current_user.church_role.name == 'Administrador Global' or current_user.church_role.is_lead_pastor)) or \
+                    (event.ministry and is_ministry_leader(event.ministry)) or \
                     current_user.can_manage_events
     
     if not is_authorized:
@@ -490,7 +515,6 @@ def delete_event(id):
     
     event_data = {'id': event.id, 'title': event.title}
 
-    # === LOG ANTES DE DELETAR ===
     log_action(
         action='DELETE',
         module='EVENT',
@@ -498,7 +522,6 @@ def delete_event(id):
         old_values=event_data,
         church_id=event.church_id
     )
-    # =============================
 
     db.session.delete(event)
     db.session.commit()
@@ -540,7 +563,6 @@ def promote_member(id):
         new_role_id = request.form.get('church_role_id')
         member.church_role_id = int(new_role_id) if new_role_id else None
 
-        # ===== SINCRONIZAR is_lead_pastor =====
         if member.church_role_id:
             new_role = ChurchRole.query.get(member.church_role_id)
             member.is_lead_pastor = new_role.is_lead_pastor if new_role else False
@@ -556,7 +578,6 @@ def promote_member(id):
 
         db.session.commit()
 
-        # === LOG DE PROMOÇÃO DE MEMBRO ===
         log_action(
             action='UPDATE',
             module='MEMBERS',
@@ -569,7 +590,6 @@ def promote_member(id):
             },
             church_id=member.church_id
         )
-        # =================================
 
         flash(f'Cargo e permissões de {member.name} atualizados!', 'success')
         return redirect(url_for('members.church_members'))
@@ -594,7 +614,6 @@ def delete_member(id):
     
     member_data = {'id': member.id, 'name': member.name, 'email': member.email}
 
-    # === LOG DE EXCLUSÃO DE MEMBRO (RESOLVE SEU PROBLEMA!) ===
     log_action(
         action='DELETE',
         module='MEMBERS',
@@ -602,7 +621,6 @@ def delete_member(id):
         old_values=member_data,
         church_id=member.church_id
     )
-    # =========================================================
 
     member.ministries = []
     db.session.delete(member)
@@ -613,14 +631,28 @@ def delete_member(id):
 @members_bp.route('/ministries/led-by-me')
 @login_required
 def my_led_ministries():
-    led_ministries = Ministry.query.filter_by(leader_id=current_user.id).all()
-    return render_template('members/my_led_ministries.html', led_ministries=led_ministries)
+    """Lista os ministérios onde o usuário é líder, vice ou está na lista extra"""
+    from sqlalchemy import or_
+    
+    user_id = current_user.id
+    
+    # Busca todos os ministérios e filtra em Python (menos eficiente mas funciona)
+    all_ministries = Ministry.query.all()
+    
+    led_ministries = []
+    for ministry in all_ministries:
+        if is_ministry_leader(ministry):
+            led_ministries.append(ministry)
+    
+    return render_template('members/my_led_ministries.html', 
+                           led_ministries=led_ministries,
+                           can_manage_ministries=can_manage_ministries)
 
 @members_bp.route('/ministry/<int:ministry_id>/add-member', methods=['POST'])
 @login_required
 def ministry_add_member(ministry_id):
     ministry = Ministry.query.get_or_404(ministry_id)
-    is_leader = ministry.leader_id == current_user.id
+    is_leader = is_ministry_leader(ministry)
     is_authorized = is_leader or can_manage_ministries()
 
     if not is_authorized:
@@ -639,7 +671,6 @@ def ministry_add_member(ministry_id):
         ministry.members.append(member)
         db.session.commit()
 
-        # === LOG DE ADIÇÃO DE MEMBRO AO MINISTÉRIO ===
         log_action(
             action='UPDATE',
             module='MINISTRY_MEMBERS',
@@ -647,7 +678,6 @@ def ministry_add_member(ministry_id):
             new_values={'ministry_id': ministry.id, 'member_id': member.id},
             church_id=ministry.church_id
         )
-        # =============================================
 
         flash(f'{member.name} adicionado ao ministério!', 'success')
 
@@ -657,7 +687,7 @@ def ministry_add_member(ministry_id):
 @login_required
 def ministry_remove_member(ministry_id, user_id):
     ministry = Ministry.query.get_or_404(ministry_id)
-    is_leader = ministry.leader_id == current_user.id
+    is_leader = is_ministry_leader(ministry)
     is_authorized = is_leader or can_manage_ministries()
 
     if not is_authorized:
@@ -666,7 +696,6 @@ def ministry_remove_member(ministry_id, user_id):
 
     member = User.query.get_or_404(user_id)
     if member in ministry.members:
-        # === LOG ANTES DE REMOVER ===
         log_action(
             action='UPDATE',
             module='MINISTRY_MEMBERS',
@@ -674,7 +703,6 @@ def ministry_remove_member(ministry_id, user_id):
             old_values={'ministry_id': ministry.id, 'member_id': member.id},
             church_id=ministry.church_id
         )
-        # =============================
 
         ministry.members.remove(member)
         db.session.commit()
@@ -686,9 +714,9 @@ def ministry_remove_member(ministry_id, user_id):
 @login_required
 def ministry_agenda(ministry_id):
     ministry = Ministry.query.get_or_404(ministry_id)
-    is_leader = ministry.leader_id == current_user.id
+    is_leader = is_ministry_leader(ministry)
     is_authorized = is_leader or current_user.can_manage_events or (
-        current_user.church_role and current_user.church_role.name == 'Administrador Global' or current_user.church_role.is_lead_pastor)
+        current_user.church_role and (current_user.church_role.name == 'Administrador Global' or current_user.church_role.is_lead_pastor))
     
     if not is_authorized:
         flash('Acesso negado.', 'danger')
@@ -710,12 +738,12 @@ def ministry_agenda(ministry_id):
 @login_required
 def birthday_agenda(ministry_id=None):
     is_global_admin = current_user.church_role and current_user.church_role.name == 'Administrador Global'
-    is_pastor = current_user.church_role and current_user.church_role and current_user.church_role.is_lead_pastor
+    is_pastor = current_user.church_role and current_user.church_role.is_lead_pastor
     
     ministry = None
     if ministry_id:
         ministry = Ministry.query.get_or_404(ministry_id)
-        is_leader = ministry.leader_id == current_user.id
+        is_leader = is_ministry_leader(ministry)
         if not (is_leader or is_global_admin or is_pastor):
             flash('Acesso negado.', 'danger')
             return redirect(url_for('members.dashboard'))

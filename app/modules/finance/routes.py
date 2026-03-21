@@ -73,6 +73,21 @@ def can_manage_finance():
         role.name == 'Tesoureiro'
     )
 
+def is_ministry_leader(ministry):
+    """Verifica se o usuário atual é líder, vice-líder ou está na lista extra do ministério"""
+    if not current_user.is_authenticated:
+        return False
+    
+    # Verifica líder e vice (existentes)
+    if ministry.leader_id == current_user.id or ministry.vice_leader_id == current_user.id:
+        return True
+    
+    # Verifica na lista extra
+    if ministry.extra_leaders and current_user.id in ministry.extra_leaders:
+        return True
+    
+    return False
+
 @finance_bp.route('/dashboard')
 @login_required
 def dashboard():
@@ -487,7 +502,7 @@ def annual_receipt():
 @login_required
 def ministry_finance(ministry_id):
     ministry = Ministry.query.get_or_404(ministry_id)
-    is_leader = ministry.leader_id == current_user.id
+    is_leader = is_ministry_leader(ministry)
     if not (is_leader or can_manage_finance()):
         flash('Acesso negado.', 'danger')
         return redirect(url_for('members.dashboard'))
@@ -549,7 +564,7 @@ def delete_ministry_transaction(tx_id):
     ministry = Ministry.query.get(tx.ministry_id)
     
     # Verificar permissão
-    is_leader = ministry.leader_id == current_user.id
+    is_leader = is_ministry_leader(ministry)
     if not (is_leader or can_manage_finance()):
         flash('Acesso negado.', 'danger')
         return redirect(url_for('members.dashboard'))
@@ -1052,7 +1067,7 @@ def pay_debt(tx_id):
     ministry = Ministry.query.get(tx.ministry_id)
     
     # Verificar permissão
-    is_leader = ministry.leader_id == current_user.id
+    is_leader = is_ministry_leader(ministry)
     if not (is_leader or can_manage_finance()):
         flash('Acesso negado.', 'danger')
         return redirect(url_for('members.dashboard'))
@@ -1418,7 +1433,7 @@ def add_mbway():
 def ministry_categories(ministry_id):
     """Gerenciar categorias do ministério"""
     ministry = Ministry.query.get_or_404(ministry_id)
-    if not (is_admin() or ministry.leader_id == current_user.id or can_manage_finance()):
+    if not (is_admin() or is_ministry_leader(ministry) or can_manage_finance()):
         flash('Acesso negado.', 'danger')
         return redirect(url_for('members.dashboard'))
     
@@ -1433,7 +1448,7 @@ def ministry_categories(ministry_id):
 def add_ministry_category(ministry_id):
     """Adicionar categoria personalizada para ministério"""
     ministry = Ministry.query.get_or_404(ministry_id)
-    if not (is_admin() or ministry.leader_id == current_user.id):
+    if not (is_admin() or ministry.leader_id == current_user.id or ministry.vice_leader_id == current_user.id):
         return jsonify({'success': False, 'message': 'Acesso negado.'}), 403
     
     name = request.form.get('name')
@@ -1466,7 +1481,7 @@ def add_ministry_category(ministry_id):
 def ministry_payment_methods(ministry_id):
     """Gerenciar métodos de pagamento do ministério"""
     ministry = Ministry.query.get_or_404(ministry_id)
-    if not (is_admin() or ministry.leader_id == current_user.id or can_manage_finance()):
+    if not (is_admin() or is_ministry_leader(ministry) or can_manage_finance()):
         flash('Acesso negado.', 'danger')
         return redirect(url_for('members.dashboard'))
     
@@ -1480,7 +1495,7 @@ def ministry_payment_methods(ministry_id):
 @login_required
 def add_ministry_payment_method(ministry_id):
     ministry = Ministry.query.get_or_404(ministry_id)
-    if not (is_admin() or ministry.leader_id == current_user.id):
+    if not (is_admin() or ministry.leader_id == current_user.id or ministry.vice_leader_id == current_user.id):
         return jsonify({'success': False, 'message': 'Acesso negado.'}), 403
     
     name = request.form.get('name')
@@ -1521,7 +1536,7 @@ def add_ministry_payment_method(ministry_id):
 @login_required
 def add_ministry_transaction(ministry_id):
     ministry = Ministry.query.get_or_404(ministry_id)
-    is_leader = ministry.leader_id == current_user.id
+    is_leader = is_ministry_leader(ministry)
     if not (is_leader or can_manage_finance()):
         flash('Acesso negado.', 'danger')
         return redirect(url_for('members.dashboard'))
@@ -1661,7 +1676,7 @@ def delete_ministry_payment_method(id):
     ministry = method.ministry
     
     # Verificar permissão
-    if not (is_admin() or ministry.leader_id == current_user.id):
+    if not (is_admin() or ministry.leader_id == current_user.id or ministry.vice_leader_id == current_user.id):
         return jsonify({'success': False, 'message': 'Acesso negado.'}), 403
     
     method_data = {'id': method.id, 'name': method.name}
