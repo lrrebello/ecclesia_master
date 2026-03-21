@@ -6,24 +6,40 @@
         <i class="bi bi-calendar-week me-2"></i> Minha Agenda
     </a>
 
+    <!-- ========== GESTÃO FINANCEIRA COM SUBMENU ========== -->
     {% if current_user.can_manage_finance or 
           (current_user.church_role and (
               current_user.church_role.name == 'Administrador Global' or 
               current_user.church_role.is_lead_pastor or 
               current_user.church_role.name == 'Tesoureiro'
           )) %}
-    <a class="nav-link {{ 'active' if request.endpoint == 'finance.dashboard' }}" href="{{ url_for('finance.dashboard') }}">
-        <i class="bi bi-cash-stack me-2"></i> Gestão Financeira
-    </a>
-    <!-- NOVOS LINKS BANCÁRIOS -->
-    <a class="nav-link {{ 'active' if request.endpoint == 'finance.list_bank_accounts' }}" 
-       href="{{ url_for('finance.list_bank_accounts') }}" style="padding-left: 2.5rem;">
-        <i class="bi bi-bank me-2"></i> Contas Bancárias
-    </a>
-    <a class="nav-link {{ 'active' if request.endpoint == 'finance.list_mbway' }}" 
-       href="{{ url_for('finance.list_mbway') }}" style="padding-left: 2.5rem;">
-        <i class="bi bi-phone me-2"></i> MBWay
-    </a>
+    <div class="nav-item">
+        <a class="nav-link d-flex justify-content-between align-items-center" 
+           data-bs-toggle="collapse" 
+           href="#submenuFinance" 
+           role="button" 
+           aria-expanded="{{ 'true' if request.endpoint in ['finance.dashboard', 'finance.list_bank_accounts', 'finance.list_mbway'] else 'false' }}" 
+           aria-controls="submenuFinance">
+            <span><i class="bi bi-cash-stack me-2"></i> Gestão Financeira</span>
+            <i class="bi bi-chevron-down small transition-rotate"></i>
+        </a>
+        <div class="collapse {{ 'show' if request.endpoint in ['finance.dashboard', 'finance.list_bank_accounts', 'finance.list_mbway'] else '' }}" id="submenuFinance">
+            <div class="nav flex-column ps-3 mt-1">
+                <a class="nav-link py-1 {{ 'active' if request.endpoint == 'finance.dashboard' }}" 
+                   href="{{ url_for('finance.dashboard') }}">
+                    <i class="bi bi-speedometer2 me-2"></i> Dashboard
+                </a>
+                <a class="nav-link py-1 {{ 'active' if request.endpoint == 'finance.list_bank_accounts' }}" 
+                   href="{{ url_for('finance.list_bank_accounts') }}">
+                    <i class="bi bi-bank me-2"></i> Contas Bancárias
+                </a>
+                <a class="nav-link py-1 {{ 'active' if request.endpoint == 'finance.list_mbway' }}" 
+                   href="{{ url_for('finance.list_mbway') }}">
+                    <i class="bi bi-phone me-2"></i> MBWay
+                </a>
+            </div>
+        </div>
+    </div>
     {% endif %}
 
     <a class="nav-link {{ 'active' if request.endpoint == 'finance.member_finance' }}" href="{{ url_for('finance.member_finance') }}">
@@ -55,6 +71,7 @@
         <i class="bi bi-diagram-3 me-2"></i> Ministérios
     </a>
 
+    <!-- ========== MEMBROS DA FILIAL (Pastor da Filial) ========== -->
     {% if current_user.can_approve_members or 
           (current_user.church_role and (
               current_user.church_role.name == 'Administrador Global' or 
@@ -62,6 +79,17 @@
           )) %}
     <a class="nav-link {{ 'active' if 'church_members' in request.endpoint }}" href="{{ url_for('members.church_members') }}">
         <i class="bi bi-people me-2"></i> Membros da Filial
+    </a>
+    {% endif %}
+
+    <!-- ========== CARGOS DA CONGREGAÇÃO (Pastor da Filial) ========== -->
+    {% if current_user.can_approve_members or 
+          (current_user.church_role and (
+              current_user.church_role.name == 'Administrador Global' or 
+              current_user.church_role.is_lead_pastor
+          )) %}
+    <a class="nav-link {{ 'active' if 'roles' in request.endpoint }}" href="{{ url_for('admin.list_roles') }}">
+        <i class="bi bi-person-badge me-2"></i> Cargos da Congregação
     </a>
     {% endif %}
 
@@ -131,7 +159,7 @@
         {% endif %}
     {% endif %}
 
-    <!-- NOVO LINK: Personalizar Tema (para pastores líderes) -->
+    <!-- ========== PERSONALIZAR TEMA (Pastor da Filial) ========== -->
     {% if current_user.church and current_user.church_role and (current_user.church_role.is_lead_pastor or current_user.church_role.name == 'Administrador Global') %}
     <a class="nav-link {{ 'active' if 'edit_church_theme' in request.endpoint }}" 
        href="{{ url_for('admin.edit_church_theme', church_id=current_user.church.id) }}">
@@ -139,12 +167,14 @@
     </a>
     {% endif %}
 
+    <!-- ========== DADOS DA CONGREGAÇÃO (Pastor da Filial) ========== -->
     {% if current_user.church_role and current_user.church_role.is_lead_pastor %}
     <a class="nav-link {{ 'active' if 'edit_my_church' in request.endpoint }}" href="{{ url_for('admin.edit_my_church') }}">
         <i class="bi bi-gear me-2"></i> Dados da Congregação
     </a>
     {% endif %}
 
+    <!-- ========== ADMINISTRAÇÃO GLOBAL (Apenas Administrador Global) ========== -->
     {% if current_user.church_role and current_user.church_role.name == 'Administrador Global' %}
     <hr class="my-3 opacity-25">
     <label class="small text-muted px-3 mb-2">ADMINISTRAÇÃO</label>
