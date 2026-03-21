@@ -47,11 +47,13 @@ def dashboard():
         devotional = Devotional.query.order_by(Devotional.date.desc()).first()
     recent_studies = Study.query.order_by(Study.created_at.desc()).limit(3).all()
     ministry_ids = [m.id for m in current_user.ministries]
+    week_later = datetime.now() + timedelta(days=7)
     personal_agenda = Event.query.filter(
         (Event.church_id == current_user.church_id) & 
         ((Event.ministry_id == None) | (Event.ministry_id.in_(ministry_ids))) &
-        (Event.start_time >= datetime.now())
-    ).order_by(Event.start_time.asc()).limit(5).all()
+        (Event.start_time >= datetime.now()) &
+        (Event.start_time <= week_later)  # ← FILTRO DOS PRÓXIMOS 7 DIAS
+    ).order_by(Event.start_time.asc()).all()
     
     is_global_admin = current_user.church_role and current_user.church_role.name == 'Administrador Global'
     is_pastor = current_user.church_role and current_user.church_role.is_lead_pastor

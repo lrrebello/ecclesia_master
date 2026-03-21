@@ -52,42 +52,51 @@
             <i class="bi bi-book-half" style="position: absolute; bottom: -20px; right: -20px; font-size: 10rem; color: var(--devotional-icon-color, rgba(255,255,255,0.15)); transform: rotate(-10deg); z-index: 1; pointer-events: none;"></i>
         </div>
 
-        <!-- Card Agenda -->
+        <!-- Card Agenda - Próximos 7 dias -->
         <div class="card border-0 shadow-sm p-4 rounded-4">
             <div class="d-flex justify-content-between align-items-center mb-4">
-                <h4 class="fw-bold mb-0"><i class="bi bi-calendar-check me-2 text-primary"></i>Minha Agenda</h4>
+                <div>
+                    <h4 class="fw-bold mb-0"><i class="bi bi-calendar-check me-2 text-primary"></i>Próximos 7 Dias</h4>
+                    <p class="text-muted small mt-1">Eventos dos próximos 7 dias</p>
+                </div>
                 <a href="{{ url_for('members.agenda') }}" class="btn btn-light btn-sm rounded-pill">Ver todos</a>
             </div>
             <div class="list-group list-group-flush">
-                {% for event in agenda %}
-                <div class="list-group-item px-0 py-3 border-0 border-bottom">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div class="d-flex align-items-start">
-                            <div class="bg-primary bg-opacity-10 text-primary p-2 rounded-3 me-3 text-center" style="min-width: 50px;">
-                                <div class="fw-bold small">{{ event.start_time.strftime('%d') }}</div>
-                                <div class="extra-small text-uppercase">{{ event.start_time.strftime('%b') }}</div>
-                            </div>
-                            <div>
-                                <h6 class="fw-bold mb-1">{{ event.title }}</h6>
-                                <div class="d-flex gap-2 align-items-center">
-                                    <small class="text-muted"><i class="bi bi-clock me-1"></i> {{ event.start_time.strftime('%H:%M') }}</small>
-                                    {% if event.ministry %}
-                                    <span class="badge bg-info bg-opacity-10 text-info border border-info border-opacity-25">{{ event.ministry.name }}</span>
-                                    {% endif %}
+                {% if agenda %}
+                    {% for event in agenda %}
+                    <div class="list-group-item px-0 py-3 border-0 border-bottom">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div class="d-flex align-items-start">
+                                <div class="bg-primary bg-opacity-10 text-primary p-2 rounded-3 me-3 text-center" style="min-width: 50px;">
+                                    <div class="fw-bold small">{{ event.start_time.strftime('%d') }}</div>
+                                    <div class="extra-small text-uppercase">{{ event.start_time.strftime('%b') }}</div>
+                                </div>
+                                <div>
+                                    <h6 class="fw-bold mb-1">{{ event.title }}</h6>
+                                    <div class="d-flex gap-2 align-items-center flex-wrap">
+                                        <small class="text-muted"><i class="bi bi-clock me-1"></i> {{ event.start_time.strftime('%H:%M') }}</small>
+                                        <small class="text-muted"><i class="bi bi-calendar-week me-1"></i> {{ event.start_time.strftime('%A') }}</small>
+                                        {% if event.ministry %}
+                                        <span class="badge bg-info bg-opacity-10 text-info border border-info border-opacity-25">{{ event.ministry.name }}</span>
+                                        {% endif %}
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                        <div class="text-end d-none d-sm-block">
-                            <small class="text-muted"><i class="bi bi-geo-alt me-1"></i> {{ event.location }}</small>
+                            <div class="text-end d-none d-sm-block">
+                                <small class="text-muted"><i class="bi bi-geo-alt me-1"></i> {{ event.location }}</small>
+                            </div>
                         </div>
                     </div>
-                </div>
+                    {% endfor %}
                 {% else %}
                 <div class="text-center py-4">
                     <i class="bi bi-calendar-x text-muted fs-1 opacity-25"></i>
-                    <p class="text-muted mt-2">Nenhum evento agendado para os próximos dias.</p>
+                    <p class="text-muted mt-2">Nenhum evento agendado para os próximos 7 dias.</p>
+                    <a href="{{ url_for('members.add_event') }}" class="btn btn-outline-primary btn-sm rounded-pill mt-2">
+                        <i class="bi bi-plus-lg me-1"></i> Criar Evento
+                    </a>
                 </div>
-                {% endfor %}
+                {% endif %}
             </div>
         </div>
     </div>
@@ -206,19 +215,19 @@
                         </thead>
                         <tbody>
                             {% for p in pending_members %}
-                            <tr>
+                             <tr>
                                 <td class="ps-4">
                                     <div class="fw-bold text-primary">{{ p.name }}</div>
                                     <small class="text-muted">Inscrito em {{ p.created_at.strftime('%d/%m/%Y') if p.created_at else 'Recente' }}</small>
-                                </td>
+                                 </td>
                                 <td class="small">{{ p.email }}</td>
                                 <td class="text-end pe-4">
                                     <form action="{{ url_for('auth.approve_member', user_id=p.id) }}" method="POST" class="d-inline">
                                         <input type="hidden" name="action" value="approve">
                                         <button type="submit" class="btn btn-success rounded-pill px-3 fw-bold shadow-sm">Aprovar</button>
                                     </form>
-                                </td>
-                            </tr>
+                                 </td>
+                             </tr>
                             {% endfor %}
                         </tbody>
                     </table>
@@ -227,4 +236,25 @@
         </div>
     </div>
 </div>
+
+<style>
+.letter-spacing-1 {
+    letter-spacing: 1px;
+}
+.pulse {
+    animation: pulse 1.5s ease-in-out infinite;
+}
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.7;
+        transform: scale(1.02);
+    }
+}
+.shadow-xs {
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+}
+</style>
 {% endblock %}
