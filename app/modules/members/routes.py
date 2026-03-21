@@ -536,8 +536,65 @@ def church_members():
     if not can_manage_members():
         flash('Acesso negado.', 'danger')
         return redirect(url_for('members.dashboard'))
-    members = User.query.filter_by(church_id=current_user.church_id).all()
-    return render_template('members/church_members.html', members=members)
+    
+    # ========== FILTROS ==========
+    search = request.args.get('search', '').strip()
+    role_id = request.args.get('role_id')
+    status_filter = request.args.get('status')
+    baptized = request.args.get('baptized')
+    sort_by = request.args.get('sort', 'name')
+    sort_order = request.args.get('order', 'asc')
+    page = request.args.get('page', 1, type=int)
+    per_page = 20
+    
+    # Query base
+    query = User.query.filter_by(church_id=current_user.church_id)
+    
+    # Aplicar filtros
+    if search:
+        query = query.filter(or_(
+            User.name.ilike(f'%{search}%'),
+            User.email.ilike(f'%{search}%'),
+            User.phone.ilike(f'%{search}%')
+        ))
+    
+    if role_id:
+        query = query.filter(User.church_role_id == int(role_id))
+    
+    if status_filter:
+        query = query.filter(User.status == status_filter)
+    
+    if baptized == 'yes':
+        query = query.filter(User.baptism_date.isnot(None))
+    elif baptized == 'no':
+        query = query.filter(User.baptism_date.is_(None))
+    
+    # Ordenação
+    if sort_by == 'name':
+        order_column = User.name
+    elif sort_by == 'baptism_date':
+        order_column = User.baptism_date
+    elif sort_by == 'status':
+        order_column = User.status
+    else:
+        order_column = User.name
+    
+    if sort_order == 'desc':
+        query = query.order_by(order_column.desc())
+    else:
+        query = query.order_by(order_column.asc())
+    
+    # Paginação
+    pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+    members = pagination.items
+    
+    # Buscar cargos para o filtro
+    roles = ChurchRole.query.filter_by(church_id=current_user.church_id, is_active=True).order_by(ChurchRole.name).all()
+    
+    return render_template('members/church_members.html', 
+                           members=members, 
+                           roles=roles,
+                           pagination=pagination)
 
 @members_bp.route('/member/promote/<int:id>', methods=['GET', 'POST'])
 @login_required

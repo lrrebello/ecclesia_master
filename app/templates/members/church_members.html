@@ -7,73 +7,259 @@
             <h1 class="fw-bold text-primary"><i class="bi bi-people-fill me-2"></i>Membros da Congregação</h1>
             <p class="text-muted">Gerencie os membros vinculados à sua filial.</p>
         </div>
+        <div>
+            <button class="btn btn-outline-primary rounded-pill px-4" type="button" data-bs-toggle="collapse" data-bs-target="#filterCollapse">
+                <i class="bi bi-funnel me-2"></i> Filtros
+            </button>
+        </div>
     </div>
 
+    <!-- Card de Estatísticas -->
+    <div class="row g-4 mb-4">
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm bg-primary bg-opacity-10 rounded-4">
+                <div class="card-body p-3 text-center">
+                    <i class="bi bi-people fs-2 text-primary"></i>
+                    <h4 class="fw-bold mb-0 mt-2">{{ members|length }}</h4>
+                    <small class="text-muted">Total de Membros</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm bg-success bg-opacity-10 rounded-4">
+                <div class="card-body p-3 text-center">
+                    <i class="bi bi-check-circle fs-2 text-success"></i>
+                    <h4 class="fw-bold mb-0 mt-2">{{ members|selectattr('status', 'equalto', 'active')|list|length }}</h4>
+                    <small class="text-muted">Membros Ativos</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm bg-warning bg-opacity-10 rounded-4">
+                <div class="card-body p-3 text-center">
+                    <i class="bi bi-hourglass-split fs-2 text-warning"></i>
+                    <h4 class="fw-bold mb-0 mt-2">{{ members|selectattr('status', 'equalto', 'pending')|list|length }}</h4>
+                    <small class="text-muted">Pendentes</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm bg-info bg-opacity-10 rounded-4">
+                <div class="card-body p-3 text-center">
+                    <i class="bi bi-droplet fs-2 text-info"></i>
+                    <h4 class="fw-bold mb-0 mt-2">{{ members|selectattr('baptism_date', 'defined')|list|length }}</h4>
+                    <small class="text-muted">Batizados</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Painel de Filtros (colapsável) -->
+    <div class="collapse mb-4" id="filterCollapse">
+        <div class="card border-0 shadow-sm rounded-4">
+            <div class="card-body p-4">
+                <form method="GET" action="{{ url_for('members.church_members') }}" id="filterForm">
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label small fw-bold text-muted">BUSCAR POR NOME</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light border-0"><i class="bi bi-search"></i></span>
+                                <input type="text" name="search" class="form-control bg-light border-0" 
+                                       placeholder="Digite o nome..." value="{{ request.args.get('search', '') }}">
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small fw-bold text-muted">FILTRAR POR CARGO</label>
+                            <select name="role_id" class="form-select bg-light border-0">
+                                <option value="">Todos os cargos</option>
+                                {% for role in roles %}
+                                <option value="{{ role.id }}" {{ 'selected' if request.args.get('role_id')|int == role.id }}>
+                                    {{ role.name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label small fw-bold text-muted">STATUS</label>
+                            <select name="status" class="form-select bg-light border-0">
+                                <option value="">Todos</option>
+                                <option value="active" {{ 'selected' if request.args.get('status') == 'active' }}>Ativo</option>
+                                <option value="pending" {{ 'selected' if request.args.get('status') == 'pending' }}>Pendente</option>
+                                <option value="inactive" {{ 'selected' if request.args.get('status') == 'inactive' }}>Inativo</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label small fw-bold text-muted">BATISMO</label>
+                            <select name="baptized" class="form-select bg-light border-0">
+                                <option value="">Todos</option>
+                                <option value="yes" {{ 'selected' if request.args.get('baptized') == 'yes' }}>Batizados</option>
+                                <option value="no" {{ 'selected' if request.args.get('baptized') == 'no' }}>Não batizados</option>
+                            </select>
+                        </div>
+                        <div class="col-md-1 d-flex align-items-end">
+                            <div class="d-grid gap-2 w-100">
+                                <button type="submit" class="btn btn-primary rounded-pill">
+                                    <i class="bi bi-funnel me-1"></i> Filtrar
+                                </button>
+                                <a href="{{ url_for('members.church_members') }}" class="btn btn-outline-secondary rounded-pill">
+                                    <i class="bi bi-arrow-repeat me-1"></i> Limpar
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabela de Membros -->
     <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
         <div class="table-responsive">
             <table class="table table-hover align-middle mb-0">
                 <thead class="table-light">
                     <tr>
-                        <th class="ps-4 py-3">Nome</th>
+                        <th class="ps-4 py-3">
+                            <a href="?sort=name&order={{ 'desc' if request.args.get('sort') == 'name' and request.args.get('order') == 'asc' else 'asc' }}&{{ request.args.to_dict()|dictsort|map('join', '=')|join('&') }}" 
+                               class="text-decoration-none text-dark">
+                                Nome
+                                {% if request.args.get('sort') == 'name' %}
+                                    <i class="bi bi-arrow-{{ 'up' if request.args.get('order') == 'asc' else 'down' }} ms-1"></i>
+                                {% endif %}
+                            </a>
+                        </th>
                         <th class="py-3">E-mail</th>
                         <th class="py-3">Cargo Atual</th>
-                        <th class="py-3">Batismo</th>
-                        <th class="py-3">Status</th>
+                        <th class="py-3">
+                            <a href="?sort=baptism_date&order={{ 'desc' if request.args.get('sort') == 'baptism_date' and request.args.get('order') == 'asc' else 'asc' }}&{{ request.args.to_dict()|dictsort|map('join', '=')|join('&') }}" 
+                               class="text-decoration-none text-dark">
+                                Batismo
+                                {% if request.args.get('sort') == 'baptism_date' %}
+                                    <i class="bi bi-arrow-{{ 'up' if request.args.get('order') == 'asc' else 'down' }} ms-1"></i>
+                                {% endif %}
+                            </a>
+                        </th>
+                        <th class="py-3">
+                            <a href="?sort=status&order={{ 'desc' if request.args.get('sort') == 'status' and request.args.get('order') == 'asc' else 'asc' }}&{{ request.args.to_dict()|dictsort|map('join', '=')|join('&') }}" 
+                               class="text-decoration-none text-dark">
+                                Status
+                                {% if request.args.get('sort') == 'status' %}
+                                    <i class="bi bi-arrow-{{ 'up' if request.args.get('order') == 'asc' else 'down' }} ms-1"></i>
+                                {% endif %}
+                            </a>
+                        </th>
                         <th class="text-end pe-4 py-3">Ações</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {% for member in members %}
-                    <tr>
-                        <td class="ps-4">
-                            <div class="fw-bold">{{ member.name }}</div>
-                            <small class="text-muted">{{ member.phone if member.phone else '' }}</small>
-                        </td>
-                        <td>{{ member.email }}</td>
-                        <td>
-                            <span class="badge bg-info bg-opacity-10 text-info border border-info border-opacity-25">
-                                {{ member.church_role.name if member.church_role else 'Membro' }}
-                            </span>
-                        </td>
-                        <td>
-                            <small class="text-muted">{{ member.baptism_date.strftime('%d/%m/%Y') if member.baptism_date else 'Não batizado' }}</small>
-                        </td>
-                        <td>
-                            {% if member.status == 'active' %}
-                            <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25">Ativo</span>
-                            {% elif member.status == 'pending' %}
-                            <span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25">Pendente</span>
-                            {% else %}
-                            <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25">Inativo</span>
-                            {% endif %}
-                        </td>
-                        <td class="text-end pe-4">
-                            <div class="d-flex justify-content-end gap-2">
-                                <a href="{{ url_for('members.promote_member', id=member.id) }}" class="btn btn-sm btn-outline-primary rounded-pill px-3">
-                                    <i class="bi bi-person-badge me-1"></i> Cargo
-                                </a>
-                                    <a href="{{ url_for('admin.member_card_preview', id=member.id) }}" class="btn btn-sm btn-outline-dark rounded-pill px-3">                                    <i class="bi bi-card-id me-1"></i> Cartão
-                                </a>
-                                
-                                {% if member.id != current_user.id %}
-                                <button type="button" class="btn btn-sm btn-outline-danger rounded-pill px-3" 
-                                        data-bs-toggle="modal" data-bs-target="#deleteMemberModal"
-                                        data-member-id="{{ member.id }}"
-                                        data-member-name="{{ member.name }}">
-                                    <i class="bi bi-trash me-1"></i> Excluir
-                                </button>
+                    {% if members %}
+                        {% for member in members %}
+                        <tr>
+                            <td class="ps-4">
+                                <div class="fw-bold">{{ member.name }}</div>
+                                <small class="text-muted">{{ member.phone if member.phone else '' }}</small>
+                             </td>
+                            <td>{{ member.email }}</td>
+                            <td>
+                                <span class="badge bg-info bg-opacity-10 text-info border border-info border-opacity-25 px-3 py-2">
+                                    <i class="bi bi-person-badge me-1"></i>
+                                    {{ member.church_role.name if member.church_role else 'Membro' }}
+                                </span>
+                            </td>
+                            <td>
+                                {% if member.baptism_date %}
+                                <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25">
+                                    <i class="bi bi-droplet me-1"></i>
+                                    {{ member.baptism_date.strftime('%d/%m/%Y') }}
+                                </span>
+                                {% else %}
+                                <span class="text-muted">Não batizado</span>
                                 {% endif %}
-                            </div>
+                            </td>
+                            <td>
+                                {% if member.status == 'active' %}
+                                <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 px-3 py-2">
+                                    <i class="bi bi-check-circle me-1"></i> Ativo
+                                </span>
+                                {% elif member.status == 'pending' %}
+                                <span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25 px-3 py-2">
+                                    <i class="bi bi-hourglass-split me-1"></i> Pendente
+                                </span>
+                                {% else %}
+                                <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 px-3 py-2">
+                                    <i class="bi bi-x-circle me-1"></i> Inativo
+                                </span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end pe-4">
+                                <div class="d-flex justify-content-end gap-2">
+                                    <a href="{{ url_for('members.promote_member', id=member.id) }}" class="btn btn-sm btn-outline-primary rounded-pill px-3" title="Gerenciar cargo">
+                                        <i class="bi bi-person-badge me-1"></i> Cargo
+                                    </a>
+                                    <a href="{{ url_for('admin.member_card_preview', id=member.id) }}" class="btn btn-sm btn-outline-dark rounded-pill px-3" title="Visualizar cartão">
+                                        <i class="bi bi-card-id me-1"></i> Cartão
+                                    </a>
+                                    {% if member.id != current_user.id %}
+                                    <button type="button" class="btn btn-sm btn-outline-danger rounded-pill px-3" 
+                                            data-bs-toggle="modal" data-bs-target="#deleteMemberModal"
+                                            data-member-id="{{ member.id }}"
+                                            data-member-name="{{ member.name }}">
+                                        <i class="bi bi-trash me-1"></i> Excluir
+                                    </button>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                    <tr>
+                        <td colspan="6" class="text-center py-5 text-muted">
+                            <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                            Nenhum membro encontrado com os filtros selecionados.
                         </td>
                     </tr>
-                    {% endfor %}
+                    {% endif %}
                 </tbody>
             </table>
         </div>
     </div>
+    
+    <!-- Paginação (se houver mais de 20 membros) -->
+    {% if pagination and pagination.pages > 1 %}
+    <div class="d-flex justify-content-center mt-4">
+        <nav>
+            <ul class="pagination">
+                {% if pagination.has_prev %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ pagination.prev_num }}&{{ request.args.to_dict()|dictsort|map('join', '=')|join('&') }}">
+                        <i class="bi bi-chevron-left"></i>
+                    </a>
+                </li>
+                {% endif %}
+                
+                {% for page in pagination.iter_pages() %}
+                    {% if page %}
+                        <li class="page-item {{ 'active' if page == pagination.page else '' }}">
+                            <a class="page-link" href="?page={{ page }}&{{ request.args.to_dict()|dictsort|map('join', '=')|join('&') }}">{{ page }}</a>
+                        </li>
+                    {% else %}
+                        <li class="page-item disabled"><span class="page-link">...</span></li>
+                    {% endif %}
+                {% endfor %}
+                
+                {% if pagination.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ pagination.next_num }}&{{ request.args.to_dict()|dictsort|map('join', '=')|join('&') }}">
+                        <i class="bi bi-chevron-right"></i>
+                    </a>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+    </div>
+    {% endif %}
 </div>
 
-<!-- Modal ÚNICO de confirmação de exclusão (fora do loop) -->
+<!-- Modal de confirmação de exclusão -->
 <div class="modal fade" id="deleteMemberModal" tabindex="-1" aria-labelledby="deleteMemberModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow-lg rounded-4">
@@ -82,37 +268,36 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body text-center">
-                Tem certeza que deseja excluir o membro <strong id="modalMemberName">?</strong>?
+                <i class="bi bi-exclamation-triangle-fill text-warning fs-1 d-block mb-3"></i>
+                <p>Tem certeza que deseja excluir o membro <strong id="modalMemberName">?</strong>?</p>
                 <p class="text-danger small mt-2 mb-0">
-                    <i class="bi bi-exclamation-triangle me-1"></i> 
+                    <i class="bi bi-info-circle me-1"></i> 
                     Esta ação removerá permanentemente o acesso deste usuário ao sistema.
                 </p>
             </div>
             <div class="modal-footer border-0">
                 <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">Cancelar</button>
                 <form id="deleteMemberForm" method="POST" action="">
-                    <button type="submit" class="btn btn-danger rounded-pill px-4 fw-bold">Excluir Membro</button>
+                    <button type="submit" class="btn btn-danger rounded-pill px-4 fw-bold">
+                        <i class="bi bi-trash me-1"></i> Excluir Membro
+                    </button>
                 </form>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Script JS para preencher o modal dinamicamente -->
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const deleteModal = document.getElementById('deleteMemberModal');
     if (!deleteModal) return;
 
     deleteModal.addEventListener('show.bs.modal', function(event) {
-        const button = event.relatedTarget; // Botão que abriu o modal
+        const button = event.relatedTarget;
         const memberId = button.getAttribute('data-member-id');
         const memberName = button.getAttribute('data-member-name');
 
-        // Preenche o nome do membro no modal
         document.getElementById('modalMemberName').textContent = memberName;
-
-        // Atualiza a action do form com o ID correto
         const form = document.getElementById('deleteMemberForm');
         form.action = "{{ url_for('members.delete_member', id=0) }}".replace('/0', '/' + memberId);
     });
