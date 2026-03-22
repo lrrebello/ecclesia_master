@@ -17,6 +17,7 @@ from flask import send_file
 import textwrap  # Para quebrar linhas longas se necessário
 import uuid
 import json
+from sqlalchemy import or_
 
 admin_bp = Blueprint('admin', __name__)
 
@@ -325,40 +326,83 @@ def list_members():
         flash('Acesso negado.', 'danger')
         return redirect(url_for('members.dashboard'))
     
+    # ========== ESTATÍSTICAS GLOBAIS ==========
+    stats = {
+        'total': User.query.count(),
+        'active': User.query.filter_by(status='active').count(),
+        'pending': User.query.filter_by(status='pending').count(),
+        'churches': Church.query.count()
+    }
+    
+    # ========== FILTROS ==========
+    search = request.args.get('search', '').strip()
     church_id = request.args.get('church_id', type=int)
     role_id = request.args.get('role_id', type=int)
+    status_filter = request.args.get('status')
+    sort_by = request.args.get('sort', 'name')
+    sort_order = request.args.get('order', 'asc')
+    page = request.args.get('page', 1, type=int)
+    per_page = 20
     
+    # Query base
     query = User.query
-    selected_church = None
-    selected_role = None
     
+    # Aplicar filtros (mantendo compatibilidade com os antigos)
     if church_id:
-        selected_church = Church.query.get(church_id)
-        if selected_church:
-            query = query.filter_by(church_id=church_id)
+        query = query.filter(User.church_id == church_id)
     
     if role_id:
-        selected_role = ChurchRole.query.get(role_id)
-        if selected_role:
-            query = query.filter_by(church_role_id=role_id)
+        query = query.filter(User.church_role_id == role_id)
     
-    members = query.order_by(User.name).all()
-    total_members = len(members)
+    if search:
+        query = query.filter(or_(
+            User.name.ilike(f'%{search}%'),
+            User.email.ilike(f'%{search}%'),
+            User.phone.ilike(f'%{search}%')
+        ))
     
+    if status_filter:
+        query = query.filter(User.status == status_filter)
+    
+    # Ordenação
+    if sort_by == 'name':
+        order_column = User.name
+    elif sort_by == 'church':
+        order_column = User.church_id
+    elif sort_by == 'status':
+        order_column = User.status
+    else:
+        order_column = User.name
+    
+    if sort_order == 'desc':
+        query = query.order_by(order_column.desc())
+    else:
+        query = query.order_by(order_column.asc())
+    
+    # Paginação
+    pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+    members = pagination.items
+    
+    # Buscar dados para os filtros
     churches = Church.query.order_by(Church.name).all()
-    roles = ChurchRole.query.order_by(ChurchRole.name).all()
+    roles = ChurchRole.query.filter_by(is_active=True).order_by(ChurchRole.name).all()
     
-    return render_template(
-        'admin/members.html',
-        members=members,
-        churches=churches,
-        roles=roles,
-        selected_church=selected_church,
-        selected_role=selected_role,
-        current_church_id=church_id,
-        current_role_id=role_id,
-        total_members=total_members
-    )
+    # Variáveis para compatibilidade com o template antigo (se necessário)
+    selected_church = Church.query.get(church_id) if church_id else None
+    selected_role = ChurchRole.query.get(role_id) if role_id else None
+    
+    return render_template('admin/members.html',
+                           members=members,
+                           churches=churches,
+                           roles=roles,
+                           stats=stats,
+                           pagination=pagination,
+                           # Variáveis de compatibilidade (caso o template antigo as use)
+                           selected_church=selected_church,
+                           selected_role=selected_role,
+                           current_church_id=church_id,
+                           current_role_id=role_id,
+                           total_members=query.count())
 
 @admin_bp.route('/member/add', methods=['GET', 'POST'])
 @login_required
