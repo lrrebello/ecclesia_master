@@ -11,7 +11,7 @@
 
     <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
         <div>
-            <h1 class="fw-bold text-primary mb-1"><i class="bi bi-folder2-open me-2"></i>{{ album.title }}</h1>
+            <h1 class="fw-bold text-primary mb-1"><i class="bi bi-collection me-2"></i>{{ album.title }}</h1>
             <p class="text-muted mb-0">{{ album.description or 'Sem descrição' }}</p>
         </div>
         
@@ -21,32 +21,45 @@
                              or lider_ministerios | length > 0 %}
 
         {% if pode_gerenciar %}
-        <a href="{{ url_for('edification.delete_album', id=album.id) }}" class="btn btn-outline-danger fw-bold" onclick="return confirm('Excluir este álbum e todas as suas imagens?');">
-            <i class="bi bi-trash me-1"></i> Excluir Álbum
-        </a>
+        <div class="d-flex gap-2">
+            <a href="{{ url_for('edification.add_media') }}?album_id={{ album.id }}" class="btn btn-primary fw-bold">
+                <i class="bi bi-plus-lg me-1"></i> Adicionar Mídia
+            </a>
+            <a href="{{ url_for('edification.delete_album', id=album.id) }}" class="btn btn-outline-danger fw-bold" onclick="return confirm('Excluir este álbum e todas as suas imagens?');">
+                <i class="bi bi-trash me-1"></i> Excluir Álbum
+            </a>
+        </div>
         {% endif %}
     </div>
 
     <!-- Mídias do Álbum -->
+    {% if media_items %}
     <div class="row g-4">
         {% for item in media_items %}
         <div class="col-sm-6 col-md-4 col-lg-3">
-            <div class="card h-100 border-0 shadow-sm overflow-hidden gallery-card">
+            <div class="card h-100 border-0 shadow-sm overflow-hidden gallery-card" data-media-id="{{ item.id }}">
                 <div class="position-relative">
                     {% if item.media_type == 'image' %}
-                    <div class="gallery-img-container" data-bs-toggle="modal" data-bs-target="#imageModal{{ item.id }}" style="cursor: pointer;">
-                        <img src="{{ url_for('static', filename=item.file_path) }}" class="card-img-top" alt="{{ item.title }}" style="height: 200px; object-fit: cover;">
+                    <div class="gallery-img-container" onclick="openLightbox({{ loop.index0 }})" style="cursor: pointer;">
+                        <img src="{{ url_for('static', filename=item.file_path) }}" 
+                             class="card-img-top" 
+                             alt="{{ item.title }}" 
+                             style="height: 200px; object-fit: cover;"
+                             loading="lazy">
                         <div class="gallery-overlay">
-                            <i class="bi bi-zoom-in text-white fs-2"></i>
+                            <i class="bi bi-search fs-2 text-white"></i>
                         </div>
                     </div>
                     {% elif item.media_type == 'video' %}
-                    <div class="gallery-img-container" data-bs-toggle="modal" data-bs-target="#videoModal{{ item.id }}" style="cursor: pointer;">
+                    <div class="gallery-img-container" onclick="openVideoModal('{{ url_for('static', filename=item.file_path) }}', '{{ item.title }}')" style="cursor: pointer;">
                         <video class="card-img-top" style="height: 200px; object-fit: cover;">
                             <source src="{{ url_for('static', filename=item.file_path) }}" type="video/mp4">
                         </video>
                         <div class="position-absolute top-50 start-50 translate-middle">
                             <i class="bi bi-play-circle-fill text-white display-4 opacity-75"></i>
+                        </div>
+                        <div class="gallery-overlay">
+                            <i class="bi bi-play-fill fs-2 text-white"></i>
                         </div>
                     </div>
                     {% elif item.media_type == 'pdf' %}
@@ -60,10 +73,11 @@
                 
                 <div class="card-body p-3">
                     <h6 class="fw-bold mb-1 text-truncate">{{ item.title }}</h6>
-                    <div class="d-flex justify-content-between align-items-center mt-3">
-                        <small class="text-muted">{{ item.created_at.strftime('%d/%m/%y') }}</small>
+                    <p class="small text-muted mb-2 text-truncate">{{ item.description or '' }}</p>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <small class="text-muted">{{ item.created_at.strftime('%d/%m/%Y') }}</small>
                         <div class="btn-group">
-                            <a href="{{ url_for('static', filename=item.file_path) }}" download class="btn btn-sm btn-outline-primary">
+                            <a href="{{ url_for('static', filename=item.file_path) }}" download class="btn btn-sm btn-outline-primary" title="Baixar">
                                 <i class="bi bi-download"></i>
                             </a>
                             {% if pode_gerenciar %}
@@ -78,27 +92,239 @@
                     </div>
                 </div>
             </div>
-
-            <!-- Modal para zoom de imagem -->
-            {% if item.media_type == 'image' %}
-            <div class="modal fade" id="imageModal{{ item.id }}" tabindex="-1" aria-hidden="true">
-                <div class="modal-dialog modal-dialog-centered modal-xl">
-                    <div class="modal-content bg-dark border-0">
-                        <div class="modal-header border-0 p-3">
-                            <h5 class="modal-title text-white">{{ item.title }}</h5>
-                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-                        </div>
-                        <div class="modal-body p-0 text-center">
-                            <img src="{{ url_for('static', filename=item.file_path) }}" class="img-fluid" style="max-height: 85vh; width: auto;" alt="{{ item.title }}">
-                        </div>
-                    </div>
-                </div>
-            </div>
-            {% endif %}
         </div>
         {% endfor %}
     </div>
+    {% else %}
+    <div class="text-center py-5">
+        <i class="bi bi-images display-1 text-muted opacity-25 d-block mb-3"></i>
+        <h4 class="text-muted">Nenhuma mídia neste álbum</h4>
+        {% if pode_gerenciar %}
+        <a href="{{ url_for('edification.add_media') }}?album_id={{ album.id }}" class="btn btn-primary mt-3">
+            <i class="bi bi-plus-lg me-1"></i> Adicionar Primeira Mídia
+        </a>
+        {% endif %}
+    </div>
+    {% endif %}
 </div>
+
+<!-- ========== LIGHTBOX MODAL (Galeria Avançada) ========== -->
+<div class="modal fade" id="lightboxModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-fullscreen-md-down modal-xl">
+        <div class="modal-content bg-dark border-0">
+            <div class="modal-header border-0 p-3">
+                <div class="d-flex align-items-center gap-3">
+                    <h5 class="modal-title text-white" id="lightboxTitle">Título da Imagem</h5>
+                    <span class="badge bg-light text-dark" id="lightboxCounter">1 / 10</span>
+                </div>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-outline-light btn-sm" id="lightboxDownload" title="Baixar imagem">
+                        <i class="bi bi-download"></i>
+                    </button>
+                    <button class="btn btn-outline-light btn-sm" id="lightboxSlideshow" title="Iniciar slideshow">
+                        <i class="bi bi-play-fill"></i>
+                    </button>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+            </div>
+            <div class="modal-body p-0 position-relative">
+                <!-- Botões de navegação POSICIONADOS NAS LATERAIS -->
+                <button class="btn btn-light btn-lg rounded-circle shadow-lg nav-btn nav-prev" id="prevImage">
+                    <i class="bi bi-chevron-left fs-3"></i>
+                </button>
+                <div class="d-flex align-items-center justify-content-center w-100 h-100" style="min-height: 70vh;">
+                    <img id="lightboxImage" src="" class="img-fluid" style="max-height: 80vh; max-width: 90vw; object-fit: contain; cursor: pointer;" alt="">
+                </div>
+                <button class="btn btn-light btn-lg rounded-circle shadow-lg nav-btn nav-next" id="nextImage">
+                    <i class="bi bi-chevron-right fs-3"></i>
+                </button>
+            </div>
+            <div class="modal-footer border-0 p-3">
+                <div class="text-white-50 small" id="lightboxDescription">Descrição da imagem</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ========== VIDEO MODAL ========== -->
+<div class="modal fade" id="videoModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content bg-dark border-0">
+            <div class="modal-header border-0 p-3">
+                <h5 class="modal-title text-white" id="videoModalTitle">Vídeo</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-0">
+                <video id="videoPlayer" controls class="w-100">
+                    <source src="" type="video/mp4">
+                </video>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// ========== DADOS DA GALERIA ==========
+const galleryImages = [
+    {% for item in media_items if item.media_type == 'image' %}
+    {
+        id: {{ item.id }},
+        url: "{{ url_for('static', filename=item.file_path) }}",
+        title: {{ item.title|tojson }},
+        description: {{ (item.description or '')|tojson }}
+    }{% if not loop.last %},{% endif %}
+    {% endfor %}
+];
+
+let currentImageIndex = 0;
+let slideshowInterval = null;
+let isSlideshowActive = false;
+
+// ========== ABRIR LIGHTBOX ==========
+function openLightbox(index) {
+    if (!galleryImages.length) return;
+    
+    currentImageIndex = index;
+    updateLightboxImage();
+    
+    const modal = new bootstrap.Modal(document.getElementById('lightboxModal'));
+    modal.show();
+}
+
+function updateLightboxImage() {
+    const image = galleryImages[currentImageIndex];
+    if (!image) return;
+    
+    const imgElement = document.getElementById('lightboxImage');
+    const titleElement = document.getElementById('lightboxTitle');
+    const descElement = document.getElementById('lightboxDescription');
+    const counterElement = document.getElementById('lightboxCounter');
+    const downloadBtn = document.getElementById('lightboxDownload');
+    
+    imgElement.src = image.url;
+    titleElement.textContent = image.title;
+    descElement.textContent = image.description || 'Sem descrição';
+    counterElement.textContent = `${currentImageIndex + 1} / ${galleryImages.length}`;
+    
+    // Atualiza botão de download
+    downloadBtn.onclick = () => {
+        const link = document.createElement('a');
+        link.href = image.url;
+        link.download = image.title || 'imagem';
+        link.click();
+    };
+}
+
+// ========== NAVEGAÇÃO ==========
+function nextImage() {
+    if (currentImageIndex < galleryImages.length - 1) {
+        currentImageIndex++;
+        updateLightboxImage();
+    } else if (currentImageIndex === galleryImages.length - 1) {
+        // Volta para a primeira
+        currentImageIndex = 0;
+        updateLightboxImage();
+    }
+}
+
+function prevImage() {
+    if (currentImageIndex > 0) {
+        currentImageIndex--;
+        updateLightboxImage();
+    } else if (currentImageIndex === 0) {
+        // Vai para a última
+        currentImageIndex = galleryImages.length - 1;
+        updateLightboxImage();
+    }
+}
+
+// ========== SLIDESHOW ==========
+function startSlideshow() {
+    if (slideshowInterval) clearInterval(slideshowInterval);
+    isSlideshowActive = true;
+    
+    const slideshowBtn = document.getElementById('lightboxSlideshow');
+    slideshowBtn.innerHTML = '<i class="bi bi-pause-fill"></i>';
+    slideshowBtn.title = 'Pausar slideshow';
+    
+    slideshowInterval = setInterval(() => {
+        nextImage();
+    }, 3000);
+}
+
+function stopSlideshow() {
+    if (slideshowInterval) {
+        clearInterval(slideshowInterval);
+        slideshowInterval = null;
+    }
+    isSlideshowActive = false;
+    
+    const slideshowBtn = document.getElementById('lightboxSlideshow');
+    slideshowBtn.innerHTML = '<i class="bi bi-play-fill"></i>';
+    slideshowBtn.title = 'Iniciar slideshow';
+}
+
+function toggleSlideshow() {
+    if (isSlideshowActive) {
+        stopSlideshow();
+    } else {
+        startSlideshow();
+    }
+}
+
+// ========== ABRIR VÍDEO ==========
+function openVideoModal(videoUrl, title) {
+    const modal = new bootstrap.Modal(document.getElementById('videoModal'));
+    const videoPlayer = document.getElementById('videoPlayer');
+    const modalTitle = document.getElementById('videoModalTitle');
+    
+    videoPlayer.src = videoUrl;
+    modalTitle.textContent = title;
+    
+    modal.show();
+    
+    // Para o vídeo quando o modal fechar
+    document.getElementById('videoModal').addEventListener('hidden.bs.modal', function() {
+        videoPlayer.pause();
+        videoPlayer.currentTime = 0;
+    });
+}
+
+// ========== EVENTOS DE TECLADO ==========
+document.addEventListener('keydown', function(e) {
+    const modal = document.getElementById('lightboxModal');
+    if (!modal.classList.contains('show')) return;
+    
+    if (e.key === 'ArrowRight') {
+        nextImage();
+    } else if (e.key === 'ArrowLeft') {
+        prevImage();
+    } else if (e.key === 'Escape') {
+        stopSlideshow();
+    } else if (e.key === ' ' || e.key === 'Space') {
+        e.preventDefault();
+        toggleSlideshow();
+    }
+});
+
+// ========== EVENTOS DO LIGHTBOX ==========
+document.getElementById('lightboxModal').addEventListener('show.bs.modal', function() {
+    stopSlideshow();
+});
+
+document.getElementById('lightboxModal').addEventListener('hidden.bs.modal', function() {
+    stopSlideshow();
+});
+
+document.getElementById('prevImage').addEventListener('click', prevImage);
+document.getElementById('nextImage').addEventListener('click', nextImage);
+document.getElementById('lightboxSlideshow').addEventListener('click', toggleSlideshow);
+
+// Clique na imagem para avançar
+document.getElementById('lightboxImage').addEventListener('click', function() {
+    nextImage();
+});
+</script>
 
 <style>
 .gallery-card {
@@ -111,6 +337,7 @@
 .gallery-img-container {
     position: relative;
     overflow: hidden;
+    cursor: pointer;
 }
 .gallery-overlay {
     position: absolute;
@@ -127,6 +354,67 @@
 }
 .gallery-img-container:hover .gallery-overlay {
     opacity: 1;
+}
+#lightboxImage {
+    transition: transform 0.2s ease;
+    max-width: 100%;
+    max-height: 80vh;
+}
+#prevImage, #nextImage {
+    transition: all 0.2s ease;
+}
+#prevImage:hover, #nextImage:hover {
+    transform: scale(1.1);
+    background-color: var(--primary);
+    color: white;
+}
+.modal-backdrop.show {
+    backdrop-filter: blur(5px);
+}
+
+/* Navegação do Lightbox */
+.nav-btn {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 48px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+    transition: all 0.2s ease;
+    opacity: 0.7;
+}
+.nav-btn:hover {
+    opacity: 1;
+    transform: translateY(-50%) scale(1.05);
+    background-color: var(--primary);
+    color: white;
+    border-color: transparent;
+}
+.nav-prev {
+    left: 20px;
+}
+.nav-next {
+    right: 20px;
+}
+
+/* Ajuste para mobile */
+@media (max-width: 768px) {
+    .nav-btn {
+        width: 40px;
+        height: 40px;
+    }
+    .nav-prev {
+        left: 10px;
+    }
+    .nav-next {
+        right: 10px;
+    }
+    #lightboxImage {
+        max-height: 70vh !important;
+    }
 }
 </style>
 {% endblock %}
