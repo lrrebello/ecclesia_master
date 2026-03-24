@@ -55,7 +55,8 @@ def create_app():
     def index():
         return render_template('index.html')
 
-    # Context Processors
+    # ========== CONTEXT PROCESSORS ==========
+    
     @app.context_processor
     def inject_public_events():
         if current_user.is_authenticated:
@@ -66,9 +67,32 @@ def create_app():
 
     @app.context_processor
     def inject_is_ministry_leader():
-        def is_ministry_leader(ministry_id):
-            ministry = Ministry.query.get(ministry_id)
-            return ministry and ministry.leader_id == current_user.id
+        """Função para verificar se o usuário é líder, vice ou líder extra do ministério"""
+        def is_ministry_leader(ministry):
+            """
+            Verifica se o usuário atual é líder, vice-líder ou está na lista extra do ministério.
+            Pode receber um objeto Ministry ou um ID (inteiro)
+            """
+            if not current_user.is_authenticated:
+                return False
+            
+            # Se receber um ID, busca o ministério
+            if isinstance(ministry, int):
+                ministry_obj = Ministry.query.get(ministry)
+                if not ministry_obj:
+                    return False
+            else:
+                ministry_obj = ministry
+            
+            # Verifica líder e vice
+            if ministry_obj.leader_id == current_user.id or ministry_obj.vice_leader_id == current_user.id:
+                return True
+            
+            # Verifica na lista extra (JSON)
+            if ministry_obj.extra_leaders and current_user.id in ministry_obj.extra_leaders:
+                return True
+            
+            return False
         return dict(is_ministry_leader=is_ministry_leader)
 
     @app.context_processor
@@ -78,5 +102,10 @@ def create_app():
         else:
             public_media = Media.query.filter(Media.ministry_id.is_(None)).order_by(Media.created_at.desc()).limit(5).all()
         return dict(public_media=public_media)
+
+    # Opcional: injetar data/hora atual para templates
+    @app.context_processor
+    def inject_now():
+        return dict(now=datetime.now)
 
     return app
