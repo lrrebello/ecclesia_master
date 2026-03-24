@@ -123,7 +123,6 @@
                                     <th class="px-4 py-3">Data</th>
                                     <th class="py-3">Categoria</th>
                                     <th class="py-3">Meio de Pgto</th>
-                                    <th class="py-3">Conta</th>  <!-- NOVA COLUNA -->
                                     <th class="py-3">Descrição</th>
                                     <th class="py-3 text-end">Valor</th>
                                     <th class="px-4 py-3 text-center">Ações</th>
@@ -156,16 +155,30 @@
                                         {{ '+' if tx.type == 'income' else '-' }} {{ tx.church.currency_symbol if tx.church else 'R$' }} {{ "%.2f"|format(tx.amount) }}
                                     </td>
                                     <td class="px-4 text-center">
-                                        {% if tx.user_id %}
-                                        <a href="{{ url_for('finance.download_receipt', tx_id=tx.id) }}" class="btn btn-sm btn-outline-primary rounded-pill px-3">
-                                            <i class="bi bi-download"></i>
-                                        </a>
-                                        <button type="button" class="btn btn-sm btn-danger rounded-pill px-3" onclick="confirmarExclusao({{ tx.id }}, '{{ tx.description|replace("'", "\\'") }}')">
-                                            <i class="bi bi-trash"></i>
-                                        </button>
-                                        {% else %}
-                                        <span class="text-muted small">-</span>
-                                        {% endif %}
+                                        <div class="d-flex justify-content-center gap-2">
+                                            <!-- Botão Baixar Recibo (só aparece para transações com membro) -->
+                                            {% if tx.user_id %}
+                                            <a href="{{ url_for('finance.download_receipt', tx_id=tx.id) }}" class="btn btn-sm btn-outline-primary rounded-pill px-3" title="Baixar recibo">
+                                                <i class="bi bi-download me-1"></i> Recibo
+                                            </a>
+                                            {% else %}
+                                            <div class="btn btn-sm btn-outline-secondary rounded-pill px-3 disabled" style="opacity: 0.5; cursor: not-allowed;">
+                                                <i class="bi bi-download me-1"></i> Recibo
+                                            </div>
+                                            {% endif %}
+                                            
+                                            <!-- Botão Editar (para todas as transações) -->
+                                            <button type="button" class="btn btn-sm btn-outline-primary rounded-pill px-3" 
+                                                    onclick="abrirModalEditar({{ tx.id }}, '{{ tx.type }}', {{ tx.amount }}, '{{ tx.description|replace("'", "\\'") }}', '{{ tx.date.strftime('%Y-%m-%d') }}', {{ tx.category_id or 'null' }}, {{ tx.payment_method_id or 'null' }}, {{ tx.user_id or 'null' }})">
+                                                <i class="bi bi-pencil me-1"></i> Editar
+                                            </button>
+                                            
+                                            <!-- Botão Excluir (para todas as transações) -->
+                                            <button type="button" class="btn btn-sm btn-danger rounded-pill px-3" 
+                                                    onclick="confirmarExclusao({{ tx.id }}, '{{ tx.description|replace("'", "\\'") }}')">
+                                                <i class="bi bi-trash me-1"></i> Excluir
+                                            </button>
+                                        </div>
                                     </td>
                                 </tr>
                                 {% else %}
@@ -214,13 +227,21 @@
                                     </div>
                                     <div class="d-flex gap-2">
                                         {% if tx.user_id %}
-                                        <a href="{{ url_for('finance.download_receipt', tx_id=tx.id) }}" class="btn btn-sm btn-outline-primary rounded-pill">
+                                        <a href="{{ url_for('finance.download_receipt', tx_id=tx.id) }}" class="btn btn-sm btn-outline-primary rounded-pill px-2" title="Baixar recibo">
                                             <i class="bi bi-download"></i>
                                         </a>
-                                        <button type="button" class="btn btn-sm btn-danger rounded-pill" onclick="confirmarExclusao({{ tx.id }}, '{{ tx.description|replace("'", "\\'") }}')">
+                                        {% else %}
+                                        <div class="btn btn-sm btn-outline-secondary rounded-pill px-2 disabled" style="opacity: 0.5; cursor: not-allowed;">
+                                            <i class="bi bi-download"></i>
+                                        </div>
+                                        {% endif %}
+                                        <button type="button" class="btn btn-sm btn-outline-primary rounded-pill px-2" 
+                                                onclick="abrirModalEditar({{ tx.id }}, '{{ tx.type }}', {{ tx.amount }}, '{{ tx.description|replace("'", "\\'") }}', '{{ tx.date.strftime('%Y-%m-%d') }}', {{ tx.category_id or 'null' }}, {{ tx.payment_method_id or 'null' }}, {{ tx.user_id or 'null' }})">
+                                            <i class="bi bi-pencil"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-danger rounded-pill px-2" onclick="confirmarExclusao({{ tx.id }}, '{{ tx.description|replace("'", "\\'") }}')">
                                             <i class="bi bi-trash"></i>
                                         </button>
-                                        {% endif %}
                                     </div>
                                 </div>
                             </div>
@@ -238,7 +259,6 @@
     </div>
 </div>
 
-<!-- Modais (mantidos iguais) -->
 <!-- Modal de Filtros para Exportação -->
 <div class="modal fade" id="exportReportModal" tabindex="-1" aria-labelledby="exportReportLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
@@ -330,6 +350,81 @@
     </div>
 </div>
 
+<!-- Modal de Edição de Transação -->
+<div class="modal fade" id="modalEditar" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content border-0 shadow-lg rounded-4">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title fw-bold">
+                    <i class="bi bi-pencil-square me-2"></i> Editar Lançamento
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="formEditarTransacao" method="POST">
+                <div class="modal-body p-4">
+                    <input type="hidden" name="transaction_id" id="edit_tx_id">
+                    
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold small">TIPO</label>
+                            <select name="type" id="edit_type" class="form-select bg-light border-0" required>
+                                <option value="income">Entrada (Receita)</option>
+                                <option value="expense">Saída (Despesa)</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold small">VALOR</label>
+                            <input type="number" step="0.01" name="amount" id="edit_amount" class="form-control bg-light border-0" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold small">DATA</label>
+                            <input type="date" name="date" id="edit_date" class="form-control bg-light border-0" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold small">CATEGORIA</label>
+                            <select name="category_id" id="edit_category_id" class="form-select bg-light border-0" required>
+                                <option value="">Selecione uma categoria</option>
+                                {% for cat in categories %}
+                                <option value="{{ cat.id }}" data-type="{{ cat.type }}">{{ cat.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold small">MEIO DE PAGAMENTO</label>
+                            <select name="payment_method_id" id="edit_payment_method_id" class="form-select bg-light border-0" required>
+                                <option value="">Selecione um meio...</option>
+                                {% for method in payment_methods %}
+                                <option value="{{ method.id }}">{{ method.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold small">MEMBRO VINCULADO</label>
+                            <select name="user_id" id="edit_user_id" class="form-select bg-light border-0">
+                                <option value="">Nenhum (Lançamento Geral)</option>
+                                {% for member in members %}
+                                <option value="{{ member.id }}">{{ member.name }}</option>
+                                {% endfor %}
+                            </select>
+                            <div class="form-text extra-small">Obrigatório para meios eletrônicos</div>
+                        </div>
+                        <div class="col-md-12">
+                            <label class="form-label fw-bold small">DESCRIÇÃO</label>
+                            <textarea name="description" id="edit_description" class="form-control bg-light border-0" rows="3"></textarea>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light border-0">
+                    <button type="button" class="btn btn-secondary rounded-pill px-4" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary rounded-pill px-4">
+                        <i class="bi bi-check-lg me-2"></i> Salvar Alterações
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <script>
 let transacaoIdParaExcluir = null;
 
@@ -353,13 +448,92 @@ document.getElementById('btnConfirmarExclusao').addEventListener('click', functi
     .then(data => {
         if (data.success) {
             bootstrap.Modal.getInstance(document.getElementById('modalExcluir')).hide();
-            // Remove a linha da tabela (desktop) ou o card (mobile)
-            document.querySelector(`tr[data-transaction-id="${transacaoIdParaExcluir}"]`)?.remove();
-            document.querySelector(`div[data-transaction-id="${transacaoIdParaExcluir}"]`)?.remove();
-            // Opcional: atualiza os totais
             location.reload();
         } else {
             alert('Erro: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Erro:', error);
+        alert('Erro na requisição: ' + error);
+    });
+});
+
+// ========== FUNÇÃO PARA ABRIR MODAL DE EDIÇÃO ==========
+function abrirModalEditar(id, type, amount, description, date, categoryId, paymentMethodId, userId) {
+    document.getElementById('edit_tx_id').value = id;
+    document.getElementById('edit_type').value = type;
+    document.getElementById('edit_amount').value = amount;
+    document.getElementById('edit_description').value = description || '';
+    document.getElementById('edit_date').value = date;
+    
+    // Categorias
+    const catSelect = document.getElementById('edit_category_id');
+    if (categoryId && categoryId !== 'null') {
+        catSelect.value = categoryId;
+    } else {
+        catSelect.value = '';
+    }
+    
+    // Meios de pagamento
+    const paySelect = document.getElementById('edit_payment_method_id');
+    if (paymentMethodId && paymentMethodId !== 'null') {
+        paySelect.value = paymentMethodId;
+    } else {
+        paySelect.value = '';
+    }
+    
+    // Membro
+    const userSelect = document.getElementById('edit_user_id');
+    if (userId && userId !== 'null') {
+        userSelect.value = userId;
+    } else {
+        userSelect.value = '';
+    }
+    
+    // Filtra categorias pelo tipo
+    filterEditCategories();
+    
+    new bootstrap.Modal(document.getElementById('modalEditar')).show();
+}
+
+// Filtra categorias no modal de edição
+function filterEditCategories() {
+    const type = document.getElementById('edit_type').value;
+    const catSelect = document.getElementById('edit_category_id');
+    const options = catSelect.querySelectorAll('option');
+    
+    options.forEach(opt => {
+        if (opt.value === "") return;
+        if (opt.getAttribute('data-type') === type) {
+            opt.style.display = "block";
+        } else {
+            opt.style.display = "none";
+        }
+    });
+}
+
+// Quando o tipo mudar, refiltra as categorias
+document.getElementById('edit_type').addEventListener('change', filterEditCategories);
+
+// Submit do formulário de edição
+document.getElementById('formEditarTransacao').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const txId = document.getElementById('edit_tx_id').value;
+    const formData = new FormData(this);
+    
+    fetch(`/finance/transaction/edit/${txId}`, {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            bootstrap.Modal.getInstance(document.getElementById('modalEditar')).hide();
+            location.reload();
+        } else {
+            alert('Erro ao editar: ' + data.message);
         }
     })
     .catch(error => {
