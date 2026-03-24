@@ -136,6 +136,7 @@ class Event(db.Model):
     title = db.Column(db.String(100), nullable=False)
     description = db.Column(db.Text)
     start_time = db.Column(db.DateTime, nullable=False)
+    end_time = db.Column(db.DateTime, nullable=True)
     location = db.Column(db.String(200))
     ministry_id = db.Column(db.Integer, db.ForeignKey('ministry.id'), nullable=True)
     church_id = db.Column(db.Integer, db.ForeignKey('church.id'))

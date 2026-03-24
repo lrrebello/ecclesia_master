@@ -377,22 +377,26 @@ def agenda():
     return render_template('members/agenda.html', events=events)
 
 def create_recurring_events(base_event, recurrence_type, count=12):
+    """Gera ocorrências futuras para um evento recorrente"""
     for i in range(1, count):
         if recurrence_type == 'weekly':
-            new_time = base_event.start_time + timedelta(weeks=i)
+            new_start = base_event.start_time + timedelta(weeks=i)
+            new_end = base_event.end_time + timedelta(weeks=i) if base_event.end_time else None
         elif recurrence_type == 'monthly':
-            new_time = base_event.start_time + timedelta(days=30*i)
+            new_start = base_event.start_time + timedelta(days=30*i)
+            new_end = base_event.end_time + timedelta(days=30*i) if base_event.end_time else None
         else:
             break
             
         new_event = Event(
             title=base_event.title,
             description=base_event.description,
-            start_time=new_time,
+            start_time=new_start,
+            end_time=new_end,
             location=base_event.location,
             ministry_id=base_event.ministry_id,
             church_id=base_event.church_id,
-            recurrence='none'
+            recurrence='none'  # Os eventos gerados não são recorrentes
         )
         db.session.add(new_event)
 
@@ -410,40 +414,89 @@ def add_event(id=None):
         return redirect(url_for('members.dashboard'))
 
     if request.method == 'POST':
-        start_time = datetime.strptime(request.form.get('start_time'), '%Y-%m-%dT%H:%M')
-        recurrence = request.form.get('recurrence', 'none')
+        event_type = request.form.get('event_type', 'single')
         
-        new_event = Event(
-            title=request.form.get('title'),
-            description=request.form.get('description'),
-            start_time=start_time,
-            location=request.form.get('location'),
-            ministry_id=ministry.id if ministry else None,
-            church_id=current_user.church_id,
-            recurrence=recurrence
-        )
-        db.session.add(new_event)
-        
-        if recurrence != 'none':
-            create_recurring_events(new_event, recurrence)
+        if event_type == 'multi':
+            # Processar evento em múltiplos dias
+            start_date = datetime.strptime(request.form.get('multi_start_date'), '%Y-%m-%d').date()
+            end_date = datetime.strptime(request.form.get('multi_end_date'), '%Y-%m-%d').date()
+            start_time_str = request.form.get('multi_start_time')
+            end_time_str = request.form.get('multi_end_time')
             
-        db.session.commit()
-
-        log_action(
-            action='CREATE',
-            module='EVENT',
-            description=f"Novo evento: {new_event.title}",
-            new_values={
-                'id': new_event.id,
-                'title': new_event.title,
-                'start_time': str(new_event.start_time),
-                'ministry_id': new_event.ministry_id
-            },
-            church_id=current_user.church_id
-        )
-
-        flash('Evento(s) agendado(s) com sucesso!', 'success')
-        return redirect(url_for('members.agenda'))
+            current_date = start_date
+            events_created = 0
+            
+            while current_date <= end_date:
+                start_datetime = datetime.combine(current_date, datetime.strptime(start_time_str, '%H:%M').time())
+                end_datetime = datetime.combine(current_date, datetime.strptime(end_time_str, '%H:%M').time()) if end_time_str else None
+                
+                new_event = Event(
+                    title=request.form.get('title'),
+                    description=request.form.get('description'),
+                    start_time=start_datetime,
+                    end_time=end_datetime,
+                    location=request.form.get('location'),
+                    ministry_id=ministry.id if ministry else None,
+                    church_id=current_user.church_id,
+                    recurrence='none'
+                )
+                db.session.add(new_event)
+                events_created += 1
+                current_date += timedelta(days=1)
+            
+            db.session.commit()
+            
+            log_action(
+                action='CREATE',
+                module='EVENT',
+                description=f"Evento em múltiplos dias criado: {request.form.get('title')} ({events_created} dias)",
+                new_values={'title': request.form.get('title'), 'days': events_created},
+                church_id=current_user.church_id
+            )
+            
+            flash(f'{events_created} eventos criados para "{request.form.get("title")}"!', 'success')
+            return redirect(url_for('members.agenda'))
+            
+        else:
+            # Evento de um dia (comportamento original)
+            start_time = datetime.strptime(request.form.get('start_time'), '%Y-%m-%dT%H:%M')
+            end_time_str = request.form.get('end_time')
+            end_time = datetime.strptime(end_time_str, '%Y-%m-%dT%H:%M') if end_time_str else None
+            recurrence = request.form.get('recurrence', 'none')
+            
+            new_event = Event(
+                title=request.form.get('title'),
+                description=request.form.get('description'),
+                start_time=start_time,
+                end_time=end_time,
+                location=request.form.get('location'),
+                ministry_id=ministry.id if ministry else None,
+                church_id=current_user.church_id,
+                recurrence=recurrence
+            )
+            db.session.add(new_event)
+            
+            if recurrence != 'none':
+                create_recurring_events(new_event, recurrence)
+            
+            db.session.commit()
+            
+            log_action(
+                action='CREATE',
+                module='EVENT',
+                description=f"Novo evento: {new_event.title}",
+                new_values={
+                    'id': new_event.id,
+                    'title': new_event.title,
+                    'start_time': str(new_event.start_time),
+                    'end_time': str(new_event.end_time) if new_event.end_time else None,
+                    'ministry_id': new_event.ministry_id
+                },
+                church_id=current_user.church_id
+            )
+            
+            flash('Evento(s) agendado(s) com sucesso!', 'success')
+            return redirect(url_for('members.agenda'))
 
     return render_template('members/add_event.html', ministry=ministry)
 
@@ -472,6 +525,7 @@ def edit_event(id):
         'title': event.title,
         'description': event.description,
         'start_time': str(event.start_time),
+        'end_time': str(event.end_time) if event.end_time else None,
         'location': event.location,
         'recurrence': event.recurrence
     }
@@ -480,6 +534,11 @@ def edit_event(id):
         event.title = request.form.get('title')
         event.description = request.form.get('description')
         event.start_time = datetime.strptime(request.form.get('start_time'), '%Y-%m-%dT%H:%M')
+        
+        # 🔥 NOVO: atualizar end_time
+        end_time_str = request.form.get('end_time')
+        event.end_time = datetime.strptime(end_time_str, '%Y-%m-%dT%H:%M') if end_time_str else None
+        
         event.location = request.form.get('location')
         event.recurrence = request.form.get('recurrence', 'none')
         
@@ -493,6 +552,7 @@ def edit_event(id):
             new_values={
                 'title': event.title,
                 'start_time': str(event.start_time),
+                'end_time': str(event.end_time) if event.end_time else None,
                 'location': event.location
             },
             church_id=event.church_id

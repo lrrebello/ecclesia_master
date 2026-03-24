@@ -16,7 +16,7 @@
             <h5 class="mb-0">Próximos Eventos</h5>
             {% if current_user.can_manage_events or (current_user.church_role and current_user.church_role.name == 'Administrador Global' or current_user.church_role.is_lead_pastor) %}
             <a href="{{ url_for('members.add_event') }}" class="btn btn-light btn-sm fw-bold">
-                <i class="bi bi-plus-circle me-1"></i> Novo Evento Geral
+                <i class="bi bi-plus-circle me-1"></i> Novo Evento
             </a>
             {% endif %}
         </div>
@@ -26,13 +26,23 @@
                 <div class="list-group-item px-4 py-4 border-bottom">
                     <div class="d-flex justify-content-between align-items-start">
                         <div class="d-flex align-items-start flex-grow-1">
-                            <div class="bg-primary bg-opacity-10 text-primary p-3 rounded-4 me-4 text-center" style="min-width: 70px;">
+                            <!-- Card de Data -->
+                            <div class="bg-primary bg-opacity-10 text-primary p-3 rounded-4 me-4 text-center" style="min-width: 90px;">
                                 <div class="fw-bold fs-4">{{ event.start_time.strftime('%d') }}</div>
                                 <div class="text-uppercase small fw-bold">{{ event.start_time.strftime('%b') }}</div>
                                 <div class="extra-small opacity-75">{{ event.start_time.strftime('%Y') }}</div>
+                                <hr class="my-1 opacity-25">
+                                <div class="small fw-bold">
+                                    {% if event.end_time %}
+                                        {{ event.start_time.strftime('%H:%M') }} - {{ event.end_time.strftime('%H:%M') }}
+                                    {% else %}
+                                        {{ event.start_time.strftime('%H:%M') }}
+                                    {% endif %}
+                                </div>
                             </div>
+                            
                             <div class="flex-grow-1">
-                                <div class="d-flex align-items-center gap-2 mb-1">
+                                <div class="d-flex align-items-center gap-2 mb-1 flex-wrap">
                                     <h5 class="fw-bold mb-0">{{ event.title }}</h5>
                                     {% if event.recurrence != 'none' %}
                                     <span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25 extra-small">
@@ -41,8 +51,8 @@
                                     </span>
                                     {% endif %}
                                 </div>
+                                
                                 <div class="d-flex flex-wrap gap-3 align-items-center text-muted">
-                                    <span><i class="bi bi-clock me-1"></i> {{ event.start_time.strftime('%H:%M') }}</span>
                                     <span><i class="bi bi-geo-alt me-1"></i> {{ event.location or 'Local não definido' }}</span>
                                     {% if event.ministry %}
                                     <span class="badge bg-info bg-opacity-10 text-info border border-info border-opacity-25">
@@ -62,7 +72,7 @@
                         
                         {# Lógica de Permissão para Ações #}
                         {% set is_admin = current_user.church_role and current_user.church_role.name == 'Administrador Global' or current_user.church_role.is_lead_pastor %}
-                        {% set is_leader = event.ministry and event.ministry.leader_id == current_user.id %}
+                        {% set is_leader = event.ministry and is_ministry_leader(event.ministry) %}
                         {% if is_admin or is_leader or current_user.can_manage_events %}
                         <div class="ms-3 d-flex gap-2">
                             <a href="{{ url_for('members.edit_event', id=event.id) }}" class="btn btn-outline-primary btn-sm rounded-pill px-3">
