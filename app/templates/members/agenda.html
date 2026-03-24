@@ -72,8 +72,7 @@
                         
                         {# Lógica de Permissão para Ações #}
                         {% set is_admin = current_user.church_role and current_user.church_role.name == 'Administrador Global' or current_user.church_role.is_lead_pastor %}
-                        {% set is_leader = event.ministry and is_ministry_leader(event.ministry) %}
-                        {% if is_admin or is_leader or current_user.can_manage_events %}
+                        {% set is_leader = event.ministry and (event.ministry.leader_id == current_user.id or event.ministry.vice_leader_id == current_user.id or (event.ministry.extra_leaders and current_user.id in event.ministry.extra_leaders)) %}                            {% if is_admin or is_leader or current_user.can_manage_events %}
                         <div class="ms-3 d-flex gap-2">
                             <a href="{{ url_for('members.edit_event', id=event.id) }}" class="btn btn-outline-primary btn-sm rounded-pill px-3">
                                 <i class="bi bi-pencil me-1"></i> Editar
