@@ -37,6 +37,14 @@
                    href="{{ url_for('finance.list_mbway') }}">
                     <i class="bi bi-phone me-2"></i> MBWay
                 </a>
+                <a class="nav-link py-1 {{ 'active' if request.endpoint == 'finance.list_suppliers' }}" 
+                    href="{{ url_for('finance.list_suppliers') }}">
+                        <i class="bi bi-truck me-2"></i> Fornecedores
+                </a>
+                <a class="nav-link py-1 {{ 'active' if request.endpoint == 'finance.list_bills' }}" 
+                    href="{{ url_for('finance.list_bills') }}">
+                        <i class="bi bi-receipt me-2"></i> Contas a Pagar
+                </a>
             </div>
         </div>
     </div>

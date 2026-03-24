@@ -198,12 +198,19 @@ class Transaction(db.Model):
     church_id = db.Column(db.Integer, db.ForeignKey('church.id'))
     receipt_path = db.Column(db.String(255))
     bank_account_id = db.Column(db.Integer, db.ForeignKey('bank_accounts.id'), nullable=True)
-    bank_account = db.relationship('BankAccount', backref='transactions')
     
+    # 🔥 ADICIONAR ESTA LINHA
+    bill_id = db.Column(db.Integer, db.ForeignKey('bills.id'), nullable=True)
+    
+    # Relacionamentos
+    bank_account = db.relationship('BankAccount', backref='transactions')
     category = db.relationship('TransactionCategory', backref='transactions')
     payment_method = db.relationship('PaymentMethod', backref='transactions')
     church = db.relationship('Church', backref='transactions')
     user = db.relationship('User', backref='transactions')
+    
+    # 🔥 ADICIONAR ESTE RELACIONAMENTO
+    bill = db.relationship('Bill', backref=db.backref('transactions', lazy='dynamic'))
 
 
 class MinistryTransaction(db.Model):
@@ -495,3 +502,127 @@ class MinistryPaymentMethod(db.Model):
     
     # Relacionamentos - SEM BACKREFS CONFLITANTES
     ministry = db.relationship('Ministry', backref=db.backref('custom_payment_methods', lazy='dynamic'))
+
+class Supplier(db.Model):
+    """Fornecedores da igreja (suporte internacional)"""
+    __tablename__ = 'suppliers'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(150), nullable=False)
+    
+    # Documentos fiscais (flexível para diferentes países)
+    tax_id = db.Column(db.String(30), nullable=True)      # NIF (PT) / CNPJ/CPF (BR)
+    tax_id_type = db.Column(db.String(10), default='NIF') # NIF (PT), CNPJ, CPF (BR)
+    
+    # Contato
+    email = db.Column(db.String(120), nullable=True)
+    phone = db.Column(db.String(50), nullable=True)
+    mobile = db.Column(db.String(50), nullable=True)      # Celular
+    website = db.Column(db.String(200), nullable=True)
+    
+    # Endereço (flexível)
+    address = db.Column(db.Text, nullable=True)
+    address_number = db.Column(db.String(20), nullable=True)
+    complement = db.Column(db.String(100), nullable=True)
+    neighborhood = db.Column(db.String(100), nullable=True)  # Bairro (BR) / Freguesia (PT)
+    city = db.Column(db.String(100), nullable=True)
+    state = db.Column(db.String(50), nullable=True)       # Estado (BR) / Distrito (PT)
+    postal_code = db.Column(db.String(20), nullable=True) # CEP (BR) / Código Postal (PT)
+    country = db.Column(db.String(50), default='Portugal')
+    
+    # Pessoa de contato
+    contact_person = db.Column(db.String(100), nullable=True)
+    contact_phone = db.Column(db.String(50), nullable=True)
+    contact_email = db.Column(db.String(120), nullable=True)
+    
+    # Dados bancários (opcionais)
+    bank_name = db.Column(db.String(100), nullable=True)
+    bank_account = db.Column(db.String(50), nullable=True)
+    iban = db.Column(db.String(34), nullable=True)        # IBAN (PT/Europa)
+    swift = db.Column(db.String(20), nullable=True)       # SWIFT/BIC
+    pix_key = db.Column(db.String(100), nullable=True)    # PIX (BR)
+    
+    # Informações gerais
+    notes = db.Column(db.Text, nullable=True)
+    is_active = db.Column(db.Boolean, default=True)
+    church_id = db.Column(db.Integer, db.ForeignKey('church.id'), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, onupdate=datetime.utcnow)
+    
+    # 🔥 RELACIONAMENTOS CORRIGIDOS
+    church = db.relationship('Church', backref='suppliers')
+    bills = db.relationship('Bill', back_populates='supplier', lazy='dynamic', cascade='all, delete-orphan')
+    
+    @property
+    def formatted_tax_id(self):
+        """Retorna o documento formatado conforme o país"""
+        if self.tax_id_type == 'NIF' and self.tax_id:
+            return self.tax_id
+        elif self.tax_id_type == 'CNPJ' and self.tax_id:
+            # Formato BR: 00.000.000/0000-00
+            return f"{self.tax_id[:2]}.{self.tax_id[2:5]}.{self.tax_id[5:8]}/{self.tax_id[8:12]}-{self.tax_id[12:]}"
+        elif self.tax_id_type == 'CPF' and self.tax_id:
+            # Formato BR: 000.000.000-00
+            return f"{self.tax_id[:3]}.{self.tax_id[3:6]}.{self.tax_id[6:9]}-{self.tax_id[9:]}"
+        return self.tax_id
+
+
+class Bill(db.Model):
+    """Contas a pagar (suporte internacional)"""
+    __tablename__ = 'bills'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    supplier_id = db.Column(db.Integer, db.ForeignKey('suppliers.id'), nullable=False)
+    description = db.Column(db.String(200), nullable=False)
+    amount = db.Column(db.Numeric(10, 2), nullable=False)
+    amount_paid = db.Column(db.Numeric(10, 2), default=0)
+    
+    # Datas
+    issue_date = db.Column(db.Date, default=datetime.utcnow().date)
+    due_date = db.Column(db.Date, nullable=False)
+    payment_date = db.Column(db.Date, nullable=True)
+    
+    # Documento fiscal
+    invoice_number = db.Column(db.String(50), nullable=True)   # Número da nota fiscal
+    invoice_series = db.Column(db.String(10), nullable=True)   # Série (BR)
+    nf_access_key = db.Column(db.String(50), nullable=True)    # Chave de acesso (BR)
+    
+    # Categorização
+    category_id = db.Column(db.Integer, db.ForeignKey('transaction_category.id'), nullable=True)
+    payment_method_id = db.Column(db.Integer, db.ForeignKey('payment_method.id'), nullable=True)
+    bank_account_id = db.Column(db.Integer, db.ForeignKey('bank_accounts.id'), nullable=True)
+    
+    # Status
+    status = db.Column(db.String(20), default='pending')  # pending, partial, paid, overdue, cancelled
+    notes = db.Column(db.Text, nullable=True)
+    
+    # Rastreamento
+    church_id = db.Column(db.Integer, db.ForeignKey('church.id'), nullable=False)
+    created_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, onupdate=datetime.utcnow)
+    
+    # 🔥 RELACIONAMENTOS CORRIGIDOS
+    supplier = db.relationship('Supplier', back_populates='bills')
+    category = db.relationship('TransactionCategory', backref='bills')
+    payment_method = db.relationship('PaymentMethod', backref='bills')
+    bank_account = db.relationship('BankAccount', backref='bills')
+    church = db.relationship('Church', backref='bills')
+    created_by_user = db.relationship('User', backref='bills')
+    
+    @property
+    def remaining_amount(self):
+        """Valor restante a pagar"""
+        return float(self.amount) - float(self.amount_paid)
+    
+    @property
+    def is_overdue(self):
+        """Verifica se a conta está vencida"""
+        return self.status != 'paid' and self.due_date < datetime.utcnow().date()
+    
+    @property
+    def payment_percentage(self):
+        """Percentual pago"""
+        if self.amount > 0:
+            return (float(self.amount_paid) / float(self.amount)) * 100
+        return 0

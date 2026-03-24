@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card border-0 shadow-sm rounded-4">
+                <div class="card-header bg-primary text-white p-4 rounded-top-4">
+                    <h4 class="fw-bold mb-0"><i class="bi bi-plus-circle me-2"></i> Nova Conta a Pagar</h4>
+                </div>
+                <div class="card-body p-4">
+                    <form method="POST">
+                        <div class="mb-3">
+                            <label class="form-label fw-bold small">FORNECEDOR *</label>
+                            <select name="supplier_id" class="form-select bg-light border-0" required>
+                                <option value="">Selecione um fornecedor...</option>
+                                {% for supplier in suppliers %}
+                                <option value="{{ supplier.id }}">{{ supplier.name }} ({{ supplier.document or 'Sem documento' }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold small">DESCRIÇÃO *</label>
+                            <input type="text" name="description" class="form-control bg-light border-0" required>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-bold small">VALOR *</label>
+                                <input type="number" step="0.01" name="amount" class="form-control bg-light border-0" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-bold small">DATA DE VENCIMENTO *</label>
+                                <input type="date" name="due_date" class="form-control bg-light border-0" required>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-bold small">DATA DE EMISSÃO</label>
+                                <input type="date" name="issue_date" class="form-control bg-light border-0">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-bold small">Nº NOTA FISCAL</label>
+                                <input type="text" name="invoice_number" class="form-control bg-light border-0">
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-bold small">CATEGORIA</label>
+                                <select name="category_id" class="form-select bg-light border-0">
+                                    <option value="">Selecione...</option>
+                                    {% for cat in categories %}
+                                    <option value="{{ cat.id }}">{{ cat.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-bold small">MEIO DE PAGAMENTO</label>
+                                <select name="payment_method_id" class="form-select bg-light border-0">
+                                    <option value="">Selecione...</option>
+                                    {% for method in payment_methods %}
+                                    <option value="{{ method.id }}">{{ method.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold small">CONTA BANCÁRIA</label>
+                            <select name="bank_account_id" class="form-select bg-light border-0">
+                                <option value="">Selecione...</option>
+                                {% for account in bank_accounts %}
+                                <option value="{{ account.id }}">{{ account.bank_name }} - {{ account.account_number }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold small">OBSERVAÇÕES</label>
+                            <textarea name="notes" class="form-control bg-light border-0" rows="3"></textarea>
+                        </div>
+
+                        <div class="d-flex gap-3 mt-4">
+                            <button type="submit" class="btn btn-primary px-5 py-2 fw-bold">
+                                <i class="bi bi-check-lg me-2"></i> Registrar Conta
+                            </button>
+                            <a href="{{ url_for('finance.list_bills') }}" class="btn btn-outline-secondary px-4 py-2">
+                                Cancelar
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

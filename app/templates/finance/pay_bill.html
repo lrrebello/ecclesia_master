@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm rounded-4">
+                <div class="card-header bg-success text-white p-4 rounded-top-4">
+                    <h4 class="fw-bold mb-0"><i class="bi bi-cash-stack me-2"></i> Registrar Pagamento</h4>
+                </div>
+                <div class="card-body p-4">
+                    <div class="alert alert-info mb-4">
+                        <strong>{{ bill.supplier.name }}</strong><br>
+                        <span class="small">{{ bill.description }}</span><br>
+                        <span class="fw-bold">Valor total: R$ {{ "%.2f"|format(bill.amount) }}</span><br>
+                        <span>Já pago: R$ {{ "%.2f"|format(bill.amount_paid) }}</span><br>
+                        <span class="fw-bold text-success">Saldo devedor: R$ {{ "%.2f"|format(bill.remaining_amount) }}</span>
+                    </div>
+
+                    <form method="POST">
+                        <div class="mb-3">
+                            <label class="form-label fw-bold small">VALOR A PAGAR *</label>
+                            <input type="number" step="0.01" name="amount" class="form-control bg-light border-0" 
+                                   max="{{ bill.remaining_amount }}" required>
+                            <div class="form-text">Máximo: R$ {{ "%.2f"|format(bill.remaining_amount) }}</div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold small">DATA DO PAGAMENTO *</label>
+                            <input type="date" name="payment_date" class="form-control bg-light border-0" 
+                                   value="{{ now.strftime('%Y-%m-%d') }}" required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold small">MEIO DE PAGAMENTO *</label>
+                            <select name="payment_method_id" class="form-select bg-light border-0" required>
+                                <option value="">Selecione...</option>
+                                {% for method in payment_methods %}
+                                <option value="{{ method.id }}">{{ method.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold small">CONTA BANCÁRIA</label>
+                            <select name="bank_account_id" class="form-select bg-light border-0">
+                                <option value="">Selecione...</option>
+                                {% for account in bank_accounts %}
+                                <option value="{{ account.id }}">{{ account.bank_name }} - {{ account.account_number }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="d-flex gap-3 mt-4">
+                            <button type="submit" class="btn btn-success px-5 py-2 fw-bold">
+                                <i class="bi bi-cash me-2"></i> Confirmar Pagamento
+                            </button>
+                            <a href="{{ url_for('finance.list_bills') }}" class="btn btn-outline-secondary px-4 py-2">
+                                Cancelar
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

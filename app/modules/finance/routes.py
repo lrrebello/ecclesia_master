@@ -3,7 +3,7 @@ from flask_login import login_required, current_user
 from app.core.models import (
     Transaction, Asset, MaintenanceLog, db, User, Church, Ministry,
     MinistryTransaction, TransactionCategory, PaymentMethod, SystemLog,
-    BankAccount, MBWay, MinistryCategory, MinistryPaymentMethod
+    BankAccount, MBWay, MinistryCategory, MinistryPaymentMethod, Supplier, Bill
 )
 from app.utils.pdf_gen import generate_receipt, generate_consolidated_receipt
 from app.utils.logger import log_action  # <-- IMPORT DO LOGGER
@@ -137,10 +137,37 @@ def dashboard():
     total_income = sum(t.amount for t in transactions if t.type == 'income')
     total_expense = sum(t.amount for t in transactions if t.type == 'expense')
     
+    # ========== CONTAS A PAGAR (Próximos 30 dias) ==========
+    from app.core.models import Bill
+    from sqlalchemy import func
+    
+    today = datetime.now().date()
+    next_month = today + timedelta(days=30)
+    
+    # Total pendente (valor restante) das contas com vencimento nos próximos 30 dias
+    bills_pending = db.session.query(
+        func.sum(Bill.amount - Bill.amount_paid)
+    ).filter(
+        Bill.church_id == current_user.church_id,
+        Bill.status != 'paid',
+        Bill.due_date <= next_month
+    ).scalar() or 0
+    
+    # Contas vencidas (para exibir alerta)
+    overdue_bills = db.session.query(
+        func.count(Bill.id)
+    ).filter(
+        Bill.church_id == current_user.church_id,
+        Bill.status != 'paid',
+        Bill.due_date < today
+    ).scalar() or 0
+    
     stats = {
         'income': total_income,
         'expense': total_expense,
-        'balance': total_income - total_expense
+        'balance': total_income - total_expense,
+        'bills_pending': bills_pending,
+        'overdue_bills': overdue_bills  # 🔥 Contas vencidas
     }
     
     return render_template('finance/dashboard.html', 
@@ -825,29 +852,62 @@ def delete_transaction(id):
         'category': transaction.category_name,
         'payment_method': transaction.payment_method_name,
         'user_id': transaction.user_id,
-        'date': transaction.date.strftime('%d/%m/%Y') if transaction.date else None
+        'date': transaction.date.strftime('%d/%m/%Y') if transaction.date else None,
+        'bill_id': transaction.bill_id
     }
+    
+    # 🔥 SE FOR VINCULADO A UMA CONTA (BILL), REVERTER O PAGAMENTO
+    linked_bill = transaction.bill
+    bill_updated = False
+    
+    if linked_bill:
+        from decimal import Decimal
+        
+        # Reverter o pagamento (subtrair o valor da transação)
+        linked_bill.amount_paid = max(Decimal('0'), linked_bill.amount_paid - Decimal(str(transaction.amount)))
+        
+        # Atualizar status da conta
+        if linked_bill.amount_paid == 0:
+            linked_bill.status = 'pending'
+            linked_bill.payment_date = None
+        elif linked_bill.amount_paid < linked_bill.amount:
+            linked_bill.status = 'partial'
+        else:
+            linked_bill.status = 'paid'
+        
+        bill_updated = True
 
     try:
         db.session.delete(transaction)
         db.session.commit()
         
-        # LOG: Exclusão de transação
-        log_action(
-            action='DELETE',
-            module='FINANCE',
-            description=f"Exclusão de lançamento: {transaction.description} (R$ {transaction.amount})",
-            old_values=tx_data,
-            church_id=transaction.church_id
-        )
+        # LOG: Exclusão de transação (sem flash para não interferir no JSON)
+        if bill_updated:
+            log_action(
+                action='DELETE',
+                module='FINANCE',
+                description=f"Exclusão de lançamento: {transaction.description} (R$ {transaction.amount}) - Conta #{linked_bill.id} ajustada",
+                old_values=tx_data,
+                church_id=transaction.church_id
+            )
+        else:
+            log_action(
+                action='DELETE',
+                module='FINANCE',
+                description=f"Exclusão de lançamento: {transaction.description} (R$ {transaction.amount})",
+                old_values=tx_data,
+                church_id=transaction.church_id
+            )
         
-        flash('Lançamento excluído com sucesso!', 'success')
+        # Retornar JSON puro sem flash
         return jsonify({'success': True})
+        
     except Exception as e:
         db.session.rollback()
         current_app.logger.error(f"Erro ao excluir transação {id}: {str(e)}")
         return jsonify({'success': False, 'message': 'Erro ao excluir. Tente novamente.'}), 500
-
+    
+    
 @finance_bp.route('/report')
 @login_required
 def report():
@@ -1767,3 +1827,442 @@ def bank_account_detail(account_id):
             'type': tx_type
         }
     )
+
+# ==================== ROTAS PARA FORNECEDORES ====================
+
+@finance_bp.route('/suppliers')
+@login_required
+def list_suppliers():
+    """Listar fornecedores"""
+    if not can_manage_finance():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('finance.dashboard'))
+    
+    search = request.args.get('search', '').strip()
+    country = request.args.get('country')
+    
+    query = Supplier.query.filter_by(church_id=current_user.church_id)
+    
+    if search:
+        query = query.filter(
+            or_(
+                Supplier.name.ilike(f'%{search}%'),
+                Supplier.tax_id.ilike(f'%{search}%'),
+                Supplier.email.ilike(f'%{search}%')
+            )
+        )
+    
+    if country:
+        query = query.filter(Supplier.country == country)
+    
+    suppliers = query.order_by(Supplier.name).all()
+    
+    return render_template('finance/suppliers.html', 
+                           suppliers=suppliers,
+                           search=search)
+
+
+@finance_bp.route('/supplier/add', methods=['GET', 'POST'])
+@login_required
+def add_supplier():
+    """Adicionar fornecedor"""
+    if not can_manage_finance():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('finance.dashboard'))
+    
+    if request.method == 'POST':
+        supplier = Supplier(
+            name=request.form.get('name'),
+            tax_id=request.form.get('tax_id') or None,
+            tax_id_type=request.form.get('tax_id_type') or 'NIF',
+            email=request.form.get('email') or None,
+            phone=request.form.get('phone') or None,
+            mobile=request.form.get('mobile') or None,
+            website=request.form.get('website') or None,
+            address=request.form.get('address') or None,
+            address_number=request.form.get('address_number') or None,
+            complement=request.form.get('complement') or None,
+            neighborhood=request.form.get('neighborhood') or None,
+            city=request.form.get('city') or None,
+            state=request.form.get('state') or None,
+            postal_code=request.form.get('postal_code') or None,
+            country=request.form.get('country') or 'Portugal',
+            contact_person=request.form.get('contact_person') or None,
+            contact_phone=request.form.get('contact_phone') or None,
+            contact_email=request.form.get('contact_email') or None,
+            bank_name=request.form.get('bank_name') or None,
+            bank_account=request.form.get('bank_account') or None,
+            iban=request.form.get('iban') or None,
+            swift=request.form.get('swift') or None,
+            pix_key=request.form.get('pix_key') or None,
+            notes=request.form.get('notes') or None,
+            church_id=current_user.church_id,
+            is_active=True
+        )
+        
+        db.session.add(supplier)
+        db.session.commit()
+        
+        log_action(
+            action='CREATE',
+            module='FINANCE',
+            description=f"Novo fornecedor: {supplier.name}",
+            new_values={'id': supplier.id, 'name': supplier.name, 'tax_id': supplier.tax_id},
+            church_id=current_user.church_id
+        )
+        
+        flash('Fornecedor cadastrado com sucesso!', 'success')
+        return redirect(url_for('finance.list_suppliers'))
+    
+    return render_template('finance/add_supplier.html')
+
+
+@finance_bp.route('/supplier/edit/<int:id>', methods=['GET', 'POST'])
+@login_required
+def edit_supplier(id):
+    """Editar fornecedor"""
+    if not can_manage_finance():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('finance.dashboard'))
+    
+    supplier = Supplier.query.get_or_404(id)
+    
+    if supplier.church_id != current_user.church_id:
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('finance.list_suppliers'))
+    
+    if request.method == 'POST':
+        old_values = {'name': supplier.name, 'tax_id': supplier.tax_id}
+        
+        supplier.name = request.form.get('name')
+        supplier.tax_id = request.form.get('tax_id') or None
+        supplier.tax_id_type = request.form.get('tax_id_type') or 'NIF'
+        supplier.email = request.form.get('email') or None
+        supplier.phone = request.form.get('phone') or None
+        supplier.mobile = request.form.get('mobile') or None
+        supplier.website = request.form.get('website') or None
+        supplier.address = request.form.get('address') or None
+        supplier.address_number = request.form.get('address_number') or None
+        supplier.complement = request.form.get('complement') or None
+        supplier.neighborhood = request.form.get('neighborhood') or None
+        supplier.city = request.form.get('city') or None
+        supplier.state = request.form.get('state') or None
+        supplier.postal_code = request.form.get('postal_code') or None
+        supplier.country = request.form.get('country') or 'Portugal'
+        supplier.contact_person = request.form.get('contact_person') or None
+        supplier.contact_phone = request.form.get('contact_phone') or None
+        supplier.contact_email = request.form.get('contact_email') or None
+        supplier.bank_name = request.form.get('bank_name') or None
+        supplier.bank_account = request.form.get('bank_account') or None
+        supplier.iban = request.form.get('iban') or None
+        supplier.swift = request.form.get('swift') or None
+        supplier.pix_key = request.form.get('pix_key') or None
+        supplier.notes = request.form.get('notes') or None
+        supplier.is_active = 'is_active' in request.form
+        
+        db.session.commit()
+        
+        log_action(
+            action='UPDATE',
+            module='FINANCE',
+            description=f"Fornecedor editado: {supplier.name}",
+            old_values=old_values,
+            new_values={'name': supplier.name, 'tax_id': supplier.tax_id},
+            church_id=current_user.church_id
+        )
+        
+        flash('Fornecedor atualizado!', 'success')
+        return redirect(url_for('finance.list_suppliers'))
+    
+    return render_template('finance/edit_supplier.html', supplier=supplier)
+
+
+@finance_bp.route('/supplier/delete/<int:id>', methods=['POST'])
+@login_required
+def delete_supplier(id):
+    """Excluir fornecedor"""
+    if not can_manage_finance():
+        return jsonify({'success': False, 'message': 'Acesso negado.'}), 403
+    
+    supplier = Supplier.query.get_or_404(id)
+    
+    if supplier.church_id != current_user.church_id:
+        return jsonify({'success': False, 'message': 'Acesso negado.'}), 403
+    
+    # Verificar se tem contas vinculadas
+    if supplier.bills.count() > 0:
+        return jsonify({'success': False, 'message': 'Não é possível excluir. Existem contas vinculadas a este fornecedor.'}), 400
+    
+    supplier_data = {'id': supplier.id, 'name': supplier.name}
+    
+    db.session.delete(supplier)
+    db.session.commit()
+    
+    log_action(
+        action='DELETE',
+        module='FINANCE',
+        description=f"Fornecedor excluído: {supplier.name}",
+        old_values=supplier_data,
+        church_id=current_user.church_id
+    )
+    
+    return jsonify({'success': True})
+
+# ==================== ROTAS PARA CONTAS A PAGAR ====================
+
+@finance_bp.route('/bills')
+@login_required
+def list_bills():
+    """Listar contas a pagar"""
+    if not can_manage_finance():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('finance.dashboard'))
+    
+    # Filtros
+    status_filter = request.args.get('status')
+    supplier_id = request.args.get('supplier_id')
+    start_date = request.args.get('start_date')
+    end_date = request.args.get('end_date')
+    
+    query = Bill.query.filter_by(church_id=current_user.church_id)
+    
+    if status_filter:
+        query = query.filter(Bill.status == status_filter)
+    
+    if supplier_id:
+        query = query.filter(Bill.supplier_id == int(supplier_id))
+    
+    if start_date:
+        query = query.filter(Bill.due_date >= datetime.strptime(start_date, '%Y-%m-%d').date())
+    
+    if end_date:
+        query = query.filter(Bill.due_date <= datetime.strptime(end_date, '%Y-%m-%d').date())
+    
+    bills = query.order_by(Bill.due_date.asc()).all()
+    suppliers = Supplier.query.filter_by(church_id=current_user.church_id, is_active=True).all()
+    
+    # Totais
+    total_pending = sum(b.remaining_amount for b in bills if b.status == 'pending')
+    total_overdue = sum(b.remaining_amount for b in bills if b.is_overdue and b.status != 'paid')
+    total_paid = sum(b.amount for b in bills if b.status == 'paid')
+    
+    stats = {
+        'total_pending': total_pending,
+        'total_overdue': total_overdue,
+        'total_paid': total_paid,
+        'count': len(bills)
+    }
+    
+    return render_template('finance/bills.html', 
+                           bills=bills, 
+                           suppliers=suppliers,
+                           stats=stats,
+                           filters={
+                               'status': status_filter,
+                               'supplier_id': supplier_id,
+                               'start_date': start_date,
+                               'end_date': end_date
+                           })
+
+
+@finance_bp.route('/bill/add', methods=['GET', 'POST'])
+@login_required
+def add_bill():
+    """Adicionar conta a pagar"""
+    if not can_manage_finance():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('finance.dashboard'))
+    
+    if request.method == 'POST':
+        from decimal import Decimal
+        
+        bill = Bill(
+            supplier_id=int(request.form.get('supplier_id')),
+            description=request.form.get('description'),
+            amount=Decimal(str(request.form.get('amount'))),  # 🔥 CONVERTER PARA DECIMAL
+            due_date=datetime.strptime(request.form.get('due_date'), '%Y-%m-%d').date(),
+            issue_date=datetime.strptime(request.form.get('issue_date'), '%Y-%m-%d').date() if request.form.get('issue_date') else datetime.utcnow().date(),
+            invoice_number=request.form.get('invoice_number') or None,
+            invoice_series=request.form.get('invoice_series') or None,
+            nf_access_key=request.form.get('nf_access_key') or None,
+            category_id=int(request.form.get('category_id')) if request.form.get('category_id') else None,
+            payment_method_id=int(request.form.get('payment_method_id')) if request.form.get('payment_method_id') else None,
+            bank_account_id=int(request.form.get('bank_account_id')) if request.form.get('bank_account_id') else None,
+            notes=request.form.get('notes') or None,
+            church_id=current_user.church_id,
+            created_by=current_user.id,
+            status='pending'
+        )
+        
+        db.session.add(bill)
+        db.session.commit()
+        
+        # 🔥 LOG COM VALORES CONVERTIDOS PARA FLOAT
+        log_action(
+            action='CREATE',
+            module='FINANCE',
+            description=f"Nova conta a pagar: {bill.description} - R$ {float(bill.amount):.2f}",
+            new_values={
+                'id': bill.id, 
+                'supplier': bill.supplier.name, 
+                'amount': float(bill.amount)
+            },
+            church_id=current_user.church_id
+        )
+        
+        flash('Conta registrada com sucesso!', 'success')
+        return redirect(url_for('finance.list_bills'))
+    
+    suppliers = Supplier.query.filter_by(church_id=current_user.church_id, is_active=True).order_by(Supplier.name).all()
+    categories = TransactionCategory.query.filter_by(church_id=current_user.church_id, type='expense', is_active=True).all()
+    payment_methods = PaymentMethod.query.filter_by(church_id=current_user.church_id, is_active=True).all()
+    bank_accounts = BankAccount.query.filter_by(church_id=current_user.church_id, is_active=True).all()
+    
+    return render_template('finance/add_bill.html', 
+                           suppliers=suppliers,
+                           categories=categories,
+                           payment_methods=payment_methods,
+                           bank_accounts=bank_accounts)
+
+
+@finance_bp.route('/bill/pay/<int:id>', methods=['GET', 'POST'])
+@login_required
+def pay_bill(id):
+    """Registrar pagamento de conta"""
+    if not can_manage_finance():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('finance.dashboard'))
+    
+    bill = Bill.query.get_or_404(id)
+    
+    if bill.church_id != current_user.church_id:
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('finance.list_bills'))
+    
+    if request.method == 'POST':
+        amount_to_pay = float(request.form.get('amount'))
+        payment_date = datetime.strptime(request.form.get('payment_date'), '%Y-%m-%d').date()
+        payment_method_id = request.form.get('payment_method_id')
+        bank_account_id = request.form.get('bank_account_id')
+        
+        if amount_to_pay <= 0:
+            flash('Valor inválido.', 'danger')
+            return redirect(request.url)
+        
+        if amount_to_pay > float(bill.remaining_amount):
+            flash(f'Valor excede o saldo devedor (R$ {bill.remaining_amount:.2f})', 'danger')
+            return redirect(request.url)
+        
+        # Buscar informações para a transação
+        payment_method = PaymentMethod.query.get(payment_method_id) if payment_method_id else None
+        bank_account = BankAccount.query.get(bank_account_id) if bank_account_id else None
+        
+        # Converter para Decimal
+        from decimal import Decimal
+        amount_decimal = Decimal(str(amount_to_pay))
+        
+        # 🔥 CRIAR TRANSAÇÃO COM VÍNCULO DA CONTA
+        transaction = Transaction(
+            type='expense',
+            category_id=bill.category_id,
+            category_name=bill.category.name if bill.category else f"Pagamento - {bill.supplier.name}",
+            payment_method_id=int(payment_method_id) if payment_method_id else None,
+            payment_method_name=payment_method.name if payment_method else "Dinheiro",
+            bank_account_id=int(bank_account_id) if bank_account_id else None,
+            amount=amount_to_pay,
+            description=f"Pagamento de {bill.description} - {bill.supplier.name} (NF: {bill.invoice_number or 'sem NF'})",
+            date=payment_date,
+            church_id=current_user.church_id,
+            user_id=None,
+            bill_id=bill.id  # 🔥 VÍNCULO EXPLÍCITO
+        )
+        
+        # Atualizar a conta
+        bill.amount_paid = bill.amount_paid + amount_decimal
+        bill.payment_date = payment_date
+        bill.payment_method_id = int(payment_method_id) if payment_method_id else None
+        bill.bank_account_id = int(bank_account_id) if bank_account_id else None
+        
+        if bill.remaining_amount == 0:
+            bill.status = 'paid'
+        else:
+            bill.status = 'partial'
+        
+        db.session.add(transaction)
+        db.session.commit()
+        
+        # LOG
+        log_action(
+            action='CREATE',
+            module='FINANCE',
+            description=f"Pagamento de conta: {bill.description} - R$ {amount_to_pay:.2f}",
+            new_values={
+                'bill_id': bill.id,
+                'transaction_id': transaction.id,
+                'amount_paid': float(bill.amount_paid),
+                'status': bill.status
+            },
+            church_id=current_user.church_id
+        )
+        
+        flash(f'Pagamento de R$ {amount_to_pay:.2f} registrado com sucesso!', 'success')
+        return redirect(url_for('finance.list_bills'))
+    
+    # GET - buscar dados para o formulário
+    payment_methods = PaymentMethod.query.filter_by(church_id=current_user.church_id, is_active=True).all()
+    bank_accounts = BankAccount.query.filter_by(church_id=current_user.church_id, is_active=True).all()
+    
+    return render_template('finance/pay_bill.html', 
+                           bill=bill,
+                           payment_methods=payment_methods,
+                           bank_accounts=bank_accounts,
+                           now=datetime.now())
+
+
+@finance_bp.route('/bill/<int:id>/details')
+@login_required
+def bill_details(id):
+    """Retorna os detalhes de uma conta via JSON"""
+    if not can_manage_finance():
+        return jsonify({'success': False, 'message': 'Acesso negado.'}), 403
+    
+    bill = Bill.query.get_or_404(id)
+    
+    if bill.church_id != current_user.church_id:
+        return jsonify({'success': False, 'message': 'Acesso negado.'}), 403
+    
+    # Determinar classe CSS e texto do status
+    if bill.status == 'paid':
+        status_class = 'text-success'
+        status_text = 'Pago'
+    elif bill.status == 'partial':
+        status_class = 'text-info'
+        status_text = f'Parcial ({bill.payment_percentage:.0f}%)'
+    elif bill.is_overdue:
+        status_class = 'text-danger'
+        status_text = 'Vencida'
+    else:
+        status_class = 'text-warning'
+        status_text = 'Pendente'
+    
+    return jsonify({
+        'success': True,
+        'bill': {
+            'id': bill.id,
+            'supplier_name': bill.supplier.name,
+            'supplier_tax_id': bill.supplier.tax_id,
+            'description': bill.description,
+            'amount': f"{float(bill.amount):.2f}",
+            'amount_paid': f"{float(bill.amount_paid):.2f}",
+            'remaining': f"{float(bill.remaining_amount):.2f}",
+            'due_date': bill.due_date.strftime('%d/%m/%Y'),
+            'issue_date': bill.issue_date.strftime('%d/%m/%Y'),
+            'payment_date': bill.payment_date.strftime('%d/%m/%Y') if bill.payment_date else None,
+            'invoice_number': bill.invoice_number,
+            'notes': bill.notes,
+            'status': bill.status,
+            'status_text': status_text,
+            'status_class': status_class,
+            'is_overdue': bill.is_overdue
+        }
+    })
