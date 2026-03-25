@@ -15,7 +15,7 @@ class ReceiptPDF(FPDF):
 
 def generate_receipt(transaction):
     """
-    Gera recibo individual para uma única transação (versão original mantida)
+    Gera recibo individual para uma única transação
     """
     pdf = ReceiptPDF()
     pdf.add_page()
@@ -44,60 +44,59 @@ def generate_receipt(transaction):
 
     # --- CABEÇALHO COM LOGO E INFORMAÇÕES DA IGREJA ---
     y_start = 10
+    x_text = 10
+    
+    # Dados da igreja
+    church = transaction.church
     
     # Inserir o logo da congregação (se existir)
-    if transaction.church and transaction.church.logo_path:
-        logo_relative = transaction.church.logo_path
+    if church and church.logo_path:
+        logo_relative = church.logo_path
         logo_full_path = os.path.join(current_app.root_path, 'static', logo_relative)
         if os.path.exists(logo_full_path) and os.path.isfile(logo_full_path):
             try:
                 pdf.image(logo_full_path, x=10, y=8, w=20)
-                current_app.logger.info(f"Logo inserido no recibo: {logo_full_path}")
                 x_text = 35
                 y_start = 12
             except Exception as e:
                 current_app.logger.error(f"Erro ao inserir logo {logo_full_path}: {str(e)}")
-                x_text = 10
-                y_start = 10
-        else:
-            current_app.logger.warning(f"Logo não encontrado no disco: {logo_full_path}")
-            x_text = 10
-            y_start = 10
-    else:
-        x_text = 10
-        y_start = 10
     
-    # Nome da igreja em negrito
+    # Nome da igreja
     pdf.set_xy(x_text, y_start)
     pdf.set_font(base_font, 'B', 12)
-    
-    church_name = transaction.church.name if transaction.church else "SEDE"
+    church_name = church.name if church else "IGREJA"
     pdf.cell(0, 10, church_name, 0, 1, 'L')
     
     # Endereço
     pdf.set_x(10)
     pdf.set_font(base_font, '', 10)
-    
-    address = transaction.church.address if transaction.church and transaction.church.address else "R. Dr. Mário Sacramento, 57 - 4ºEsq. Trás"
+    address = church.address if church and church.address else "Endereço não cadastrado"
     pdf.cell(0, 5, address, 0, 1, 'L')
     
-    # Cidade/Código Postal
+    # Cidade/Código Postal (usando concelho, localidade e postal_code)
     pdf.set_x(10)
-    city = transaction.church.city if transaction.church and transaction.church.city else "3810-106 Aveiro"
+    city_parts = []
+    if church and church.concelho:
+        city_parts.append(church.concelho)
+    if church and church.localidade:
+        city_parts.append(church.localidade)
+    if church and church.postal_code:
+        city_parts.append(church.postal_code)
+    city = " - ".join(city_parts) if city_parts else "Cidade não cadastrada"
     pdf.cell(0, 5, city, 0, 1, 'L')
     
     pdf.ln(2)
     
-    # NIF e outras informações
+    # NIF
     pdf.set_x(10)
-    nif = f"Nº Contribuinte: {transaction.church.nif}" if transaction.church and transaction.church.nif else "Nº Contribuinte: 517760010"
+    nif = f"Nº Contribuinte: {church.nif}" if church and church.nif else "Nº Contribuinte: Não informado"
     pdf.cell(0, 5, nif + "   Qualidade Jurídica: Pessoa Coletiva Religiosa   Reconhecimento:", 0, 1, 'L')
     
     pdf.ln(2)
     
     # Email
     pdf.set_x(10)
-    email = f"Email: {transaction.church.email}" if transaction.church and transaction.church.email else "Email: ieadjesus.nacao@gmail.com"
+    email = f"Email: {church.email}" if church and church.email else "Email: não informado"
     pdf.cell(0, 5, email, 0, 1, 'L')
     
     pdf.ln(10)
@@ -105,11 +104,26 @@ def generate_receipt(transaction):
     # --- BOX DO DOADOR ---
     start_y = pdf.get_y()
     
-    user_name = transaction.user.name if transaction.user else "LUCAS RAMOS REBELLO DA SILVA"
-    user_address = transaction.user.address if transaction.user and transaction.user.address else "Praceta infante, edifício Vagueimar 1, BlocoA, rés de chão direito"
-    user_city = "3840-273 Gafanha da Vagueira"
-    user_nif = transaction.user.documents if transaction.user and transaction.user.documents else "309 889 669"
-    user_email = transaction.user.email if transaction.user else "Irrebell0@gmail.com"
+    # Dados do usuário (doador)
+    user = transaction.user
+    
+    user_name = user.name if user else "Usuário não identificado"
+    
+    # Endereço do doador (usando address apenas)
+    user_address = user.address if user and user.address else "Endereço não cadastrado"
+    
+    # Cidade do doador (concelho, localidade, postal_code)
+    user_city_parts = []
+    if user and user.concelho:
+        user_city_parts.append(user.concelho)
+    if user and user.localidade:
+        user_city_parts.append(user.localidade)
+    if user and user.postal_code:
+        user_city_parts.append(user.postal_code)
+    user_city = " - ".join(user_city_parts) if user_city_parts else "Cidade não cadastrada"
+    
+    user_nif = user.documents if user and user.documents else "Não informado"
+    user_email = user.email if user else "E-mail não cadastrado"
     
     pdf.rect(120, start_y - 5, 80, 35)
     
@@ -164,13 +178,13 @@ def generate_receipt(transaction):
     numero = f"{transaction.id:02d}" if isinstance(transaction.id, int) else str(transaction.id).zfill(2)
     pdf.cell(col1, 10, numero, 1, 0, 'C')
     
-    data = transaction.date.strftime('%d/%m/%Y') if hasattr(transaction, 'date') else "02/02/2025"
+    data = transaction.date.strftime('%d/%m/%Y') if transaction.date else datetime.now().strftime('%d/%m/%Y')
     pdf.cell(col2, 10, data, 1, 0, 'C')
     
     payment_method = transaction.payment_method_name if transaction.payment_method_name else "Numerário"
     pdf.cell(col3, 10, payment_method, 1, 0, 'C')
     
-    currency = transaction.church.currency_symbol if transaction.church and transaction.church.currency_symbol else "€"
+    currency = church.currency_symbol if church and church.currency_symbol else "€"
     valor = f"{transaction.amount:.2f}".replace('.', ',') + f" {currency}"
     pdf.cell(col4, 10, valor, 1, 1, 'C')
     
@@ -231,13 +245,12 @@ def generate_receipt(transaction):
 def generate_consolidated_receipt(user, transactions, start_date, end_date):
     """
     Gera recibo consolidado para múltiplas transações em um período.
-    Mantém o mesmo estilo visual do recibo individual.
     """
     pdf = ReceiptPDF()
     pdf.add_page()
     pdf.set_auto_page_break(auto=True, margin=15)
 
-    # Configuração de fontes (igual ao individual)
+    # Configuração de fontes
     font_dir = os.path.join(current_app.root_path, 'static', 'fonts')
     regular_path = os.path.join(font_dir, 'DejaVuSans.ttf')
     bold_path    = os.path.join(font_dir, 'DejaVuSans-Bold.ttf')
@@ -250,12 +263,13 @@ def generate_consolidated_receipt(user, transactions, start_date, end_date):
         base_font = 'DejaVu'
     else:
         base_font = 'Helvetica'
+        current_app.logger.warning("Fontes DejaVuSans não encontradas. Usando Helvetica como fallback.")
 
-    # --- CABEÇALHO (mesmo do individual, usando igreja do usuário) ---
+    # --- CABEÇALHO (usando dados da igreja do usuário) ---
     y_start = 10
     x_text = 10
-
-    church = user.church if hasattr(user, 'church') and user.church else None
+    
+    church = user.church if user.church else None
 
     # Logo
     if church and church.logo_path:
@@ -265,37 +279,60 @@ def generate_consolidated_receipt(user, transactions, start_date, end_date):
                 pdf.image(logo_full_path, x=10, y=8, w=20)
                 x_text = 35
                 y_start = 12
-            except:
-                pass
+            except Exception as e:
+                current_app.logger.error(f"Erro ao inserir logo: {str(e)}")
 
     pdf.set_xy(x_text, y_start)
     pdf.set_font(base_font, 'B', 12)
-    church_name = church.name if church else "SEDE"
+    church_name = church.name if church else "IGREJA"
     pdf.cell(0, 10, church_name, 0, 1, 'L')
 
     pdf.set_x(10)
     pdf.set_font(base_font, '', 10)
-    address = church.address if church and church.address else "R. Dr. Mário Sacramento, 57 - 4ºEsq. Trás"
+    address = church.address if church and church.address else "Endereço não cadastrado"
     pdf.cell(0, 5, address, 0, 1, 'L')
 
     pdf.set_x(10)
-    city = church.city if church and church.city else "3810-106 Aveiro"
+    city_parts = []
+    if church and church.concelho:
+        city_parts.append(church.concelho)
+    if church and church.localidade:
+        city_parts.append(church.localidade)
+    if church and church.postal_code:
+        city_parts.append(church.postal_code)
+    city = " - ".join(city_parts) if city_parts else "Cidade não cadastrada"
     pdf.cell(0, 5, city, 0, 1, 'L')
 
     pdf.ln(2)
     pdf.set_x(10)
-    nif = f"Nº Contribuinte: {church.nif}" if church and church.nif else "Nº Contribuinte: 517760010"
-    pdf.cell(0, 5, nif + "   Qualidade Jurídica: Pessoa Coletiva Religiosa   Reconhecimento:", 0, 1, 'L')
+    nif = f"Nº Contribuinte: {church.nif}" if church and church.nif else "Nº Contribuinte: Não informado"
+    pdf.cell(0, 5, nif, 0, 1, 'L')
 
     pdf.ln(2)
     pdf.set_x(10)
-    email = f"Email: {church.email}" if church and church.email else "Email: ieadjesus.nacao@gmail.com"
+    email = f"Email: {church.email}" if church and church.email else "Email: não informado"
     pdf.cell(0, 5, email, 0, 1, 'L')
 
     pdf.ln(10)
 
     # --- BOX DO DOADOR (usando dados do usuário) ---
     start_y = pdf.get_y()
+    
+    user_name = user.name if user else "Usuário não identificado"
+    user_address = user.address if user and user.address else "Endereço não cadastrado"
+    
+    user_city_parts = []
+    if user and user.concelho:
+        user_city_parts.append(user.concelho)
+    if user and user.localidade:
+        user_city_parts.append(user.localidade)
+    if user and user.postal_code:
+        user_city_parts.append(user.postal_code)
+    user_city = " - ".join(user_city_parts) if user_city_parts else "Cidade não cadastrada"
+    
+    user_nif = user.documents if user and user.documents else "Não informado"
+    user_email = user.email if user else "E-mail não cadastrado"
+    
     pdf.rect(120, start_y - 5, 80, 35)
 
     pdf.set_xy(122, start_y)
@@ -304,21 +341,21 @@ def generate_consolidated_receipt(user, transactions, start_date, end_date):
 
     pdf.set_x(122)
     pdf.set_font(base_font, 'B', 10)
-    pdf.cell(0, 5, user.name, 0, 1)
+    pdf.cell(0, 5, user_name, 0, 1)
 
     pdf.set_x(122)
     pdf.set_font(base_font, '', 8)
-    pdf.multi_cell(76, 4, user.address if user.address else "Endereço não cadastrado")
+    pdf.multi_cell(76, 4, user_address)
 
     pdf.set_x(122)
-    pdf.cell(0, 4, user.city if hasattr(user, 'city') and user.city else "Cidade não cadastrada", 0, 1)
+    pdf.cell(0, 4, user_city, 0, 1)
 
     pdf.set_x(122)
     pdf.set_font(base_font, '', 8)
-    pdf.cell(0, 4, f"Nº Contribuinte: {user.documents if user.documents else 'Não informado'}", 0, 1)
+    pdf.cell(0, 4, f"Nº Contribuinte: {user_nif}", 0, 1)
 
     pdf.set_x(122)
-    pdf.cell(0, 4, f"Email: {user.email}", 0, 1)
+    pdf.cell(0, 4, f"Email: {user_email}", 0, 1)
 
     pdf.set_y(start_y + 40)
     pdf.ln(5)
@@ -372,14 +409,14 @@ def generate_consolidated_receipt(user, transactions, start_date, end_date):
     total_extenso = f"{total_amount:,.2f}".replace('.', ',')
     text = (
         f"No período indicado, recebemos a quantia total de {total_extenso} {currency} "
-        "como donativos destinados ao desenvolvimento da atividade desta instituição, "
+        "como donativos destinados ao desenvolvimento da atividade desta institução, "
         "concedidos sem quaisquer contrapartidas."
     )
     pdf.multi_cell(0, 5, text)
 
     pdf.ln(10)
 
-    # --- EFEITOS FISCAIS (igual ao individual) ---
+    # --- EFEITOS FISCAIS ---
     pdf.set_font(base_font, 'B', 10)
     pdf.cell(0, 5, "Efeitos fiscais:", 0, 1)
     
