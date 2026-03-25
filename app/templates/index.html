@@ -23,13 +23,47 @@
         </div>
         <div class="col-lg-6 d-none d-lg-block">
             <div class="position-relative">
-                <div class="bg-primary bg-opacity-10 rounded-4 p-5 text-center">
-                    <i class="bi bi-lightning-charge-fill text-primary display-1"></i>
-                    <div class="mt-4">
-                        <h4 class="fw-bold">Multi-Congregação</h4>
-                        <p class="text-muted">Gerencie todas as suas filiais em um único lugar com relatórios consolidados.</p>
+                <!-- 🔥 BANNER DO ESPAÇO KIDS (substituindo Multi-Congregação) -->
+                <a href="{{ url_for('edification.kids') }}" class="text-decoration-none">
+                    <div class="card border-0 shadow-lg overflow-hidden" style="background: linear-gradient(135deg, var(--primary) 0%, var(--primary-hover) 100%); border-radius: 1.5rem;">
+                        <div class="card-body p-5 text-center">
+                            <div class="d-flex justify-content-center gap-3 mb-3">
+                                <i class="bi bi-balloon-heart-fill text-white display-3"></i>
+                                <i class="bi bi-star-fill text-warning display-3"></i>
+                                <i class="bi bi-heart-fill text-danger display-3"></i>
+                            </div>
+                            <h3 class="fw-bold text-white mb-3">✨ Espaço Ecclesia Kids ✨</h3>
+                            <p class="text-white opacity-90 mb-4">
+                                Um lugar especial para as crianças aprenderem sobre a Bíblia de forma divertida e interativa!
+                            </p>
+                            <div class="d-flex justify-content-center gap-3 mt-3">
+                                <div class="text-center">
+                                    <div class="bg-white rounded-circle p-2 d-inline-block">
+                                        <i class="bi bi-book text-primary fs-4"></i>
+                                    </div>
+                                    <small class="text-white d-block mt-1">Histórias</small>
+                                </div>
+                                <div class="text-center">
+                                    <div class="bg-white rounded-circle p-2 d-inline-block">
+                                        <i class="bi bi-question-circle text-success fs-4"></i>
+                                    </div>
+                                    <small class="text-white d-block mt-1">Quizzes</small>
+                                </div>
+                                <div class="text-center">
+                                    <div class="bg-white rounded-circle p-2 d-inline-block">
+                                        <i class="bi bi-palette text-warning fs-4"></i>
+                                    </div>
+                                    <small class="text-white d-block mt-1">Atividades</small>
+                                </div>
+                            </div>
+                            <div class="mt-4">
+                                <span class="btn btn-light btn-sm rounded-pill px-4">
+                                    <i class="bi bi-play-circle-fill me-1"></i> Acessar
+                                </span>
+                            </div>
+                        </div>
                     </div>
-                </div>
+                </a>
             </div>
         </div>
     </div>
@@ -97,6 +131,47 @@
                     </div>
                     {% endfor %}
                 </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Informações do Espaço Kids (cor azul padrão) -->
+<div class="modal fade" id="kidsInfoModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+            <div class="modal-header bg-primary text-white border-0">
+                <h5 class="modal-title fw-bold">
+                    <i class="bi bi-balloon-heart-fill me-2"></i> Espaço Ecclesia Kids
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <div class="text-center mb-4">
+                    <i class="bi bi-emoji-smile-upside-down text-primary display-1"></i>
+                    <i class="bi bi-star-fill text-warning display-6 mx-2"></i>
+                    <i class="bi bi-heart-fill text-danger display-6"></i>
+                </div>
+                <h6 class="fw-bold mb-3">🌟 O que é o Espaço Kids?</h6>
+                <p>Um ambiente seguro e divertido onde as crianças podem aprender sobre a Bíblia de forma interativa e educativa.</p>
+                
+                <h6 class="fw-bold mb-3 mt-4">📖 O que vamos encontrar?</h6>
+                <ul class="list-unstyled">
+                    <li class="mb-2"><i class="bi bi-book text-primary me-2"></i> <strong>Histórias Bíblicas</strong> - As principais histórias da Bíblia de forma ilustrada e envolvente</li>
+                    <li class="mb-2"><i class="bi bi-question-circle text-success me-2"></i> <strong>Quizzes Interativos</strong> - Teste seus conhecimentos sobre as histórias bíblicas</li>
+                    <li class="mb-2"><i class="bi bi-palette text-warning me-2"></i> <strong>Atividades Educativas</strong> - Desenhos, jogos e exercícios para aprender se divertindo</li>
+                </ul>
+                
+                <div class="alert alert-info mt-4 mb-0">
+                    <i class="bi bi-info-circle me-2"></i>
+                    <strong>Acesso Livre!</strong> O Espaço Kids está aberto para todas as crianças, independentemente de serem membros da igreja.
+                </div>
+            </div>
+            <div class="modal-footer bg-light border-0">
+                <a href="{{ url_for('edification.kids') }}" class="btn btn-primary px-4 py-2 fw-bold">
+                    <i class="bi bi-play-circle-fill me-2"></i> Explorar Espaço Kids
+                </a>
+                <button type="button" class="btn btn-outline-secondary px-4 py-2" data-bs-dismiss="modal">Fechar</button>
             </div>
         </div>
     </div>

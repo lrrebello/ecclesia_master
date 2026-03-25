@@ -61,11 +61,23 @@
         <i class="bi bi-journal-text me-2"></i> Devocionais
     </a>
 
-    {% if current_user.can_manage_kids or 
-          (current_user.church_role and (
-              current_user.church_role.name == 'Administrador Global' or 
-              current_user.church_role.is_lead_pastor
-          )) %}
+    <!-- ========== ECCLESIA KIDS ========== -->
+    {% set ns = namespace(is_kids_member=false, is_kids_leader=false) %}
+    {% for m in current_user.ministries %}
+        {% if m.is_kids_ministry %}
+            {% set ns.is_kids_member = true %}
+            {% if m.leader_id == current_user.id or m.vice_leader_id == current_user.id or (m.extra_leaders and current_user.id in m.extra_leaders) %}
+                {% set ns.is_kids_leader = true %}
+            {% endif %}
+        {% endif %}
+    {% endfor %}
+
+    {% if ns.is_kids_member or ns.is_kids_leader or 
+        current_user.can_manage_kids or 
+        (current_user.church_role and (
+            current_user.church_role.name == 'Administrador Global' or 
+            current_user.church_role.is_lead_pastor
+        )) %}
     <a class="nav-link {{ 'active' if request.endpoint == 'edification.kids' }}" href="{{ url_for('edification.kids') }}">
         <i class="bi bi-balloon-heart me-2"></i> Ecclesia Kids
     </a>

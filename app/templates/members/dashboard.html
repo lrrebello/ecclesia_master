@@ -20,7 +20,7 @@
         </div>
         {% endif %}
 
-        <!-- Card Devocional - Usando o mesmo estilo que funciona no preview -->
+        <!-- Card Devocional -->
         <div class="card border-0 mb-4 shadow-lg overflow-hidden position-relative" 
             style="background: linear-gradient(135deg, var(--devotional-gradient-start), var(--devotional-gradient-end)); border-radius: 1rem; min-height: 250px;">
             <div class="card-body p-4" 
@@ -159,9 +159,28 @@
                 </a>
                 {% endif %}
 
+                <!-- Ecclesia Kids - Versão corrigida com namespace -->
+                {% set ns = namespace(is_kids_member=false, is_kids_leader=false) %}
+
+                {% for m in current_user.ministries %}
+                    {% if m.is_kids_ministry %}
+                        {% set ns.is_kids_member = true %}
+                        {% if m.leader_id == current_user.id or m.vice_leader_id == current_user.id or (m.extra_leaders and current_user.id in m.extra_leaders) %}
+                            {% set ns.is_kids_leader = true %}
+                        {% endif %}
+                    {% endif %}
+                {% endfor %}
+
+                {% if ns.is_kids_member or ns.is_kids_leader or 
+                    current_user.can_manage_kids or 
+                    (current_user.church_role and (
+                        current_user.church_role.name == 'Administrador Global' or 
+                        current_user.church_role.is_lead_pastor
+                    )) %}
                 <a href="{{ url_for('edification.kids') }}" class="btn btn-outline-warning text-start border-2 fw-semibold py-2">
                     <i class="bi bi-balloon me-2"></i> Ecclesia Kids
                 </a>
+                {% endif %}
 
                 {% if current_user.church_role and current_user.church_role.name == 'Administrador Global' or current_user.church_role.is_lead_pastor %}
                 <a href="{{ url_for('members.birthday_agenda') }}" class="btn btn-outline-danger text-start border-2 fw-semibold py-2">
@@ -211,8 +230,7 @@
                                 <th class="ps-4 py-3 border-0">Candidato</th>
                                 <th class="py-3 border-0">E-mail</th>
                                 <th class="text-end pe-4 py-3 border-0">Ação</th>
-                            </tr>
-                        </thead>
+                             </thead>
                         <tbody>
                             {% for p in pending_members %}
                              <tr>

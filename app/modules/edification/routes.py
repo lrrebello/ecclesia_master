@@ -318,24 +318,38 @@ def review_study_questions(study_id):
     return render_template('edification/review_questions.html', study=study, questions=questions)
 
 @edification_bp.route('/kids')
-@login_required
 def kids():
-    is_kids_ministry_member = any(m.is_kids_ministry for m in current_user.ministries)
-    has_permission = (
-        current_user.can_manage_kids 
-        or (current_user.church_role and (
-            current_user.church_role.name == 'Administrador Global' 
-            or current_user.church_role.is_lead_pastor
-        ))
-    )    
-    if not has_permission and not is_kids_ministry_member:
-        flash('Acesso negado. Espaço restrito ao Ministério Kids.', 'danger')
-        return redirect(url_for('members.dashboard'))
-    
-    activities = KidsActivity.query.order_by(KidsActivity.created_at.desc()).all()
+    """Página do Espaço Kids"""
     stories = BibleStory.query.order_by(BibleStory.order.asc()).all()
+    activities = KidsActivity.query.order_by(KidsActivity.created_at.desc()).all()
     
-    return render_template('edification/kids.html', activities=activities, stories=stories)
+    # Verificar permissões de administração
+    show_admin_buttons = False
+    if current_user.is_authenticated:
+        # Verifica se é líder (principal, vice ou auxiliar) do ministério kids
+        is_kids_leader = False
+        for m in current_user.ministries:
+            if m.is_kids_ministry:
+                if (m.leader_id == current_user.id or 
+                    m.vice_leader_id == current_user.id or 
+                    (m.extra_leaders and current_user.id in m.extra_leaders)):
+                    is_kids_leader = True
+                    break
+        
+        show_admin_buttons = (
+            current_user.can_manage_kids 
+            or (current_user.church_role and (
+                current_user.church_role.name == 'Administrador Global' 
+                or current_user.church_role.is_lead_pastor
+            ))
+            or is_kids_leader
+        )
+    
+    return render_template('edification/kids.html', 
+                           stories=stories, 
+                           activities=activities,
+                           show_admin_buttons=show_admin_buttons)
+
 
 @edification_bp.route('/kids/manage')
 @login_required
