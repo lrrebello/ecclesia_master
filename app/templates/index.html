@@ -22,7 +22,7 @@
             </div>
         </div>
         <div class="col-lg-6">
-            <!-- 🔥 BANNER DO ESPAÇO KIDS (versão desktop e mobile) -->
+            <!-- 🔥 BANNER DO ESPAÇO KIDS -->
             <a href="{{ url_for('edification.kids') }}" class="text-decoration-none">
                 <div class="card border-0 shadow-lg overflow-hidden" style="background: linear-gradient(135deg, var(--primary) 0%, var(--primary-hover) 100%); border-radius: 1.5rem;">
                     <div class="card-body p-4 p-md-5 text-center">
@@ -95,44 +95,62 @@
     </div>
     {% endif %}
 
-    <!-- Eventos Públicos -->
+    <!-- Eventos Públicos (Próximos 7 dias) -->
     <div class="row justify-content-center">
         <div class="col-lg-10">
             <div class="card border-0 shadow-sm p-4">
-                <h4 class="fw-bold mb-4"><i class="bi bi-calendar-event me-2 text-primary"></i>Próximos Eventos e Cultos</h4>
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <div>
+                        <h4 class="fw-bold mb-0"><i class="bi bi-calendar-event me-2 text-primary"></i>Próximos Eventos e Cultos</h4>
+                        <p class="text-muted small mt-1">Eventos dos próximos 7 dias</p>
+                    </div>
+                </div>
                 <div class="list-group list-group-flush">
-                    {% for event in public_events %}
-                    <div class="list-group-item px-0 py-3 border-0 border-bottom">
-                        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
-                            <div>
-                                <h6 class="fw-bold mb-1">{{ event.title }}</h6>
-                                <small class="text-muted">
-                                    <i class="bi bi-clock me-1"></i> {{ event.start_time.strftime('%d/%m %H:%M') }}
-                                    {% if event.recurrence != 'none' %}
-                                    <span class="badge bg-warning bg-opacity-10 text-warning ms-2">{{ event.recurrence|capitalize }}</span>
+                    {% if public_events %}
+                        {% for event in public_events %}
+                        <div class="list-group-item px-0 py-3 border-0 border-bottom">
+                            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                                <div class="d-flex align-items-start gap-3">
+                                    <div class="bg-primary bg-opacity-10 text-primary p-2 rounded-3 text-center" style="min-width: 55px;">
+                                        <div class="fw-bold small">{{ event.start_time.strftime('%d') }}</div>
+                                        <div class="extra-small text-uppercase">{{ event.start_time.strftime('%b') }}</div>
+                                    </div>
+                                    <div>
+                                        <h6 class="fw-bold mb-1">{{ event.title }}</h6>
+                                        <div class="d-flex flex-wrap gap-2 align-items-center">
+                                            <small class="text-muted">
+                                                <i class="bi bi-clock me-1"></i> {{ event.start_time.strftime('%H:%M') }}
+                                            </small>
+                                            <small class="text-muted">
+                                                <i class="bi bi-calendar-week me-1"></i> {{ event.start_time.strftime('%A') }}
+                                            </small>
+                                            {% if event.recurrence != 'none' %}
+                                            <span class="badge bg-warning bg-opacity-10 text-warning">{{ event.recurrence|capitalize }}</span>
+                                            {% endif %}
+                                            <span class="badge bg-secondary bg-opacity-10 text-secondary">Geral</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="text-lg-end">
+                                    <small class="d-block text-muted"><i class="bi bi-geo-alt me-1"></i> {{ event.location }}</small>
+                                    {% if event.church %}
+                                    <small class="d-block text-primary small fw-bold">{{ event.church.name }}</small>
                                     {% endif %}
-                                    <span class="badge bg-secondary bg-opacity-10 text-secondary ms-2">Geral</span>
-                                </small>
-                            </div>
-                            <div class="text-lg-end">
-                                <small class="d-block text-muted"><i class="bi bi-geo-alt me-1"></i> {{ event.location }}</small>
-                                {% if event.church %}
-                                <small class="d-block text-primary small fw-bold">{{ event.church.name }}</small>
-                                {% endif %}
+                                </div>
                             </div>
                         </div>
-                    </div>
+                        {% endfor %}
                     {% else %}
                     <div class="text-center py-4">
                         <i class="bi bi-calendar-x fs-1 text-muted d-block mb-2"></i>
-                        <p class="text-muted mb-0">Nenhum evento público agendado no momento.</p>
+                        <p class="text-muted mb-0">Nenhum evento público agendado para os próximos 7 dias.</p>
                     </div>
-                    {% endfor %}
+                    {% endif %}
                 </div>
             </div>
         </div>
     </div>
-</div>
+    </div>
 
 <!-- Modal de Informações do Espaço Kids -->
 <div class="modal fade" id="kidsInfoModal" tabindex="-1" aria-hidden="true">
@@ -174,4 +192,10 @@
         </div>
     </div>
 </div>
+
+<style>
+.extra-small {
+    font-size: 0.65rem;
+}
+</style>
 {% endblock %}

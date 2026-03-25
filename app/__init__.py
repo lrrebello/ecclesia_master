@@ -56,13 +56,28 @@ def create_app():
         return render_template('index.html')
 
     # ========== CONTEXT PROCESSORS ==========
-    
+
     @app.context_processor
     def inject_public_events():
+        """Injetar eventos públicos dos próximos 7 dias no template"""
+        from datetime import datetime, timedelta
+        now = datetime.now()
+        week_later = now + timedelta(days=7)
+        
         if current_user.is_authenticated:
-            public_events = Event.query.filter(Event.ministry_id.is_(None), Event.church_id == current_user.church_id).order_by(Event.start_time.asc()).limit(5).all()
+            public_events = Event.query.filter(
+                Event.ministry_id.is_(None),
+                Event.church_id == current_user.church_id,
+                Event.start_time >= now,
+                Event.start_time <= week_later
+            ).order_by(Event.start_time.asc()).limit(10).all()
         else:
-            public_events = Event.query.filter(Event.ministry_id.is_(None)).order_by(Event.start_time.asc()).limit(5).all()
+            public_events = Event.query.filter(
+                Event.ministry_id.is_(None),
+                Event.start_time >= now,
+                Event.start_time <= week_later
+            ).order_by(Event.start_time.asc()).limit(10).all()
+        
         return dict(public_events=public_events)
 
     @app.context_processor
@@ -106,6 +121,7 @@ def create_app():
     # Opcional: injetar data/hora atual para templates
     @app.context_processor
     def inject_now():
-        return dict(now=datetime.now)
+        from datetime import datetime, timedelta
+        return dict(datetime=datetime, timedelta=timedelta, now=datetime.now)
 
     return app
