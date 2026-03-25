@@ -768,6 +768,78 @@ def delete_member(id):
     flash(f'Membro {member.name} excluído!', 'success')
     return redirect(url_for('members.church_members'))
 
+@members_bp.route('/member/edit/<int:id>', methods=['GET', 'POST'])
+@login_required
+def edit_member(id):
+    """Editar informações de um membro (apenas para líderes e pastores)"""
+    if not can_manage_members():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('members.dashboard'))
+    
+    member = User.query.get_or_404(id)
+    
+    # Verificar se o membro pertence à mesma congregação
+    if member.church_id != current_user.church_id:
+        flash('Este membro não pertence à sua congregação.', 'danger')
+        return redirect(url_for('members.church_members'))
+    
+    if request.method == 'POST':
+        old_values = {
+            'name': member.name,
+            'phone': member.phone,
+            'address': member.address,
+            'tax_id': member.tax_id,
+            'documents': member.documents,
+            'marital_status': member.marital_status,
+            'spouse_name': member.spouse_name,
+            'gender': member.gender
+        }
+        
+        # Atualizar dados
+        member.name = request.form.get('name')
+        member.birth_date = datetime.strptime(request.form.get('birth_date'), '%Y-%m-%d').date() if request.form.get('birth_date') else member.birth_date
+        member.baptism_date = datetime.strptime(request.form.get('baptism_date'), '%Y-%m-%d').date() if request.form.get('baptism_date') else member.baptism_date
+        member.conversion_date = datetime.strptime(request.form.get('conversion_date'), '%Y-%m-%d').date() if request.form.get('conversion_date') else member.conversion_date
+        member.gender = request.form.get('gender')
+        member.marital_status = request.form.get('marital_status')
+        member.spouse_name = request.form.get('spouse_name') if request.form.get('marital_status') == 'Casado(a)' else None
+        member.tax_id = request.form.get('tax_id')
+        member.documents = request.form.get('documents')
+        member.address = request.form.get('address')
+        member.phone = request.form.get('phone')
+        member.postal_code = request.form.get('postal_code')
+        member.concelho = request.form.get('concelho')
+        member.localidade = request.form.get('localidade')
+        member.education_level = request.form.get('education_level')
+        
+        # Upload de foto
+        file = request.files.get('profile_photo')
+        if file and file.filename:
+            filename = secure_filename(file.filename)
+            profiles_dir = os.path.join(current_app.config['UPLOAD_FOLDER'], 'profiles')
+            os.makedirs(profiles_dir, exist_ok=True)
+            full_path = os.path.join(profiles_dir, filename)
+            file.save(full_path)
+            member.profile_photo = f'uploads/profiles/{filename}'
+        
+        db.session.commit()
+        
+        log_action(
+            action='UPDATE',
+            module='MEMBERS',
+            description=f"Membro editado: {member.name}",
+            old_values=old_values,
+            new_values={'name': member.name, 'phone': member.phone, 'tax_id': member.tax_id},
+            church_id=member.church_id
+        )
+        
+        flash(f'Dados de {member.name} atualizados com sucesso!', 'success')
+        return redirect(url_for('members.church_members'))
+    
+    # GET - mostrar formulário
+    roles = ChurchRole.query.filter_by(church_id=member.church_id, is_active=True).order_by(ChurchRole.name).all()
+    return render_template('members/edit_member.html', member=member, roles=roles)
+
 @members_bp.route('/ministries/led-by-me')
 @login_required
 def my_led_ministries():

@@ -7,7 +7,7 @@
             <div class="card border-0 shadow-sm rounded-4">
                 <div class="card-header bg-primary text-white p-4 rounded-top-4">
                     <h4 class="fw-bold mb-0"><i class="bi bi-pencil-square me-2"></i> Editar Membro</h4>
-                    <p class="text-white-50 mb-0 small">{{ member.name }} - {{ member.church.name if member.church else 'Sem congregação' }}</p>
+                    <p class="text-white-50 mb-0 small">{{ member.name }}</p>
                 </div>
                 <div class="card-body p-4">
                     <form method="POST" enctype="multipart/form-data">
@@ -56,7 +56,6 @@
                             <div class="col-md-6">
                                 <label class="form-label fw-bold small">NIF / CPF / CNPJ</label>
                                 <input type="text" name="tax_id" class="form-control bg-light border-0" value="{{ member.tax_id or '' }}" placeholder="NIF (PT) / CPF (BR)">
-                                <small class="text-muted">Necessário para emissão de relatórios fiscais (Modelo 25 em Portugal).</small>
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label fw-bold small">Documento de Identificação</label>
@@ -86,15 +85,15 @@
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label fw-bold small">Código Postal / CEP</label>
-                                <input type="text" name="postal_code" class="form-control bg-light border-0" value="{{ member.postal_code or '' }}" placeholder="1234-567">
+                                <input type="text" name="postal_code" class="form-control bg-light border-0" value="{{ member.postal_code or '' }}">
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label fw-bold small">Concelho / Município</label>
-                                <input type="text" name="concelho" class="form-control bg-light border-0" value="{{ member.concelho or '' }}" placeholder="Lisboa">
+                                <input type="text" name="concelho" class="form-control bg-light border-0" value="{{ member.concelho or '' }}">
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label fw-bold small">Localidade / Bairro</label>
-                                <input type="text" name="localidade" class="form-control bg-light border-0" value="{{ member.localidade or '' }}" placeholder="Centro">
+                                <input type="text" name="localidade" class="form-control bg-light border-0" value="{{ member.localidade or '' }}">
                             </div>
                         </div>
 
@@ -103,11 +102,12 @@
                         <div class="row g-3 mb-4">
                             <div class="col-md-6">
                                 <label class="form-label fw-bold small">E-mail</label>
-                                <input type="email" name="email" class="form-control bg-light border-0" value="{{ member.email }}" required>
+                                <input type="email" class="form-control bg-light border-0" value="{{ member.email }}" disabled>
+                                <small class="text-muted">Para alterar o e-mail, entre em contato com o administrador.</small>
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label fw-bold small">Telefone / Celular</label>
-                                <input type="tel" name="phone" class="form-control bg-light border-0" value="{{ member.phone or '' }}" placeholder="(00) 00000-0000">
+                                <input type="tel" name="phone" class="form-control bg-light border-0" value="{{ member.phone or '' }}">
                             </div>
                         </div>
 
@@ -116,7 +116,7 @@
                         <div class="row g-3 mb-4">
                             <div class="col-md-12">
                                 <label class="form-label fw-bold small">Escolaridade</label>
-                                <input type="text" name="education_level" class="form-control bg-light border-0" value="{{ member.education_level or '' }}" placeholder="Ensino Superior Completo">
+                                <input type="text" name="education_level" class="form-control bg-light border-0" value="{{ member.education_level or '' }}">
                             </div>
                         </div>
 
@@ -140,43 +140,13 @@
                             </div>
                         </div>
 
-                        <!-- Informações Administrativas -->
-                        <h5 class="fw-bold mb-3 mt-4"><i class="bi bi-building me-2 text-primary"></i> Informações Administrativas</h5>
-                        <div class="row g-3 mb-4">
-                            <div class="col-md-6">
-                                <label class="form-label fw-bold small">Congregação</label>
-                                <select name="church_id" class="form-select bg-light border-0">
-                                    {% for church in churches %}
-                                    <option value="{{ church.id }}" {{ 'selected' if member.church_id == church.id }}>{{ church.name }}</option>
-                                    {% endfor %}
-                                </select>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label fw-bold small">Cargo</label>
-                                <select name="church_role_id" class="form-select bg-light border-0">
-                                    <option value="">Nenhum</option>
-                                    {% for role in roles %}
-                                    <option value="{{ role.id }}" {{ 'selected' if member.church_role_id == role.id }}>{{ role.name }}</option>
-                                    {% endfor %}
-                                </select>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label fw-bold small">Status</label>
-                                <select name="status" class="form-select bg-light border-0">
-                                    <option value="active" {{ 'selected' if member.status == 'active' }}>Ativo</option>
-                                    <option value="pending" {{ 'selected' if member.status == 'pending' }}>Pendente</option>
-                                    <option value="rejected" {{ 'selected' if member.status == 'rejected' }}>Rejeitado</option>
-                                </select>
-                            </div>
-                        </div>
-
                         <hr class="my-4">
 
                         <div class="d-flex gap-3">
                             <button type="submit" class="btn btn-primary px-5 py-2 fw-bold">
                                 <i class="bi bi-check-lg me-2"></i> Salvar Alterações
                             </button>
-                            <a href="{{ url_for('admin.list_members') }}" class="btn btn-outline-secondary px-4 py-2">
+                            <a href="{{ url_for('members.church_members') }}" class="btn btn-outline-secondary px-4 py-2">
                                 Cancelar
                             </a>
                         </div>
