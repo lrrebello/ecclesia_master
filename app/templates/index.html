@@ -21,50 +21,48 @@
                 {% endif %}
             </div>
         </div>
-        <div class="col-lg-6 d-none d-lg-block">
-            <div class="position-relative">
-                <!-- 🔥 BANNER DO ESPAÇO KIDS (substituindo Multi-Congregação) -->
-                <a href="{{ url_for('edification.kids') }}" class="text-decoration-none">
-                    <div class="card border-0 shadow-lg overflow-hidden" style="background: linear-gradient(135deg, var(--primary) 0%, var(--primary-hover) 100%); border-radius: 1.5rem;">
-                        <div class="card-body p-5 text-center">
-                            <div class="d-flex justify-content-center gap-3 mb-3">
-                                <i class="bi bi-balloon-heart-fill text-white display-3"></i>
-                                <i class="bi bi-star-fill text-warning display-3"></i>
-                                <i class="bi bi-heart-fill text-danger display-3"></i>
+        <div class="col-lg-6">
+            <!-- 🔥 BANNER DO ESPAÇO KIDS (versão desktop e mobile) -->
+            <a href="{{ url_for('edification.kids') }}" class="text-decoration-none">
+                <div class="card border-0 shadow-lg overflow-hidden" style="background: linear-gradient(135deg, var(--primary) 0%, var(--primary-hover) 100%); border-radius: 1.5rem;">
+                    <div class="card-body p-4 p-md-5 text-center">
+                        <div class="d-flex justify-content-center gap-2 gap-md-3 mb-2 mb-md-3">
+                            <i class="bi bi-balloon-heart-fill text-white display-5 display-md-3"></i>
+                            <i class="bi bi-star-fill text-warning display-5 display-md-3"></i>
+                            <i class="bi bi-heart-fill text-danger display-5 display-md-3"></i>
+                        </div>
+                        <h3 class="fw-bold text-white mb-2 mb-md-3 fs-4 fs-md-2">✨ Espaço Ecclesia Kids ✨</h3>
+                        <p class="text-white opacity-90 mb-3 mb-md-4 small small-md">
+                            Um lugar especial para as crianças aprenderem sobre a Bíblia de forma divertida e interativa!
+                        </p>
+                        <div class="d-flex justify-content-center gap-2 gap-md-3 mt-2 mt-md-3">
+                            <div class="text-center">
+                                <div class="bg-white rounded-circle p-1 p-md-2 d-inline-block">
+                                    <i class="bi bi-book text-primary fs-6 fs-md-4"></i>
+                                </div>
+                                <small class="text-white d-block mt-1 small">Histórias</small>
                             </div>
-                            <h3 class="fw-bold text-white mb-3">✨ Espaço Ecclesia Kids ✨</h3>
-                            <p class="text-white opacity-90 mb-4">
-                                Um lugar especial para as crianças aprenderem sobre a Bíblia de forma divertida e interativa!
-                            </p>
-                            <div class="d-flex justify-content-center gap-3 mt-3">
-                                <div class="text-center">
-                                    <div class="bg-white rounded-circle p-2 d-inline-block">
-                                        <i class="bi bi-book text-primary fs-4"></i>
-                                    </div>
-                                    <small class="text-white d-block mt-1">Histórias</small>
+                            <div class="text-center">
+                                <div class="bg-white rounded-circle p-1 p-md-2 d-inline-block">
+                                    <i class="bi bi-question-circle text-success fs-6 fs-md-4"></i>
                                 </div>
-                                <div class="text-center">
-                                    <div class="bg-white rounded-circle p-2 d-inline-block">
-                                        <i class="bi bi-question-circle text-success fs-4"></i>
-                                    </div>
-                                    <small class="text-white d-block mt-1">Quizzes</small>
-                                </div>
-                                <div class="text-center">
-                                    <div class="bg-white rounded-circle p-2 d-inline-block">
-                                        <i class="bi bi-palette text-warning fs-4"></i>
-                                    </div>
-                                    <small class="text-white d-block mt-1">Atividades</small>
-                                </div>
+                                <small class="text-white d-block mt-1 small">Quizzes</small>
                             </div>
-                            <div class="mt-4">
-                                <span class="btn btn-light btn-sm rounded-pill px-4">
-                                    <i class="bi bi-play-circle-fill me-1"></i> Acessar
-                                </span>
+                            <div class="text-center">
+                                <div class="bg-white rounded-circle p-1 p-md-2 d-inline-block">
+                                    <i class="bi bi-palette text-warning fs-6 fs-md-4"></i>
+                                </div>
+                                <small class="text-white d-block mt-1 small">Atividades</small>
                             </div>
                         </div>
+                        <div class="mt-3 mt-md-4">
+                            <span class="btn btn-light btn-sm rounded-pill px-3 px-md-4">
+                                <i class="bi bi-play-circle-fill me-1"></i> Acessar
+                            </span>
+                        </div>
                     </div>
-                </a>
-            </div>
+                </div>
+            </a>
         </div>
     </div>
 
@@ -76,7 +74,7 @@
                 <div class="carousel-inner">
                     {% for media in public_media %}
                     <div class="carousel-item {{ 'active' if loop.first }}">
-                        <img src="{{ url_for('static', filename=media.file_path) }}" class="d-block w-100" alt="{{ media.title }}" style="height: 450px; object-fit: cover;">
+                        <img src="{{ url_for('static', filename=media.file_path) }}" class="d-block w-100" alt="{{ media.title }}" style="height: 250px; object-fit: cover;">
                         <div class="carousel-caption d-none d-md-block bg-dark bg-opacity-50 rounded-3 p-3">
                             <h5 class="fw-bold">{{ media.title }}</h5>
                             <p>{{ media.description | truncate(100) }}</p>
@@ -136,7 +134,7 @@
     </div>
 </div>
 
-<!-- Modal de Informações do Espaço Kids (cor azul padrão) -->
+<!-- Modal de Informações do Espaço Kids -->
 <div class="modal fade" id="kidsInfoModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-lg">
         <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
