@@ -2,103 +2,173 @@
 
 {% block content %}
 <div class="container py-5">
-    <h1 class="fw-bold text-primary mb-4">Editar Perfil</h1>
-    
-    <form method="POST" enctype="multipart/form-data">
-        <div class="mb-3">
-            <label for="name" class="form-label">Nome</label>
-            <input type="text" class="form-control" id="name" name="name" value="{{ current_user.name }}" required>
-        </div>
-        <div class="mb-3">
-            <label for="birth_date" class="form-label">Data de Nascimento</label>
-            <input type="date" class="form-control" id="birth_date" name="birth_date" value="{{ current_user.birth_date.strftime('%Y-%m-%d') if current_user.birth_date else '' }}">
-        </div>
-        <div class="mb-3">
-            <label for="baptism_date" class="form-label">Data de Batismo</label>
-            <input type="date" class="form-control" id="baptism_date" name="baptism_date" value="{{ current_user.baptism_date.strftime('%Y-%m-%d') if current_user.baptism_date else '' }}">
-        </div>
-        <div class="mb-3">
-            <label for="conversion_date" class="form-label">Data de Conversão</label>
-            <input type="date" class="form-control" id="conversion_date" name="conversion_date" value="{{ current_user.conversion_date.strftime('%Y-%m-%d') if current_user.conversion_date else '' }}">
-        </div>
-        <div class="mb-3">
-            <label for="gender" class="form-label">Gênero</label>
-            <select class="form-select" id="gender" name="gender">
-                <option value="">Selecionar</option>
-                <option value="Masculino" {{ 'selected' if current_user.gender == 'Masculino' }}>Masculino</option>
-                <option value="Feminino" {{ 'selected' if current_user.gender == 'Feminino' }}>Feminino</option>
-                <option value="Outro" {{ 'selected' if current_user.gender == 'Outro' }}>Outro</option>
-            </select>
-        </div>
-        <div class="mb-3">
-            <label for="marital_status" class="form-label">Estado Civil</label>
-            <select class="form-select" id="marital_status" name="marital_status" onchange="toggleSpouseField()">
-                <option value="">Selecionar</option>
-                <option value="Solteiro(a)" {{ 'selected' if current_user.marital_status == 'Solteiro(a)' }}>Solteiro(a)</option>
-                <option value="Casado(a)" {{ 'selected' if current_user.marital_status == 'Casado(a)' }}>Casado(a)</option>
-                <option value="Divorciado(a)" {{ 'selected' if current_user.marital_status == 'Divorciado(a)' }}>Divorciado(a)</option>
-                <option value="Viúvo(a)" {{ 'selected' if current_user.marital_status == 'Viúvo(a)' }}>Viúvo(a)</option>
-            </select>
-        </div>
-        <div class="mb-3 {{ 'd-none' if current_user.marital_status != 'Casado(a)' }}" id="spouse_field">
-            <label for="spouse_name" class="form-label">Nome do Cônjuge</label>
-            <input type="text" class="form-control" id="spouse_name" name="spouse_name" value="{{ current_user.spouse_name or '' }}">
-        </div>
-        <div class="mb-3">
-            <label for="documents" class="form-label">Documentos</label>
-            <input type="text" class="form-control" id="documents" name="documents" value="{{ current_user.documents }}">
-        </div>
-        <div class="mb-3">
-            <label for="address" class="form-label">Endereço</label>
-            <textarea class="form-control" id="address" name="address" rows="3">{{ current_user.address or '' }}</textarea>
-        </div>
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card border-0 shadow-sm rounded-4">
+                <div class="card-header bg-primary text-white p-4 rounded-top-4">
+                    <h4 class="fw-bold mb-0"><i class="bi bi-pencil-square me-2"></i> Editar Perfil</h4>
+                    <p class="text-white-50 mb-0 small">Atualize suas informações pessoais</p>
+                </div>
+                <div class="card-body p-4">
+                    <form method="POST" enctype="multipart/form-data">
+                        <!-- Dados Pessoais -->
+                        <h5 class="fw-bold mb-3"><i class="bi bi-person me-2 text-primary"></i> Dados Pessoais</h5>
+                        <div class="row g-3 mb-4">
+                            <div class="col-md-12">
+                                <label class="form-label fw-bold small">Nome Completo *</label>
+                                <input type="text" name="name" class="form-control bg-light border-0" value="{{ current_user.name }}" required>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-bold small">Data de Nascimento</label>
+                                <input type="date" name="birth_date" class="form-control bg-light border-0" value="{{ current_user.birth_date.strftime('%Y-%m-%d') if current_user.birth_date else '' }}">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-bold small">Gênero</label>
+                                <select name="gender" class="form-select bg-light border-0">
+                                    <option value="">Selecionar</option>
+                                    <option value="Masculino" {{ 'selected' if current_user.gender == 'Masculino' }}>Masculino</option>
+                                    <option value="Feminino" {{ 'selected' if current_user.gender == 'Feminino' }}>Feminino</option>
+                                    <option value="Outro" {{ 'selected' if current_user.gender == 'Outro' }}>Outro</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-bold small">Estado Civil</label>
+                                <select name="marital_status" id="marital_status" class="form-select bg-light border-0" onchange="toggleSpouseField()">
+                                    <option value="">Selecionar</option>
+                                    <option value="Solteiro(a)" {{ 'selected' if current_user.marital_status == 'Solteiro(a)' }}>Solteiro(a)</option>
+                                    <option value="Casado(a)" {{ 'selected' if current_user.marital_status == 'Casado(a)' }}>Casado(a)</option>
+                                    <option value="Divorciado(a)" {{ 'selected' if current_user.marital_status == 'Divorciado(a)' }}>Divorciado(a)</option>
+                                    <option value="Viúvo(a)" {{ 'selected' if current_user.marital_status == 'Viúvo(a)' }}>Viúvo(a)</option>
+                                </select>
+                            </div>
+                        </div>
 
-        <!-- Novos campos -->
-        <div class="mb-3">
-            <label for="postal_code" class="form-label">Código Postal</label>
-            <input type="text" class="form-control" id="postal_code" name="postal_code" 
-                   value="{{ current_user.postal_code or '' }}" placeholder="Ex: 1250-123">
-        </div>
-        <div class="mb-3">
-            <label for="concelho" class="form-label">Concelho / Município</label>
-            <input type="text" class="form-control" id="concelho" name="concelho" 
-                   value="{{ current_user.concelho or '' }}" placeholder="Ex: Lisboa">
-        </div>
-        <div class="mb-3">
-            <label for="localidade" class="form-label">Localidade / Bairro</label>
-            <input type="text" class="form-control" id="localidade" name="localidade" 
-                   value="{{ current_user.localidade or '' }}" placeholder="Ex: São Domingos de Benfica">
-        </div>
-        <div class="mb-3">
-            <label for="education_level" class="form-label">Escolaridade</label>
-            <input type="text" class="form-control" id="education_level" name="education_level" 
-                   value="{{ current_user.education_level or '' }}" placeholder="Ex: Ensino Superior Completo">
-        </div>
+                        <div class="row g-3 mb-4" id="spouse_field" style="{{ 'display: flex;' if current_user.marital_status == 'Casado(a)' else 'display: none;' }}">
+                            <div class="col-md-12">
+                                <label class="form-label fw-bold small">Nome do Cônjuge</label>
+                                <input type="text" name="spouse_name" class="form-control bg-light border-0" value="{{ current_user.spouse_name or '' }}">
+                            </div>
+                        </div>
 
-        <div class="mb-3">
-            <label for="phone" class="form-label">Telefone</label>
-            <input type="tel" class="form-control" id="phone" name="phone" value="{{ current_user.phone or '' }}">
+                        <!-- Documentos -->
+                        <h5 class="fw-bold mb-3 mt-4"><i class="bi bi-file-text me-2 text-primary"></i> Documentos</h5>
+                        <div class="row g-3 mb-4">
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold small">Documento de Identificação</label>
+                                <input type="text" name="documents" class="form-control bg-light border-0" value="{{ current_user.documents or '' }}" placeholder="RG, Passaporte, etc.">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold small">NIF / CPF / CNPJ</label>
+                                <input type="text" name="tax_id" class="form-control bg-light border-0" value="{{ current_user.tax_id or '' }}" placeholder="NIF (PT) / CPF (BR)">
+                            </div>
+                        </div>
+
+                        <!-- Datas Espirituais -->
+                        <h5 class="fw-bold mb-3 mt-4"><i class="bi bi-church me-2 text-primary"></i> Datas Espirituais</h5>
+                        <div class="row g-3 mb-4">
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold small">Data de Batismo</label>
+                                <input type="date" name="baptism_date" class="form-control bg-light border-0" value="{{ current_user.baptism_date.strftime('%Y-%m-%d') if current_user.baptism_date else '' }}">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold small">Data de Conversão</label>
+                                <input type="date" name="conversion_date" class="form-control bg-light border-0" value="{{ current_user.conversion_date.strftime('%Y-%m-%d') if current_user.conversion_date else '' }}">
+                            </div>
+                        </div>
+
+                        <!-- Endereço -->
+                        <h5 class="fw-bold mb-3 mt-4"><i class="bi bi-geo-alt me-2 text-primary"></i> Endereço</h5>
+                        <div class="row g-3 mb-4">
+                            <div class="col-md-12">
+                                <label class="form-label fw-bold small">Endereço</label>
+                                <textarea name="address" class="form-control bg-light border-0" rows="2">{{ current_user.address or '' }}</textarea>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-bold small">Código Postal / CEP</label>
+                                <input type="text" name="postal_code" class="form-control bg-light border-0" value="{{ current_user.postal_code or '' }}" placeholder="1250-123">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-bold small">Concelho / Município</label>
+                                <input type="text" name="concelho" class="form-control bg-light border-0" value="{{ current_user.concelho or '' }}" placeholder="Lisboa">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-bold small">Localidade / Bairro</label>
+                                <input type="text" name="localidade" class="form-control bg-light border-0" value="{{ current_user.localidade or '' }}" placeholder="São Domingos de Benfica">
+                            </div>
+                        </div>
+
+                        <!-- Contato -->
+                        <h5 class="fw-bold mb-3 mt-4"><i class="bi bi-envelope me-2 text-primary"></i> Contato</h5>
+                        <div class="row g-3 mb-4">
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold small">E-mail *</label>
+                                <input type="email" class="form-control bg-light border-0" value="{{ current_user.email }}" disabled>
+                                <small class="text-muted">Para alterar o e-mail, entre em contato com o administrador.</small>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold small">Telefone / Celular</label>
+                                <input type="tel" name="phone" class="form-control bg-light border-0" value="{{ current_user.phone or '' }}" placeholder="(00) 00000-0000">
+                            </div>
+                        </div>
+
+                        <!-- Escolaridade -->
+                        <h5 class="fw-bold mb-3 mt-4"><i class="bi bi-mortarboard me-2 text-primary"></i> Formação</h5>
+                        <div class="row g-3 mb-4">
+                            <div class="col-md-12">
+                                <label class="form-label fw-bold small">Escolaridade</label>
+                                <input type="text" name="education_level" class="form-control bg-light border-0" value="{{ current_user.education_level or '' }}" placeholder="Ex: Ensino Superior Completo">
+                            </div>
+                        </div>
+
+                        <!-- Foto de Perfil -->
+                        <h5 class="fw-bold mb-3 mt-4"><i class="bi bi-image me-2 text-primary"></i> Foto de Perfil</h5>
+                        <div class="row g-3 mb-4">
+                            <div class="col-md-12">
+                                <div class="d-flex align-items-center gap-3 mb-3">
+                                    {% if current_user.profile_photo %}
+                                    <img src="{{ url_for('static', filename=current_user.profile_photo) }}" class="rounded-circle" style="width: 80px; height: 80px; object-fit: cover;">
+                                    {% else %}
+                                    <div class="bg-secondary bg-opacity-10 rounded-circle d-flex align-items-center justify-content-center" style="width: 80px; height: 80px;">
+                                        <i class="bi bi-person fs-1 text-secondary"></i>
+                                    </div>
+                                    {% endif %}
+                                    <div>
+                                        <label class="form-label fw-bold small">Nova Foto</label>
+                                        <input type="file" name="profile_photo" class="form-control bg-light border-0" accept="image/*">
+                                        <small class="text-muted">Formatos: JPG, PNG, GIF. Máx 5MB.</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <hr class="my-4">
+
+                        <div class="d-flex gap-3">
+                            <button type="submit" class="btn btn-primary px-5 py-2 fw-bold">
+                                <i class="bi bi-check-lg me-2"></i> Salvar Alterações
+                            </button>
+                            <a href="{{ url_for('members.profile') }}" class="btn btn-outline-secondary px-4 py-2">
+                                Cancelar
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
         </div>
-        <div class="mb-3">
-            <label for="profile_photo" class="form-label">Foto de Perfil (atual: {{ current_user.profile_photo if current_user.profile_photo else 'Nenhuma' }})</label>
-            <input type="file" class="form-control" id="profile_photo" name="profile_photo" accept="image/*">
-        </div>
-        <button type="submit" class="btn btn-primary">Salvar Alterações</button>
-        <a href="{{ url_for('members.profile') }}" class="btn btn-secondary">Cancelar</a>
-    </form>
+    </div>
 </div>
 
 <script>
 function toggleSpouseField() {
     const status = document.getElementById('marital_status').value;
     const spouseField = document.getElementById('spouse_field');
-    const spouseInput = document.getElementById('spouse_name');
+    const spouseInput = spouseField.querySelector('input');
     
     if (status === 'Casado(a)') {
-        spouseField.classList.remove('d-none');
+        spouseField.style.display = 'flex';
         spouseInput.setAttribute('required', 'required');
     } else {
-        spouseField.classList.add('d-none');
+        spouseField.style.display = 'none';
         spouseInput.removeAttribute('required');
         spouseInput.value = '';
     }
