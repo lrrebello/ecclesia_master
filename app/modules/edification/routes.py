@@ -597,7 +597,7 @@ def add_kids_activity():
     return render_template('edification/add_kids.html')
 
 @edification_bp.route('/kids/memory-game')
-@login_required
+#@login_required
 def memory_game():
     story_id = request.args.get('story_id')
     game_data = []
@@ -607,7 +607,7 @@ def memory_game():
     return render_template('edification/kids_memory_game.html', game_data=game_data)
 
 @edification_bp.route('/kids/who-am-i')
-@login_required
+#@login_required
 def who_am_i():
     story_id = request.args.get('story_id')
     game_data = []
@@ -617,7 +617,7 @@ def who_am_i():
     return render_template('edification/kids_who_am_i.html', game_data=game_data)
 
 @edification_bp.route('/kids/puzzle')
-@login_required
+#@login_required
 def puzzle_game():
     story_id = request.args.get('story_id')
     if story_id:
@@ -629,7 +629,7 @@ def puzzle_game():
     return render_template('edification/kids_puzzle.html', image_url=image_url)
 
 @edification_bp.route('/kids/word-search')
-@login_required
+#@login_required
 def word_search():
     story_id = request.args.get('story_id')
     story = None
@@ -639,7 +639,7 @@ def word_search():
     return render_template('edification/kids_word_search.html', story=story)
 
 @edification_bp.route('/kids/crossword')
-@login_required
+#@login_required
 def crossword():
     story_id = request.args.get('story_id')
     story = None
@@ -649,7 +649,7 @@ def crossword():
     return render_template('edification/kids_crossword.html', story=story)
 
 @edification_bp.route('/kids/story/<int:id>')
-@login_required
+#@login_required
 def view_bible_story(id):
     story = BibleStory.query.get_or_404(id)
     return render_template('edification/view_bible_story.html', story=story)
