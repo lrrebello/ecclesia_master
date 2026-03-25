@@ -136,7 +136,9 @@ def edit_profile():
         old_values = {
             'name': current_user.name,
             'phone': current_user.phone,
-            'address': current_user.address
+            'address': current_user.address,
+            'tax_id': current_user.tax_id,  # 🔥 ADICIONADO
+            'documents': current_user.documents  # 🔥 ADICIONADO
         }
         
         current_user.name = request.form.get('name')
@@ -146,7 +148,11 @@ def edit_profile():
         current_user.gender = request.form.get('gender')
         current_user.marital_status = request.form.get('marital_status')
         current_user.spouse_name = request.form.get('spouse_name') if request.form.get('marital_status') == 'Casado(a)' else None
-        current_user.documents = request.form.get('documents')
+        
+        # 🔥 CORRIGIDO: Salvar tax_id (NIF) em vez de documents
+        current_user.tax_id = request.form.get('tax_id')  # NIF/CPF
+        current_user.documents = request.form.get('documents')  # Documento de identificação (RG, etc)
+        
         current_user.address = request.form.get('address')
         current_user.phone = request.form.get('phone')
         current_user.postal_code = request.form.get('postal_code')
@@ -170,7 +176,11 @@ def edit_profile():
             module='PROFILE',
             description=f"Perfil atualizado: {current_user.name}",
             old_values=old_values,
-            new_values={'name': current_user.name, 'phone': current_user.phone},
+            new_values={
+                'name': current_user.name, 
+                'phone': current_user.phone,
+                'tax_id': current_user.tax_id
+            },
             church_id=current_user.church_id
         )
         

@@ -109,7 +109,7 @@ def generate_receipt(transaction):
     
     user_name = user.name if user else "Usuário não identificado"
     
-    # Endereço do doador (usando address apenas)
+    # Endereço do doador
     user_address = user.address if user and user.address else "Endereço não cadastrado"
     
     # Cidade do doador (concelho, localidade, postal_code)
@@ -122,7 +122,8 @@ def generate_receipt(transaction):
         user_city_parts.append(user.postal_code)
     user_city = " - ".join(user_city_parts) if user_city_parts else "Cidade não cadastrada"
     
-    user_nif = user.documents if user and user.documents else "Não informado"
+    # 🔥 CORRIGIDO: Usar tax_id (NIF/CPF) em vez de documents
+    user_nif = user.tax_id if user and user.tax_id else "Não informado"
     user_email = user.email if user else "E-mail não cadastrado"
     
     pdf.rect(120, start_y - 5, 80, 35)
@@ -330,7 +331,8 @@ def generate_consolidated_receipt(user, transactions, start_date, end_date):
         user_city_parts.append(user.postal_code)
     user_city = " - ".join(user_city_parts) if user_city_parts else "Cidade não cadastrada"
     
-    user_nif = user.documents if user and user.documents else "Não informado"
+    # 🔥 CORRIGIDO: Usar tax_id (NIF/CPF) em vez de documents
+    user_nif = user.tax_id if user and user.tax_id else "Não informado"
     user_email = user.email if user else "E-mail não cadastrado"
     
     pdf.rect(120, start_y - 5, 80, 35)
@@ -409,7 +411,7 @@ def generate_consolidated_receipt(user, transactions, start_date, end_date):
     total_extenso = f"{total_amount:,.2f}".replace('.', ',')
     text = (
         f"No período indicado, recebemos a quantia total de {total_extenso} {currency} "
-        "como donativos destinados ao desenvolvimento da atividade desta institução, "
+        "como donativos destinados ao desenvolvimento da atividade desta instituição, "
         "concedidos sem quaisquer contrapartidas."
     )
     pdf.multi_cell(0, 5, text)
