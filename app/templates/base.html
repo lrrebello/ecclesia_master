@@ -29,12 +29,17 @@
         :root {
             /* TEMA PADRÃO - VALORES FIXOS */
             --primary-default: #4f46e5;
+            --primary-rgb-default: 79, 70, 229;
             --primary-hover-default: #4338ca;
             --secondary-default: #64748b;
             --success-default: #10b981;
+            --success-rgb-default: 16, 185, 129;
             --danger-default: #ef4444;
+            --danger-rgb-default: 239, 68, 68;
             --warning-default: #f59e0b;
+            --warning-rgb-default: 245, 158, 11;
             --info-default: #06b6d4;
+            --info-rgb-default: 6, 182, 212;
             --bg-main-default: #f8fafc;
             --bg-card-default: #ffffff;
             --sidebar-bg-default: #1e293b;
@@ -58,12 +63,17 @@
         /* VALORES ATIVOS */
         :root {
             --primary: var(--primary-default);
+            --primary-rgb: var(--primary-rgb-default);
             --primary-hover: var(--primary-hover-default);
             --secondary: var(--secondary-default);
             --success: var(--success-default);
+            --success-rgb: var(--success-rgb-default);
             --danger: var(--danger-default);
+            --danger-rgb: var(--danger-rgb-default);
             --warning: var(--warning-default);
+            --warning-rgb: var(--warning-rgb-default);
             --info: var(--info-default);
+            --info-rgb: var(--info-rgb-default);
             --bg-main: var(--bg-main-default);
             --bg-card: var(--bg-card-default);
             --sidebar-bg: var(--sidebar-bg-default);
@@ -86,12 +96,17 @@
         /* TEMA ESCURO PADRÃO */
         [data-theme="dark"] {
             --primary: #6366f1;
+            --primary-rgb: 99, 102, 241;
             --primary-hover: #818cf8;
             --secondary: #94a3b8;
             --success: #34d399;
+            --success-rgb: 52, 211, 153;
             --danger: #f87171;
+            --danger-rgb: 248, 113, 113;
             --warning: #fbbf24;
+            --warning-rgb: 251, 191, 36;
             --info: #22d3ee;
+            --info-rgb: 34, 211, 238;
             --bg-main: #0f172a;
             --bg-card: #1e293b;
             --sidebar-bg: #020617;
@@ -211,9 +226,141 @@
             background-color: var(--bg-main) !important;
             color: var(--text-main) !important;
         }
+        
+        /* ===== CORREÇÃO PARA TABELAS NO MODO ESCURO ===== */
 
-        .text-muted {
+
+        /* ===== CORREÇÃO ESPECÍFICA PARA O DASHBOARD FINANCEIRO ===== */
+
+        /* Forçar o fundo do cabeçalho da tabela */
+        .table-light,
+        .table-light th,
+        .thead.table-light th,
+        thead.table-light th {
+            background-color: var(--bg-main) !important;
+            color: var(--text-main) !important;
+        }
+
+        /* Forçar as linhas da tabela a usar a cor do card */
+        .table tbody tr {
+            background-color: var(--bg-card) !important;
+        }
+
+        /* Forçar as células a usar a cor correta */
+        .table td {
+            background-color: var(--bg-card) !important;
+            color: var(--text-main) !important;
+        }
+
+        /* Para os badges de categoria */
+        .badge.bg-success.bg-opacity-10,
+        .badge.bg-danger.bg-opacity-10 {
+            background-color: rgba(var(--primary-rgb), 0.1) !important;
+        }
+
+        .badge.text-success,
+        .badge.text-danger {
+            color: var(--text-main) !important;
+        }
+
+        /* Para os textos "Membro:" */
+        .extra-small.text-primary {
             color: var(--text-muted) !important;
+        }
+
+        /* Para o texto do valor */
+        .text-success {
+            color: var(--success) !important;
+        }
+
+        .text-danger {
+            color: var(--danger) !important;
+        }
+
+        /* Para o contêiner da tabela */
+        .table-responsive {
+            background-color: var(--bg-card) !important;
+        }
+
+        /* Para a classe .table-hover */
+        .table-hover tbody tr:hover {
+            background-color: rgba(var(--primary-rgb), 0.05) !important;
+        }
+
+        /* Tabela principal */
+        .table {
+            background-color: var(--bg-card) !important;
+            color: var(--text-main) !important;
+        }
+
+        /* Cabeçalho da tabela */
+        .table thead th {
+            background-color: var(--bg-main) !important;
+            color: var(--text-main) !important;
+            border-bottom-color: var(--border) !important;
+        }
+
+        /* Linhas da tabela */
+        .table tbody tr {
+            background-color: var(--bg-card) !important;
+            border-bottom-color: var(--border) !important;
+        }
+
+        /* Efeito hover nas linhas */
+        .table-hover tbody tr:hover {
+            background-color: rgba(var(--primary-rgb), 0.05) !important;
+        }
+
+        /* Linhas alternadas (striped) */
+        .table-striped > tbody > tr:nth-of-type(odd) {
+            background-color: rgba(var(--primary-rgb), 0.02) !important;
+        }
+
+        /* Células específicas */
+        .table td,
+        .table th {
+            border-top-color: var(--border) !important;
+            color: var(--text-main) !important;
+        }
+
+        /* Texto dentro da tabela */
+        .table td .text-muted,
+        .table th .text-muted {
+            color: var(--text-muted) !important;
+        }
+
+        /* Badges dentro da tabela */
+        .table td .badge.bg-primary {
+            background-color: var(--primary) !important;
+        }
+
+        .table td .badge.bg-success {
+            background-color: var(--success) !important;
+        }
+
+        .table td .badge.bg-danger {
+            background-color: var(--danger) !important;
+        }
+
+        .table td .badge.bg-warning {
+            background-color: var(--warning) !important;
+        }
+
+        .table td .badge.bg-info {
+            background-color: var(--info) !important;
+        }
+        /* Remove a classe table-light que causa conflito */
+        .table-light {
+            background-color: var(--bg-main) !important;
+            --bs-table-bg: var(--bg-main) !important;
+        }
+        /* ===== SOBRESCREVER CLASSES DO BOOTSTRAP COM VARIÁVEIS DO TEMA ===== */
+        .text-primary {
+            color: var(--primary) !important;
+        }
+
+        .bg-primary {
+            background-color: var(--primary) !important;
         }
 
         .btn-primary {
@@ -223,19 +370,83 @@
 
         .btn-primary:hover {
             background-color: var(--primary-hover) !important;
+            border-color: var(--primary-hover) !important;
         }
 
-        .btn-secondary {
+        .btn-outline-primary {
+            color: var(--primary) !important;
+            border-color: var(--primary) !important;
+        }
+
+        .btn-outline-primary:hover {
+            background-color: var(--primary) !important;
+            border-color: var(--primary) !important;
+            color: white !important;
+        }
+
+        .bg-light {
+            background-color: var(--bg-card) !important;
+        }
+
+        .bg-white {
+            background-color: var(--bg-card) !important;
+        }
+
+        .text-muted {
+            color: var(--text-muted) !important;
+        }
+
+        .border-primary {
+            border-color: var(--primary) !important;
+        }
+
+        .badge.bg-primary {
+            background-color: var(--primary) !important;
+        }
+
+        .badge.bg-success {
+            background-color: var(--success) !important;
+        }
+
+        .badge.bg-danger {
+            background-color: var(--danger) !important;
+        }
+
+        .badge.bg-warning {
+            background-color: var(--warning) !important;
+        }
+
+        .badge.bg-info {
+            background-color: var(--info) !important;
+        }
+
+        .badge.bg-secondary {
             background-color: var(--secondary) !important;
-            border-color: var(--secondary) !important;
         }
 
-        /* Formulários */
-        .form-control,
-        .form-select {
-            background-color: var(--input-bg) !important;
-            border-color: var(--border) !important;
-            color: var(--text-main) !important;
+        /* Cores com opacidade */
+        .bg-primary.bg-opacity-10 {
+            background-color: rgba(var(--primary-rgb), 0.1) !important;
+        }
+
+        .bg-success.bg-opacity-10 {
+            background-color: rgba(var(--success-rgb), 0.1) !important;
+        }
+
+        .bg-danger.bg-opacity-10 {
+            background-color: rgba(var(--danger-rgb), 0.1) !important;
+        }
+
+        .bg-warning.bg-opacity-10 {
+            background-color: rgba(var(--warning-rgb), 0.1) !important;
+        }
+
+        .bg-info.bg-opacity-10 {
+            background-color: rgba(var(--info-rgb), 0.1) !important;
+        }
+
+        .bg-secondary.bg-opacity-10 {
+            background-color: rgba(var(--secondary-rgb, 100, 116, 139), 0.1) !important;
         }
 
         /* Links */
@@ -247,11 +458,140 @@
             color: var(--primary-hover) !important;
         }
 
+        /* Tabelas */
+        .table thead th {
+            background-color: var(--bg-main) !important;
+            color: var(--text-main) !important;
+            border-bottom-color: var(--border) !important;
+        }
+
+        .table-hover tbody tr:hover {
+            background-color: rgba(var(--primary-rgb), 0.05) !important;
+        }
+
+        /* Cards e modais */
+        .card-header.bg-white {
+            background-color: var(--bg-card) !important;
+        }
+
+        .modal-footer.bg-light {
+            background-color: var(--bg-main) !important;
+        }
+
+        /* Formulários */
+        .form-control.bg-light,
+        .form-select.bg-light,
+        .form-control.bg-white,
+        .form-select.bg-white,
+        .input-group-text.bg-light {
+            background-color: var(--input-bg) !important;
+            border-color: var(--border) !important;
+            color: var(--text-main) !important;
+        }
+
+        .form-control:focus,
+        .form-select:focus {
+            border-color: var(--primary) !important;
+            box-shadow: 0 0 0 0.2rem rgba(var(--primary-rgb), 0.25) !important;
+        }
+
         /* Alertas */
-        .alert-success { background-color: rgba(16, 185, 129, 0.1) !important; color: var(--success) !important; }
-        .alert-danger { background-color: rgba(239, 68, 68, 0.1) !important; color: var(--danger) !important; }
-        .alert-warning { background-color: rgba(245, 158, 11, 0.1) !important; color: var(--warning) !important; }
-        .alert-info { background-color: rgba(6, 182, 212, 0.1) !important; color: var(--info) !important; }
+        .alert-info {
+            background-color: rgba(var(--info-rgb), 0.1) !important;
+            color: var(--info) !important;
+            border-color: var(--info) !important;
+        }
+
+        .alert-success {
+            background-color: rgba(var(--success-rgb), 0.1) !important;
+            color: var(--success) !important;
+            border-color: var(--success) !important;
+        }
+
+        .alert-warning {
+            background-color: rgba(var(--warning-rgb), 0.1) !important;
+            color: var(--warning) !important;
+            border-color: var(--warning) !important;
+        }
+
+        .alert-danger {
+            background-color: rgba(var(--danger-rgb), 0.1) !important;
+            color: var(--danger) !important;
+            border-color: var(--danger) !important;
+        }
+
+        /* Paginação */
+        .page-link {
+            background-color: var(--bg-card) !important;
+            border-color: var(--border) !important;
+            color: var(--text-main) !important;
+        }
+
+        .page-link:hover {
+            background-color: var(--bg-main) !important;
+            color: var(--primary) !important;
+        }
+
+        .page-item.active .page-link {
+            background-color: var(--primary) !important;
+            border-color: var(--primary) !important;
+        }
+
+        /* Dropdown */
+        .dropdown-menu {
+            background-color: var(--bg-card) !important;
+            border-color: var(--border) !important;
+        }
+
+        .dropdown-item {
+            color: var(--text-main) !important;
+        }
+
+        .dropdown-item:hover {
+            background-color: rgba(var(--primary-rgb), 0.1) !important;
+        }
+
+        /* Accordion */
+        .accordion-button {
+            background-color: var(--bg-card) !important;
+            color: var(--text-main) !important;
+        }
+
+        .accordion-button:not(.collapsed) {
+            background-color: rgba(var(--primary-rgb), 0.1) !important;
+            color: var(--primary) !important;
+        }
+
+        /* Modal */
+        .modal-content {
+            background-color: var(--bg-card) !important;
+        }
+
+        .modal-header {
+            border-bottom-color: var(--border) !important;
+        }
+
+        .modal-footer {
+            border-top-color: var(--border) !important;
+        }
+
+        /* List Group */
+        .list-group-item {
+            background-color: var(--bg-card) !important;
+            border-color: var(--border) !important;
+            color: var(--text-main) !important;
+        }
+
+        /* Nav Tabs */
+        .nav-tabs .nav-link {
+            color: var(--text-muted) !important;
+        }
+
+        .nav-tabs .nav-link.active {
+            background-color: var(--bg-card) !important;
+            border-color: var(--border) !important;
+            color: var(--primary) !important;
+        }
 
         /* Theme Toggle */
         .theme-toggle {
@@ -264,7 +604,7 @@
             background-color: var(--border) !important;
         }
 
-        /* Mobile Navbar - APENAS CORES (display controlado pelo premium.css) */
+        /* Mobile Navbar */
         .mobile-navbar {
             background-color: var(--bg-card) !important;
             border-bottom-color: var(--border) !important;
