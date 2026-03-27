@@ -126,8 +126,15 @@ def register():
     church = Church.query.get_or_404(church_id)
     
     if request.method == 'POST':
+        email = request.form.get('email').lower().strip()
+        
+        # 🔥 VERIFICAR SE E-MAIL JÁ EXISTE
+        existing_user = User.query.filter_by(email=email).first()
+        if existing_user:
+            flash('Este e-mail já está cadastrado no sistema. Se você já possui cadastro, faça login. Caso tenha esquecido sua senha, utilize a opção "Esqueci minha senha".', 'danger')
+            return render_template('auth/register.html', church=church)
+        
         name = request.form.get('name')
-        email = request.form.get('email')
         password = request.form.get('password')
         
         birth_date_str = request.form.get('birth_date')
@@ -163,7 +170,7 @@ def register():
         
         new_user = User(
             name=name.strip() if name else '',
-            email=email.lower().strip() if email else '',
+            email=email,
             birth_date=birth_date,
             baptism_date=baptism_date,
             gender=gender,
@@ -178,7 +185,7 @@ def register():
             data_consent=data_consent,
             data_consent_date=datetime.utcnow(),
             marketing_consent=marketing_consent,
-            is_email_verified=True # Definido como True por padrão enquanto a verificação está desativada
+            is_email_verified=True  # Definido como True por padrão enquanto a verificação está desativada
         )
         new_user.set_password(password)
 
@@ -190,13 +197,13 @@ def register():
         db.session.commit()
         
         # === LOG ADICIONADO ===
-        #log_action(
-        #    action='REGISTER',
-        #    module='AUTH',
-        #    description=f"Novo registro: {new_user.name}",
-        #    new_values={'id': new_user.id, 'name': new_user.name, 'email': new_user.email},
-        #    church_id=church.id
-        #)
+        log_action(
+            action='REGISTER',
+            module='AUTH',
+            description=f"Novo registro: {new_user.name}",
+            new_values={'id': new_user.id, 'name': new_user.name, 'email': new_user.email},
+            church_id=church.id
+        )
         # ======================
         
         flash('Cadastro realizado com sucesso! Agora aguarde a aprovação da liderança para acessar o sistema.', 'success')
