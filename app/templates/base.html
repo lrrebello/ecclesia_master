@@ -663,27 +663,18 @@
     </div>
     {% endif %}
 
-        <header class="d-flex justify-content-between align-items-center mb-4">
+    <div class="main-content {{ 'mx-auto' if not current_user.is_authenticated }}">
+        {% if current_user.is_authenticated %}
+        <header class="d-flex justify-content-between align-items-center mb-4 d-none d-lg-flex">
             <div>
-                {% if current_user.is_authenticated %}
                 <h5 class="text-muted mb-0 small">Bem-vindo,</h5>
                 <h3 class="fw-bold mb-0" style="color: var(--text-main);">{{ current_user.name }}</h3>
-                {% else %}
-                <h3 class="fw-bold mb-0" style="color: var(--text-main);">Ecclesia Master</h3>
-                <p class="text-muted mb-0 small">Plataforma de gestão eclesiástica</p>
-                {% endif %}
             </div>
-            <div class="d-flex gap-2 align-items-center">
-                <div class="theme-toggle shadow-sm" onclick="toggleTheme()">
-                    <i class="bi bi-moon-stars" id="theme-icon"></i>
-                </div>
-                {% if not current_user.is_authenticated and request.endpoint != 'index' %}
-                <a href="{{ url_for('index') }}" class="btn btn-outline-secondary btn-sm">
-                    <i class="bi bi-arrow-left me-1"></i> Voltar
-                </a>
-                {% endif %}
+            <div class="theme-toggle shadow-sm" onclick="toggleTheme()">
+                <i class="bi bi-moon-stars" id="theme-icon"></i>
             </div>
         </header>
+        {% endif %}
 
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
