@@ -228,37 +228,132 @@
         }
         
         /* ===== CORREÇÃO PARA TABELAS NO MODO ESCURO ===== */
+
+
+        /* ===== CORREÇÃO ESPECÍFICA PARA O DASHBOARD FINANCEIRO ===== */
+
+        /* Forçar o fundo do cabeçalho da tabela */
+        .table-light,
+        .table-light th,
+        .thead.table-light th,
+        thead.table-light th {
+            background-color: var(--bg-main) !important;
+            color: var(--text-main) !important;
+        }
+
+        /* Forçar as linhas da tabela a usar a cor do card */
+        .table tbody tr {
+            background-color: var(--bg-card) !important;
+        }
+
+        /* Forçar as células a usar a cor correta */
+        .table td {
+            background-color: var(--bg-card) !important;
+            color: var(--text-main) !important;
+        }
+
+        /* Para os badges de categoria */
+        .badge.bg-success.bg-opacity-10,
+        .badge.bg-danger.bg-opacity-10 {
+            background-color: rgba(var(--primary-rgb), 0.1) !important;
+        }
+
+        .badge.text-success,
+        .badge.text-danger {
+            color: var(--text-main) !important;
+        }
+
+        /* Para os textos "Membro:" */
+        .extra-small.text-primary {
+            color: var(--text-muted) !important;
+        }
+
+        /* Para o texto do valor */
+        .text-success {
+            color: var(--success) !important;
+        }
+
+        .text-danger {
+            color: var(--danger) !important;
+        }
+
+        /* Para o contêiner da tabela */
+        .table-responsive {
+            background-color: var(--bg-card) !important;
+        }
+
+        /* Para a classe .table-hover */
+        .table-hover tbody tr:hover {
+            background-color: rgba(var(--primary-rgb), 0.05) !important;
+        }
+
+        /* Tabela principal */
         .table {
             background-color: var(--bg-card) !important;
             color: var(--text-main) !important;
         }
 
+        /* Cabeçalho da tabela */
         .table thead th {
             background-color: var(--bg-main) !important;
             color: var(--text-main) !important;
             border-bottom-color: var(--border) !important;
         }
 
+        /* Linhas da tabela */
         .table tbody tr {
             background-color: var(--bg-card) !important;
             border-bottom-color: var(--border) !important;
         }
 
+        /* Efeito hover nas linhas */
         .table-hover tbody tr:hover {
             background-color: rgba(var(--primary-rgb), 0.05) !important;
         }
 
+        /* Linhas alternadas (striped) */
+        .table-striped > tbody > tr:nth-of-type(odd) {
+            background-color: rgba(var(--primary-rgb), 0.02) !important;
+        }
+
+        /* Células específicas */
         .table td,
         .table th {
             border-top-color: var(--border) !important;
             color: var(--text-main) !important;
         }
 
+        /* Texto dentro da tabela */
+        .table td .text-muted,
+        .table th .text-muted {
+            color: var(--text-muted) !important;
+        }
+
+        /* Badges dentro da tabela */
+        .table td .badge.bg-primary {
+            background-color: var(--primary) !important;
+        }
+
+        .table td .badge.bg-success {
+            background-color: var(--success) !important;
+        }
+
+        .table td .badge.bg-danger {
+            background-color: var(--danger) !important;
+        }
+
+        .table td .badge.bg-warning {
+            background-color: var(--warning) !important;
+        }
+
+        .table td .badge.bg-info {
+            background-color: var(--info) !important;
+        }
+        /* Remove a classe table-light que causa conflito */
         .table-light {
             background-color: var(--bg-main) !important;
             --bs-table-bg: var(--bg-main) !important;
         }
-        
         /* ===== SOBRESCREVER CLASSES DO BOOTSTRAP COM VARIÁVEIS DO TEMA ===== */
         .text-primary {
             color: var(--primary) !important;
@@ -350,6 +445,10 @@
             background-color: rgba(var(--info-rgb), 0.1) !important;
         }
 
+        .bg-secondary.bg-opacity-10 {
+            background-color: rgba(var(--secondary-rgb, 100, 116, 139), 0.1) !important;
+        }
+
         /* Links */
         a:not(.nav-link) {
             color: var(--primary) !important;
@@ -357,6 +456,17 @@
 
         a:not(.nav-link):hover {
             color: var(--primary-hover) !important;
+        }
+
+        /* Tabelas */
+        .table thead th {
+            background-color: var(--bg-main) !important;
+            color: var(--text-main) !important;
+            border-bottom-color: var(--border) !important;
+        }
+
+        .table-hover tbody tr:hover {
+            background-color: rgba(var(--primary-rgb), 0.05) !important;
         }
 
         /* Cards e modais */
@@ -441,6 +551,17 @@
             background-color: rgba(var(--primary-rgb), 0.1) !important;
         }
 
+        /* Accordion */
+        .accordion-button {
+            background-color: var(--bg-card) !important;
+            color: var(--text-main) !important;
+        }
+
+        .accordion-button:not(.collapsed) {
+            background-color: rgba(var(--primary-rgb), 0.1) !important;
+            color: var(--primary) !important;
+        }
+
         /* Modal */
         .modal-content {
             background-color: var(--bg-card) !important;
@@ -461,18 +582,22 @@
             color: var(--text-main) !important;
         }
 
+        /* Nav Tabs */
+        .nav-tabs .nav-link {
+            color: var(--text-muted) !important;
+        }
+
+        .nav-tabs .nav-link.active {
+            background-color: var(--bg-card) !important;
+            border-color: var(--border) !important;
+            color: var(--primary) !important;
+        }
+
         /* Theme Toggle */
         .theme-toggle {
             background-color: var(--bg-card) !important;
             border-color: var(--border) !important;
             color: var(--text-main) !important;
-            cursor: pointer;
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
         }
 
         .theme-toggle:hover {
@@ -496,7 +621,7 @@
         <div class="d-flex align-items-center">
             {% if current_user.church and current_user.church.theme and current_user.church.theme.logo_light %}
                 <img src="{{ url_for('static', filename=current_user.church.theme.logo_light) }}" 
-                     alt="Logo" style="max-height: 40px; margin-right: 0.5rem;">
+                    alt="Logo" style="max-height: 40px; margin-right: 0.5rem;">
             {% else %}
                 <i class="bi bi-lightning-charge-fill" style="color: var(--primary); font-size: 1.8rem; margin-right: 0.5rem;"></i>
             {% endif %}
@@ -545,14 +670,12 @@
                 <h5 class="text-muted mb-0 small">Bem-vindo,</h5>
                 <h3 class="fw-bold mb-0" style="color: var(--text-main);">{{ current_user.name }}</h3>
                 {% else %}
-                <h3 class="fw-bold mb-0" style="color: var(--text-main);">Ecclesia Master</h3>
-                <p class="text-muted mb-0 small">Plataforma de gestão eclesiástica</p>
+                <!--<h3 class="fw-bold mb-0" style="color: var(--text-main);">Ecclesia Master</h3>
+                <p class="text-muted mb-0 small">Plataforma de gestão eclesiástica</p>-->
                 {% endif %}
             </div>
-            <div class="d-flex gap-2 align-items-center">
-                <div class="theme-toggle shadow-sm" onclick="toggleTheme()">
-                    <i class="bi bi-moon-stars" id="theme-icon"></i>
-                </div>
+            <div class="theme-toggle shadow-sm" onclick="toggleTheme()">
+                <i class="bi bi-moon-stars" id="theme-icon"></i>
             </div>
         </header>
 
