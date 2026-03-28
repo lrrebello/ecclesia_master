@@ -615,34 +615,41 @@
     {% endif %}
 
     <div class="main-content {{ 'mx-auto' if not current_user.is_authenticated }}">
-            <header class="d-flex justify-content-between align-items-center mb-4">
-            <div>
-                {% if current_user.is_authenticated %}
-                <h5 class="text-muted mb-0 small">Bem-vindo,</h5>
-                <h3 class="fw-bold mb-0" style="color: var(--text-main);">{{ current_user.name }}</h3>
-                {% else %}
-                <!--<h3 class="fw-bold mb-0" style="color: var(--text-main);">Ecclesia Master</h3>
-                <p class="text-muted mb-0 small">Plataforma de gestão eclesiástica</p>-->
-                {% endif %}
-            </div>
-            <div class="d-flex gap-2 align-items-center">
-                <button id="installButton" class="btn btn-outline-primary btn-sm" style="display: none;">
-                    <i class="bi bi-download me-1"></i> Instalar App
-                </button>
-                <button id="showInstallHelpBtn" class="btn btn-outline-info btn-sm" style="display: none;">
-                    <i class="bi bi-question-circle me-1"></i> Como instalar?
-                </button>
-                <!-- 🔥 BOTÃO VOLTAR (apenas para usuários não logados) -->
-                {% if not current_user.is_authenticated and request.endpoint != 'index' %}
-                <a href="{{ url_for('index') }}" class="btn btn-outline-secondary btn-sm">
-                    <i class="bi bi-arrow-left me-1"></i> Voltar
-                </a>
-                {% endif %}
-                <div class="theme-toggle shadow-sm" onclick="toggleTheme()">
-                    <i class="bi bi-moon-stars" id="theme-icon"></i>
+        <header class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    {% if current_user.is_authenticated %}
+                    <h5 class="text-muted mb-0 small">Bem-vindo,</h5>
+                    <h3 class="fw-bold mb-0" style="color: var(--text-main);">{{ current_user.name }}</h3>
+                    {% else %}
+                    <!--<h3 class="fw-bold mb-0" style="color: var(--text-main);">Ecclesia Master</h3>
+                    <p class="text-muted mb-0 small">Plataforma de gestão eclesiástica</p>-->
+                    {% endif %}
                 </div>
-            </div>
-        </header>
+                <div class="d-flex gap-2 align-items-center">
+                    <!-- 🔥 BOTÃO INSTALAR (só aparece quando o navegador permite) -->
+                    <button id="installButton" class="btn btn-outline-primary btn-sm" style="display: none;">
+                        <i class="bi bi-download me-1"></i> Instalar App
+                    </button>
+                    
+                    <!-- 🔥 BOTÃO "COMO INSTALAR" (apenas na página inicial e para não logados) -->
+                    {% if not current_user.is_authenticated and request.endpoint == 'index' %}
+                    <button id="showInstallHelpBtn" class="btn btn-outline-info btn-sm">
+                        <i class="bi bi-question-circle me-1"></i> Como instalar?
+                    </button>
+                    {% endif %}
+                    
+                    <!-- 🔥 BOTÃO VOLTAR (apenas para usuários não logados que não estão na página inicial) -->
+                    {% if not current_user.is_authenticated and request.endpoint != 'index' %}
+                    <a href="{{ url_for('index') }}" class="btn btn-outline-secondary btn-sm">
+                        <i class="bi bi-arrow-left me-1"></i> Voltar
+                    </a>
+                    {% endif %}
+                    
+                    <div class="theme-toggle shadow-sm" onclick="toggleTheme()">
+                        <i class="bi bi-moon-stars" id="theme-icon"></i>
+                    </div>
+                </div>
+            </header>
 
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
