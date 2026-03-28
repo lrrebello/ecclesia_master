@@ -60,7 +60,7 @@
             --devotional-icon-color-default: rgba(255,255,255,0.15);
         }
 
-        /* VALORES ATIVOS */
+        /* VALORES ATIVOS (padrão) */
         :root {
             --primary: var(--primary-default);
             --primary-rgb: var(--primary-rgb-default);
@@ -91,6 +91,13 @@
             --devotional-badge-bg: var(--devotional-badge-bg-default);
             --devotional-badge-text: var(--devotional-badge-text-default);
             --devotional-icon-color: var(--devotional-icon-color-default);
+            
+            /* 🔥 TABELA (PADRÃO) */
+            --table-header-bg: var(--bg-main);
+            --table-header-text: var(--text-main);
+            --table-row-bg: var(--bg-card);
+            --table-row-hover: rgba(var(--primary-rgb), 0.05);
+            --table-border: var(--border);
         }
 
         /* TEMA ESCURO PADRÃO */
@@ -115,9 +122,16 @@
             --text-main: #f1f5f9;
             --text-muted: #94a3b8;
             --border: #334155;
+            
+            /* 🔥 TABELA (TEMA ESCURO PADRÃO) */
+            --table-header-bg: var(--bg-main);
+            --table-header-text: var(--text-main);
+            --table-row-bg: var(--bg-card);
+            --table-row-hover: rgba(var(--primary-rgb), 0.05);
+            --table-border: var(--border);
         }
 
-        /* ===== TEMA PERSONALIZADO DA IGREJA ===== */
+        /* ===== TEMA PERSONALIZADO DA IGREJA (DEVE SER O ÚLTIMO A SER APLICADO) ===== */
         {% if current_user.is_authenticated and current_user.church and current_user.church.theme and current_user.church.theme.is_custom %}
             {% set t = current_user.church.theme %}
             :root {
@@ -145,6 +159,13 @@
                 --devotional-badge-bg: {{ t.devotional_badge_bg }} !important;
                 --devotional-badge-text: {{ t.devotional_badge_text }} !important;
                 --devotional-icon-color: {{ t.devotional_icon_color|default('rgba(255,255,255,0.15)') }} !important;
+                
+                /* 🔥 VARIÁVEIS DE TABELA (TEMA CLARO PERSONALIZADO) */
+                --table-header-bg: {{ t.light_table_header_bg }} !important;
+                --table-header-text: {{ t.light_table_header_text }} !important;
+                --table-row-bg: {{ t.light_table_row_bg }} !important;
+                --table-row-hover: {{ t.light_table_row_hover }} !important;
+                --table-border: {{ t.light_table_border }} !important;
             }
 
             /* Tema Escuro Personalizado */
@@ -164,6 +185,13 @@
                 --text-main: {{ t.dark_text_main }} !important;
                 --text-muted: {{ t.dark_text_muted }} !important;
                 --border: {{ t.dark_border }} !important;
+                
+                /* 🔥 VARIÁVEIS DE TABELA (TEMA ESCURO PERSONALIZADO) */
+                --table-header-bg: {{ t.dark_table_header_bg }} !important;
+                --table-header-text: {{ t.dark_table_header_text }} !important;
+                --table-row-bg: {{ t.dark_table_row_bg }} !important;
+                --table-row-hover: {{ t.dark_table_row_hover }} !important;
+                --table-border: {{ t.dark_table_border }} !important;
             }
         {% endif %}
 
@@ -227,133 +255,54 @@
             color: var(--text-main) !important;
         }
         
-        /* ===== CORREÇÃO PARA TABELAS NO MODO ESCURO ===== */
-
-
-        /* ===== CORREÇÃO ESPECÍFICA PARA O DASHBOARD FINANCEIRO ===== */
-
-        /* Forçar o fundo do cabeçalho da tabela */
-        .table-light,
-        .table-light th,
-        .thead.table-light th,
-        thead.table-light th {
-            background-color: var(--bg-main) !important;
-            color: var(--text-main) !important;
-        }
-
-        /* Forçar as linhas da tabela a usar a cor do card */
-        .table tbody tr {
-            background-color: var(--bg-card) !important;
-        }
-
-        /* Forçar as células a usar a cor correta */
-        .table td {
-            background-color: var(--bg-card) !important;
-            color: var(--text-main) !important;
-        }
-
-        /* Para os badges de categoria */
-        .badge.bg-success.bg-opacity-10,
-        .badge.bg-danger.bg-opacity-10 {
-            background-color: rgba(var(--primary-rgb), 0.1) !important;
-        }
-
-        .badge.text-success,
-        .badge.text-danger {
-            color: var(--text-main) !important;
-        }
-
-        /* Para os textos "Membro:" */
-        .extra-small.text-primary {
-            color: var(--text-muted) !important;
-        }
-
-        /* Para o texto do valor */
-        .text-success {
-            color: var(--success) !important;
-        }
-
-        .text-danger {
-            color: var(--danger) !important;
-        }
-
-        /* Para o contêiner da tabela */
-        .table-responsive {
-            background-color: var(--bg-card) !important;
-        }
-
-        /* Para a classe .table-hover */
-        .table-hover tbody tr:hover {
-            background-color: rgba(var(--primary-rgb), 0.05) !important;
-        }
-
-        /* Tabela principal */
+        /* ===== CORREÇÃO PARA TABELAS ===== */
         .table {
-            background-color: var(--bg-card) !important;
+            background-color: var(--table-row-bg, var(--bg-card)) !important;
             color: var(--text-main) !important;
         }
 
-        /* Cabeçalho da tabela */
         .table thead th {
-            background-color: var(--bg-main) !important;
-            color: var(--text-main) !important;
-            border-bottom-color: var(--border) !important;
+            background-color: var(--table-header-bg, var(--bg-main)) !important;
+            color: var(--table-header-text, var(--text-main)) !important;
+            border-bottom-color: var(--table-border, var(--border)) !important;
         }
 
-        /* Linhas da tabela */
         .table tbody tr {
-            background-color: var(--bg-card) !important;
-            border-bottom-color: var(--border) !important;
+            background-color: var(--table-row-bg, var(--bg-card)) !important;
+            border-bottom-color: var(--table-border, var(--border)) !important;
         }
 
-        /* Efeito hover nas linhas */
         .table-hover tbody tr:hover {
-            background-color: rgba(var(--primary-rgb), 0.05) !important;
+            background-color: var(--table-row-hover, rgba(var(--primary-rgb), 0.05)) !important;
         }
 
-        /* Linhas alternadas (striped) */
         .table-striped > tbody > tr:nth-of-type(odd) {
             background-color: rgba(var(--primary-rgb), 0.02) !important;
         }
 
-        /* Células específicas */
         .table td,
         .table th {
-            border-top-color: var(--border) !important;
+            border-color: var(--table-border, var(--border)) !important;
             color: var(--text-main) !important;
         }
 
-        /* Texto dentro da tabela */
         .table td .text-muted,
         .table th .text-muted {
             color: var(--text-muted) !important;
         }
 
-        /* Badges dentro da tabela */
-        .table td .badge.bg-primary {
-            background-color: var(--primary) !important;
-        }
-
-        .table td .badge.bg-success {
-            background-color: var(--success) !important;
-        }
-
-        .table td .badge.bg-danger {
-            background-color: var(--danger) !important;
-        }
-
-        .table td .badge.bg-warning {
-            background-color: var(--warning) !important;
-        }
-
-        .table td .badge.bg-info {
-            background-color: var(--info) !important;
-        }
-        /* Remove a classe table-light que causa conflito */
         .table-light {
             background-color: var(--bg-main) !important;
             --bs-table-bg: var(--bg-main) !important;
         }
+        /* ===== DEBUG: Forçar cores da tabela ===== */
+        .table tbody tr {
+            background-color: var(--table-row-bg, red) !important;
+        }
+        .table td {
+            background-color: var(--table-row-bg, red) !important;
+        }
+        
         /* ===== SOBRESCREVER CLASSES DO BOOTSTRAP COM VARIÁVEIS DO TEMA ===== */
         .text-primary {
             color: var(--primary) !important;
@@ -456,17 +405,6 @@
 
         a:not(.nav-link):hover {
             color: var(--primary-hover) !important;
-        }
-
-        /* Tabelas */
-        .table thead th {
-            background-color: var(--bg-main) !important;
-            color: var(--text-main) !important;
-            border-bottom-color: var(--border) !important;
-        }
-
-        .table-hover tbody tr:hover {
-            background-color: rgba(var(--primary-rgb), 0.05) !important;
         }
 
         /* Cards e modais */
@@ -615,6 +553,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/premium.css') }}">
 </head>
 <body>
+    <!-- O resto do body permanece igual -->
     {% if current_user.is_authenticated %}
     <!-- Mobile Navbar -->
     <div class="mobile-navbar d-lg-none">

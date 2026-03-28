@@ -4,9 +4,9 @@
 <div class="container-fluid py-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h2 class="fw-bold">Personalizar Tema - {{ church.name }}</h2>
-        <a href="{{ url_for('admin.edit_my_church') }}" class="btn btn-outline-secondary">
+        <!--<a href="{{ url_for('admin.edit_my_church') }}" class="btn btn-outline-secondary">
             <i class="bi bi-arrow-left"></i> Voltar
-        </a>
+        </a>-->
     </div>
 
     <div class="row">
@@ -51,6 +51,7 @@
                                         <label class="form-label">Primária</label>
                                         <input type="color" name="light_primary" class="form-control form-control-color preview-color" 
                                                data-var="--primary"
+                                               data-theme="light"
                                                value="{{ theme.light_primary if theme and theme.is_custom else '#4f46e5' }}">
                                         <small class="text-muted">Botões, links, elementos de destaque</small>
                                     </div>
@@ -58,12 +59,14 @@
                                         <label class="form-label">Primária (hover)</label>
                                         <input type="color" name="light_primary_hover" class="form-control form-control-color preview-color" 
                                                data-var="--primary-hover"
+                                               data-theme="light"
                                                value="{{ theme.light_primary_hover if theme and theme.is_custom else '#4338ca' }}">
                                     </div>
                                     <div class="col-md-6">
                                         <label class="form-label">Secundária</label>
                                         <input type="color" name="light_secondary" class="form-control form-control-color preview-color" 
                                                data-var="--secondary"
+                                               data-theme="light"
                                                value="{{ theme.light_secondary if theme and theme.is_custom else '#64748b' }}">
                                     </div>
                                 </div>
@@ -74,24 +77,28 @@
                                         <label class="form-label">Sucesso</label>
                                         <input type="color" name="light_success" class="form-control form-control-color preview-color" 
                                                data-var="--success"
+                                               data-theme="light"
                                                value="{{ theme.light_success if theme and theme.is_custom else '#10b981' }}">
                                     </div>
                                     <div class="col-md-3">
                                         <label class="form-label">Perigo</label>
                                         <input type="color" name="light_danger" class="form-control form-control-color preview-color" 
                                                data-var="--danger"
+                                               data-theme="light"
                                                value="{{ theme.light_danger if theme and theme.is_custom else '#ef4444' }}">
                                     </div>
                                     <div class="col-md-3">
                                         <label class="form-label">Aviso</label>
                                         <input type="color" name="light_warning" class="form-control form-control-color preview-color" 
                                                data-var="--warning"
+                                               data-theme="light"
                                                value="{{ theme.light_warning if theme and theme.is_custom else '#f59e0b' }}">
                                     </div>
                                     <div class="col-md-3">
                                         <label class="form-label">Info</label>
                                         <input type="color" name="light_info" class="form-control form-control-color preview-color" 
                                                data-var="--info"
+                                               data-theme="light"
                                                value="{{ theme.light_info if theme and theme.is_custom else '#06b6d4' }}">
                                     </div>
                                 </div>
@@ -102,30 +109,35 @@
                                         <label class="form-label">Fundo Principal</label>
                                         <input type="color" name="light_bg_main" class="form-control form-control-color preview-color" 
                                                data-var="--bg-main"
+                                               data-theme="light"
                                                value="{{ theme.light_bg_main if theme and theme.is_custom else '#f8fafc' }}">
                                     </div>
                                     <div class="col-md-4">
                                         <label class="form-label">Fundo dos Cards</label>
                                         <input type="color" name="light_bg_card" class="form-control form-control-color preview-color" 
                                                data-var="--bg-card"
+                                               data-theme="light"
                                                value="{{ theme.light_bg_card if theme and theme.is_custom else '#ffffff' }}">
                                     </div>
                                     <div class="col-md-4">
                                         <label class="form-label">Texto Principal</label>
                                         <input type="color" name="light_text_main" class="form-control form-control-color preview-color" 
                                                data-var="--text-main"
+                                               data-theme="light"
                                                value="{{ theme.light_text_main if theme and theme.is_custom else '#1e293b' }}">
                                     </div>
                                     <div class="col-md-4">
                                         <label class="form-label">Texto Secundário</label>
                                         <input type="color" name="light_text_muted" class="form-control form-control-color preview-color" 
                                                data-var="--text-muted"
+                                               data-theme="light"
                                                value="{{ theme.light_text_muted if theme and theme.is_custom else '#64748b' }}">
                                     </div>
                                     <div class="col-md-4">
                                         <label class="form-label">Bordas</label>
                                         <input type="color" name="light_border" class="form-control form-control-color preview-color" 
                                                data-var="--border"
+                                               data-theme="light"
                                                value="{{ theme.light_border if theme and theme.is_custom else '#e2e8f0' }}">
                                     </div>
                                 </div>
@@ -136,13 +148,54 @@
                                         <label class="form-label">Fundo da Sidebar</label>
                                         <input type="color" name="light_sidebar_bg" class="form-control form-control-color preview-color" 
                                                data-var="--sidebar-bg"
+                                               data-theme="light"
                                                value="{{ theme.light_sidebar_bg if theme and theme.is_custom else '#1e293b' }}">
                                     </div>
                                     <div class="col-md-6">
                                         <label class="form-label">Texto da Sidebar</label>
                                         <input type="color" name="light_sidebar_text" class="form-control form-control-color preview-color" 
                                                data-var="--sidebar-text"
+                                               data-theme="light"
                                                value="{{ theme.light_sidebar_text if theme and theme.is_custom else '#f8fafc' }}">
+                                    </div>
+                                </div>
+
+                                <h6 class="fw-bold mb-3 mt-4">Tabelas (Modo Claro)</h6>
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label">Cabeçalho da Tabela</label>
+                                        <input type="color" name="light_table_header_bg" class="form-control form-control-color preview-color" 
+                                               data-var="--table-header-bg"
+                                               data-theme="light"
+                                               value="{{ theme.light_table_header_bg if theme and theme.is_custom else '#f8fafc' }}">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">Texto do Cabeçalho</label>
+                                        <input type="color" name="light_table_header_text" class="form-control form-control-color preview-color" 
+                                               data-var="--table-header-text"
+                                               data-theme="light"
+                                               value="{{ theme.light_table_header_text if theme and theme.is_custom else '#1e293b' }}">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">Linha da Tabela</label>
+                                        <input type="color" name="light_table_row_bg" class="form-control form-control-color preview-color" 
+                                               data-var="--table-row-bg"
+                                               data-theme="light"
+                                               value="{{ theme.light_table_row_bg if theme and theme.is_custom else '#ffffff' }}">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">Hover da Tabela</label>
+                                        <input type="color" name="light_table_row_hover" class="form-control form-control-color preview-color" 
+                                               data-var="--table-row-hover"
+                                               data-theme="light"
+                                               value="{{ theme.light_table_row_hover if theme and theme.is_custom else '#f1f5f9' }}">
+                                    </div>
+                                    <div class="col-md-12">
+                                        <label class="form-label">Borda da Tabela</label>
+                                        <input type="color" name="light_table_border" class="form-control form-control-color preview-color" 
+                                               data-var="--table-border"
+                                               data-theme="light"
+                                               value="{{ theme.light_table_border if theme and theme.is_custom else '#e2e8f0' }}">
                                     </div>
                                 </div>
                             </div>
@@ -154,19 +207,23 @@
                                     <div class="col-md-6">
                                         <label class="form-label">Primária</label>
                                         <input type="color" name="dark_primary" class="form-control form-control-color preview-color" 
-                                               data-var="--dark-primary"
+                                               data-var="--primary"
+                                               data-theme="dark"
                                                value="{{ theme.dark_primary if theme and theme.is_custom else '#6366f1' }}">
+                                        <small class="text-muted">Botões, links, elementos de destaque</small>
                                     </div>
                                     <div class="col-md-6">
                                         <label class="form-label">Primária (hover)</label>
                                         <input type="color" name="dark_primary_hover" class="form-control form-control-color preview-color" 
-                                               data-var="--dark-primary-hover"
+                                               data-var="--primary-hover"
+                                               data-theme="dark"
                                                value="{{ theme.dark_primary_hover if theme and theme.is_custom else '#818cf8' }}">
                                     </div>
                                     <div class="col-md-6">
                                         <label class="form-label">Secundária</label>
                                         <input type="color" name="dark_secondary" class="form-control form-control-color preview-color" 
-                                               data-var="--dark-secondary"
+                                               data-var="--secondary"
+                                               data-theme="dark"
                                                value="{{ theme.dark_secondary if theme and theme.is_custom else '#94a3b8' }}">
                                     </div>
                                 </div>
@@ -176,25 +233,29 @@
                                     <div class="col-md-3">
                                         <label class="form-label">Sucesso</label>
                                         <input type="color" name="dark_success" class="form-control form-control-color preview-color" 
-                                               data-var="--dark-success"
+                                               data-var="--success"
+                                               data-theme="dark"
                                                value="{{ theme.dark_success if theme and theme.is_custom else '#34d399' }}">
                                     </div>
                                     <div class="col-md-3">
                                         <label class="form-label">Perigo</label>
                                         <input type="color" name="dark_danger" class="form-control form-control-color preview-color" 
-                                               data-var="--dark-danger"
+                                               data-var="--danger"
+                                               data-theme="dark"
                                                value="{{ theme.dark_danger if theme and theme.is_custom else '#f87171' }}">
                                     </div>
                                     <div class="col-md-3">
                                         <label class="form-label">Aviso</label>
                                         <input type="color" name="dark_warning" class="form-control form-control-color preview-color" 
-                                               data-var="--dark-warning"
+                                               data-var="--warning"
+                                               data-theme="dark"
                                                value="{{ theme.dark_warning if theme and theme.is_custom else '#fbbf24' }}">
                                     </div>
                                     <div class="col-md-3">
                                         <label class="form-label">Info</label>
                                         <input type="color" name="dark_info" class="form-control form-control-color preview-color" 
-                                               data-var="--dark-info"
+                                               data-var="--info"
+                                               data-theme="dark"
                                                value="{{ theme.dark_info if theme and theme.is_custom else '#22d3ee' }}">
                                     </div>
                                 </div>
@@ -204,31 +265,36 @@
                                     <div class="col-md-4">
                                         <label class="form-label">Fundo Principal</label>
                                         <input type="color" name="dark_bg_main" class="form-control form-control-color preview-color" 
-                                               data-var="--dark-bg-main"
+                                               data-var="--bg-main"
+                                               data-theme="dark"
                                                value="{{ theme.dark_bg_main if theme and theme.is_custom else '#0f172a' }}">
                                     </div>
                                     <div class="col-md-4">
                                         <label class="form-label">Fundo dos Cards</label>
                                         <input type="color" name="dark_bg_card" class="form-control form-control-color preview-color" 
-                                               data-var="--dark-bg-card"
+                                               data-var="--bg-card"
+                                               data-theme="dark"
                                                value="{{ theme.dark_bg_card if theme and theme.is_custom else '#1e293b' }}">
                                     </div>
                                     <div class="col-md-4">
                                         <label class="form-label">Texto Principal</label>
                                         <input type="color" name="dark_text_main" class="form-control form-control-color preview-color" 
-                                               data-var="--dark-text-main"
+                                               data-var="--text-main"
+                                               data-theme="dark"
                                                value="{{ theme.dark_text_main if theme and theme.is_custom else '#f1f5f9' }}">
                                     </div>
                                     <div class="col-md-4">
                                         <label class="form-label">Texto Secundário</label>
                                         <input type="color" name="dark_text_muted" class="form-control form-control-color preview-color" 
-                                               data-var="--dark-text-muted"
+                                               data-var="--text-muted"
+                                               data-theme="dark"
                                                value="{{ theme.dark_text_muted if theme and theme.is_custom else '#94a3b8' }}">
                                     </div>
                                     <div class="col-md-4">
                                         <label class="form-label">Bordas</label>
                                         <input type="color" name="dark_border" class="form-control form-control-color preview-color" 
-                                               data-var="--dark-border"
+                                               data-var="--border"
+                                               data-theme="dark"
                                                value="{{ theme.dark_border if theme and theme.is_custom else '#334155' }}">
                                     </div>
                                 </div>
@@ -238,14 +304,55 @@
                                     <div class="col-md-6">
                                         <label class="form-label">Fundo da Sidebar</label>
                                         <input type="color" name="dark_sidebar_bg" class="form-control form-control-color preview-color" 
-                                               data-var="--dark-sidebar-bg"
+                                               data-var="--sidebar-bg"
+                                               data-theme="dark"
                                                value="{{ theme.dark_sidebar_bg if theme and theme.is_custom else '#020617' }}">
                                     </div>
                                     <div class="col-md-6">
                                         <label class="form-label">Texto da Sidebar</label>
                                         <input type="color" name="dark_sidebar_text" class="form-control form-control-color preview-color" 
-                                               data-var="--dark-sidebar-text"
+                                               data-var="--sidebar-text"
+                                               data-theme="dark"
                                                value="{{ theme.dark_sidebar_text if theme and theme.is_custom else '#f1f5f9' }}">
+                                    </div>
+                                </div>
+
+                                <h6 class="fw-bold mb-3 mt-4">Tabelas (Modo Escuro)</h6>
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label">Cabeçalho da Tabela</label>
+                                        <input type="color" name="dark_table_header_bg" class="form-control form-control-color preview-color" 
+                                               data-var="--table-header-bg"
+                                               data-theme="dark"
+                                               value="{{ theme.dark_table_header_bg if theme and theme.is_custom else '#1e293b' }}">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">Texto do Cabeçalho</label>
+                                        <input type="color" name="dark_table_header_text" class="form-control form-control-color preview-color" 
+                                               data-var="--table-header-text"
+                                               data-theme="dark"
+                                               value="{{ theme.dark_table_header_text if theme and theme.is_custom else '#f1f5f9' }}">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">Linha da Tabela</label>
+                                        <input type="color" name="dark_table_row_bg" class="form-control form-control-color preview-color" 
+                                               data-var="--table-row-bg"
+                                               data-theme="dark"
+                                               value="{{ theme.dark_table_row_bg if theme and theme.is_custom else '#0f172a' }}">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">Hover da Tabela</label>
+                                        <input type="color" name="dark_table_row_hover" class="form-control form-control-color preview-color" 
+                                               data-var="--table-row-hover"
+                                               data-theme="dark"
+                                               value="{{ theme.dark_table_row_hover if theme and theme.is_custom else '#1e293b' }}">
+                                    </div>
+                                    <div class="col-md-12">
+                                        <label class="form-label">Borda da Tabela</label>
+                                        <input type="color" name="dark_table_border" class="form-control form-control-color preview-color" 
+                                               data-var="--table-border"
+                                               data-theme="dark"
+                                               value="{{ theme.dark_table_border if theme and theme.is_custom else '#334155' }}">
                                     </div>
                                 </div>
                             </div>
@@ -256,21 +363,21 @@
                                 <p class="text-muted small mb-4">Ajuste as cores do card que aparece no dashboard.</p>
                                 
                                 <div class="row g-4">
-                                    <!-- Gradiente -->
                                     <div class="col-md-6">
                                         <label class="form-label fw-bold">Gradiente - Cor Inicial</label>
                                         <input type="color" name="devotional_gradient_start" class="form-control form-control-color preview-color" 
                                                data-var="--devotional-gradient-start"
+                                               data-theme="light"
                                                value="{{ theme.devotional_gradient_start if theme and theme.is_custom else '#4f46e5' }}">
                                     </div>
                                     <div class="col-md-6">
                                         <label class="form-label fw-bold">Gradiente - Cor Final</label>
                                         <input type="color" name="devotional_gradient_end" class="form-control form-control-color preview-color" 
                                                data-var="--devotional-gradient-end"
+                                               data-theme="light"
                                                value="{{ theme.devotional_gradient_end if theme and theme.is_custom else '#06b6d4' }}">
                                     </div>
 
-                                    <!-- Overlays com opacidade -->
                                     <div class="col-md-6">
                                         <label class="form-label fw-bold">Overlay (Modo Claro)</label>
                                         <div class="d-flex align-items-center gap-2 mb-2">
@@ -307,31 +414,33 @@
                                         </div>
                                     </div>
 
-                                    <!-- Cores do texto e badge -->
                                     <div class="col-md-4">
                                         <label class="form-label fw-bold">Cor do Texto</label>
                                         <input type="color" name="devotional_text_color" class="form-control form-control-color preview-color" 
                                                data-var="--devotional-text"
+                                               data-theme="light"
                                                value="{{ theme.devotional_text_color if theme and theme.is_custom else '#ffffff' }}">
                                     </div>
                                     <div class="col-md-4">
                                         <label class="form-label fw-bold">Badge - Fundo</label>
                                         <input type="color" name="devotional_badge_bg" class="form-control form-control-color preview-color" 
                                                data-var="--devotional-badge-bg"
+                                               data-theme="light"
                                                value="{{ theme.devotional_badge_bg if theme and theme.is_custom else '#ffffff' }}">
                                     </div>
                                     <div class="col-md-4">
                                         <label class="form-label fw-bold">Badge - Texto</label>
                                         <input type="color" name="devotional_badge_text" class="form-control form-control-color preview-color" 
                                                data-var="--devotional-badge-text"
+                                               data-theme="light"
                                                value="{{ theme.devotional_badge_text if theme and theme.is_custom else '#4f46e5' }}">
                                     </div>
 
-                                    <!-- Ícone decorativo -->
                                     <div class="col-md-6">
                                         <label class="form-label fw-bold">Cor do Ícone Decorativo</label>
                                         <input type="color" name="devotional_icon_color" class="form-control form-control-color preview-color" 
                                                data-var="--devotional-icon-color"
+                                               data-theme="light"
                                                value="{{ theme.devotional_icon_color if theme and theme.is_custom else '#ffffff' }}">
                                     </div>
                                     <div class="col-md-6">
@@ -382,7 +491,6 @@
 
                         <hr class="my-4">
 
-                        <!-- Botões -->
                         <div class="d-flex justify-content-between">
                             <button type="submit" name="action" value="save" class="btn btn-primary btn-lg px-5">
                                 <i class="bi bi-check-circle me-2"></i> Salvar Tema
@@ -404,7 +512,6 @@
                     <h5 class="mb-0">Prévia do Tema</h5>
                 </div>
                 <div class="card-body">
-                    <!-- Preview do Card Devocional -->
                     <h6 class="fw-bold mb-3">Preview do Card Devocional</h6>
                     <div class="devotional-card-preview mb-4 rounded overflow-hidden" 
                          style="background: linear-gradient(135deg, var(--devotional-gradient-start), var(--devotional-gradient-end));">
@@ -420,7 +527,27 @@
                         </div>
                     </div>
 
-                    <!-- Preview dos outros elementos -->
+                    <h6 class="fw-bold mb-3">Preview da Tabela</h6>
+                    <div class="table-preview mb-4" style="border: 1px solid var(--table-border, var(--border)); border-radius: 8px; overflow: hidden;">
+                        <table class="table table-preview-table" style="width: 100%; margin-bottom: 0;">
+                            <thead style="background-color: var(--table-header-bg, var(--bg-main));">
+                                <tr>
+                                    <th style="color: var(--table-header-text, var(--text-main)); padding: 8px; text-align: left;">Nome</th>
+                                    <th style="color: var(--table-header-text, var(--text-main)); padding: 8px; text-align: left;">Valor</th>
+                                 </thead>
+                            <tbody>
+                                <tr style="background-color: var(--table-row-bg, var(--bg-card));">
+                                    <td style="color: var(--text-main); padding: 8px;">Exemplo 1</td>
+                                    <td style="color: var(--text-main); padding: 8px;">R$ 100,00</td>
+                                </tr>
+                                <tr style="background-color: var(--table-row-bg, var(--bg-card));">
+                                    <td style="color: var(--text-main); padding: 8px;">Exemplo 2</td>
+                                    <td style="color: var(--text-main); padding: 8px;">R$ 200,00</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
                     <div class="mb-4 p-3 rounded" style="background: var(--bg-card); border: 1px solid var(--border);">
                         <div class="d-flex gap-2 mb-3">
                             <button class="btn" style="background: var(--primary); color: white;">Primário</button>
@@ -445,7 +572,7 @@
 </div>
 
 <script>
-// Função para atualizar overlay (mantida igual)
+// Função para atualizar overlay
 function updateOverlay(mode) {
     const colorInput = document.getElementById(`overlay_${mode}_color`);
     const opacityInput = document.getElementById(`overlay_${mode}_opacity`);
@@ -474,9 +601,22 @@ function updateOverlay(mode) {
     }
 }
 
-// NOVA FUNÇÃO: Preview em tempo real para todas as cores
-function updatePreview(variable, value) {
+// Preview em tempo real para todas as cores (corrigido para funcionar no tema escuro)
+function updatePreview(variable, value, theme) {
+    // Se a variável é do tema escuro e estamos no modo escuro, atualiza
+    const isDarkMode = document.documentElement.getAttribute('data-theme') === 'dark';
+    
+    // Atualiza a variável diretamente
     document.documentElement.style.setProperty(variable, value);
+    
+    // Se estamos no modo escuro e a variável veio da aba escura, força a atualização
+    if (isDarkMode && theme === 'dark') {
+        document.documentElement.style.setProperty(variable, value);
+    }
+    // Se estamos no modo claro e a variável veio da aba clara
+    if (!isDarkMode && theme === 'light') {
+        document.documentElement.style.setProperty(variable, value);
+    }
 }
 
 // Inicializar overlays com valores do banco
@@ -508,14 +648,63 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
     });
+    
+    // Inicializar preview das tabelas com valores do tema
+    const updateTablePreview = () => {
+        const tablePreview = document.querySelector('.table-preview-table');
+        if (tablePreview) {
+            const thead = tablePreview.querySelector('thead');
+            const rows = tablePreview.querySelectorAll('tbody tr');
+            if (thead) {
+                thead.style.backgroundColor = getComputedStyle(document.documentElement).getPropertyValue('--table-header-bg').trim();
+                const ths = thead.querySelectorAll('th');
+                ths.forEach(th => {
+                    th.style.color = getComputedStyle(document.documentElement).getPropertyValue('--table-header-text').trim();
+                });
+            }
+            rows.forEach(row => {
+                row.style.backgroundColor = getComputedStyle(document.documentElement).getPropertyValue('--table-row-bg').trim();
+            });
+        }
+    };
+    
+    updateTablePreview();
 });
 
-// Preview em tempo real para cores simples (ATUALIZADO)
+// Preview em tempo real para cores simples (CORRIGIDO)
 document.querySelectorAll('input[type=color].preview-color').forEach(input => {
     input.addEventListener('input', function() {
         const varName = this.getAttribute('data-var');
+        const theme = this.getAttribute('data-theme');
         if (varName) {
-            updatePreview(varName, this.value);
+            // Atualiza a variável
+            document.documentElement.style.setProperty(varName, this.value);
+            
+            // Atualizar preview da tabela se for variável de tabela
+            if (varName.includes('table')) {
+                setTimeout(() => {
+                    const tablePreview = document.querySelector('.table-preview-table');
+                    if (tablePreview) {
+                        const thead = tablePreview.querySelector('thead');
+                        const rows = tablePreview.querySelectorAll('tbody tr');
+                        if (thead && varName.includes('header-bg')) {
+                            thead.style.backgroundColor = this.value;
+                        }
+                        if (thead && varName.includes('header-text')) {
+                            thead.querySelectorAll('th').forEach(th => th.style.color = this.value);
+                        }
+                        if (varName.includes('row-bg')) {
+                            rows.forEach(row => row.style.backgroundColor = this.value);
+                        }
+                        if (varName.includes('border')) {
+                            const previewDiv = document.querySelector('.table-preview');
+                            if (previewDiv) {
+                                previewDiv.style.borderColor = this.value;
+                            }
+                        }
+                    }
+                }, 10);
+            }
         }
     });
 });
@@ -527,29 +716,31 @@ document.querySelectorAll('input[type=color].preview-color').forEach(input => {
 
 /* COR DO TEXTO DAS ABAS - SEMPRE VISÍVEL */
 .nav-tabs .nav-link {
-    color: #000000 !important;           /* Preto normal */
+    color: #000000 !important;
     background-color: transparent !important;
     border: 1px solid transparent !important;
 }
 
-/* Quando passar o mouse - MANTÉM A COR LEGÍVEL */
 .nav-tabs .nav-link:hover {
-    color: #ffffff !important;            /* Branco no hover */
+    color: #ffffff !important;
     background-color: var(--primary) !important;
     border-color: var(--primary) !important;
 }
 
-/* Aba ativa - DESTAQUE */
 .nav-tabs .nav-link.active {
-    color: #ffffff !important;            /* Branco na ativa */
+    color: #ffffff !important;
     background-color: var(--primary) !important;
     border-color: var(--primary) !important;
     font-weight: bold !important;
 }
 
-/* Ícones dentro das abas */
 .nav-tabs .nav-link i {
     margin-right: 5px;
+}
+
+.table-preview {
+    border-radius: 8px;
+    overflow: hidden;
 }
 </style>
 {% endblock %}

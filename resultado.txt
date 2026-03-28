@@ -1,831 +1,747 @@
-app/templates/members/profile.html:                    <div class="bg-white bg-opacity-25 rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 120px; height: 120px;">
-app/templates/members/profile.html:                    <span class="badge bg-light text-dark mt-2">{{ current_user.church_role.name if current_user.church_role else 'Membro' }}</span>
-app/templates/members/profile.html:                        <h5 class="fw-bold mb-0"><i class="bi bi-person me-2 text-primary"></i> Informações Pessoais</h5>
-app/templates/members/profile.html:                            <div class="bg-light rounded-3 p-3 h-100">
-app/templates/members/profile.html:                                <small class="text-muted d-block mb-1">Nome Completo</small>
-app/templates/members/profile.html:                            <div class="bg-light rounded-3 p-3 h-100">
-app/templates/members/profile.html:                                <small class="text-muted d-block mb-1">Data de Nascimento</small>
-app/templates/members/profile.html:                            <div class="bg-light rounded-3 p-3 h-100">
-app/templates/members/profile.html:                                <small class="text-muted d-block mb-1">Gênero</small>
-app/templates/members/profile.html:                            <div class="bg-light rounded-3 p-3 h-100">
-app/templates/members/profile.html:                                <small class="text-muted d-block mb-1">Estado Civil</small>
-app/templates/members/profile.html:                                <br><small class="text-muted">Cônjuge:</small> {{ current_user.spouse_name }}
-app/templates/members/profile.html:                    <h5 class="fw-bold mb-3 mt-4"><i class="bi bi-file-text me-2 text-primary"></i> Documentos</h5>
-app/templates/members/profile.html:                            <div class="bg-light rounded-3 p-3">
-app/templates/members/profile.html:                                <small class="text-muted d-block mb-1">Documento de Identificação</small>
-app/templates/members/profile.html:                            <div class="bg-light rounded-3 p-3">
-app/templates/members/profile.html:                                <small class="text-muted d-block mb-1">NIF / CPF / CNPJ</small>
-app/templates/members/profile.html:                    <h5 class="fw-bold mb-3 mt-4"><i class="bi bi-church me-2 text-primary"></i> Datas Espirituais</h5>
-app/templates/members/profile.html:                            <div class="bg-light rounded-3 p-3">
-app/templates/members/profile.html:                                <small class="text-muted d-block mb-1">Data de Batismo</small>
-app/templates/members/profile.html:                            <div class="bg-light rounded-3 p-3">
-app/templates/members/profile.html:                                <small class="text-muted d-block mb-1">Data de Conversão</small>
-app/templates/members/profile.html:                    <h5 class="fw-bold mb-3 mt-4"><i class="bi bi-geo-alt me-2 text-primary"></i> Endereço</h5>
-app/templates/members/profile.html:                            <div class="bg-light rounded-3 p-3">
-app/templates/members/profile.html:                                <small class="text-muted d-block mb-1">Endereço</small>
-app/templates/members/profile.html:                            <div class="bg-light rounded-3 p-3">
-app/templates/members/profile.html:                                <small class="text-muted d-block mb-1">Código Postal / CEP</small>
-app/templates/members/profile.html:                            <div class="bg-light rounded-3 p-3">
-app/templates/members/profile.html:                                <small class="text-muted d-block mb-1">Concelho / Município</small>
-app/templates/members/profile.html:                            <div class="bg-light rounded-3 p-3">
-app/templates/members/profile.html:                                <small class="text-muted d-block mb-1">Localidade / Bairro</small>
-app/templates/members/profile.html:                    <h5 class="fw-bold mb-3 mt-4"><i class="bi bi-telephone me-2 text-primary"></i> Contato</h5>
-app/templates/members/profile.html:                            <div class="bg-light rounded-3 p-3">
-app/templates/members/profile.html:                                <small class="text-muted d-block mb-1">Telefone / Celular</small>
-app/templates/members/profile.html:                    <h5 class="fw-bold mb-3 mt-4"><i class="bi bi-mortarboard me-2 text-primary"></i> Formação</h5>
-app/templates/members/profile.html:                            <div class="bg-light rounded-3 p-3">
-app/templates/members/profile.html:                                <small class="text-muted d-block mb-1">Escolaridade</small>
-app/templates/members/profile.html:                    <h5 class="fw-bold mb-3 mt-4"><i class="bi bi-building me-2 text-primary"></i> Informações da Igreja</h5>
-app/templates/members/profile.html:                            <div class="bg-light rounded-3 p-3">
-app/templates/members/profile.html:                                <small class="text-muted d-block mb-1">Congregação</small>
-app/templates/members/profile.html:                            <div class="bg-light rounded-3 p-3">
-app/templates/members/profile.html:                                <small class="text-muted d-block mb-1">Cargo</small>
-app/templates/members/profile.html:                            <div class="bg-light rounded-3 p-3">
-app/templates/members/profile.html:                                <small class="text-muted d-block mb-1">Status</small>
-app/templates/members/profile.html:                            <div class="bg-light rounded-3 p-3">
-app/templates/members/profile.html:                                <small class="text-muted d-block mb-1">Membro desde</small>
-app/templates/members/add_ministry.html:                    <input type="text" name="name" class="form-control bg-light border-0" placeholder="Ex: Ministério de Louvor, Grupo de Jovens" required>
-app/templates/members/add_ministry.html:                    <textarea name="description" class="form-control bg-light border-0" rows="3" placeholder="Descreva as responsabilidades..."></textarea>
-app/templates/members/add_ministry.html:                    <select name="church_id" class="form-select bg-light border-0" required>
-app/templates/members/add_ministry.html:                    <select name="leader_id" class="form-select bg-light border-0" required>
-app/templates/members/add_event.html:                    <i class="bi bi-calendar-plus text-primary fs-4"></i>
-app/templates/members/add_event.html:                    <p class="text-muted mb-0">
-app/templates/members/add_event.html:                    <input type="text" name="title" class="form-control bg-light border-0 py-2" placeholder="Ex: Culto de Celebração, Congresso, Ensaio..." required>
-app/templates/members/add_event.html:                    <textarea name="description" class="form-control bg-light border-0 py-2" rows="3" placeholder="Detalhes adicionais sobre o evento..."></textarea>
-app/templates/members/add_event.html:                    <input type="text" name="location" class="form-control bg-light border-0 py-2" placeholder="Ex: Templo Sede, Sala 02" required>
-app/templates/members/add_event.html:                            <input type="datetime-local" name="start_time" class="form-control bg-light border-0 py-2" required>
-app/templates/members/add_event.html:                            <input type="datetime-local" name="end_time" class="form-control bg-light border-0 py-2">
-app/templates/members/add_event.html:                        <select name="recurrence" class="form-select bg-light border-0 py-2">
-app/templates/members/add_event.html:                            <input type="date" name="multi_start_date" class="form-control bg-light border-0 py-2">
-app/templates/members/add_event.html:                            <input type="date" name="multi_end_date" class="form-control bg-light border-0 py-2">
-app/templates/members/add_event.html:                            <input type="time" name="multi_start_time" class="form-control bg-light border-0 py-2">
-app/templates/members/add_event.html:                            <input type="time" name="multi_end_time" class="form-control bg-light border-0 py-2">
-app/templates/members/ministries.html:            <h1 class="fw-bold text-primary"><i class="bi bi-diagram-3-fill me-2"></i>Ministérios</h1>
-app/templates/members/ministries.html:            <p class="text-muted">Departamentos e grupos de serviço da nossa igreja.</p>
-app/templates/members/ministries.html:                    <p class="text-muted small mb-4">{{ ministry.description }}</p>
-app/templates/members/ministries.html:                        <label class="small fw-bold text-muted d-block mb-1">LÍDER</label>
-app/templates/members/ministries.html:                            <i class="bi bi-person-badge me-2 text-primary"></i>
-app/templates/members/ministries.html:            <i class="bi bi-people fs-1 text-muted opacity-50 d-block mb-3"></i>
-app/templates/members/ministries.html:            <p class="text-muted">Nenhum ministério cadastrado.</p>
-app/templates/members/church_members.html:            <h1 class="fw-bold text-primary"><i class="bi bi-people-fill me-2"></i>Membros da Congregação</h1>
-app/templates/members/church_members.html:            <p class="text-muted">Gerencie os membros vinculados à sua filial.</p>
-app/templates/members/church_members.html:                    <i class="bi bi-people fs-2 text-primary"></i>
-app/templates/members/church_members.html:                    <small class="text-muted">Total de Membros</small>
-app/templates/members/church_members.html:                    <small class="text-muted">Membros Ativos</small>
-app/templates/members/church_members.html:                    <small class="text-muted">Pendentes</small>
-app/templates/members/church_members.html:                    <small class="text-muted">Batizados</small>
-app/templates/members/church_members.html:                            <label class="form-label small fw-bold text-muted">BUSCAR POR NOME</label>
-app/templates/members/church_members.html:                                <span class="input-group-text bg-light border-0"><i class="bi bi-search"></i></span>
-app/templates/members/church_members.html:                                <input type="text" name="search" class="form-control bg-light border-0" 
-app/templates/members/church_members.html:                            <label class="form-label small fw-bold text-muted">FILTRAR POR CARGO</label>
-app/templates/members/church_members.html:                            <select name="role_id" class="form-select bg-light border-0">
-app/templates/members/church_members.html:                            <label class="form-label small fw-bold text-muted">STATUS</label>
-app/templates/members/church_members.html:                            <select name="status" class="form-select bg-light border-0">
-app/templates/members/church_members.html:                            <label class="form-label small fw-bold text-muted">BATISMO</label>
-app/templates/members/church_members.html:                            <select name="baptized" class="form-select bg-light border-0">
-app/templates/members/church_members.html:                                <small class="text-muted">{{ member.phone if member.phone else '' }}</small>
-app/templates/members/church_members.html:                                <span class="text-muted">Não batizado</span>
-app/templates/members/church_members.html:                        <td colspan="6" class="text-center py-5 text-muted">
-app/templates/members/promote_member.html:                    <select name="church_role_id" class="form-select bg-light border-0">
-app/templates/members/promote_member.html:                <p class="small text-muted mb-4"><i class="bi bi-info-circle me-1"></i> Alterar o cargo mudará as permissões de acesso deste usuário no sistema.</p>
-app/templates/members/my_led_ministries.html:            <h1 class="fw-bold text-primary">
-app/templates/members/my_led_ministries.html:            <p class="text-muted">Aqui você gerencia os ministérios nos quais é líder ou vice-líder.</p>
-app/templates/members/my_led_ministries.html:                    <p class="text-muted small mb-4">{{ ministry.description or 'Sem descrição' }}</p>
-app/templates/members/my_led_ministries.html:                        <label class="small fw-bold text-muted d-block mb-2">LIDERANÇA</label>
-app/templates/members/my_led_ministries.html:                                <i class="bi bi-person-badge me-2 text-primary"></i>
-app/templates/members/my_led_ministries.html:                                        <span class="text-muted">Não definido</span>
-app/templates/members/my_led_ministries.html:            <i class="bi bi-star fs-1 text-muted opacity-50 d-block mb-3"></i>
-app/templates/members/my_led_ministries.html:            <p class="text-muted mb-2">Você ainda não lidera nenhum ministério.</p>
-app/templates/members/edit_ministry.html:                    <input type="text" name="name" class="form-control bg-light border-0" value="{{ ministry.name }}" required>
-app/templates/members/edit_ministry.html:                    <textarea name="description" class="form-control bg-light border-0" rows="3" placeholder="Descreva a missão e atividades do ministério...">{{ ministry.description or '' }}</textarea>
-app/templates/members/edit_ministry.html:                    <select name="church_id" class="form-select bg-light border-0">
-app/templates/members/edit_ministry.html:                    <small class="text-muted">Selecione apenas se este ministério pertence a uma filial específica</small>
-app/templates/members/edit_ministry.html:                            <select name="leader_id" class="form-select bg-light border-0">
-app/templates/members/edit_ministry.html:                            <small class="text-muted">Responsável principal pelo ministério</small>
-app/templates/members/edit_ministry.html:                            <select name="vice_leader_id" class="form-select bg-light border-0">
-app/templates/members/edit_ministry.html:                            <small class="text-muted">Vice-líder tem as mesmas permissões administrativas</small>
-app/templates/members/edit_ministry.html:                    <div class="card bg-light border-0">
-app/templates/members/edit_ministry.html:                                                    <small class="text-muted">({{ member.church_role.name }})</small>
-app/templates/members/edit_ministry.html:                            <p class="text-muted small mb-0 text-center">
-app/templates/members/edit_ministry.html:                    <small class="text-muted mt-2 d-block">
-app/templates/members/edit_ministry.html:                    <div class="small text-muted mt-1">Libera acesso ao Espaço Kids para os líderes deste ministério</div>
-app/templates/members/edit_ministry.html:                    <div class="bg-light rounded p-3">
-app/templates/members/edit_ministry.html:                        <small class="text-muted text-uppercase">Total de Membros</small>
-app/templates/members/edit_ministry.html:                    <div class="bg-light rounded p-3">
-app/templates/members/edit_ministry.html:                        <small class="text-muted text-uppercase">Total de Líderes</small>
-app/templates/members/edit_ministry.html:                <small class="text-muted text-uppercase d-block mb-2">Líderes Atuais</small>
-app/templates/members/edit_ministry.html:                <p class="text-muted small mt-2">Nenhum líder definido para este ministério.</p>
-app/templates/members/edit_ministry.html:                <small class="text-muted d-block mt-2">
-app/templates/members/ministry_manage_members.html:            <h1 class="fw-bold text-primary mb-0">Gerenciar Membros</h1>
-app/templates/members/ministry_manage_members.html:            <p class="text-muted mt-1">{{ ministry.name }}</p>
-app/templates/members/ministry_manage_members.html:                        <i class="bi bi-graph-up me-2 text-primary"></i> Estatísticas
-app/templates/members/ministry_manage_members.html:                            <div class="bg-light rounded p-3 text-center">
-app/templates/members/ministry_manage_members.html:                                <small class="text-muted text-uppercase">Total de Membros</small>
-app/templates/members/ministry_manage_members.html:                                <h3 class="fw-bold text-primary mb-0">{{ total_members }}</h3>
-app/templates/members/ministry_manage_members.html:                            <div class="bg-light rounded p-3">
-app/templates/members/ministry_manage_members.html:                                <small class="text-muted text-uppercase d-block mb-2">Distribuição por Gênero</small>
-app/templates/members/ministry_manage_members.html:                            <small class="text-muted d-block">Líder Principal</small>
-app/templates/members/ministry_manage_members.html:                                    <span class="text-muted">Não definido</span>
-app/templates/members/ministry_manage_members.html:                            <small class="text-muted d-block">Vice-Líder</small>
-app/templates/members/ministry_manage_members.html:                                    <span class="text-muted">Não definido</span>
-app/templates/members/ministry_manage_members.html:                    <small class="text-muted d-block">Descrição</small>
-app/templates/members/ministry_manage_members.html:                    <thead class="bg-light">
-app/templates/members/ministry_manage_members.html:                            <td colspan="{{ 5 if is_leader else 3 }}" class="text-center py-5 text-muted">
-app/templates/members/ministry_agenda.html:            <h1 class="fw-bold text-primary"><i class="bi bi-calendar-event-fill me-2"></i>Agenda - {{ ministry.name }}</h1>
-app/templates/members/ministry_agenda.html:            <p class="text-muted">Eventos exclusivos deste ministério e aviso de eventos gerais da congregação.</p>
-app/templates/members/ministry_agenda.html:                            <small class="text-muted d-block">
-app/templates/members/ministry_agenda.html:                        <span class="badge bg-primary bg-opacity-10 text-primary px-3 py-2">
-app/templates/members/ministry_agenda.html:                    <p class="text-muted small mt-2 mb-0">{{ event.description|truncate(120) }}</p>
-app/templates/members/ministry_agenda.html:                <div class="text-center py-5 text-muted">
-app/templates/members/ministry_agenda.html:        <div class="card-footer bg-light text-end">
-app/templates/members/add_general_event.html:            <p class="text-muted mb-4">Este evento será visível para todos os membros da congregação.</p>
-app/templates/members/add_general_event.html:                    <input type="text" name="title" class="form-control bg-light border-0" placeholder="Ex: Culto Dominical, Conferência Anual" required>
-app/templates/members/add_general_event.html:                    <input type="datetime-local" name="start_time" class="form-control bg-light border-0" required>
-app/templates/members/add_general_event.html:                    <input type="text" name="location" class="form-control bg-light border-0" placeholder="Ex: Templo Sede" required>
-app/templates/members/add_general_event.html:                    <textarea name="description" class="form-control bg-light border-0" rows="3"></textarea>
-app/templates/members/add_general_event.html:                    <select name="recurrence" class="form-select bg-light border-0">
-app/templates/members/ministry_materials.html:                <small class="text-muted float-end">{{ item.created_at.strftime('%d/%m/%Y') }}</small>
-app/templates/members/ministry_materials.html:        <p class="text-muted text-center py-3">Ainda não há materiais anexados.</p>
-app/templates/members/ministry_materials.html:    <div class="card-footer bg-light text-end">
-app/templates/members/ministry_materials_add.html:            <p class="text-muted mb-4">Arquivos visíveis apenas para os membros deste ministério (hinos, imagens para colorir, etc.).</p>
-app/templates/members/ministry_materials_add.html:                    <input type="text" name="title" class="form-control bg-light border-0" required placeholder="Ex: Hinos do Ensaio - Fevereiro">
-app/templates/members/ministry_materials_add.html:                    <textarea name="description" class="form-control bg-light border-0" rows="3" placeholder="Detalhes do arquivo..."></textarea>
-app/templates/members/ministry_materials_add.html:                    <input type="file" name="file" class="form-control bg-light border-0" accept="image/*,application/pdf,video/mp4" required>
-app/templates/members/edit_profile.html:                        <h5 class="fw-bold mb-3"><i class="bi bi-person me-2 text-primary"></i> Dados Pessoais</h5>
-app/templates/members/edit_profile.html:                                <input type="text" name="name" class="form-control bg-light border-0" value="{{ current_user.name }}" required>
-app/templates/members/edit_profile.html:                                <input type="date" name="birth_date" class="form-control bg-light border-0" value="{{ current_user.birth_date.strftime('%Y-%m-%d') if current_user.birth_date else '' }}">
-app/templates/members/edit_profile.html:                                <select name="gender" class="form-select bg-light border-0">
-app/templates/members/edit_profile.html:                                <select name="marital_status" id="marital_status" class="form-select bg-light border-0" onchange="toggleSpouseField()">
-app/templates/members/edit_profile.html:                                <input type="text" name="spouse_name" class="form-control bg-light border-0" value="{{ current_user.spouse_name or '' }}">
-app/templates/members/edit_profile.html:                        <h5 class="fw-bold mb-3 mt-4"><i class="bi bi-file-text me-2 text-primary"></i> Documentos</h5>
-app/templates/members/edit_profile.html:                                <input type="text" name="documents" class="form-control bg-light border-0" value="{{ current_user.documents or '' }}" placeholder="RG, Passaporte, etc.">
-app/templates/members/edit_profile.html:                                <input type="text" name="tax_id" class="form-control bg-light border-0" value="{{ current_user.tax_id or '' }}" placeholder="NIF (PT) / CPF (BR)">
-app/templates/members/edit_profile.html:                        <h5 class="fw-bold mb-3 mt-4"><i class="bi bi-church me-2 text-primary"></i> Datas Espirituais</h5>
-app/templates/members/edit_profile.html:                                <input type="date" name="baptism_date" class="form-control bg-light border-0" value="{{ current_user.baptism_date.strftime('%Y-%m-%d') if current_user.baptism_date else '' }}">
-app/templates/members/edit_profile.html:                                <input type="date" name="conversion_date" class="form-control bg-light border-0" value="{{ current_user.conversion_date.strftime('%Y-%m-%d') if current_user.conversion_date else '' }}">
-app/templates/members/edit_profile.html:                        <h5 class="fw-bold mb-3 mt-4"><i class="bi bi-geo-alt me-2 text-primary"></i> Endereço</h5>
-app/templates/members/edit_profile.html:                                <textarea name="address" class="form-control bg-light border-0" rows="2">{{ current_user.address or '' }}</textarea>
-app/templates/members/edit_profile.html:                                <input type="text" name="postal_code" class="form-control bg-light border-0" value="{{ current_user.postal_code or '' }}" placeholder="1250-123">
-app/templates/members/edit_profile.html:                                <input type="text" name="concelho" class="form-control bg-light border-0" value="{{ current_user.concelho or '' }}" placeholder="Lisboa">
-app/templates/members/edit_profile.html:                                <input type="text" name="localidade" class="form-control bg-light border-0" value="{{ current_user.localidade or '' }}" placeholder="São Domingos de Benfica">
-app/templates/members/edit_profile.html:                        <h5 class="fw-bold mb-3 mt-4"><i class="bi bi-envelope me-2 text-primary"></i> Contato</h5>
-app/templates/members/edit_profile.html:                                <input type="email" class="form-control bg-light border-0" value="{{ current_user.email }}" disabled>
-app/templates/members/edit_profile.html:                                <small class="text-muted">Para alterar o e-mail, entre em contato com o administrador.</small>
-app/templates/members/edit_profile.html:                                <input type="tel" name="phone" class="form-control bg-light border-0" value="{{ current_user.phone or '' }}" placeholder="(00) 00000-0000">
-app/templates/members/edit_profile.html:                        <h5 class="fw-bold mb-3 mt-4"><i class="bi bi-mortarboard me-2 text-primary"></i> Formação</h5>
-app/templates/members/edit_profile.html:                                <input type="text" name="education_level" class="form-control bg-light border-0" value="{{ current_user.education_level or '' }}" placeholder="Ex: Ensino Superior Completo">
-app/templates/members/edit_profile.html:                        <h5 class="fw-bold mb-3 mt-4"><i class="bi bi-image me-2 text-primary"></i> Foto de Perfil</h5>
-app/templates/members/edit_profile.html:                                        <input type="file" name="profile_photo" class="form-control bg-light border-0" accept="image/*">
-app/templates/members/edit_profile.html:                                        <small class="text-muted">Formatos: JPG, PNG, GIF. Máx 5MB.</small>
-app/templates/members/dashboard.html:                    <h4 class="fw-bold mb-0"><i class="bi bi-calendar-check me-2 text-primary"></i>Próximos 7 Dias</h4>
-app/templates/members/dashboard.html:                    <p class="text-muted small mt-1">Eventos dos próximos 7 dias</p>
-app/templates/members/dashboard.html:                                <div class="bg-primary bg-opacity-10 text-primary p-2 rounded-3 me-3 text-center" style="min-width: 50px;">
-app/templates/members/dashboard.html:                                        <small class="text-muted"><i class="bi bi-clock me-1"></i> {{ event.start_time.strftime('%H:%M') }}</small>
-app/templates/members/dashboard.html:                                        <small class="text-muted"><i class="bi bi-calendar-week me-1"></i> {{ event.start_time.strftime('%A') }}</small>
-app/templates/members/dashboard.html:                                <small class="text-muted"><i class="bi bi-geo-alt me-1"></i> {{ event.location }}</small>
-app/templates/members/dashboard.html:                    <i class="bi bi-calendar-x text-muted fs-1 opacity-25"></i>
-app/templates/members/dashboard.html:                    <p class="text-muted mt-2">Nenhum evento agendado para os próximos 7 dias.</p>
-app/templates/members/dashboard.html:                    <i class="bi bi-cake2-fill text-primary"></i>
-app/templates/members/dashboard.html:                <h6 class="fw-bold mb-0 text-primary">Aniversariantes (10 dias)</h6>
-app/templates/members/dashboard.html:                                <span class="fw-bold small d-block mb-1 {{ 'text-danger' if alert.is_today else 'text-primary' }}">{{ alert.name }}</span>
-app/templates/members/dashboard.html:                                <span class="badge bg-secondary bg-opacity-10 text-muted extra-small">{{ alert.ministry }}</span>
-app/templates/members/dashboard.html:                                <span class="fw-bold text-primary small d-block">{{ alert.day }}/{{ alert.month }}</span>
-app/templates/members/dashboard.html:                                <span class="extra-small text-muted fw-medium">{{ alert.days_until }}d restantes</span>
-app/templates/members/dashboard.html:            <h6 class="fw-bold mb-3 text-muted text-uppercase small letter-spacing-1">Ações Rápidas</h6>
-app/templates/members/dashboard.html:        <div class="card border-0 shadow-sm p-4 rounded-4 bg-light bg-opacity-10">
-app/templates/members/dashboard.html:            <h6 class="fw-bold mb-3 text-muted text-uppercase small letter-spacing-1"><i class="bi bi-people me-2"></i>Minha Família</h6>
-app/templates/members/dashboard.html:                    <div class="bg-white border rounded-pill px-3 py-1 small shadow-xs">
-app/templates/members/dashboard.html:                        <i class="bi bi-person-circle text-primary me-1"></i> {{ member.name.split(' ')[0] }}
-app/templates/members/dashboard.html:                                    <div class="fw-bold text-primary">{{ p.name }}</div>
-app/templates/members/dashboard.html:                                    <small class="text-muted">Inscrito em {{ p.created_at.strftime('%d/%m/%Y') if p.created_at else 'Recente' }}</small>
-app/templates/members/agenda.html:            <h1 class="fw-bold text-primary"><i class="bi bi-calendar-event-fill me-2"></i>Minha Agenda</h1>
-app/templates/members/agenda.html:            <p class="text-muted">Todos os eventos da sua congregação e dos seus ministérios em um só lugar.</p>
-app/templates/members/agenda.html:                            <div class="bg-primary bg-opacity-10 text-primary p-3 rounded-4 me-4 text-center" style="min-width: 90px;">
-app/templates/members/agenda.html:                                <div class="d-flex flex-wrap gap-3 align-items-center text-muted">
-app/templates/members/agenda.html:                                    <span class="badge bg-secondary bg-opacity-10 text-muted border border-secondary border-opacity-25">
-app/templates/members/agenda.html:                                <p class="mt-3 mb-0 text-muted">{{ event.description }}</p>
-app/templates/members/agenda.html:                <div class="text-center py-5 text-muted">
-app/templates/members/edit_event.html:                    <i class="bi bi-pencil-square text-primary fs-4"></i>
-app/templates/members/edit_event.html:                    <p class="text-muted mb-0">Altere as informações do evento</p>
-app/templates/members/edit_event.html:                    <input type="text" name="title" class="form-control bg-light border-0 py-2" value="{{ event.title }}" required>
-app/templates/members/edit_event.html:                    <textarea name="description" class="form-control bg-light border-0 py-2" rows="3">{{ event.description or '' }}</textarea>
-app/templates/members/edit_event.html:                    <input type="text" name="location" class="form-control bg-light border-0 py-2" value="{{ event.location or '' }}" required>
-app/templates/members/edit_event.html:                        <input type="datetime-local" name="start_time" class="form-control bg-light border-0 py-2" value="{{ event.start_time.strftime('%Y-%m-%dT%H:%M') }}" required>
-app/templates/members/edit_event.html:                        <input type="datetime-local" name="end_time" class="form-control bg-light border-0 py-2" value="{{ event.end_time.strftime('%Y-%m-%dT%H:%M') if event.end_time else '' }}">
-app/templates/members/edit_event.html:                    <select name="recurrence" class="form-select bg-light border-0 py-2">
-app/templates/members/birthday_agenda.html:            <h2 class="fw-bold text-primary mb-0"><i class="bi bi-calendar-heart me-2"></i>{{ title }}</h2>
-app/templates/members/birthday_agenda.html:            <p class="text-muted">Lista anual de aniversariantes organizada por mês.</p>
-app/templates/members/birthday_agenda.html:                        <li class="list-group-item border-0 py-4 text-center text-muted small">
-app/templates/members/edit_member.html:                        <h5 class="fw-bold mb-3"><i class="bi bi-person me-2 text-primary"></i> Dados Pessoais</h5>
-app/templates/members/edit_member.html:                                <input type="text" name="name" class="form-control bg-light border-0" value="{{ member.name }}" required>
-app/templates/members/edit_member.html:                                <input type="date" name="birth_date" class="form-control bg-light border-0" value="{{ member.birth_date.strftime('%Y-%m-%d') if member.birth_date else '' }}">
-app/templates/members/edit_member.html:                                <select name="gender" class="form-select bg-light border-0">
-app/templates/members/edit_member.html:                                <select name="marital_status" id="marital_status" class="form-select bg-light border-0" onchange="toggleSpouseField()">
-app/templates/members/edit_member.html:                                <input type="text" name="spouse_name" class="form-control bg-light border-0" value="{{ member.spouse_name or '' }}">
-app/templates/members/edit_member.html:                        <h5 class="fw-bold mb-3 mt-4"><i class="bi bi-file-text me-2 text-primary"></i> Documentos</h5>
-app/templates/members/edit_member.html:                                <input type="text" name="tax_id" class="form-control bg-light border-0" value="{{ member.tax_id or '' }}" placeholder="NIF (PT) / CPF (BR)">
-app/templates/members/edit_member.html:                                <input type="text" name="documents" class="form-control bg-light border-0" value="{{ member.documents or '' }}" placeholder="RG, Passaporte, etc.">
-app/templates/members/edit_member.html:                        <h5 class="fw-bold mb-3 mt-4"><i class="bi bi-church me-2 text-primary"></i> Datas Espirituais</h5>
-app/templates/members/edit_member.html:                                <input type="date" name="baptism_date" class="form-control bg-light border-0" value="{{ member.baptism_date.strftime('%Y-%m-%d') if member.baptism_date else '' }}">
-app/templates/members/edit_member.html:                                <input type="date" name="conversion_date" class="form-control bg-light border-0" value="{{ member.conversion_date.strftime('%Y-%m-%d') if member.conversion_date else '' }}">
-app/templates/members/edit_member.html:                        <h5 class="fw-bold mb-3 mt-4"><i class="bi bi-geo-alt me-2 text-primary"></i> Endereço</h5>
-app/templates/members/edit_member.html:                                <textarea name="address" class="form-control bg-light border-0" rows="2">{{ member.address or '' }}</textarea>
-app/templates/members/edit_member.html:                                <input type="text" name="postal_code" class="form-control bg-light border-0" value="{{ member.postal_code or '' }}">
-app/templates/members/edit_member.html:                                <input type="text" name="concelho" class="form-control bg-light border-0" value="{{ member.concelho or '' }}">
-app/templates/members/edit_member.html:                                <input type="text" name="localidade" class="form-control bg-light border-0" value="{{ member.localidade or '' }}">
-app/templates/members/edit_member.html:                        <h5 class="fw-bold mb-3 mt-4"><i class="bi bi-envelope me-2 text-primary"></i> Contato</h5>
-app/templates/members/edit_member.html:                                <input type="email" class="form-control bg-light border-0" value="{{ member.email }}" disabled>
-app/templates/members/edit_member.html:                                <small class="text-muted">Para alterar o e-mail, entre em contato com o administrador.</small>
-app/templates/members/edit_member.html:                                <input type="tel" name="phone" class="form-control bg-light border-0" value="{{ member.phone or '' }}">
-app/templates/members/edit_member.html:                        <h5 class="fw-bold mb-3 mt-4"><i class="bi bi-mortarboard me-2 text-primary"></i> Formação</h5>
-app/templates/members/edit_member.html:                                <input type="text" name="education_level" class="form-control bg-light border-0" value="{{ member.education_level or '' }}">
-app/templates/members/edit_member.html:                        <h5 class="fw-bold mb-3 mt-4"><i class="bi bi-image me-2 text-primary"></i> Foto de Perfil</h5>
-app/templates/members/edit_member.html:                                        <input type="file" name="profile_photo" class="form-control bg-light border-0" accept="image/*">
-app/templates/finance/add.html:                                <select name="type" id="type_select" class="form-select bg-light border-0" required onchange="filterCategories()">
-app/templates/finance/add.html:                                <select name="category_id" id="category_select" class="form-select bg-light border-0" required>
-app/templates/finance/add.html:                                <input type="number" step="0.01" name="amount" class="form-control bg-light border-0" placeholder="0.00" required>
-app/templates/finance/add.html:                                <input type="date" name="date" class="form-control bg-light border-0" value="{{ today }}" required>
-app/templates/finance/add.html:                                <select name="payment_method_id" id="payment_select" class="form-select bg-light border-0" required onchange="checkElectronic()">
-app/templates/finance/add.html:                                <div class="card border-0 bg-light">
-app/templates/finance/add.html:                                            <i class="bi bi-bank2 text-primary me-2"></i>
-app/templates/finance/add.html:                                        <select name="bank_account_id" class="form-select bg-white border-0 shadow-sm">
-app/templates/finance/add.html:                                            <strong class="text-primary">Se não vincular, a transação ficará apenas no registro geral.</strong>
-app/templates/finance/add.html:                                <select name="user_id" id="user_id" class="form-select bg-light border-0">
-app/templates/finance/add.html:                                <textarea name="description" class="form-control bg-light border-0" rows="3" placeholder="Detalhes adicionais sobre o lançamento..."></textarea>
-app/templates/finance/add.html:                            <a href="{{ url_for('finance.dashboard') }}" class="btn btn-link text-muted">Cancelar</a>
-app/templates/finance/add_asset.html:                    <input type="text" name="name" class="form-control bg-light border-0" placeholder="Ex: Microfone Shure, Veículo Fiat Toro" required>
-app/templates/finance/add_asset.html:                    <select name="category" class="form-select bg-light border-0" required>
-app/templates/finance/add_asset.html:                    <input type="text" name="identifier" class="form-control bg-light border-0" placeholder="Ex: ABC-1234 ou SN: 987654">
-app/templates/finance/add_asset.html:                    <input type="number" step="0.01" name="value" class="form-control bg-light border-0" required>
-app/templates/finance/add_maintenance.html:            <p class="text-muted mb-4">Bem: <strong>{{ asset.name }}</strong> ({{ asset.identifier }})</p>
-app/templates/finance/add_maintenance.html:                    <select name="type" class="form-select bg-light border-0" required>
-app/templates/finance/add_maintenance.html:                    <input type="number" step="0.01" name="cost" class="form-control bg-light border-0" required>
-app/templates/finance/add_maintenance.html:                    <textarea name="description" class="form-control bg-light border-0" rows="3" placeholder="Detalhe o que foi feito..." required></textarea>
-app/templates/finance/report.html:            <p class="text-muted">Análise consolidada por categorias e período.</p>
-app/templates/finance/report.html:                            <p class="text-muted small fw-bold mb-1 text-uppercase">Saldo Anterior</p>
-app/templates/finance/report.html:                            <p class="text-primary small fw-bold mb-1 text-uppercase">Saldo Final</p>
-app/templates/finance/report.html:                            <h4 class="fw-bold text-primary mb-0">
-app/templates/finance/ministry_finance.html:            <p class="text-muted">Gestão de arrecadações, cantinas e gastos do ministério.</p>
-app/templates/finance/ministry_finance.html:                    <p class="text-primary small fw-bold mb-1">SALDO EM CAIXA</p>
-app/templates/finance/ministry_finance.html:                    <h3 class="fw-bold text-primary mb-0">{{ ministry.church.currency_symbol if ministry.church else 'R$' }} {{ "%.2f"|format(stats.balance) }}</h3>
-app/templates/finance/ministry_finance.html:                    <thead class="bg-light">
-app/templates/finance/ministry_finance.html:                                <div class="small text-muted">Devedor: <strong>{{ tx.debtor.name }}</strong></div>
-app/templates/finance/ministry_finance.html:                                <span class="text-muted small">—</span>
-app/templates/finance/ministry_finance.html:                            <td colspan="6" class="text-center py-5 text-muted">
-app/templates/finance/add_ministry_transaction.html:    <h1 class="fw-bold text-primary mb-4">Novo Lançamento - {{ ministry.name }}</h1>
-app/templates/finance/dashboard.html:            <p class="text-muted">Visão geral das finanças da congregação.</p>
-app/templates/finance/dashboard.html:                    <small class="text-muted">Próximos 30 dias</small>
-app/templates/finance/dashboard.html:                    <p class="text-primary small fw-bold mb-1 text-uppercase">Saldo no Período</p>
-app/templates/finance/dashboard.html:                    <h4 class="fw-bold text-primary mb-0">{{ (current_user.church.currency_symbol if current_user.church else 'R$') if current_user.church else 'R$' }} {{ "%.2f"|format(stats.balance) }}</h4>
-app/templates/finance/dashboard.html:                                        <span class="small text-muted">
-app/templates/finance/dashboard.html:                                        <div class="extra-small text-primary">Membro: {{ tx.user.name }}</div>
-app/templates/finance/dashboard.html:                                    <td colspan="6" class="text-center py-5 text-muted">
-app/templates/finance/dashboard.html:                                        <small class="d-block text-muted mt-1">{{ tx.date.strftime('%d/%m/%Y') }}</small>
-app/templates/finance/dashboard.html:                                        <span class="small text-muted">
-app/templates/finance/dashboard.html:                                        <span class="small text-muted d-block">
-app/templates/finance/dashboard.html:                        <div class="text-center py-5 text-muted">
-app/templates/finance/dashboard.html:                    <p class="text-muted small mb-4">Selecione os filtros abaixo para gerar um relatório tabular limpo e profissional.</p>
-app/templates/finance/dashboard.html:                <div class="modal-footer bg-light border-0">
-app/templates/finance/dashboard.html:                            <select name="type" id="edit_type" class="form-select bg-light border-0" required>
-app/templates/finance/dashboard.html:                            <input type="number" step="0.01" name="amount" id="edit_amount" class="form-control bg-light border-0" required>
-app/templates/finance/dashboard.html:                            <input type="date" name="date" id="edit_date" class="form-control bg-light border-0" required>
-app/templates/finance/dashboard.html:                            <select name="category_id" id="edit_category_id" class="form-select bg-light border-0" required>
-app/templates/finance/dashboard.html:                            <select name="payment_method_id" id="edit_payment_method_id" class="form-select bg-light border-0" required>
-app/templates/finance/dashboard.html:                            <select name="user_id" id="edit_user_id" class="form-select bg-light border-0">
-app/templates/finance/dashboard.html:                            <textarea name="description" id="edit_description" class="form-control bg-light border-0" rows="3"></textarea>
-app/templates/finance/dashboard.html:                <div class="modal-footer bg-light border-0">
-app/templates/finance/member_finance.html:                            <thead class="bg-light">
-app/templates/finance/member_finance.html:                                    <td colspan="4" class="text-center py-5 text-muted">
-app/templates/finance/member_finance.html:                            <small class="text-muted">{{ debt.ministry.name }} | {{ debt.date.strftime('%d/%m/%Y') }}</small>
-app/templates/finance/member_finance.html:                        <p class="text-muted mb-0">Você não possui pendências financeiras.</p>
-app/templates/finance/add_ministry_tx.html:                            <small class="text-muted d-block">
-app/templates/finance/add_ministry_tx.html:                            <small class="text-muted d-block">
-app/templates/finance/settings.html:            <p class="text-muted">Personalize as categorias e meios de pagamento da sua congregação.</p>
-app/templates/finance/settings.html:                <div class="card-header bg-white p-4 border-0 d-flex justify-content-between align-items-center">
-app/templates/finance/settings.html:                            <thead class="bg-light">
-app/templates/finance/settings.html:                                <tr><td colspan="3" class="text-center py-4 text-muted">Nenhuma categoria cadastrada.</td></tr>
-app/templates/finance/settings.html:                <div class="card-header bg-white p-4 border-0 d-flex justify-content-between align-items-center">
-app/templates/finance/settings.html:                            <thead class="bg-light">
-app/templates/finance/settings.html:                                <tr><td colspan="3" class="text-center py-4 text-muted">Nenhum meio de pagamento cadastrado.</td></tr>
-app/templates/finance/modelo25_index.html:            <p class="text-muted">Declaração anual de donativos para a Autoridade Tributária</p>
-app/templates/finance/modelo25_index.html:                            <small class="form-text text-muted">
-app/templates/finance/modelo25_preview.html:            <p class="text-muted">Ano Fiscal: <strong>{{ year }}</strong></p>
-app/templates/finance/modelo25_preview.html:                    <p class="text-muted">
-app/templates/finance/annual_receipt_form.html:    <p class="lead text-muted mb-4">Selecione o período desejado (ex: ano inteiro para declaração fiscal).</p>
-app/templates/finance/bank_accounts.html:                                    <div class="fw-bold text-primary">{{ account.bank_name }}</div>
-app/templates/finance/bank_accounts.html:                                <small class="text-muted">
-app/templates/finance/bank_accounts.html:                                        <span class="text-muted fst-italic">Sem observações</span>
-app/templates/finance/bank_accounts.html:                                <span class="text-muted">-</span>
-app/templates/finance/bank_accounts.html:                            <td colspan="8" class="text-center py-5 text-muted">
-app/templates/finance/bank_accounts.html:                                    <div class="fw-bold text-primary">{{ account.ministry.name }}</div>
-app/templates/finance/bank_accounts.html:                                <span class="text-muted">-</span>
-app/templates/finance/add_bank_account.html:                                <small class="text-muted">Deixe em branco para conta da igreja</small>
-app/templates/finance/mbway.html:                            <td colspan="4" class="text-center py-5 text-muted">
-app/templates/finance/ministry_categories.html:                            <td colspan="4" class="text-center py-5 text-muted">
-app/templates/finance/ministry_payment_methods.html:                            <td colspan="4" class="text-center py-5 text-muted">
-app/templates/finance/ministry_payment_methods.html:                        <small class="text-muted">Ex: Cantina - Dinheiro, Cantina - Cartão</small>
-app/templates/finance/bank_account_detail.html:                <small class="text-muted fs-6"> - {{ account.account_number }}</small>
-app/templates/finance/bank_account_detail.html:            <p class="text-muted">
-app/templates/finance/bank_account_detail.html:                    <p class="text-primary small fw-bold mb-1">SALDO ATUAL</p>
-app/templates/finance/bank_account_detail.html:                    <h3 class="fw-bold text-primary mb-0">{{ account.church.currency_symbol if account.church else 'R$' }} {{ "%.2f"|format(stats.balance) }}</h3>
-app/templates/finance/bank_account_detail.html:                            <p class="text-muted small mb-0">Número MBWay vinculado a esta conta</p>
-app/templates/finance/bank_account_detail.html:                    <thead class="bg-light">
-app/templates/finance/bank_account_detail.html:                                <div class="small text-muted">{{ tx.user.name }}</div>
-app/templates/finance/bank_account_detail.html:                            <td colspan="6" class="text-center py-5 text-muted">
-app/templates/finance/add_supplier.html:                        <h5 class="fw-bold mb-3"><i class="bi bi-building me-2 text-primary"></i> Dados Básicos</h5>
-app/templates/finance/add_supplier.html:                                <input type="text" name="name" class="form-control bg-light border-0" required>
-app/templates/finance/add_supplier.html:                                <select name="country" id="country" class="form-select bg-light border-0">
-app/templates/finance/add_supplier.html:                                <input type="text" name="tax_id" id="tax_id" class="form-control bg-light border-0" placeholder="999999999">
-app/templates/finance/add_supplier.html:                                <input type="email" name="email" class="form-control bg-light border-0">
-app/templates/finance/add_supplier.html:                                <input type="tel" name="phone" class="form-control bg-light border-0" placeholder="21 123 4567">
-app/templates/finance/add_supplier.html:                                <input type="tel" name="mobile" class="form-control bg-light border-0" placeholder="91 123 4567">
-app/templates/finance/add_supplier.html:                        <h5 class="fw-bold mb-3 mt-4"><i class="bi bi-geo-alt me-2 text-primary"></i> Endereço</h5>
-app/templates/finance/add_supplier.html:                                <input type="text" name="address" class="form-control bg-light border-0" placeholder="Rua, Avenida...">
-app/templates/finance/add_supplier.html:                                <input type="text" name="address_number" class="form-control bg-light border-0" placeholder="123">
-app/templates/finance/add_supplier.html:                                <input type="text" name="complement" class="form-control bg-light border-0" placeholder="Apto, Sala...">
-app/templates/finance/add_supplier.html:                                <input type="text" name="neighborhood" class="form-control bg-light border-0">
-app/templates/finance/add_supplier.html:                                <input type="text" name="city" class="form-control bg-light border-0">
-app/templates/finance/add_supplier.html:                                <input type="text" name="state" class="form-control bg-light border-0">
-app/templates/finance/add_supplier.html:                                <input type="text" name="postal_code" class="form-control bg-light border-0" placeholder="1000-001">
-app/templates/finance/add_supplier.html:                        <h5 class="fw-bold mb-3 mt-4"><i class="bi bi-bank me-2 text-primary"></i> Dados Bancários</h5>
-app/templates/finance/add_supplier.html:                                <input type="text" name="bank_name" class="form-control bg-light border-0">
-app/templates/finance/add_supplier.html:                                <input type="text" name="bank_account" class="form-control bg-light border-0">
-app/templates/finance/add_supplier.html:                                <input type="text" name="iban" class="form-control bg-light border-0" placeholder="PT50 0000 0000 0000 0000 0000 0">
-app/templates/finance/add_supplier.html:                                <input type="text" name="swift" class="form-control bg-light border-0" placeholder="BBVAXXXX">
-app/templates/finance/add_supplier.html:                                <input type="text" name="pix_key" class="form-control bg-light border-0" placeholder="CPF, CNPJ, e-mail, celular ou chave aleatória">
-app/templates/finance/add_supplier.html:                        <h5 class="fw-bold mb-3 mt-4"><i class="bi bi-person-badge me-2 text-primary"></i> Pessoa de Contato</h5>
-app/templates/finance/add_supplier.html:                                <input type="text" name="contact_person" class="form-control bg-light border-0">
-app/templates/finance/add_supplier.html:                                <input type="tel" name="contact_phone" class="form-control bg-light border-0">
-app/templates/finance/add_supplier.html:                            <input type="email" name="contact_email" class="form-control bg-light border-0">
-app/templates/finance/add_supplier.html:                            <textarea name="notes" class="form-control bg-light border-0" rows="3"></textarea>
-app/templates/finance/suppliers.html:            <h2 class="fw-bold text-primary mb-0">
-app/templates/finance/suppliers.html:            <p class="text-muted">Gerencie os fornecedores da igreja e ministérios.</p>
-app/templates/finance/suppliers.html:                    <label class="form-label small fw-bold text-muted">BUSCAR</label>
-app/templates/finance/suppliers.html:                        <span class="input-group-text bg-light border-0"><i class="bi bi-search"></i></span>
-app/templates/finance/suppliers.html:                        <input type="text" name="search" class="form-control bg-light border-0" 
-app/templates/finance/suppliers.html:                    <label class="form-label small fw-bold text-muted">PAÍS</label>
-app/templates/finance/suppliers.html:                    <select name="country" class="form-select bg-light border-0">
-app/templates/finance/suppliers.html:                    <i class="bi bi-truck fs-2 text-primary"></i>
-app/templates/finance/suppliers.html:                    <small class="text-muted">Total de Fornecedores</small>
-app/templates/finance/suppliers.html:                    <small class="text-muted">Ativos</small>
-app/templates/finance/suppliers.html:                    <small class="text-muted">Portugal</small>
-app/templates/finance/suppliers.html:                    <small class="text-muted">Brasil</small>
-app/templates/finance/suppliers.html:                <thead class="bg-light">
-app/templates/finance/suppliers.html:                            <small class="text-muted">Contato: {{ supplier.contact_person }}</small>
-app/templates/finance/suppliers.html:                                    <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25">
-app/templates/finance/suppliers.html:                                <span class="text-muted">—</span>
-app/templates/finance/suppliers.html:                                {% if supplier.phone %}<div class="small"><i class="bi bi-telephone me-1 text-muted"></i> {{ supplier.phone }}</div>{% endif %}
-app/templates/finance/suppliers.html:                                <span class="text-muted">—</span>
-app/templates/finance/suppliers.html:                                <span class="text-muted">—</span>
-app/templates/finance/suppliers.html:                        <td colspan="7" class="text-center py-5 text-muted">
-app/templates/finance/edit_supplier.html:                        <h5 class="fw-bold mb-3"><i class="bi bi-building me-2 text-primary"></i> Dados Básicos</h5>
-app/templates/finance/edit_supplier.html:                                <input type="text" name="name" class="form-control bg-light border-0" value="{{ supplier.name }}" required>
-app/templates/finance/edit_supplier.html:                                <select name="country" id="country" class="form-select bg-light border-0">
-app/templates/finance/edit_supplier.html:                                <input type="text" name="tax_id" id="tax_id" class="form-control bg-light border-0" value="{{ supplier.tax_id or '' }}">
-app/templates/finance/edit_supplier.html:                                <input type="email" name="email" class="form-control bg-light border-0" value="{{ supplier.email or '' }}">
-app/templates/finance/edit_supplier.html:                                <input type="tel" name="phone" class="form-control bg-light border-0" value="{{ supplier.phone or '' }}">
-app/templates/finance/edit_supplier.html:                                <input type="tel" name="mobile" class="form-control bg-light border-0" value="{{ supplier.mobile or '' }}">
-app/templates/finance/edit_supplier.html:                        <h5 class="fw-bold mb-3 mt-4"><i class="bi bi-geo-alt me-2 text-primary"></i> Endereço</h5>
-app/templates/finance/edit_supplier.html:                                <input type="text" name="address" class="form-control bg-light border-0" value="{{ supplier.address or '' }}">
-app/templates/finance/edit_supplier.html:                                <input type="text" name="address_number" class="form-control bg-light border-0" value="{{ supplier.address_number or '' }}">
-app/templates/finance/edit_supplier.html:                                <input type="text" name="complement" class="form-control bg-light border-0" value="{{ supplier.complement or '' }}">
-app/templates/finance/edit_supplier.html:                                <input type="text" name="neighborhood" class="form-control bg-light border-0" value="{{ supplier.neighborhood or '' }}">
-app/templates/finance/edit_supplier.html:                                <input type="text" name="city" class="form-control bg-light border-0" value="{{ supplier.city or '' }}">
-app/templates/finance/edit_supplier.html:                                <input type="text" name="state" class="form-control bg-light border-0" value="{{ supplier.state or '' }}">
-app/templates/finance/edit_supplier.html:                                <input type="text" name="postal_code" class="form-control bg-light border-0" value="{{ supplier.postal_code or '' }}">
-app/templates/finance/edit_supplier.html:                        <h5 class="fw-bold mb-3 mt-4"><i class="bi bi-bank me-2 text-primary"></i> Dados Bancários</h5>
-app/templates/finance/edit_supplier.html:                                <input type="text" name="bank_name" class="form-control bg-light border-0" value="{{ supplier.bank_name or '' }}">
-app/templates/finance/edit_supplier.html:                                <input type="text" name="bank_account" class="form-control bg-light border-0" value="{{ supplier.bank_account or '' }}">
-app/templates/finance/edit_supplier.html:                                <input type="text" name="iban" class="form-control bg-light border-0" value="{{ supplier.iban or '' }}">
-app/templates/finance/edit_supplier.html:                                <input type="text" name="swift" class="form-control bg-light border-0" value="{{ supplier.swift or '' }}">
-app/templates/finance/edit_supplier.html:                                <input type="text" name="pix_key" class="form-control bg-light border-0" value="{{ supplier.pix_key or '' }}">
-app/templates/finance/edit_supplier.html:                        <h5 class="fw-bold mb-3 mt-4"><i class="bi bi-person-badge me-2 text-primary"></i> Pessoa de Contato</h5>
-app/templates/finance/edit_supplier.html:                                <input type="text" name="contact_person" class="form-control bg-light border-0" value="{{ supplier.contact_person or '' }}">
-app/templates/finance/edit_supplier.html:                                <input type="tel" name="contact_phone" class="form-control bg-light border-0" value="{{ supplier.contact_phone or '' }}">
-app/templates/finance/edit_supplier.html:                            <input type="email" name="contact_email" class="form-control bg-light border-0" value="{{ supplier.contact_email or '' }}">
-app/templates/finance/edit_supplier.html:                            <textarea name="notes" class="form-control bg-light border-0" rows="3">{{ supplier.notes or '' }}</textarea>
-app/templates/finance/bills.html:            <h2 class="fw-bold text-primary mb-0">
-app/templates/finance/bills.html:            <p class="text-muted">Gerencie as contas e compromissos financeiros.</p>
-app/templates/finance/bills.html:                    <small class="text-muted">Vencidas</small>
-app/templates/finance/bills.html:                    <small class="text-muted">A Pagar</small>
-app/templates/finance/bills.html:                    <small class="text-muted">Pagas</small>
-app/templates/finance/bills.html:                    <i class="bi bi-receipt fs-2 text-primary"></i>
-app/templates/finance/bills.html:                    <small class="text-muted">Total de Contas</small>
-app/templates/finance/bills.html:                    <label class="form-label small fw-bold text-muted">STATUS</label>
-app/templates/finance/bills.html:                    <select name="status" class="form-select bg-light border-0">
-app/templates/finance/bills.html:                    <label class="form-label small fw-bold text-muted">FORNECEDOR</label>
-app/templates/finance/bills.html:                    <select name="supplier_id" class="form-select bg-light border-0">
-app/templates/finance/bills.html:                    <label class="form-label small fw-bold text-muted">VENCIMENTO DE</label>
-app/templates/finance/bills.html:                    <input type="date" name="start_date" class="form-control bg-light border-0" value="{{ filters.start_date or '' }}">
-app/templates/finance/bills.html:                    <label class="form-label small fw-bold text-muted">VENCIMENTO ATÉ</label>
-app/templates/finance/bills.html:                    <input type="date" name="end_date" class="form-control bg-light border-0" value="{{ filters.end_date or '' }}">
-app/templates/finance/bills.html:                <thead class="bg-light">
-app/templates/finance/bills.html:                            <small class="text-muted">{{ bill.supplier.tax_id or '' }}</small>
-app/templates/finance/bills.html:                        <td colspan="7" class="text-center py-5 text-muted">
-app/templates/finance/bills.html:                    <div class="spinner-border text-primary" role="status">
-app/templates/finance/bills.html:            <div class="modal-footer bg-light border-0">
-app/templates/finance/bills.html:            <div class="spinner-border text-primary" role="status">
-app/templates/finance/bills.html:                            <div class="bg-light rounded p-3">
-app/templates/finance/bills.html:                                <small class="text-muted text-uppercase">Fornecedor</small>
-app/templates/finance/bills.html:                                <small class="text-muted">${data.bill.supplier_tax_id || 'Sem documento'}</small>
-app/templates/finance/bills.html:                            <div class="bg-light rounded p-3">
-app/templates/finance/bills.html:                                <small class="text-muted text-uppercase">Status</small>
-app/templates/finance/bills.html:                            <div class="bg-light rounded p-3">
-app/templates/finance/bills.html:                                <small class="text-muted text-uppercase">Valor Total</small>
-app/templates/finance/bills.html:                                <h5 class="fw-bold text-primary mb-0">R$ ${data.bill.amount}</h5>
-app/templates/finance/bills.html:                            <div class="bg-light rounded p-3">
-app/templates/finance/bills.html:                                <small class="text-muted text-uppercase">Valor Pago</small>
-app/templates/finance/bills.html:                            <div class="bg-light rounded p-3">
-app/templates/finance/bills.html:                                <small class="text-muted text-uppercase">Saldo Devedor</small>
-app/templates/finance/bills.html:                            <div class="bg-light rounded p-3">
-app/templates/finance/bills.html:                                <small class="text-muted text-uppercase">Data de Vencimento</small>
-app/templates/finance/bills.html:                            <div class="bg-light rounded p-3">
-app/templates/finance/bills.html:                                <small class="text-muted text-uppercase">Data de Emissão</small>
-app/templates/finance/bills.html:                            <div class="bg-light rounded p-3">
-app/templates/finance/bills.html:                                <small class="text-muted text-uppercase">Nº Nota Fiscal</small>
-app/templates/finance/bills.html:                            <div class="bg-light rounded p-3">
-app/templates/finance/bills.html:                                <small class="text-muted text-uppercase">Descrição</small>
-app/templates/finance/bills.html:                            <div class="bg-light rounded p-3">
-app/templates/finance/bills.html:                                <small class="text-muted text-uppercase">Data do Pagamento</small>
-app/templates/finance/bills.html:                            <div class="bg-light rounded p-3">
-app/templates/finance/bills.html:                                <small class="text-muted text-uppercase">Observações</small>
-app/templates/finance/add_bill.html:                            <select name="supplier_id" class="form-select bg-light border-0" required>
-app/templates/finance/add_bill.html:                            <input type="text" name="description" class="form-control bg-light border-0" required>
-app/templates/finance/add_bill.html:                                <input type="number" step="0.01" name="amount" class="form-control bg-light border-0" required>
-app/templates/finance/add_bill.html:                                <input type="date" name="due_date" class="form-control bg-light border-0" required>
-app/templates/finance/add_bill.html:                                <input type="date" name="issue_date" class="form-control bg-light border-0">
-app/templates/finance/add_bill.html:                                <input type="text" name="invoice_number" class="form-control bg-light border-0">
-app/templates/finance/add_bill.html:                                <select name="category_id" class="form-select bg-light border-0">
-app/templates/finance/add_bill.html:                                <select name="payment_method_id" class="form-select bg-light border-0">
-app/templates/finance/add_bill.html:                            <select name="bank_account_id" class="form-select bg-light border-0">
-app/templates/finance/add_bill.html:                            <textarea name="notes" class="form-control bg-light border-0" rows="3"></textarea>
-app/templates/finance/pay_bill.html:                            <input type="number" step="0.01" name="amount" class="form-control bg-light border-0" 
-app/templates/finance/pay_bill.html:                            <input type="date" name="payment_date" class="form-control bg-light border-0" 
-app/templates/finance/pay_bill.html:                            <select name="payment_method_id" class="form-select bg-light border-0" required>
-app/templates/finance/pay_bill.html:                            <select name="bank_account_id" class="form-select bg-light border-0">
-app/templates/edification/view_study.html:                <span class="badge bg-primary bg-opacity-10 text-primary px-3 py-2 mb-3">{{ study.category }}</span>
-app/templates/edification/view_study.html:                <div class="d-flex align-items-center text-muted">
-app/templates/edification/view_study.html:                <p class="text-muted small">Este estudo foi publicado para a edificação do corpo de Cristo. Que a Palavra de Deus produza frutos em seu coração.</p>
-app/templates/edification/kids.html:            <p class="text-muted fs-6 fs-md-5">Espaço especial para nossas crianças crescerem na Palavra!</p>
-app/templates/edification/kids.html:                    <p class="text-muted small d-none d-md-block">Teste sua memória com os personagens da Bíblia!</p>
-app/templates/edification/kids.html:                    <p class="text-muted small d-block d-md-none">Memória bíblica</p>
-app/templates/edification/kids.html:                    <p class="text-muted small d-none d-md-block">Adivinhe o personagem bíblico através das dicas!</p>
-app/templates/edification/kids.html:                    <p class="text-muted small d-block d-md-none">Adivinhe o personagem</p>
-app/templates/edification/kids.html:                    <p class="text-muted small d-none d-md-block">Encontre as palavras da história bíblica!</p>
-app/templates/edification/kids.html:                    <p class="text-muted small d-block d-md-none">Encontre palavras</p>
-app/templates/edification/kids.html:                    <p class="text-muted small d-none d-md-block">Complete o desafio com as dicas bíblicas!</p>
-app/templates/edification/kids.html:                    <p class="text-muted small d-block d-md-none">Desafio de palavras</p>
-app/templates/edification/kids.html:                    <p class="text-muted small mb-3 mb-md-4">Selecione uma história para começar a brincar:</p>
-app/templates/edification/kids.html:                        <p class="text-muted small d-none d-md-block">{{ story.content | striptags | truncate(100) }}</p>
-app/templates/edification/kids.html:                        <p class="text-muted small d-block d-md-none">{{ story.content | striptags | truncate(50) }}</p>
-app/templates/edification/kids.html:                            <span class="badge bg-light text-warning border border-warning x-small">{{ act.age_group }}</span>
-app/templates/edification/kids.html:                        <p class="text-muted small d-none d-md-block mb-3 mb-md-4">{{ act.content|truncate(150) }}</p>
-app/templates/edification/kids.html:                        <p class="text-muted small d-block d-md-none mb-3">{{ act.content|truncate(80) }}</p>
-app/templates/edification/kids.html:                            <small class="text-muted"><i class="bi bi-calendar3 me-1"></i>{{ act.created_at.strftime('%d/%m/%Y') }}</small>
-app/templates/edification/kids.html:                <p class="text-muted">Em breve teremos muitas atividades legais aqui!</p>
-app/templates/edification/add_kids.html:                    <input type="text" name="title" class="form-control bg-light border-0" placeholder="Ex: A Arca de Noé - Colorir" required>
-app/templates/edification/add_kids.html:                    <select name="age_group" class="form-select bg-light border-0" required>
-app/templates/edification/add_kids.html:                    <textarea name="content" class="form-control bg-light border-0" rows="5" placeholder="Descreva a atividade ou cole o link do material..." required></textarea>
-app/templates/edification/studies.html:            <h1 class="fw-bold text-primary"><i class="bi bi-book-half me-2"></i>Centro de Estudos</h1>
-app/templates/edification/studies.html:            <p class="text-muted">Cresça no conhecimento da Palavra de Deus.</p>
-app/templates/edification/studies.html:                    <p class="text-muted small mb-4">{{ study.content[:150] }}...</p>
-app/templates/edification/studies.html:                        <small class="text-muted"><i class="bi bi-calendar3 me-1"></i>{{ study.created_at.strftime('%d/%m/%Y') }}</small>
-app/templates/edification/studies.html:            <i class="bi bi-journal-text fs-1 text-muted opacity-50 d-block mb-3"></i>
-app/templates/edification/studies.html:            <p class="text-muted">Nenhum estudo bíblico disponível no momento.</p>
-app/templates/edification/add_study.html:                    <input type="text" name="title" class="form-control bg-light border-0" placeholder="Ex: A Importância da Oração" required>
-app/templates/edification/add_study.html:                    <input type="text" name="category" class="form-control bg-light border-0" placeholder="Ex: Doutrina, Família, Escatologia" required>
-app/templates/edification/add_study.html:                    <input type="file" name="study_file" class="form-control bg-light border-0" accept=".pdf,.docx,.pptx,.txt">
-app/templates/edification/add_study.html:                    <textarea name="content" class="form-control bg-light border-0" rows="12" placeholder="Escreva o estudo aqui ou deixe em branco se enviar um arquivo..."></textarea>
-app/templates/edification/add_study.html:                    <div class="form-text small text-primary">As questões geradas ficarão pendentes de sua revisão antes de serem publicadas.</div>
-app/templates/edification/gallery.html:        <h1 class="fw-bold text-primary mb-0"><i class="bi bi-images me-2"></i>Galeria da Igreja</h1>
-app/templates/edification/gallery.html:                    <label class="form-label small fw-bold text-muted">MINISTÉRIO</label>
-app/templates/edification/gallery.html:                    <label class="form-label small fw-bold text-muted">TIPO DE MÍDIA</label>
-app/templates/edification/gallery.html:                                        <i class="bi bi-collection fs-1 text-muted"></i>
-app/templates/edification/gallery.html:                                        <p class="text-muted small mb-0">Sem imagens</p>
-app/templates/edification/gallery.html:                                        <span class="badge bg-primary bg-opacity-10 text-primary mt-1">{{ album.media_items|length }} itens</span>
-app/templates/edification/gallery.html:                            <p class="small text-muted mb-0">{{ album.created_at.strftime('%d/%m/%Y') }}</p>
-app/templates/edification/gallery.html:                            <p class="small text-muted mb-0 text-truncate">{{ album.description }}</p>
-app/templates/edification/gallery.html:                <span class="badge bg-primary bg-opacity-10 text-primary ms-3">{{ items|length }} itens</span>
-app/templates/edification/gallery.html:                                <div class="d-flex align-items-center justify-content-center bg-light" style="height: 200px;">
-app/templates/edification/gallery.html:                                <small class="text-muted">{{ item.created_at.strftime('%d/%m/%y') }}</small>
-app/templates/edification/gallery.html:            <i class="bi bi-images display-1 text-muted opacity-25 d-block mb-3"></i>
-app/templates/edification/gallery.html:            <h4 class="text-muted">Nenhuma mídia encontrada</h4>
-app/templates/edification/gallery.html:            <p class="text-muted">Tente ajustar os filtros ou adicione novos conteúdos.</p>
-app/templates/edification/add_media.html:                    <input type="text" name="title" class="form-control bg-light border-0" required placeholder="Ex: Fotos do Retiro 2024">
-app/templates/edification/add_media.html:                    <input type="text" name="event_name" class="form-control bg-light border-0" placeholder="Ex: Culto de Jovens - 08/02">
-app/templates/edification/add_media.html:                    <select name="ministry_id" class="form-select bg-light border-0">
-app/templates/edification/add_media.html:                    <input type="file" name="file" class="form-control bg-light border-0" accept="image/*,application/pdf,video/mp4" required multiple>
-app/templates/edification/add_media.html:                    <textarea name="description" class="form-control bg-light border-0" rows="3" placeholder="Detalhes sobre este conjunto de mídias..."></textarea>
-app/templates/edification/add_devotional.html:                    <input type="date" name="date" class="form-control bg-light border-0" required>
-app/templates/edification/add_devotional.html:                    <input type="text" name="title" class="form-control bg-light border-0" required>
-app/templates/edification/add_devotional.html:                    <input type="text" name="verse" class="form-control bg-light border-0" required>
-app/templates/edification/add_devotional.html:                    <textarea name="content" class="form-control bg-light border-0" rows="10" required></textarea>
-app/templates/edification/edit_devotional.html:                    <input type="date" name="date" class="form-control bg-light border-0" value="{{ dev.date.strftime('%Y-%m-%d') }}" required>
-app/templates/edification/edit_devotional.html:                    <input type="text" name="title" class="form-control bg-light border-0" value="{{ dev.title }}" required>
-app/templates/edification/edit_devotional.html:                    <input type="text" name="verse" class="form-control bg-light border-0" value="{{ dev.verse }}" required>
-app/templates/edification/edit_devotional.html:                    <textarea name="content" class="form-control bg-light border-0" rows="10" required>{{ dev.content }}</textarea>
-app/templates/edification/list_devotionals.html:            <h1 class="fw-bold text-primary"><i class="bi bi-book-half me-2"></i> Gerenciar Devocionais</h1>
-app/templates/edification/list_devotionals.html:            <p class="text-muted">Todos os devocionais cadastrados. Edite ou exclua quando necessário.</p>
-app/templates/edification/study_detail.html:                        <small class="text-muted">
-app/templates/edification/study_detail.html:                        <h4 class="fw-bold mb-4 text-primary"><i class="bi bi-patch-question me-2"></i>Questões para Estudo</h4>
-app/templates/edification/study_detail.html:                            <div class="card border-0 bg-light p-4 mb-4 rounded-4">
-app/templates/edification/study_detail.html:                                    <div class="p-3 bg-white rounded-3 border-start border-success border-4 shadow-sm">
-app/templates/edification/study_detail.html:                                        <p class="mb-0 small text-muted mt-2 italic"><strong>Fonte/Explicação:</strong> {{ q.explanation }}</p>
-app/templates/edification/study_detail.html:                        <a href="{{ url_for('edification.studies') }}" class="btn btn-link text-decoration-none text-muted">
-app/templates/edification/edit_media.html:    <h1 class="fw-bold text-primary mb-4">Editar Mídia</h1>
-app/templates/edification/devotionals.html:            <p class="text-muted">Uma palavra de fé e esperança para o seu dia.</p>
-app/templates/edification/devotionals.html:                        <span class="badge bg-primary bg-opacity-10 text-primary px-3 py-2">
-app/templates/edification/devotionals.html:                        <i class="bi bi-quote fs-1 text-primary opacity-25"></i>
-app/templates/edification/devotionals.html:                    <p class="text-muted mb-4 flex-grow-1">
-app/templates/edification/devotionals.html:                    <div class="bg-light p-3 rounded-3 mb-3">
-app/templates/edification/devotionals.html:                    <button type="button" class="btn btn-link text-primary p-0 fw-bold text-decoration-none" 
-app/templates/edification/devotionals.html:                        <p class="text-muted small mb-4">Publicado em {{ dev.date.strftime('%d/%m/%Y') }}</p>
-app/templates/edification/devotionals.html:                <i class="bi bi-journal-text fs-1 text-muted mb-3"></i>
-app/templates/edification/devotionals.html:                <h5 class="text-muted">Nenhum devocional publicado ainda.</h5>
-app/templates/edification/devotionals.html:                <p class="text-muted">Fique atento, em breve teremos novas mensagens!</p>
-app/templates/edification/gallery_album.html:            <h1 class="fw-bold text-primary mb-1"><i class="bi bi-collection me-2"></i>{{ album.title }}</h1>
-app/templates/edification/gallery_album.html:            <p class="text-muted mb-0">{{ album.description or 'Sem descrição' }}</p>
-app/templates/edification/gallery_album.html:                        <div class="d-flex align-items-center justify-content-center bg-light" style="height: 200px;">
-app/templates/edification/gallery_album.html:                    <p class="small text-muted mb-2 text-truncate">{{ item.description or '' }}</p>
-app/templates/edification/gallery_album.html:                        <small class="text-muted">{{ item.created_at.strftime('%d/%m/%Y') }}</small>
-app/templates/edification/gallery_album.html:        <i class="bi bi-images display-1 text-muted opacity-25 d-block mb-3"></i>
-app/templates/edification/gallery_album.html:        <h4 class="text-muted">Nenhuma mídia neste álbum</h4>
-app/templates/edification/gallery_album.html:                    <span class="badge bg-light text-dark" id="lightboxCounter">1 / 10</span>
-app/templates/edification/kids_memory_game.html:        <p class="text-muted">Encontre os pares dos personagens da Bíblia!</p>
-app/templates/edification/kids_memory_game.html:            <div class="mt-5 p-4 bg-light rounded-4 shadow-sm">
-app/templates/edification/kids_bible_story.html:                    <div class="story-content fs-5 text-muted lh-lg mb-5">
-app/templates/edification/kids_bible_story.html:                        <div class="quiz-card mb-4 p-4 border rounded-4 bg-light bg-opacity-50" id="quiz-{{ quiz.id }}">
-app/templates/edification/manage_kids.html:            <p class="text-muted">Adicione e edite histórias, quizzes e atividades.</p>
-app/templates/edification/manage_kids.html:                <div class="card-header bg-white border-0 py-3 d-flex justify-content-between align-items-center">
-app/templates/edification/manage_kids.html:                            <thead class="bg-light">
-app/templates/edification/manage_kids.html:                                        <button class="btn btn-sm btn-light text-primary me-1" title="Adicionar Quiz" onclick="setStoryId('{{ story.id }}', '{{ story.title }}')" data-bs-toggle="modal" data-bs-target="#addQuizModal">
-app/templates/edification/manage_kids.html:                                    <td colspan="5" class="text-center py-4 text-muted">Nenhuma história cadastrada.</td>
-app/templates/edification/manage_kids.html:                <div class="card-header bg-white border-0 py-3 d-flex justify-content-between align-items-center">
-app/templates/edification/manage_kids.html:                                    <small class="text-muted">{{ act.age_group }} • {{ act.created_at.strftime('%d/%m/%y') }}</small>
-app/templates/edification/manage_kids.html:                        <input type="text" name="title" class="form-control bg-light border-0" required>
-app/templates/edification/manage_kids.html:                        <input type="number" name="order" class="form-control bg-light border-0" value="{{ (stories|length + 1) }}">
-app/templates/edification/manage_kids.html:                        <input type="text" name="reference" class="form-control bg-light border-0" placeholder="Ex: Gênesis 1:1">
-app/templates/edification/manage_kids.html:                        <input type="url" name="image_path" class="form-control bg-light border-0" placeholder="https://...">
-app/templates/edification/manage_kids.html:                        <input type="file" name="story_file" class="form-control bg-light border-0" accept=".pdf,.docx,.pptx,.txt">
-app/templates/edification/manage_kids.html:                        <textarea name="content" class="form-control bg-light border-0" rows="6"></textarea>
-app/templates/edification/manage_kids.html:                    <input type="text" name="question" class="form-control bg-light border-0" required>
-app/templates/edification/manage_kids.html:                    <input type="text" name="option_a" class="form-control bg-light border-0" required>
-app/templates/edification/manage_kids.html:                    <input type="text" name="option_b" class="form-control bg-light border-0" required>
-app/templates/edification/manage_kids.html:                    <input type="text" name="option_c" class="form-control bg-light border-0" required>
-app/templates/edification/manage_kids.html:                        <select name="correct_option" class="form-select bg-light border-0">
-app/templates/edification/manage_kids.html:                        <input type="text" name="explanation" class="form-control bg-light border-0">
-app/templates/edification/kids_who_am_i.html:        <p class="text-muted">Leia as dicas e adivinhe qual é o personagem bíblico!</p>
-app/templates/edification/kids_who_am_i.html:                <div class="card-footer bg-light border-0 py-3">
-app/templates/edification/kids_who_am_i.html:            <div class="p-3 bg-white rounded-4 shadow-sm d-flex justify-content-around align-items-center">
-app/templates/edification/kids_who_am_i.html:                    <small class="text-muted d-block">PONTOS</small>
-app/templates/edification/kids_who_am_i.html:                    <small class="text-muted d-block">PERSONAGEM</small>
-app/templates/edification/view_bible_story.html:                    <div class="story-content fs-5 text-muted lh-lg mb-5">
-app/templates/edification/view_bible_story.html:                        <div class="quiz-card mb-4 p-4 border rounded-4 bg-light bg-opacity-50" id="quiz-{{ quiz.id }}">
-app/templates/edification/kids_crossword.html:        <p class="text-muted">Use as dicas para preencher as palavras!</p>
-app/templates/edification/kids_crossword.html:                        <select id="difficulty" class="form-select bg-light border-0 rounded-pill" onchange="initGame()">
-app/templates/edification/kids_crossword.html:                        <div class="bg-light p-3 rounded-4 text-start">
-app/templates/edification/kids_crossword.html:                                    <strong class="text-primary small">HORIZONTAIS</strong>
-app/templates/edification/kids_crossword.html:                                    <strong class="text-primary small">VERTICAIS</strong>
-app/templates/edification/kids_puzzle.html:        <h1 class="fw-bold text-primary">Quebra-Cabeça Bíblico</h1>
-app/templates/edification/kids_puzzle.html:        <p class="text-muted">Escolha a dificuldade e monte a imagem!</p>
-app/templates/edification/kids_puzzle.html:                        <select id="difficulty" class="form-select bg-light border-0 rounded-pill">
-app/templates/edification/kids_puzzle.html:                        <select id="image-select" class="form-select bg-light border-0 rounded-pill">
-app/templates/edification/kids_word_search.html:        <p class="text-muted">Encontre as palavras escondidas na grade!</p>
-app/templates/edification/kids_word_search.html:                        <select id="difficulty" class="form-select bg-light border-0 rounded-pill" onchange="initGame()">
-app/templates/edification/kids_word_search.html:                        <div class="bg-light p-3 rounded-4">
-app/templates/edification/review_kids_questions.html:                <h5 class="fw-bold mb-0 text-primary">Pergunta {{ loop.index }}</h5>
-app/templates/edification/review_kids_questions.html:                <textarea name="question_{{ q.id }}" class="form-control bg-light border-0 rounded-3" rows="2">{{ q.question }}</textarea>
-app/templates/edification/review_kids_questions.html:                        <span class="input-group-text border-0 bg-white fw-bold text-success">A</span>
-app/templates/edification/review_kids_questions.html:                        <input type="text" class="form-control bg-light border-0" value="{{ q.option_a }}" readonly>
-app/templates/edification/review_kids_questions.html:                        <div class="input-group-text border-0 bg-white">
-app/templates/edification/review_kids_questions.html:                        <span class="input-group-text border-0 bg-white fw-bold text-success">B</span>
-app/templates/edification/review_kids_questions.html:                        <input type="text" class="form-control bg-light border-0" value="{{ q.option_b }}" readonly>
-app/templates/edification/review_kids_questions.html:                        <div class="input-group-text border-0 bg-white">
-app/templates/edification/review_kids_questions.html:                        <span class="input-group-text border-0 bg-white fw-bold text-success">C</span>
-app/templates/edification/review_kids_questions.html:                        <input type="text" class="form-control bg-light border-0" value="{{ q.option_c }}" readonly>
-app/templates/edification/review_kids_questions.html:                        <div class="input-group-text border-0 bg-white">
-app/templates/edification/review_kids_questions.html:                        <span class="input-group-text border-0 bg-white fw-bold text-success">D</span>
-app/templates/edification/review_kids_questions.html:                        <input type="text" class="form-control bg-light border-0" value="{{ q.option_d }}" readonly>
-app/templates/edification/review_kids_questions.html:                        <div class="input-group-text border-0 bg-white">
-app/templates/edification/review_kids_questions.html:            <div class="p-3 bg-light rounded-3 border-start border-warning border-4">
-app/templates/edification/review_kids_questions.html:        <div class="sticky-bottom bg-white py-3 border-top mt-5">
-app/templates/edification/review_questions.html:                <textarea name="question_{{ q.id }}" class="form-control bg-light border-0" rows="2">{{ q.question_text }}</textarea>
-app/templates/edification/review_questions.html:                        <span class="input-group-text border-0 bg-white fw-bold">{{ key }}</span>
-app/templates/edification/review_questions.html:                        <input type="text" class="form-control bg-light border-0" value="{{ val }}" readonly>
-app/templates/edification/review_questions.html:                        <div class="input-group-text border-0 bg-white">
-app/templates/edification/review_questions.html:            <div class="p-3 bg-light rounded border-start border-primary border-4">
-app/templates/edification/review_questions.html:                <small class="fw-bold text-primary d-block mb-1">FONTE/EXPLICAÇÃO DA IA:</small>
-app/templates/edification/review_questions.html:        <div class="sticky-bottom bg-white py-3 border-top mt-5">
-app/templates/edification/edit_study.html:        <h1 class="fw-bold text-primary"><i class="bi bi-pencil-square me-2"></i>Editar Estudo</h1>
-app/templates/edification/edit_study.html:                <input type="text" name="title" class="form-control bg-light border-0" value="{{ study.title }}" required>
-app/templates/edification/edit_study.html:                <input type="text" name="category" class="form-control bg-light border-0" value="{{ study.category or '' }}" placeholder="Ex: Geral, Doutrina, Vida Cristã">
-app/templates/edification/edit_study.html:                <textarea name="content" class="form-control bg-light border-0" rows="15" required>{{ study.content }}</textarea>
-app/templates/edification/edit_study.html:                <small class="text-muted d-block">Isso deletará as questões atuais e gerará novas baseadas no conteúdo atualizado.</small>
-app/templates/auth/login.html:                <i class="bi bi-lightning-charge-fill text-primary fs-1"></i>
-app/templates/auth/login.html:            <p class="text-muted">Gestão Eclesiástica de Alta Performance</p>
-app/templates/auth/login.html:                        <label class="form-label small fw-bold text-muted">E-MAIL</label>
-app/templates/auth/login.html:                            <span class="input-group-text bg-light border-0"><i class="bi bi-envelope"></i></span>
-app/templates/auth/login.html:                            <input type="email" name="email" class="form-control bg-light border-0" placeholder="seu@email.com" required>
-app/templates/auth/login.html:                        <label class="form-label small fw-bold text-muted">SENHA</label>
-app/templates/auth/login.html:                            <span class="input-group-text bg-light border-0"><i class="bi bi-lock"></i></span>
-app/templates/auth/login.html:                            <input type="password" name="password" class="form-control bg-light border-0" placeholder="Sua senha" required>
-app/templates/auth/login.html:                    <a href="{{ url_for('auth.resend_verification') }}" class="text-decoration-none small text-muted">
-app/templates/auth/login.html:            <p class="text-muted small">© 2026 Ecclesia Master. Todos os direitos reservados.</p>
-app/templates/auth/register.html:                        <h5 class="fw-bold text-primary mb-4 border-bottom pb-2">
-app/templates/auth/register.html:                        <h5 class="fw-bold text-primary mb-4 border-bottom pb-2">
-app/templates/auth/register.html:                        <h5 class="fw-bold text-primary mb-4 border-bottom pb-2">
-app/templates/auth/register.html:                        <div class="card border-0 bg-light rounded-4 mb-4">
-app/templates/auth/register.html:                            <a href="{{ url_for('auth.select_church') }}" class="btn btn-link text-muted text-decoration-none">Voltar e escolher outra filial</a>
-app/templates/auth/change_password.html:            <h3 class="fw-bold mb-4"><i class="bi bi-shield-lock me-2 text-primary"></i>Alterar Senha</h3>
-app/templates/auth/change_password.html:                    <input type="password" name="old_password" class="form-control bg-light border-0" required>
-app/templates/auth/change_password.html:                    <input type="password" name="new_password" class="form-control bg-light border-0" required>
-app/templates/auth/change_password.html:                    <input type="password" name="confirm_password" class="form-control bg-light border-0" required>
-app/templates/auth/resend_verification.html:                    <p class="text-muted mb-4">Insira o e-mail utilizado no cadastro para receber um novo link de ativação da sua conta.</p>
-app/templates/auth/select_church.html:        <h1 class="fw-bold text-primary">Bem-vindo ao Ecclesia Master</h1>
-app/templates/auth/select_church.html:        <p class="text-muted fs-5">Para começar seu cadastro, selecione a congregação (filial) que você deseja se tornar membro.</p>
-app/templates/auth/select_church.html:                    <div class="display-4 mb-3 text-primary">
-app/templates/auth/select_church.html:                    <p class="text-muted small mb-3">
-app/templates/auth/select_church.html:                    <div class="badge bg-light text-dark rounded-pill px-3 py-2 mb-4">
-app/templates/auth/select_church.html:        <p class="text-muted">Já possui uma conta? <a href="{{ url_for('auth.login') }}" class="text-primary fw-bold text-decoration-none">Faça login aqui</a></p>
-app/templates/index.html:            <span class="badge bg-primary bg-opacity-10 text-primary px-3 py-2 mb-3 fw-bold">Gestão Eclesiástica 2026</span>
-app/templates/index.html:            <h1 class="display-3 fw-bold mb-4">Ecclesia <span class="text-primary">Master</span></h1>
-app/templates/index.html:            <p class="lead text-muted mb-5">Uma plataforma completa e moderna para a gestão da sua igreja, congregações e ministérios. Focada em edificação, transparência e comunhão.</p>
-app/templates/index.html:            <p class="text-muted mb-3 fw-bold">Novo aqui? Solicite seu cadastro ou faça login para acessar o painel.</p>
-app/templates/index.html:                                <div class="bg-white rounded-circle p-1 p-md-2 d-inline-block">
-app/templates/index.html:                                    <i class="bi bi-book text-primary fs-6 fs-md-4"></i>
-app/templates/index.html:                                <div class="bg-white rounded-circle p-1 p-md-2 d-inline-block">
-app/templates/index.html:                                <div class="bg-white rounded-circle p-1 p-md-2 d-inline-block">
-app/templates/index.html:                        <h4 class="fw-bold mb-0"><i class="bi bi-calendar-event me-2 text-primary"></i>Próximos Eventos e Cultos</h4>
-app/templates/index.html:                        <p class="text-muted small mt-1">Eventos dos próximos 7 dias</p>
-app/templates/index.html:                                    <div class="bg-primary bg-opacity-10 text-primary p-2 rounded-3 text-center" style="min-width: 55px;">
-app/templates/index.html:                                            <small class="text-muted">
-app/templates/index.html:                                            <small class="text-muted">
-app/templates/index.html:                                    <small class="d-block text-muted"><i class="bi bi-geo-alt me-1"></i> {{ event.location }}</small>
-app/templates/index.html:                                    <small class="d-block text-primary small fw-bold">{{ event.church.name }}</small>
-app/templates/index.html:                        <i class="bi bi-calendar-x fs-1 text-muted d-block mb-2"></i>
-app/templates/index.html:                        <p class="text-muted mb-0">Nenhum evento público agendado para os próximos 7 dias.</p>
-app/templates/index.html:                    <i class="bi bi-emoji-smile-upside-down text-primary display-1"></i>
-app/templates/index.html:                    <li class="mb-2"><i class="bi bi-book text-primary me-2"></i> <strong>Histórias Bíblicas</strong> - As principais histórias da Bíblia de forma ilustrada e envolvente</li>
-app/templates/index.html:            <div class="modal-footer bg-light border-0">
-app/templates/admin/churches.html:            <h1 class="fw-bold text-primary"><i class="bi bi-building-fill me-2"></i>Congregações</h1>
-app/templates/admin/churches.html:            <p class="text-muted">Gerencie a sede e as filiais da igreja.</p>
-app/templates/admin/churches.html:                    <div class="rounded-circle me-3 bg-light d-flex align-items-center justify-content-center" 
-app/templates/admin/churches.html:                        <i class="bi bi-building fs-4 text-muted"></i>
-app/templates/admin/churches.html:                    <p class="text-muted small mb-2"><i class="bi bi-geo-alt me-2"></i>{{ church.address }}</p>
-app/templates/admin/churches.html:                    <p class="text-muted small mb-4"><i class="bi bi-globe me-2"></i>{{ church.city }}, {{ church.country }}</p>
-app/templates/admin/churches.html:                        <p class="text-muted small mt-2">Esta ação não pode ser desfeita e removerá os vínculos de todos os membros desta filial.</p>
-app/templates/admin/add_church.html:                    <input type="text" name="name" class="form-control bg-light border-0" placeholder="Ex: AD Jesus para as Nações - Filial Sul" required>
-app/templates/admin/add_church.html:                    <input type="text" name="address" class="form-control bg-light border-0" required>
-app/templates/admin/add_church.html:                    <input type="text" name="postal_code" class="form-control bg-light border-0" placeholder="Ex: 1234-567">
-app/templates/admin/add_church.html:                    <input type="text" name="concelho" class="form-control bg-light border-0" placeholder="Ex: Lisboa">
-app/templates/admin/add_church.html:                    <input type="text" name="localidade" class="form-control bg-light border-0" placeholder="Ex: Centro">
-app/templates/admin/add_church.html:                        <input type="text" name="city" class="form-control bg-light border-0" required>
-app/templates/admin/add_church.html:                        <select name="country" class="form-select bg-light border-0" required>
-app/templates/admin/add_church.html:                        <input type="text" name="nif" class="form-control bg-light border-0" placeholder="Ex: 517760010">
-app/templates/admin/add_church.html:                        <input type="email" name="email" class="form-control bg-light border-0" placeholder="Ex: financeiro@igreja.com">
-app/templates/admin/add_church.html:                        <input type="file" name="logo" class="form-control bg-light border-0" accept="image/*">
-app/templates/admin/add_church.html:                        <small class="text-muted">Formatos: JPG, PNG, GIF. Tamanho máx: 2MB.</small>
-app/templates/admin/edit_member.html:                        <h5 class="fw-bold mb-3"><i class="bi bi-person me-2 text-primary"></i> Dados Pessoais</h5>
-app/templates/admin/edit_member.html:                                <input type="text" name="name" class="form-control bg-light border-0" value="{{ member.name }}" required>
-app/templates/admin/edit_member.html:                                <input type="date" name="birth_date" class="form-control bg-light border-0" value="{{ member.birth_date.strftime('%Y-%m-%d') if member.birth_date else '' }}">
-app/templates/admin/edit_member.html:                                <select name="gender" class="form-select bg-light border-0">
-app/templates/admin/edit_member.html:                                <select name="marital_status" id="marital_status" class="form-select bg-light border-0" onchange="toggleSpouseField()">
-app/templates/admin/edit_member.html:                                <input type="text" name="spouse_name" class="form-control bg-light border-0" value="{{ member.spouse_name or '' }}">
-app/templates/admin/edit_member.html:                        <h5 class="fw-bold mb-3 mt-4"><i class="bi bi-file-text me-2 text-primary"></i> Documentos</h5>
-app/templates/admin/edit_member.html:                                <input type="text" name="tax_id" class="form-control bg-light border-0" value="{{ member.tax_id or '' }}" placeholder="NIF (PT) / CPF (BR)">
-app/templates/admin/edit_member.html:                                <small class="text-muted">Necessário para emissão de relatórios fiscais (Modelo 25 em Portugal).</small>
-app/templates/admin/edit_member.html:                                <input type="text" name="documents" class="form-control bg-light border-0" value="{{ member.documents or '' }}" placeholder="RG, Passaporte, etc.">
-app/templates/admin/edit_member.html:                        <h5 class="fw-bold mb-3 mt-4"><i class="bi bi-church me-2 text-primary"></i> Datas Espirituais</h5>
-app/templates/admin/edit_member.html:                                <input type="date" name="baptism_date" class="form-control bg-light border-0" value="{{ member.baptism_date.strftime('%Y-%m-%d') if member.baptism_date else '' }}">
-app/templates/admin/edit_member.html:                                <input type="date" name="conversion_date" class="form-control bg-light border-0" value="{{ member.conversion_date.strftime('%Y-%m-%d') if member.conversion_date else '' }}">
-app/templates/admin/edit_member.html:                        <h5 class="fw-bold mb-3 mt-4"><i class="bi bi-geo-alt me-2 text-primary"></i> Endereço</h5>
-app/templates/admin/edit_member.html:                                <textarea name="address" class="form-control bg-light border-0" rows="2">{{ member.address or '' }}</textarea>
-app/templates/admin/edit_member.html:                                <input type="text" name="postal_code" class="form-control bg-light border-0" value="{{ member.postal_code or '' }}" placeholder="1234-567">
-app/templates/admin/edit_member.html:                                <input type="text" name="concelho" class="form-control bg-light border-0" value="{{ member.concelho or '' }}" placeholder="Lisboa">
-app/templates/admin/edit_member.html:                                <input type="text" name="localidade" class="form-control bg-light border-0" value="{{ member.localidade or '' }}" placeholder="Centro">
-app/templates/admin/edit_member.html:                        <h5 class="fw-bold mb-3 mt-4"><i class="bi bi-envelope me-2 text-primary"></i> Contato</h5>
-app/templates/admin/edit_member.html:                                <input type="email" name="email" class="form-control bg-light border-0" value="{{ member.email }}" required>
-app/templates/admin/edit_member.html:                                <input type="tel" name="phone" class="form-control bg-light border-0" value="{{ member.phone or '' }}" placeholder="(00) 00000-0000">
-app/templates/admin/edit_member.html:                        <h5 class="fw-bold mb-3 mt-4"><i class="bi bi-mortarboard me-2 text-primary"></i> Formação</h5>
-app/templates/admin/edit_member.html:                                <input type="text" name="education_level" class="form-control bg-light border-0" value="{{ member.education_level or '' }}" placeholder="Ensino Superior Completo">
-app/templates/admin/edit_member.html:                        <h5 class="fw-bold mb-3 mt-4"><i class="bi bi-image me-2 text-primary"></i> Foto de Perfil</h5>
-app/templates/admin/edit_member.html:                                        <input type="file" name="profile_photo" class="form-control bg-light border-0" accept="image/*">
-app/templates/admin/edit_member.html:                        <h5 class="fw-bold mb-3 mt-4"><i class="bi bi-building me-2 text-primary"></i> Informações Administrativas</h5>
-app/templates/admin/edit_member.html:                                <select name="church_id" class="form-select bg-light border-0">
-app/templates/admin/edit_member.html:                                <select name="church_role_id" class="form-select bg-light border-0">
-app/templates/admin/edit_member.html:                                <select name="status" class="form-select bg-light border-0">
-app/templates/admin/list_roles.html:            <h1 class="fw-bold text-primary"><i class="bi bi-person-badge-fill me-2"></i>Cargos da Congregação</h1>
-app/templates/admin/list_roles.html:            <p class="text-muted">Gerencie os cargos disponíveis para membros da sua congregação.</p>
-app/templates/admin/list_roles.html:                <thead class="bg-light">
-app/templates/admin/list_roles.html:                        <td colspan="4" class="text-center py-5 text-muted">
-app/templates/admin/add_role.html:                    <input type="text" name="name" class="form-control bg-light border-0" placeholder="Ex: Diácono, Presbítero, Missionário" required>
-app/templates/admin/add_role.html:                    <textarea name="description" class="form-control bg-light border-0" rows="3" placeholder="Descreva as responsabilidades..."></textarea>
-app/templates/admin/add_role.html:                    <input type="number" name="order" class="form-control bg-light border-0" value="0" min="0" placeholder="Número para ordenar na lista (menor primeiro)">
-app/templates/admin/edit_role.html:                    <input type="text" name="name" class="form-control bg-light border-0" value="{{ role.name }}" required>
-app/templates/admin/edit_role.html:                    <textarea name="description" class="form-control bg-light border-0" rows="3">{{ role.description }}</textarea>
-app/templates/admin/edit_role.html:                    <input type="number" name="order" class="form-control bg-light border-0" value="{{ role.order }}" min="0">
-app/templates/admin/edit_church.html:                    <input type="text" name="name" class="form-control bg-light border-0" value="{{ church.name }}" required>
-app/templates/admin/edit_church.html:                    <input type="text" name="address" class="form-control bg-light border-0" value="{{ church.address or '' }}" >
-app/templates/admin/edit_church.html:                    <input type="text" name="postal_code" class="form-control bg-light border-0" value="{{ church.postal_code or '' }}" placeholder="Ex: 1234-567">
-app/templates/admin/edit_church.html:                    <input type="text" name="concelho" class="form-control bg-light border-0" value="{{ church.concelho or '' }}" placeholder="Ex: Lisboa">
-app/templates/admin/edit_church.html:                    <input type="text" name="localidade" class="form-control bg-light border-0" value="{{ church.localidade or '' }}" placeholder="Ex: Centro">
-app/templates/admin/edit_church.html:                    <input type="text" name="city" class="form-control bg-light border-0" value="{{ church.city or '' }}">
-app/templates/admin/edit_church.html:                    <select name="country" class="form-select bg-light border-0" required>
-app/templates/admin/edit_church.html:                        <input type="text" name="nif" class="form-control bg-light border-0" value="{{ church.nif or '' }}" placeholder="Ex: 517760010">
-app/templates/admin/edit_church.html:                        <input type="email" name="email" class="form-control bg-light border-0" value="{{ church.email or '' }}" placeholder="Ex: financeiro@igreja.com">
-app/templates/admin/edit_church.html:                        <small class="text-muted d-block mb-2">Logo atual. Envie um novo para substituir.</small>
-app/templates/admin/edit_church.html:                        <input type="file" name="logo" class="form-control bg-light border-0" accept="image/*">
-app/templates/admin/edit_church.html:                        <small class="text-muted">Formatos: JPG, PNG, GIF. Tamanho máx: 2MB.</small>
-app/templates/admin/edit_church.html:                        <small class="text-muted d-block mb-2">Frente atual. Envie uma nova para substituir.</small>
-app/templates/admin/edit_church.html:                        <input type="file" name="member_card_front" class="form-control bg-light border-0" accept="image/*">
-app/templates/admin/edit_church.html:                        <small class="text-muted">Formatos: JPG, PNG. Tamanho máx: 5MB. Dimensões: 85.6mm x 54mm (300 DPI).</small>
-app/templates/admin/edit_church.html:                        <small class="text-muted d-block mb-2">Verso atual. Envie um novo para substituir.</small>
-app/templates/admin/edit_church.html:                        <input type="file" name="member_card_back" class="form-control bg-light border-0" accept="image/*">
-app/templates/admin/edit_church.html:                        <small class="text-muted">Formatos: JPG, PNG. Tamanho máx: 5MB. Dimensões: 85.6mm x 54mm (300 DPI).</small>
-app/templates/admin/add_member.html:    <h1 class="fw-bold text-primary mb-4">Adicionar Novo Membro</h1>
-app/templates/admin/member_card.html:            <h2 class="fw-bold text-primary mb-0"><i class="bi bi-card-id me-2"></i>Cartão de Membro - {{ member.name }}</h2>
-app/templates/admin/member_card.html:            <p class="text-muted">Visualize e imprima o cartão de identificação.</p>
-app/templates/admin/member_card.html:    .no-print, header, footer, nav, .sidebar, .btn, .alert, h1, h2, .text-muted {
-app/templates/admin/edit_my_church.html:            <p class="text-muted">Mantenha as informações de sua filial sempre atualizadas.</p>
-app/templates/admin/edit_my_church.html:                            <small class="text-muted">O nome oficial de sua congregação.</small>
-app/templates/admin/edit_my_church.html:                            <small class="text-muted">Código postal completo (ex: 4 dígitos + hífen + 3 dígitos em PT).</small>
-app/templates/admin/edit_my_church.html:                            <small class="text-muted">A moeda será ajustada automaticamente conforme o país.</small>
-app/templates/admin/edit_my_church.html:                            <small class="text-muted">Número de Identificação Fiscal (Portugal) ou equivalente no seu país.</small>
-app/templates/admin/edit_my_church.html:                                <p class="text-muted small mt-2">Logo atual</p>
-app/templates/admin/edit_my_church.html:                            <small class="text-muted">Formatos aceitos: JPG, PNG. Tamanho máximo: 5MB.</small>
-app/templates/admin/edit_my_church.html:                                <p class="text-muted small mt-2">Frente atual</p>
-app/templates/admin/edit_my_church.html:                            <small class="text-muted">Arte da frente do cartão de membro. Formatos aceitos: JPG, PNG.</small>
-app/templates/admin/edit_my_church.html:                                <p class="text-muted small mt-2">Verso atual</p>
-app/templates/admin/edit_my_church.html:                            <small class="text-muted">Arte do verso do cartão de membro. Formatos aceitos: JPG, PNG.</small>
-app/templates/admin/edit_my_church.html:                            <p class="text-muted small">Posicione os campos (nome, foto, cargo) sobre a arte.</p>
-app/templates/admin/edit_my_church.html:                        <p class="text-muted small mb-1">CONGREGAÇÃO</p>
-app/templates/admin/edit_my_church.html:                        <p class="text-muted small mb-1">LOCALIZAÇÃO</p>
-app/templates/admin/edit_my_church.html:                        <p class="text-muted small mb-1">MOEDA</p>
-app/templates/admin/edit_my_church.html:                        <p class="text-muted small mb-1">CRIADA EM</p>
-app/templates/admin/church_roles_list.html:                <a href="{{ url_for('admin.list_church_roles') }}" class="text-decoration-none text-muted me-2">
-app/templates/admin/church_roles_list.html:            <h1 class="fw-bold text-primary"><i class="bi bi-person-badge-fill me-2"></i>Cargos - {{ church.name }}</h1>
-app/templates/admin/church_roles_list.html:            <p class="text-muted">Gerencie os cargos disponíveis para membros desta congregação.</p>
-app/templates/admin/church_roles_list.html:                <thead class="bg-light">
-app/templates/admin/church_roles_list.html:                                    <span class="text-muted">{{ role.description[:50] }}{% if role.description|length > 50 %}...{% endif %}</span>
-app/templates/admin/church_roles_list.html:                                    <span class="text-muted fst-italic">Sem descrição</span>
-app/templates/admin/church_roles_list.html:                            <td><span class="badge bg-light text-dark">{{ role.order }}</span></td>
-app/templates/admin/church_roles_list.html:                        <td colspan="5" class="text-center py-5 text-muted">
-app/templates/admin/edit_card_layout.html:    <h5 class="text-center text-muted mb-5">{{ church.name }} - {{ church.city or '' }} ({{ church.country or '' }})</h5>
-app/templates/admin/member_card_review.html:            <h2 class="fw-bold text-primary mb-0">
-app/templates/admin/member_card_review.html:            <p class="text-muted">Ajuste a foto e o zoom antes de emitir o cartão</p>
-app/templates/admin/member_card_review.html:                                    <span class="text-muted"><i class="bi bi-image"></i> Sem foto</span>
-app/templates/admin/member_card_review.html:                            <small class="text-muted d-block mb-2">Foto atual do membro</small>
-app/templates/admin/member_card_review.html:                        <small class="text-muted d-block mt-1">A foto original do membro não será alterada</small>
-app/templates/admin/member_card_review.html:                        <small class="text-muted d-block">Ajuste o zoom para melhor enquadramento</small>
-app/templates/admin/member_card_review.html:                            <small class="text-muted d-block">Esquerda ← → Direita</small>
-app/templates/admin/member_card_review.html:                            <small class="text-muted d-block">Cima ↑ ↓ Baixo</small>
-app/templates/admin/member_card_review.html:                                    <span class="text-muted">Sem foto</span>
-app/templates/admin/members.html:            <h1 class="fw-bold text-primary"><i class="bi bi-globe2 me-2"></i>Gestão Global</h1>
-app/templates/admin/members.html:            <p class="text-muted">Gerencie membros de todas as congregações.</p>
-app/templates/admin/members.html:                    <i class="bi bi-people fs-2 text-primary"></i>
-app/templates/admin/members.html:                    <small class="text-muted">Total de Membros</small>
-app/templates/admin/members.html:                    <small class="text-muted">Membros Ativos</small>
-app/templates/admin/members.html:                    <small class="text-muted">Pendentes</small>
-app/templates/admin/members.html:                    <small class="text-muted">Congregações</small>
-app/templates/admin/members.html:                            <label class="form-label small fw-bold text-muted">BUSCAR POR NOME</label>
-app/templates/admin/members.html:                                <span class="input-group-text bg-light border-0"><i class="bi bi-search"></i></span>
-app/templates/admin/members.html:                                <input type="text" name="search" class="form-control bg-light border-0" 
-app/templates/admin/members.html:                            <label class="form-label small fw-bold text-muted">FILTRAR POR CONGREGAÇÃO</label>
-app/templates/admin/members.html:                            <select name="church_id" class="form-select bg-light border-0">
-app/templates/admin/members.html:                            <label class="form-label small fw-bold text-muted">FILTRAR POR CARGO</label>
-app/templates/admin/members.html:                            <select name="role_id" class="form-select bg-light border-0">
-app/templates/admin/members.html:                            <label class="form-label small fw-bold text-muted">STATUS</label>
-app/templates/admin/members.html:                            <select name="status" class="form-select bg-light border-0">
-app/templates/admin/members.html:                                <small class="text-muted">{{ member.phone if member.phone else '' }}</small>
-app/templates/admin/members.html:                                <span class="text-muted">Membro</span>
-app/templates/admin/members.html:                        <td colspan="6" class="text-center py-5 text-muted">
-app/templates/admin/member_card_preview.html:        <h2 class="fw-bold text-primary">
-app/templates/admin/member_card_preview.html:                        <small class="text-muted">A foto original não será alterada</small>
-app/templates/admin/member_card_preview.html:                        <small class="text-muted">Ajuste o zoom para melhor enquadramento</small>
-app/templates/admin/member_card_preview.html:                        <div class="spinner-border text-primary" role="status"></div>
-app/templates/admin/logs.html:            <h2 class="fw-bold text-primary mb-0">
-app/templates/admin/logs.html:            <p class="text-muted">Registro de todas as ações importantes no sistema.</p>
-app/templates/admin/logs.html:                                <small class="d-block text-muted">{{ log.user.email }}</small>
-app/templates/admin/logs.html:                                <span class="text-muted">Sistema</span>
-app/templates/admin/logs.html:                                <span class="text-muted">-</span>
-app/templates/admin/logs.html:                                <span class="small text-muted">{{ log.ip_address or '-' }}</span>
-app/templates/admin/logs.html:                            <td colspan="7" class="text-center py-5 text-muted">
-app/templates/admin/logs.html:                <pre id="detalhesLog" class="bg-light p-3 rounded" style="max-height: 400px; overflow: auto;"></pre>
-app/templates/admin/church_theme.html:                                        <small class="text-muted">Botões, links, elementos de destaque</small>
-app/templates/admin/church_theme.html:                                               data-var="--text-muted"
-app/templates/admin/church_theme.html:                                               data-var="--dark-text-muted"
-app/templates/admin/church_theme.html:                                <p class="text-muted small mb-4">Ajuste as cores do card que aparece no dashboard.</p>
-app/templates/admin/church_theme.html:                                            <small class="d-block text-muted mt-1">Arquivo atual</small>
-app/templates/admin/church_theme.html:                                            <small class="d-block text-muted mt-1">Arquivo atual</small>
-app/templates/admin/church_theme.html:                                    <small class="text-muted">Use para ajustes finos.</small>
-app/templates/admin/church_theme.html:                            <p style="color: var(--text-muted);">Texto secundário</p>
-app/templates/base.html:            --text-muted-default: #64748b;
-app/templates/base.html:            --text-muted: var(--text-muted-default);
-app/templates/base.html:            --text-muted: #94a3b8;
-app/templates/base.html:                --text-muted: {{ t.light_text_muted }} !important;
-app/templates/base.html:                --text-muted: {{ t.dark_text_muted }} !important;
-app/templates/base.html:        .text-muted {
-app/templates/base.html:            color: var(--text-muted) !important;
-app/templates/base.html:                <h5 class="text-muted mb-0 small">Bem-vindo,</h5>
-app/templates/includes/_nav_links.html:                            <i class="bi bi-diagram-3 me-2 text-primary small"></i>
-app/templates/includes/_nav_links.html:    <label class="small text-muted px-3 mb-2">ADMINISTRAÇÃO</label>
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ecclesia Master - Gestão Eclesiástica</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    
+    <!-- Otimização de Modais -->
+    <style>
+        .modal.fade .modal-dialog {
+            transition: transform 0.15s ease-out !important;
+        }
+        .modal-backdrop.fade {
+            opacity: 0;
+            transition: opacity 0.1s linear !important;
+        }
+        .modal-backdrop.show {
+            opacity: 0.5;
+        }
+    </style>
+    
+    <!-- Fontes -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- ===== VARIÁVEIS DO TEMA ===== -->
+    <style>
+        :root {
+            /* TEMA PADRÃO - VALORES FIXOS */
+            --primary-default: #4f46e5;
+            --primary-rgb-default: 79, 70, 229;
+            --primary-hover-default: #4338ca;
+            --secondary-default: #64748b;
+            --success-default: #10b981;
+            --success-rgb-default: 16, 185, 129;
+            --danger-default: #ef4444;
+            --danger-rgb-default: 239, 68, 68;
+            --warning-default: #f59e0b;
+            --warning-rgb-default: 245, 158, 11;
+            --info-default: #06b6d4;
+            --info-rgb-default: 6, 182, 212;
+            --bg-main-default: #f8fafc;
+            --bg-card-default: #ffffff;
+            --sidebar-bg-default: #1e293b;
+            --sidebar-text-default: #f8fafc;
+            --input-bg-default: #ffffff;
+            --text-main-default: #1e293b;
+            --text-muted-default: #64748b;
+            --border-default: #e2e8f0;
+            
+            /* CARD DEVOCIONAL - PADRÃO */
+            --devotional-gradient-start-default: #4f46e5;
+            --devotional-gradient-end-default: #06b6d4;
+            --devotional-overlay-light-default: rgba(0,0,0,0.4);
+            --devotional-overlay-dark-default: rgba(0,0,0,0.6);
+            --devotional-text-default: #ffffff;
+            --devotional-badge-bg-default: #ffffff;
+            --devotional-badge-text-default: #4f46e5;
+            --devotional-icon-color-default: rgba(255,255,255,0.15);
+        }
+
+        /* VALORES ATIVOS */
+        :root {
+            --primary: var(--primary-default);
+            --primary-rgb: var(--primary-rgb-default);
+            --primary-hover: var(--primary-hover-default);
+            --secondary: var(--secondary-default);
+            --success: var(--success-default);
+            --success-rgb: var(--success-rgb-default);
+            --danger: var(--danger-default);
+            --danger-rgb: var(--danger-rgb-default);
+            --warning: var(--warning-default);
+            --warning-rgb: var(--warning-rgb-default);
+            --info: var(--info-default);
+            --info-rgb: var(--info-rgb-default);
+            --bg-main: var(--bg-main-default);
+            --bg-card: var(--bg-card-default);
+            --sidebar-bg: var(--sidebar-bg-default);
+            --sidebar-text: var(--sidebar-text-default);
+            --input-bg: var(--input-bg-default);
+            --text-main: var(--text-main-default);
+            --text-muted: var(--text-muted-default);
+            --border: var(--border-default);
+            
+            --devotional-gradient-start: var(--devotional-gradient-start-default);
+            --devotional-gradient-end: var(--devotional-gradient-end-default);
+            --devotional-overlay-light: var(--devotional-overlay-light-default);
+            --devotional-overlay-dark: var(--devotional-overlay-dark-default);
+            --devotional-text: var(--devotional-text-default);
+            --devotional-badge-bg: var(--devotional-badge-bg-default);
+            --devotional-badge-text: var(--devotional-badge-text-default);
+            --devotional-icon-color: var(--devotional-icon-color-default);
+        }
+
+        /* TEMA ESCURO PADRÃO */
+        [data-theme="dark"] {
+            --primary: #6366f1;
+            --primary-rgb: 99, 102, 241;
+            --primary-hover: #818cf8;
+            --secondary: #94a3b8;
+            --success: #34d399;
+            --success-rgb: 52, 211, 153;
+            --danger: #f87171;
+            --danger-rgb: 248, 113, 113;
+            --warning: #fbbf24;
+            --warning-rgb: 251, 191, 36;
+            --info: #22d3ee;
+            --info-rgb: 34, 211, 238;
+            --bg-main: #0f172a;
+            --bg-card: #1e293b;
+            --sidebar-bg: #020617;
+            --sidebar-text: #f1f5f9;
+            --input-bg: #1e293b;
+            --text-main: #f1f5f9;
+            --text-muted: #94a3b8;
+            --border: #334155;
+        }
+
+        /* ===== TEMA PERSONALIZADO DA IGREJA ===== */
+        {% if current_user.is_authenticated and current_user.church and current_user.church.theme and current_user.church.theme.is_custom %}
+            {% set t = current_user.church.theme %}
+            :root {
+                --primary: {{ t.light_primary }} !important;
+                --primary-hover: {{ t.light_primary_hover }} !important;
+                --secondary: {{ t.light_secondary }} !important;
+                --success: {{ t.light_success }} !important;
+                --danger: {{ t.light_danger }} !important;
+                --warning: {{ t.light_warning }} !important;
+                --info: {{ t.light_info }} !important;
+                --bg-main: {{ t.light_bg_main }} !important;
+                --bg-card: {{ t.light_bg_card }} !important;
+                --sidebar-bg: {{ t.light_sidebar_bg }} !important;
+                --sidebar-text: {{ t.light_sidebar_text }} !important;
+                --input-bg: {{ t.light_input_bg }} !important;
+                --text-main: {{ t.light_text_main }} !important;
+                --text-muted: {{ t.light_text_muted }} !important;
+                --border: {{ t.light_border }} !important;
+                
+                --devotional-gradient-start: {{ t.devotional_gradient_start }} !important;
+                --devotional-gradient-end: {{ t.devotional_gradient_end }} !important;
+                --devotional-overlay-light: {{ t.devotional_overlay_light }} !important;
+                --devotional-overlay-dark: {{ t.devotional_overlay_dark }} !important;
+                --devotional-text: {{ t.devotional_text_color }} !important;
+                --devotional-badge-bg: {{ t.devotional_badge_bg }} !important;
+                --devotional-badge-text: {{ t.devotional_badge_text }} !important;
+                --devotional-icon-color: {{ t.devotional_icon_color|default('rgba(255,255,255,0.15)') }} !important;
+
+                /* 🔥 VARIÁVEIS DE TABELA (TEMA CLARO) */
+                --table-header-bg: {{ t.light_table_header_bg }} !important;
+                --table-header-text: {{ t.light_table_header_text }} !important;
+                --table-row-bg: {{ t.light_table_row_bg }} !important;
+                --table-row-hover: {{ t.light_table_row_hover }} !important;
+                --table-border: {{ t.light_table_border }} !important
+            }
+
+            /* Tema Escuro Personalizado */
+            [data-theme="dark"] {
+                --primary: {{ t.dark_primary }} !important;
+                --primary-hover: {{ t.dark_primary_hover }} !important;
+                --secondary: {{ t.dark_secondary }} !important;
+                --success: {{ t.dark_success }} !important;
+                --danger: {{ t.dark_danger }} !important;
+                --warning: {{ t.dark_warning }} !important;
+                --info: {{ t.dark_info }} !important;
+                --bg-main: {{ t.dark_bg_main }} !important;
+                --bg-card: {{ t.dark_bg_card }} !important;
+                --sidebar-bg: {{ t.dark_sidebar_bg }} !important;
+                --sidebar-text: {{ t.dark_sidebar_text }} !important;
+                --input-bg: {{ t.dark_input_bg }} !important;
+                --text-main: {{ t.dark_text_main }} !important;
+                --text-muted: {{ t.dark_text_muted }} !important;
+                --border: {{ t.dark_border }} !important;
+
+                /* 🔥 VARIÁVEIS DE TABELA (TEMA ESCURO) */
+                --table-header-bg: {{ t.dark_table_header_bg }} !important;
+                --table-header-text: {{ t.dark_table_header_text }} !important;
+                --table-row-bg: {{ t.dark_table_row_bg }} !important;
+                --table-row-hover: {{ t.dark_table_row_hover }} !important;
+                --table-border: {{ t.dark_table_border }} !important;
+            }
+        {% endif %}
+
+        /* ===== FORÇAR TODOS OS ELEMENTOS ===== */
+        /* Sidebar e Offcanvas */
+        .sidebar,
+        .offcanvas,
+        .offcanvas-header,
+        .offcanvas-body,
+        .sidebar *:not(i),
+        .offcanvas *:not(i) {
+            background-color: var(--sidebar-bg) !important;
+            color: var(--sidebar-text) !important;
+            border-color: var(--border) !important;
+        }
+
+        .sidebar .nav-link,
+        .offcanvas .nav-link {
+            color: var(--sidebar-text) !important;
+        }
+
+        .sidebar .nav-link i,
+        .offcanvas .nav-link i {
+            color: var(--sidebar-text) !important;
+        }
+
+        .sidebar .nav-link:hover,
+        .sidebar .nav-link.active,
+        .offcanvas .nav-link:hover,
+        .offcanvas .nav-link.active {
+            background-color: var(--primary) !important;
+            color: white !important;
+        }
+
+        .sidebar .nav-link:hover i,
+        .sidebar .nav-link.active i,
+        .offcanvas .nav-link:hover i,
+        .offcanvas .nav-link.active i {
+            color: white !important;
+        }
+
+        .sidebar .logo h4,
+        .offcanvas-title {
+            color: var(--sidebar-text) !important;
+        }
+
+        .sidebar hr,
+        .offcanvas hr {
+            border-color: var(--border) !important;
+            opacity: 0.2 !important;
+        }
+
+        /* Cards e elementos principais */
+        .card {
+            background-color: var(--bg-card) !important;
+            border-color: var(--border) !important;
+        }
+
+        body {
+            background-color: var(--bg-main) !important;
+            color: var(--text-main) !important;
+        }
+        
+        /* ===== CORREÇÃO PARA TABELAS NO MODO ESCURO ===== */
+
+
+        /* ===== CORREÇÃO ESPECÍFICA PARA O DASHBOARD FINANCEIRO ===== */
+
+        /* Forçar o fundo do cabeçalho da tabela */
+        .table-light,
+        .table-light th,
+        .thead.table-light th,
+        thead.table-light th {
+            background-color: var(--bg-main) !important;
+            color: var(--text-main) !important;
+        }
+
+        /* Forçar as linhas da tabela a usar a cor do card */
+        .table tbody tr {
+            background-color: var(--bg-card) !important;
+        }
+
+        /* Forçar as células a usar a cor correta */
+        .table td {
+            background-color: var(--bg-card) !important;
+            color: var(--text-main) !important;
+        }
+
+        /* Para os badges de categoria */
+        .badge.bg-success.bg-opacity-10,
+        .badge.bg-danger.bg-opacity-10 {
+            background-color: rgba(var(--primary-rgb), 0.1) !important;
+        }
+
+        .badge.text-success,
+        .badge.text-danger {
+            color: var(--text-main) !important;
+        }
+
+        /* Para os textos "Membro:" */
+        .extra-small.text-primary {
+            color: var(--text-muted) !important;
+        }
+
+        /* Para o texto do valor */
+        .text-success {
+            color: var(--success) !important;
+        }
+
+        .text-danger {
+            color: var(--danger) !important;
+        }
+
+        /* Para o contêiner da tabela */
+        .table-responsive {
+            background-color: var(--bg-card) !important;
+        }
+
+        /* Para a classe .table-hover */
+        .table-hover tbody tr:hover {
+            background-color: rgba(var(--primary-rgb), 0.05) !important;
+        }
+
+        /* Tabela principal */
+        .table {
+            background-color: var(--table-row-bg, var(--bg-card)) !important;
+            color: var(--text-main) !important;
+        }
+
+        /* Cabeçalho da tabela */
+        .table thead th {
+            background-color: var(--table-header-bg, var(--bg-main)) !important;
+            color: var(--table-header-text, var(--text-main)) !important;
+            border-bottom-color: var(--table-border, var(--border)) !important;
+        }
+
+        /* Linhas da tabela */
+        .table tbody tr {
+            background-color: var(--table-row-bg, var(--bg-card)) !important;
+            border-bottom-color: var(--table-border, var(--border)) !important;
+        }
+
+        /* Efeito hover nas linhas */
+        .table-hover tbody tr:hover {
+            background-color: var(--table-row-hover, rgba(var(--primary-rgb), 0.05)) !important;
+        }
+
+        /* Linhas alternadas (striped) */
+        .table-striped > tbody > tr:nth-of-type(odd) {
+            background-color: rgba(var(--primary-rgb), 0.02) !important;
+        }
+
+        /* Células específicas */
+        .table td,
+        .table th {
+            border-color: var(--table-border, var(--border)) !important;
+            color: var(--text-main) !important;
+        }
+
+        /* Texto dentro da tabela */
+        .table td .text-muted,
+        .table th .text-muted {
+            color: var(--text-muted) !important;
+        }
+
+        /* Badges dentro da tabela */
+        .table td .badge.bg-primary {
+            background-color: var(--primary) !important;
+        }
+
+        .table td .badge.bg-success {
+            background-color: var(--success) !important;
+        }
+
+        .table td .badge.bg-danger {
+            background-color: var(--danger) !important;
+        }
+
+        .table td .badge.bg-warning {
+            background-color: var(--warning) !important;
+        }
+
+        .table td .badge.bg-info {
+            background-color: var(--info) !important;
+        }
+        /* Remove a classe table-light que causa conflito */
+        .table-light {
+            background-color: var(--bg-main) !important;
+            --bs-table-bg: var(--bg-main) !important;
+        }
+        /* ===== SOBRESCREVER CLASSES DO BOOTSTRAP COM VARIÁVEIS DO TEMA ===== */
+        .text-primary {
+            color: var(--primary) !important;
+        }
+
+        .bg-primary {
+            background-color: var(--primary) !important;
+        }
+
+        .btn-primary {
+            background-color: var(--primary) !important;
+            border-color: var(--primary) !important;
+        }
+
+        .btn-primary:hover {
+            background-color: var(--primary-hover) !important;
+            border-color: var(--primary-hover) !important;
+        }
+
+        .btn-outline-primary {
+            color: var(--primary) !important;
+            border-color: var(--primary) !important;
+        }
+
+        .btn-outline-primary:hover {
+            background-color: var(--primary) !important;
+            border-color: var(--primary) !important;
+            color: white !important;
+        }
+
+        .bg-light {
+            background-color: var(--bg-card) !important;
+        }
+
+        .bg-white {
+            background-color: var(--bg-card) !important;
+        }
+
+        .text-muted {
+            color: var(--text-muted) !important;
+        }
+
+        .border-primary {
+            border-color: var(--primary) !important;
+        }
+
+        .badge.bg-primary {
+            background-color: var(--primary) !important;
+        }
+
+        .badge.bg-success {
+            background-color: var(--success) !important;
+        }
+
+        .badge.bg-danger {
+            background-color: var(--danger) !important;
+        }
+
+        .badge.bg-warning {
+            background-color: var(--warning) !important;
+        }
+
+        .badge.bg-info {
+            background-color: var(--info) !important;
+        }
+
+        .badge.bg-secondary {
+            background-color: var(--secondary) !important;
+        }
+
+        /* Cores com opacidade */
+        .bg-primary.bg-opacity-10 {
+            background-color: rgba(var(--primary-rgb), 0.1) !important;
+        }
+
+        .bg-success.bg-opacity-10 {
+            background-color: rgba(var(--success-rgb), 0.1) !important;
+        }
+
+        .bg-danger.bg-opacity-10 {
+            background-color: rgba(var(--danger-rgb), 0.1) !important;
+        }
+
+        .bg-warning.bg-opacity-10 {
+            background-color: rgba(var(--warning-rgb), 0.1) !important;
+        }
+
+        .bg-info.bg-opacity-10 {
+            background-color: rgba(var(--info-rgb), 0.1) !important;
+        }
+
+        .bg-secondary.bg-opacity-10 {
+            background-color: rgba(var(--secondary-rgb, 100, 116, 139), 0.1) !important;
+        }
+
+        /* Links */
+        a:not(.nav-link) {
+            color: var(--primary) !important;
+        }
+
+        a:not(.nav-link):hover {
+            color: var(--primary-hover) !important;
+        }
+
+        /* Tabelas */
+        .table thead th {
+            background-color: var(--bg-main) !important;
+            color: var(--text-main) !important;
+            border-bottom-color: var(--border) !important;
+        }
+
+        .table-hover tbody tr:hover {
+            background-color: rgba(var(--primary-rgb), 0.05) !important;
+        }
+
+        /* Cards e modais */
+        .card-header.bg-white {
+            background-color: var(--bg-card) !important;
+        }
+
+        .modal-footer.bg-light {
+            background-color: var(--bg-main) !important;
+        }
+
+        /* Formulários */
+        .form-control.bg-light,
+        .form-select.bg-light,
+        .form-control.bg-white,
+        .form-select.bg-white,
+        .input-group-text.bg-light {
+            background-color: var(--input-bg) !important;
+            border-color: var(--border) !important;
+            color: var(--text-main) !important;
+        }
+
+        .form-control:focus,
+        .form-select:focus {
+            border-color: var(--primary) !important;
+            box-shadow: 0 0 0 0.2rem rgba(var(--primary-rgb), 0.25) !important;
+        }
+
+        /* Alertas */
+        .alert-info {
+            background-color: rgba(var(--info-rgb), 0.1) !important;
+            color: var(--info) !important;
+            border-color: var(--info) !important;
+        }
+
+        .alert-success {
+            background-color: rgba(var(--success-rgb), 0.1) !important;
+            color: var(--success) !important;
+            border-color: var(--success) !important;
+        }
+
+        .alert-warning {
+            background-color: rgba(var(--warning-rgb), 0.1) !important;
+            color: var(--warning) !important;
+            border-color: var(--warning) !important;
+        }
+
+        .alert-danger {
+            background-color: rgba(var(--danger-rgb), 0.1) !important;
+            color: var(--danger) !important;
+            border-color: var(--danger) !important;
+        }
+
+        /* Paginação */
+        .page-link {
+            background-color: var(--bg-card) !important;
+            border-color: var(--border) !important;
+            color: var(--text-main) !important;
+        }
+
+        .page-link:hover {
+            background-color: var(--bg-main) !important;
+            color: var(--primary) !important;
+        }
+
+        .page-item.active .page-link {
+            background-color: var(--primary) !important;
+            border-color: var(--primary) !important;
+        }
+
+        /* Dropdown */
+        .dropdown-menu {
+            background-color: var(--bg-card) !important;
+            border-color: var(--border) !important;
+        }
+
+        .dropdown-item {
+            color: var(--text-main) !important;
+        }
+
+        .dropdown-item:hover {
+            background-color: rgba(var(--primary-rgb), 0.1) !important;
+        }
+
+        /* Accordion */
+        .accordion-button {
+            background-color: var(--bg-card) !important;
+            color: var(--text-main) !important;
+        }
+
+        .accordion-button:not(.collapsed) {
+            background-color: rgba(var(--primary-rgb), 0.1) !important;
+            color: var(--primary) !important;
+        }
+
+        /* Modal */
+        .modal-content {
+            background-color: var(--bg-card) !important;
+        }
+
+        .modal-header {
+            border-bottom-color: var(--border) !important;
+        }
+
+        .modal-footer {
+            border-top-color: var(--border) !important;
+        }
+
+        /* List Group */
+        .list-group-item {
+            background-color: var(--bg-card) !important;
+            border-color: var(--border) !important;
+            color: var(--text-main) !important;
+        }
+
+        /* Nav Tabs */
+        .nav-tabs .nav-link {
+            color: var(--text-muted) !important;
+        }
+
+        .nav-tabs .nav-link.active {
+            background-color: var(--bg-card) !important;
+            border-color: var(--border) !important;
+            color: var(--primary) !important;
+        }
+
+        /* Theme Toggle */
+        .theme-toggle {
+            background-color: var(--bg-card) !important;
+            border-color: var(--border) !important;
+            color: var(--text-main) !important;
+        }
+
+        .theme-toggle:hover {
+            background-color: var(--border) !important;
+        }
+
+        /* Mobile Navbar */
+        .mobile-navbar {
+            background-color: var(--bg-card) !important;
+            border-bottom-color: var(--border) !important;
+        }
+    </style>
+
+    <!-- ===== CSS PRINCIPAL ===== -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/premium.css') }}">
+</head>
+<body>
+    {% if current_user.is_authenticated %}
+    <!-- Mobile Navbar -->
+    <div class="mobile-navbar d-lg-none">
+        <div class="d-flex align-items-center">
+            {% if current_user.church and current_user.church.theme and current_user.church.theme.logo_light %}
+                <img src="{{ url_for('static', filename=current_user.church.theme.logo_light) }}" 
+                    alt="Logo" style="max-height: 40px; margin-right: 0.5rem;">
+            {% else %}
+                <i class="bi bi-lightning-charge-fill" style="color: var(--primary); font-size: 1.8rem; margin-right: 0.5rem;"></i>
+            {% endif %}
+            <span class="fw-bold h5 mb-0" style="color: var(--text-main)">Ecclesia</span>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+            <div class="theme-toggle" onclick="toggleTheme()">
+                <i class="bi bi-moon-stars" id="theme-icon-mobile"></i>
+            </div>
+            <button class="btn btn-sm rounded-3 px-2" style="background-color: var(--primary); color: white;" type="button" data-bs-toggle="offcanvas" data-bs-target="#mobileMenu">
+                <i class="bi bi-list fs-4"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Sidebar Desktop -->
+    <div class="sidebar d-none d-lg-block">
+        <div class="d-flex align-items-center mb-4 px-2">
+            {% if current_user.church and current_user.church.theme and current_user.church.theme.logo_light %}
+                <img src="{{ url_for('static', filename=current_user.church.theme.logo_light) }}" 
+                     alt="Logo" style="max-height: 40px; margin-right: 0.75rem;">
+            {% else %}
+                <i class="bi bi-lightning-charge-fill" style="color: var(--primary); font-size: 2rem; margin-right: 0.5rem;"></i>
+            {% endif %}
+            <h4 class="mb-0 fw-bold" style="color: var(--sidebar-text);">Ecclesia</h4>
+        </div>
+        {% include 'includes/_nav_links.html' %}
+    </div>
+
+    <!-- Offcanvas Mobile Menu -->
+    <div class="offcanvas offcanvas-start" tabindex="-1" id="mobileMenu" aria-labelledby="mobileMenuLabel">
+        <div class="offcanvas-header">
+            <h5 class="offcanvas-title fw-bold" id="mobileMenuLabel">Menu Principal</h5>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+        </div>
+        <div class="offcanvas-body">
+            {% include 'includes/_nav_links.html' %}
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="main-content {{ 'mx-auto' if not current_user.is_authenticated }}">
+        <header class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                {% if current_user.is_authenticated %}
+                <h5 class="text-muted mb-0 small">Bem-vindo,</h5>
+                <h3 class="fw-bold mb-0" style="color: var(--text-main);">{{ current_user.name }}</h3>
+                {% else %}
+                <!--<h3 class="fw-bold mb-0" style="color: var(--text-main);">Ecclesia Master</h3>
+                <p class="text-muted mb-0 small">Plataforma de gestão eclesiástica</p>-->
+                {% endif %}
+            </div>
+            <div class="theme-toggle shadow-sm" onclick="toggleTheme()">
+                <i class="bi bi-moon-stars" id="theme-icon"></i>
+            </div>
+        </header>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }} alert-dismissible fade show rounded-4 shadow-sm border-0" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        function updateIcons(theme) {
+            const iconDesktop = document.getElementById('theme-icon');
+            const iconMobile = document.getElementById('theme-icon-mobile');
+            const className = theme === 'dark' ? 'bi bi-sun' : 'bi bi-moon-stars';
+            if(iconDesktop) iconDesktop.className = className;
+            if(iconMobile) iconMobile.className = className;
+        }
+
+        function toggleTheme() {
+            const html = document.documentElement;
+            if (html.getAttribute('data-theme') === 'dark') {
+                html.removeAttribute('data-theme');
+                updateIcons('light');
+                localStorage.setItem('theme', 'light');
+            } else {
+                html.setAttribute('data-theme', 'dark');
+                updateIcons('dark');
+                localStorage.setItem('theme', 'dark');
+            }
+        }
+
+        const savedTheme = localStorage.getItem('theme') || 'light';
+        if (savedTheme === 'dark') {
+            document.documentElement.setAttribute('data-theme', 'dark');
+            updateIcons('dark');
+        } else {
+            updateIcons('light');
+        }
+    </script>
+    <script>
+    window.updateThemePreview = function(variable, value) {
+        document.documentElement.style.setProperty(variable, value);
+    };
+    </script>
+</body>
+</html>

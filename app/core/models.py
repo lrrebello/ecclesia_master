@@ -375,7 +375,7 @@ class ChurchTheme(db.Model):
     
     id = db.Column(db.Integer, primary_key=True)
     church_id = db.Column(db.Integer, db.ForeignKey('church.id'), nullable=False, unique=True)
-    is_custom = db.Column(db.Boolean, default=False)  # Se usa tema personalizado ou padrão
+    is_custom = db.Column(db.Boolean, default=False)
     
     # Tema Claro
     light_primary = db.Column(db.String(7), default='#4f46e5')
@@ -394,6 +394,13 @@ class ChurchTheme(db.Model):
     light_sidebar_text = db.Column(db.String(7), default='#f8fafc')
     light_input_bg = db.Column(db.String(7), default='#ffffff')
     
+    # 🔥 NOVOS CAMPOS DE TABELA (TEMA CLARO)
+    light_table_header_bg = db.Column(db.String(7), default='#f8fafc')
+    light_table_header_text = db.Column(db.String(7), default='#1e293b')
+    light_table_row_bg = db.Column(db.String(7), default='#ffffff')
+    light_table_row_hover = db.Column(db.String(7), default='#f1f5f9')
+    light_table_border = db.Column(db.String(7), default='#e2e8f0')
+    
     # Tema Escuro
     dark_primary = db.Column(db.String(7), default='#6366f1')
     dark_primary_hover = db.Column(db.String(7), default='#818cf8')
@@ -410,10 +417,17 @@ class ChurchTheme(db.Model):
     dark_sidebar_bg = db.Column(db.String(7), default='#020617')
     dark_sidebar_text = db.Column(db.String(7), default='#f1f5f9')
     dark_input_bg = db.Column(db.String(7), default='#1e293b')
+    
+    # 🔥 NOVOS CAMPOS DE TABELA (TEMA ESCURO)
+    dark_table_header_bg = db.Column(db.String(7), default='#1e293b')
+    dark_table_header_text = db.Column(db.String(7), default='#f1f5f9')
+    dark_table_row_bg = db.Column(db.String(7), default='#0f172a')
+    dark_table_row_hover = db.Column(db.String(7), default='#1e293b')
+    dark_table_border = db.Column(db.String(7), default='#334155')
 
     # Variáveis específicas do Devocional
-    devotional_overlay_light = db.Column(db.Text, default='rgba(0,0,0,0.4)')  # ← String(7) → Text
-    devotional_overlay_dark = db.Column(db.Text, default='rgba(0,0,0,0.6)')    # ← String(7) → Text
+    devotional_overlay_light = db.Column(db.Text, default='rgba(0,0,0,0.4)')
+    devotional_overlay_dark = db.Column(db.Text, default='rgba(0,0,0,0.6)')
     devotional_text_color = db.Column(db.String(7), default='#ffffff')
     devotional_badge_bg = db.Column(db.String(7), default='#ffffff')
     devotional_badge_text = db.Column(db.String(7), default='#4f46e5')

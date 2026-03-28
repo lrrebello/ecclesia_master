@@ -1215,27 +1215,23 @@ def edit_church_theme(church_id):
         action = request.form.get('action')
         
         if action == 'reset':
-            # RESTAURAR PADRÃO: mantém o registro, apenas desativa personalização
+            # RESTAURAR PADRÃO
             theme.is_custom = False
             
-            # ===== LIMPAR LOGOS =====
-            # Remove os caminhos do banco
+            # Limpar logos
             theme.logo_light = None
             theme.logo_dark = None
             
-            # Opcional: deleta os arquivos físicos do disco
             for logo_type in ['light', 'dark']:
                 logo_attr = f'logo_{logo_type}'
                 old_logo = getattr(theme, logo_attr, None)
                 if old_logo:
-                    # Constrói o caminho completo do arquivo
                     full_path = os.path.join(
                         current_app.config['UPLOAD_FOLDER'],
                         'churches',
                         'themes',
                         os.path.basename(old_logo)
                     )
-                    # Tenta remover o arquivo se existir
                     if os.path.exists(full_path):
                         try:
                             os.remove(full_path)
@@ -1274,6 +1270,13 @@ def edit_church_theme(church_id):
         theme.light_sidebar_text = request.form.get('light_sidebar_text', '#f8fafc')
         theme.light_input_bg = request.form.get('light_input_bg', '#ffffff')
         
+        # 🔥 NOVOS CAMPOS DE TABELA (TEMA CLARO)
+        theme.light_table_header_bg = request.form.get('light_table_header_bg', '#f8fafc')
+        theme.light_table_header_text = request.form.get('light_table_header_text', '#1e293b')
+        theme.light_table_row_bg = request.form.get('light_table_row_bg', '#ffffff')
+        theme.light_table_row_hover = request.form.get('light_table_row_hover', '#f1f5f9')
+        theme.light_table_border = request.form.get('light_table_border', '#e2e8f0')
+        
         # Cores do tema escuro
         theme.dark_primary = request.form.get('dark_primary', '#6366f1')
         theme.dark_primary_hover = request.form.get('dark_primary_hover', '#818cf8')
@@ -1291,6 +1294,13 @@ def edit_church_theme(church_id):
         theme.dark_sidebar_text = request.form.get('dark_sidebar_text', '#f1f5f9')
         theme.dark_input_bg = request.form.get('dark_input_bg', '#1e293b')
         
+        # 🔥 NOVOS CAMPOS DE TABELA (TEMA ESCURO)
+        theme.dark_table_header_bg = request.form.get('dark_table_header_bg', '#1e293b')
+        theme.dark_table_header_text = request.form.get('dark_table_header_text', '#f1f5f9')
+        theme.dark_table_row_bg = request.form.get('dark_table_row_bg', '#0f172a')
+        theme.dark_table_row_hover = request.form.get('dark_table_row_hover', '#1e293b')
+        theme.dark_table_border = request.form.get('dark_table_border', '#334155')
+        
         # CAMPOS DO DEVOCIONAL
         theme.devotional_gradient_start = request.form.get('devotional_gradient_start', '#4f46e5')
         theme.devotional_gradient_end = request.form.get('devotional_gradient_end', '#06b6d4')
@@ -1298,7 +1308,6 @@ def edit_church_theme(church_id):
         theme.devotional_badge_bg = request.form.get('devotional_badge_bg', '#ffffff')
         theme.devotional_badge_text = request.form.get('devotional_badge_text', '#4f46e5')
         theme.devotional_icon_color = request.form.get('devotional_icon_color', '#ffffff')
-        theme.devotional_icon_opacity = request.form.get('devotional_icon_opacity', '15%')
         
         # Overlays (vêm como rgba dos campos hidden)
         theme.devotional_overlay_light = request.form.get('devotional_overlay_light', 'rgba(0,0,0,0.4)')
@@ -1307,7 +1316,7 @@ def edit_church_theme(church_id):
         # CSS personalizado
         theme.custom_css = request.form.get('custom_css')
         
-        # Upload de logos (CORRIGIDO: sem 'uploads' duplicado)
+        # Upload de logos
         for logo_type in ['light', 'dark']:
             file = request.files.get(f'logo_{logo_type}')
             if file and file.filename:
