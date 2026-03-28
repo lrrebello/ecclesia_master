@@ -651,82 +651,6 @@
 
         {% block content %}{% endblock %}
     </div>
-
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
-        function updateIcons(theme) {
-            const iconDesktop = document.getElementById('theme-icon');
-            const iconMobile = document.getElementById('theme-icon-mobile');
-            const className = theme === 'dark' ? 'bi bi-sun' : 'bi bi-moon-stars';
-            if(iconDesktop) iconDesktop.className = className;
-            if(iconMobile) iconMobile.className = className;
-        }
-
-        function toggleTheme() {
-            const html = document.documentElement;
-            if (html.getAttribute('data-theme') === 'dark') {
-                html.removeAttribute('data-theme');
-                updateIcons('light');
-                localStorage.setItem('theme', 'light');
-            } else {
-                html.setAttribute('data-theme', 'dark');
-                updateIcons('dark');
-                localStorage.setItem('theme', 'dark');
-            }
-        }
-
-        const savedTheme = localStorage.getItem('theme') || 'light';
-        if (savedTheme === 'dark') {
-            document.documentElement.setAttribute('data-theme', 'dark');
-            updateIcons('dark');
-        } else {
-            updateIcons('light');
-        }
-    </script>
-    <script>
-    window.updateThemePreview = function(variable, value) {
-        document.documentElement.style.setProperty(variable, value);
-    };
-    </script>
-    <script>
-    // Registrar Service Worker para PWA
-    if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/static/sw.js')
-        .then(registration => {
-            console.log('ServiceWorker registrado com sucesso:', registration.scope);
-        })
-        .catch(error => {
-            console.log('Falha ao registrar ServiceWorker:', error);
-        });
-    });
-    }
-
-    // Verificar se o app pode ser instalado
-    let deferredPrompt;
-    window.addEventListener('beforeinstallprompt', (e) => {
-    console.log('beforeinstallprompt disparado!');  // 🔥 VERIFICAR SE APARECE
-    e.preventDefault();
-    deferredPrompt = e;
-    const installButton = document.getElementById('installButton');
-    if (installButton) {
-        installButton.style.display = 'block';
-        installButton.addEventListener('click', () => {
-        deferredPrompt.prompt();
-        deferredPrompt.userChoice.then((choiceResult) => {
-            if (choiceResult.outcome === 'accepted') {
-            console.log('Usuário aceitou a instalação');
-            } else {
-            console.log('Usuário recusou a instalação');
-            }
-            deferredPrompt = null;
-            installButton.style.display = 'none';
-        });
-        });
-    }
-    });
-    </script>
-
     <!-- Modal de Instruções de Instalação -->
     <div class="modal fade" id="installHelpModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
@@ -786,100 +710,128 @@
         </div>
     </div>
 
-    <script>
-    // ========== PWA INSTALAÇÃO ==========
-    let deferredPrompt;
-    let installButton = document.getElementById('installButton');
-    let helpButton = document.getElementById('showInstallHelpBtn');
-
-    // Detectar dispositivo
-    function detectDevice() {
-        const userAgent = navigator.userAgent || navigator.vendor || window.opera;
-        
-        if (/iPad|iPhone|iPod/.test(userAgent) && !window.MSStream) {
-            return 'ios';
-        }
-        if (/android/i.test(userAgent)) {
-            return 'android';
-        }
-        if (/Windows|Mac|Linux/.test(userAgent)) {
-            return 'desktop';
-        }
-        return 'other';
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    // ========== TEMA ==========
+    function updateIcons(theme) {
+        const iconDesktop = document.getElementById('theme-icon');
+        const iconMobile = document.getElementById('theme-icon-mobile');
+        const className = theme === 'dark' ? 'bi bi-sun' : 'bi bi-moon-stars';
+        if(iconDesktop) iconDesktop.className = className;
+        if(iconMobile) iconMobile.className = className;
     }
 
-    // Mostrar instruções
-    function showInstallInstructions() {
-        const device = detectDevice();
-        
-        document.getElementById('androidInstructions').style.display = 'none';
-        document.getElementById('iosInstructions').style.display = 'none';
-        document.getElementById('desktopInstructions').style.display = 'none';
-        document.getElementById('otherInstructions').style.display = 'none';
-        
-        if (device === 'ios') {
-            document.getElementById('iosInstructions').style.display = 'block';
-        } else if (device === 'android') {
-            document.getElementById('androidInstructions').style.display = 'block';
-        } else if (device === 'desktop') {
-            document.getElementById('desktopInstructions').style.display = 'block';
+    function toggleTheme() {
+        const html = document.documentElement;
+        if (html.getAttribute('data-theme') === 'dark') {
+            html.removeAttribute('data-theme');
+            updateIcons('light');
+            localStorage.setItem('theme', 'light');
         } else {
-            document.getElementById('otherInstructions').style.display = 'block';
+            html.setAttribute('data-theme', 'dark');
+            updateIcons('dark');
+            localStorage.setItem('theme', 'dark');
         }
-        
-        new bootstrap.Modal(document.getElementById('installHelpModal')).show();
     }
 
-    // Registrar Service Worker
-    if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-            navigator.serviceWorker.register('/static/sw.js')
-                .then(registration => console.log('ServiceWorker OK:', registration.scope))
-                .catch(error => console.log('ServiceWorker ERRO:', error));
-        });
+    const savedTheme = localStorage.getItem('theme') || 'light';
+    if (savedTheme === 'dark') {
+        document.documentElement.setAttribute('data-theme', 'dark');
+        updateIcons('dark');
+    } else {
+        updateIcons('light');
     }
 
-    // Evento de instalação (Chrome/Edge)
-    window.addEventListener('beforeinstallprompt', (e) => {
-        console.log('📱 beforeinstallprompt disparado!');
-        e.preventDefault();
-        deferredPrompt = e;
-        
-        if (installButton) {
-            installButton.style.display = 'block';
-            if (helpButton) helpButton.style.display = 'none';
-        }
-    });
+    window.updateThemePreview = function(variable, value) {
+        document.documentElement.style.setProperty(variable, value);
+    };
 
-    // Botão de instalação
-    if (installButton) {
-        installButton.addEventListener('click', async () => {
-            if (deferredPrompt) {
-                deferredPrompt.prompt();
-                const { outcome } = await deferredPrompt.userChoice;
-                console.log(`Usuário ${outcome === 'accepted' ? 'aceitou' : 'recusou'} a instalação`);
-                deferredPrompt = null;
-                installButton.style.display = 'none';
+    // ========== PWA INSTALAÇÃO ==========
+    (function() {
+        let deferredPrompt = null;
+        const installButton = document.getElementById('installButton');
+        const helpButton = document.getElementById('showInstallHelpBtn');
+
+        // Detectar dispositivo
+        function detectDevice() {
+            const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+            if (/iPad|iPhone|iPod/.test(userAgent) && !window.MSStream) return 'ios';
+            if (/android/i.test(userAgent)) return 'android';
+            if (/Windows|Mac|Linux/.test(userAgent)) return 'desktop';
+            return 'other';
+        }
+
+        // Mostrar instruções
+        function showInstallInstructions() {
+            const device = detectDevice();
+            
+            const androidDiv = document.getElementById('androidInstructions');
+            const iosDiv = document.getElementById('iosInstructions');
+            const desktopDiv = document.getElementById('desktopInstructions');
+            const otherDiv = document.getElementById('otherInstructions');
+            
+            if (androidDiv) androidDiv.style.display = 'none';
+            if (iosDiv) iosDiv.style.display = 'none';
+            if (desktopDiv) desktopDiv.style.display = 'none';
+            if (otherDiv) otherDiv.style.display = 'none';
+            
+            if (device === 'ios' && iosDiv) iosDiv.style.display = 'block';
+            else if (device === 'android' && androidDiv) androidDiv.style.display = 'block';
+            else if (device === 'desktop' && desktopDiv) desktopDiv.style.display = 'block';
+            else if (otherDiv) otherDiv.style.display = 'block';
+            
+            const modalEl = document.getElementById('installHelpModal');
+            if (modalEl) new bootstrap.Modal(modalEl).show();
+        }
+
+        // Registrar Service Worker
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/static/sw.js')
+                    .then(registration => console.log('ServiceWorker OK:', registration.scope))
+                    .catch(error => console.log('ServiceWorker ERRO:', error));
+            });
+        }
+
+        // Evento de instalação (Chrome/Edge)
+        window.addEventListener('beforeinstallprompt', (e) => {
+            console.log('📱 beforeinstallprompt disparado!');
+            e.preventDefault();
+            deferredPrompt = e;
+            if (installButton) {
+                installButton.style.display = 'block';
+                if (helpButton) helpButton.style.display = 'none';
             }
         });
-    }
 
-    // Botão de ajuda - SEMPRE VISÍVEL NO iOS
-    if (helpButton) {
-        const device = detectDevice();
-        if (device === 'ios') {
-            helpButton.style.display = 'block';
-        } else {
-            // Para outros dispositivos, mostra após 3 segundos se não houver instalação
-            setTimeout(() => {
-                if (installButton && installButton.style.display !== 'block') {
-                    helpButton.style.display = 'block';
+        // Botão de instalação
+        if (installButton) {
+            installButton.addEventListener('click', async () => {
+                if (deferredPrompt) {
+                    deferredPrompt.prompt();
+                    const { outcome } = await deferredPrompt.userChoice;
+                    console.log(`Usuário ${outcome === 'accepted' ? 'aceitou' : 'recusou'} a instalação`);
+                    deferredPrompt = null;
+                    installButton.style.display = 'none';
                 }
-            }, 3000);
+            });
         }
-        
-        helpButton.addEventListener('click', showInstallInstructions);
-    }
-    </script>
+
+        // Botão de ajuda
+        if (helpButton) {
+            const device = detectDevice();
+            if (device === 'ios') {
+                helpButton.style.display = 'block';
+            } else {
+                setTimeout(() => {
+                    if (installButton && installButton.style.display !== 'block') {
+                        helpButton.style.display = 'block';
+                    }
+                }, 3000);
+            }
+            helpButton.addEventListener('click', showInstallInstructions);
+        }
+    })();
+</script>
 </body>
 </html>
