@@ -12,6 +12,9 @@
         <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addEmojiModal">
             <i class="bi bi-plus-lg me-2"></i> Novo Emoji
         </button>
+        <a href="{{ url_for('edification.kids') }}" class="btn btn-outline-secondary rounded-pill">
+            <i class="bi bi-arrow-left me-2"></i> Voltar
+        </a>
     </div>
 
     <!-- Cards de Emojis -->
@@ -154,9 +157,12 @@ function toggleIconType() {
     document.getElementById('custom_section').style.display = type === 'custom' ? 'block' : 'none';
     
     if (type === 'bootstrap') {
-        document.getElementById('bootstrap_icon').addEventListener('input', function() {
-            document.getElementById('icon_preview').innerHTML = `<i class="bi ${this.value}" style="font-size: 2rem;"></i>`;
-        });
+        const iconInput = document.getElementById('bootstrap_icon');
+        if (iconInput) {
+            iconInput.addEventListener('input', function() {
+                document.getElementById('icon_preview').innerHTML = `<i class="bi ${this.value}" style="font-size: 2rem;"></i>`;
+            });
+        }
     }
 }
 
@@ -195,6 +201,10 @@ function salvarEmoji() {
         } else {
             alert(data.message || 'Erro ao salvar');
         }
+    })
+    .catch(error => {
+        console.error('Erro:', error);
+        alert('Erro na requisição');
     });
 }
 
@@ -202,7 +212,8 @@ function adicionarPalavra(emojiId) {
     currentEmojiId = emojiId;
     document.getElementById('current_emoji_id').value = emojiId;
     document.getElementById('new_word').value = '';
-    new bootstrap.Modal(document.getElementById('addWordModal')).show();
+    const modal = new bootstrap.Modal(document.getElementById('addWordModal'));
+    modal.show();
 }
 
 function salvarPalavra() {
@@ -214,6 +225,18 @@ function salvarPalavra() {
         return;
     }
     
+    if (!emojiId) {
+        alert('Erro: ID do emoji não encontrado.');
+        return;
+    }
+    
+    // Desabilita o botão para evitar cliques duplos
+    const btn = document.querySelector('#addWordModal .btn-primary');
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Salvando...';
+    }
+    
     fetch(`/admin/emoji-word/${emojiId}/add-word`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -221,10 +244,27 @@ function salvarPalavra() {
     })
     .then(response => response.json())
     .then(data => {
+        console.log('Resposta:', data);
         if (data.success) {
-            location.reload();
+            // Fecha o modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('addWordModal'));
+            if (modal) modal.hide();
+            // Força o recarregamento da página
+            window.location.href = window.location.href;
         } else {
             alert(data.message || 'Erro ao adicionar palavra');
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = 'Adicionar';
+            }
+        }
+    })
+    .catch(error => {
+        console.error('Erro:', error);
+        alert('Erro na requisição: ' + error);
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = 'Adicionar';
         }
     });
 }
@@ -238,11 +278,17 @@ function removerPalavra(emojiId, word) {
         })
         .then(response => response.json())
         .then(data => {
+            console.log('Resposta exclusão:', data);
             if (data.success) {
-                location.reload();
+                // Força o recarregamento da página
+                window.location.href = window.location.href;
             } else {
                 alert(data.message || 'Erro ao remover palavra');
             }
+        })
+        .catch(error => {
+            console.error('Erro:', error);
+            alert('Erro na requisição: ' + error);
         });
     }
 }
@@ -257,9 +303,18 @@ function excluirEmoji(emojiId) {
             } else {
                 alert(data.message || 'Erro ao excluir');
             }
+        })
+        .catch(error => {
+            console.error('Erro:', error);
+            alert('Erro na requisição');
         });
     }
 }
+
+// Inicializar
+document.addEventListener('DOMContentLoaded', function() {
+    toggleIconType();
+});
 </script>
 
 <style>

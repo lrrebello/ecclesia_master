@@ -89,6 +89,8 @@ def emoji_word_add():
     emoji_type = request.form.get('emoji_type', 'unicode')
     custom_icon = None
     
+    print(f"📝 Recebido: emoji={emoji}, type={emoji_type}")
+    
     if emoji_type == 'custom':
         file = request.files.get('custom_icon')
         if file and file.filename:
@@ -105,15 +107,15 @@ def emoji_word_add():
         emoji=emoji,
         emoji_type=emoji_type,
         custom_icon=custom_icon,
-        words=[],
-        created_by=current_user.id
+        words=[]
     )
     
     db.session.add(new_emoji)
     db.session.commit()
     
-    return jsonify({'success': True})
-
+    print(f"✅ Emoji criado: ID={new_emoji.id}, {emoji}")
+    
+    return jsonify({'success': True, 'id': new_emoji.id})
 
 @admin_bp.route('/emoji-word/<int:id>/add-word', methods=['POST'])
 @login_required
@@ -123,21 +125,53 @@ def emoji_word_add_word(id):
         return jsonify({'success': False, 'message': 'Acesso negado.'}), 403
     
     from app.core.models import EmojiWord
+    import json
+    from sqlalchemy import text
     
-    emoji_item = EmojiWord.query.get_or_404(id)
-    word = request.json.get('word', '').upper().strip()
+    # Buscar o emoji
+    emoji_item = EmojiWord.query.get(id)
+    if not emoji_item:
+        return jsonify({'success': False, 'message': f'Emoji com ID {id} não encontrado.'}), 404
+    
+    data = request.get_json()
+    word = data.get('word', '').upper().strip()
     
     if not word:
         return jsonify({'success': False, 'message': 'Palavra inválida.'}), 400
     
-    words = emoji_item.words or []
-    if word not in words:
-        words.append(word)
-        emoji_item.words = words
-        db.session.commit()
+    # 🔥 USAR SQL DIRETO PARA GARANTIR
+    current_words = emoji_item.words
     
-    return jsonify({'success': True})
-
+    # Garantir que é uma lista
+    if not current_words or current_words == '[]':
+        current_words = []
+    elif isinstance(current_words, str):
+        try:
+            current_words = json.loads(current_words)
+        except:
+            current_words = []
+    elif not isinstance(current_words, list):
+        current_words = []
+    
+    # Adicionar palavra
+    if word not in current_words:
+        current_words.append(word)
+        
+        # 🔥 ATUALIZAR DIRETO COM SQL
+        db.session.execute(
+            text("UPDATE emoji_words SET words = :words, updated_at = NOW() WHERE id = :id"),
+            {'words': json.dumps(current_words), 'id': id}
+        )
+        db.session.commit()
+        
+        return jsonify({
+            'success': True, 
+            'message': f'Palavra "{word}" adicionada!',
+            'words': current_words,
+            'id': id
+        })
+    
+    return jsonify({'success': False, 'message': f'Palavra "{word}" já existe.'}), 400
 
 @admin_bp.route('/emoji-word/<int:id>/remove-word', methods=['POST'])
 @login_required
@@ -147,18 +181,52 @@ def emoji_word_remove_word(id):
         return jsonify({'success': False, 'message': 'Acesso negado.'}), 403
     
     from app.core.models import EmojiWord
+    import json
+    from sqlalchemy import text
     
-    emoji_item = EmojiWord.query.get_or_404(id)
-    word = request.json.get('word', '').upper().strip()
+    emoji_item = EmojiWord.query.get(id)
+    if not emoji_item:
+        return jsonify({'success': False, 'message': f'Emoji com ID {id} não encontrado.'}), 404
     
-    words = emoji_item.words or []
-    if word in words:
-        words.remove(word)
-        emoji_item.words = words
+    data = request.get_json()
+    word = data.get('word', '').upper().strip()
+    
+    if not word:
+        return jsonify({'success': False, 'message': 'Palavra inválida.'}), 400
+    
+    # 🔥 USAR SQL DIRETO PARA GARANTIR
+    current_words = emoji_item.words
+    
+    # Garantir que é uma lista
+    if not current_words or current_words == '[]':
+        current_words = []
+    elif isinstance(current_words, str):
+        try:
+            current_words = json.loads(current_words)
+        except:
+            current_words = []
+    elif not isinstance(current_words, list):
+        current_words = []
+    
+    # Remover palavra se existir
+    if word in current_words:
+        current_words.remove(word)
+        
+        # 🔥 ATUALIZAR DIRETO COM SQL
+        db.session.execute(
+            text("UPDATE emoji_words SET words = :words, updated_at = NOW() WHERE id = :id"),
+            {'words': json.dumps(current_words), 'id': id}
+        )
         db.session.commit()
+        
+        return jsonify({
+            'success': True, 
+            'message': f'Palavra "{word}" removida!',
+            'words': current_words,
+            'id': id
+        })
     
-    return jsonify({'success': True})
-
+    return jsonify({'success': False, 'message': f'Palavra "{word}" não encontrada.'}), 404
 
 @admin_bp.route('/emoji-word/delete/<int:id>', methods=['POST'])
 @login_required
