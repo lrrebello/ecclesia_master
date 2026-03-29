@@ -138,7 +138,7 @@ def migrate():
                 emoji=emoji,
                 emoji_type='unicode',
                 words=words,
-                created_by=1
+                #created_by=1
             )
             db.session.add(new_emoji)
             count += 1
