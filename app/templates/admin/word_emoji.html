@@ -1,0 +1,279 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold text-primary">
+                <i class="bi bi-emoji-smile me-2"></i> Emojis e Palavras
+            </h2>
+            <p class="text-muted">Gerencie quais palavras são representadas por cada emoji nos jogos bíblicos.</p>
+        </div>
+        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addEmojiModal">
+            <i class="bi bi-plus-lg me-2"></i> Novo Emoji
+        </button>
+    </div>
+
+    <!-- Cards de Emojis -->
+    <div class="row g-4">
+        {% for item in emoji_words %}
+        <div class="col-md-6 col-lg-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex align-items-center mb-3">
+                        <div class="emoji-preview me-3">
+                            {% if item.emoji_type == 'unicode' %}
+                                <span style="font-size: 3rem;">{{ item.emoji }}</span>
+                            {% elif item.emoji_type == 'bootstrap' %}
+                                <i class="bi {{ item.emoji }}" style="font-size: 3rem; color: var(--primary);"></i>
+                            {% elif item.emoji_type == 'custom' and item.custom_icon %}
+                                <img src="{{ url_for('static', filename=item.custom_icon) }}" style="width: 50px; height: 50px;">
+                            {% endif %}
+                        </div>
+                        <div class="flex-grow-1">
+                            <span class="badge bg-secondary bg-opacity-10">
+                                {{ item.emoji_type }}
+                            </span>
+                        </div>
+                        <button class="btn btn-sm btn-outline-danger rounded-circle" 
+                                onclick="excluirEmoji({{ item.id }})" title="Excluir">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small text-muted">PALAVRAS ASSOCIADAS</label>
+                        <div class="d-flex flex-wrap gap-2">
+                            {% for word in item.words %}
+                            <span class="badge bg-primary bg-opacity-10 text-primary px-3 py-2 rounded-pill">
+                                {{ word }}
+                                <button class="btn-close btn-close-white ms-2" style="font-size: 0.5rem;" 
+                                        onclick="removerPalavra({{ item.id }}, '{{ word }}')"></button>
+                            </span>
+                            {% endfor %}
+                            <button class="btn btn-sm btn-outline-primary rounded-pill px-3" 
+                                    onclick="adicionarPalavra({{ item.id }})">
+                                <i class="bi bi-plus-lg me-1"></i> Adicionar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="col-12 text-center py-5">
+            <i class="bi bi-emoji-smile fs-1 text-muted opacity-25 d-block mb-3"></i>
+            <p class="text-muted">Nenhum emoji cadastrado. Clique em "Novo Emoji" para começar.</p>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Modal para adicionar emoji -->
+<div class="modal fade" id="addEmojiModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg rounded-4">
+            <div class="modal-header bg-primary text-white border-0">
+                <h5 class="modal-title fw-bold">
+                    <i class="bi bi-plus-lg me-2"></i> Novo Emoji
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4">
+                <div class="mb-3">
+                    <label class="form-label fw-bold">TIPO DE ÍCONE</label>
+                    <select name="emoji_type" id="emoji_type" class="form-select bg-light border-0" onchange="toggleIconType()">
+                        <option value="unicode">😀 Emoji Unicode</option>
+                        <option value="bootstrap">🎨 Ícone Bootstrap</option>
+                        <option value="custom">🖼️ Imagem Personalizada</option>
+                    </select>
+                </div>
+                
+                <div id="unicode_section">
+                    <label class="form-label fw-bold">EMOJI UNICODE</label>
+                    <input type="text" id="unicode_emoji" class="form-control bg-light border-0" 
+                           placeholder="Ex: 🦁 👑 ✝️" style="font-size: 1.5rem;">
+                </div>
+                
+                <div id="bootstrap_section" style="display: none;">
+                    <label class="form-label fw-bold">ÍCONE BOOTSTRAP</label>
+                    <input type="text" id="bootstrap_icon" class="form-control bg-light border-0" 
+                           placeholder="Ex: bi-star-fill, bi-crown">
+                    <div id="icon_preview" class="mt-2 p-3 bg-light rounded text-center" style="font-size: 2rem;">
+                        <i class="bi bi-emoji-smile"></i>
+                    </div>
+                </div>
+                
+                <div id="custom_section" style="display: none;">
+                    <label class="form-label fw-bold">IMAGEM PERSONALIZADA</label>
+                    <input type="file" id="custom_icon" class="form-control bg-light border-0" accept="image/*">
+                </div>
+            </div>
+            <div class="modal-footer bg-light border-0">
+                <button type="button" class="btn btn-secondary rounded-pill px-4" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary rounded-pill px-4" onclick="salvarEmoji()">Salvar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para adicionar palavra a um emoji -->
+<div class="modal fade" id="addWordModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg rounded-4">
+            <div class="modal-header bg-primary text-white border-0">
+                <h5 class="modal-title fw-bold">
+                    <i class="bi bi-plus-lg me-2"></i> Adicionar Palavra
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4">
+                <input type="hidden" id="current_emoji_id">
+                <div class="mb-3">
+                    <label class="form-label fw-bold">PALAVRA-CHAVE</label>
+                    <input type="text" id="new_word" class="form-control bg-light border-0" 
+                           placeholder="Ex: DAVI, LEÃO, JESUS" autocomplete="off">
+                    <small class="text-muted">Use letras maiúsculas para facilitar a busca.</small>
+                </div>
+            </div>
+            <div class="modal-footer bg-light border-0">
+                <button type="button" class="btn btn-secondary rounded-pill px-4" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary rounded-pill px-4" onclick="salvarPalavra()">Adicionar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentEmojiId = null;
+
+function toggleIconType() {
+    const type = document.getElementById('emoji_type').value;
+    document.getElementById('unicode_section').style.display = type === 'unicode' ? 'block' : 'none';
+    document.getElementById('bootstrap_section').style.display = type === 'bootstrap' ? 'block' : 'none';
+    document.getElementById('custom_section').style.display = type === 'custom' ? 'block' : 'none';
+    
+    if (type === 'bootstrap') {
+        document.getElementById('bootstrap_icon').addEventListener('input', function() {
+            document.getElementById('icon_preview').innerHTML = `<i class="bi ${this.value}" style="font-size: 2rem;"></i>`;
+        });
+    }
+}
+
+function salvarEmoji() {
+    const type = document.getElementById('emoji_type').value;
+    let emoji = '';
+    
+    if (type === 'unicode') {
+        emoji = document.getElementById('unicode_emoji').value;
+    } else if (type === 'bootstrap') {
+        emoji = document.getElementById('bootstrap_icon').value;
+    }
+    
+    if (!emoji) {
+        alert('Selecione um emoji ou ícone.');
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('emoji', emoji);
+    formData.append('emoji_type', type);
+    
+    if (type === 'custom') {
+        const file = document.getElementById('custom_icon').files[0];
+        if (file) formData.append('custom_icon', file);
+    }
+    
+    fetch('/admin/emoji-word/add', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert(data.message || 'Erro ao salvar');
+        }
+    });
+}
+
+function adicionarPalavra(emojiId) {
+    currentEmojiId = emojiId;
+    document.getElementById('current_emoji_id').value = emojiId;
+    document.getElementById('new_word').value = '';
+    new bootstrap.Modal(document.getElementById('addWordModal')).show();
+}
+
+function salvarPalavra() {
+    const emojiId = document.getElementById('current_emoji_id').value;
+    const word = document.getElementById('new_word').value.toUpperCase().trim();
+    
+    if (!word) {
+        alert('Digite uma palavra.');
+        return;
+    }
+    
+    fetch(`/admin/emoji-word/${emojiId}/add-word`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ word: word })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert(data.message || 'Erro ao adicionar palavra');
+        }
+    });
+}
+
+function removerPalavra(emojiId, word) {
+    if (confirm(`Remover "${word}" deste emoji?`)) {
+        fetch(`/admin/emoji-word/${emojiId}/remove-word`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ word: word })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert(data.message || 'Erro ao remover palavra');
+            }
+        });
+    }
+}
+
+function excluirEmoji(emojiId) {
+    if (confirm('Tem certeza que deseja excluir este emoji?')) {
+        fetch(`/admin/emoji-word/delete/${emojiId}`, { method: 'POST' })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert(data.message || 'Erro ao excluir');
+            }
+        });
+    }
+}
+</script>
+
+<style>
+.emoji-preview {
+    width: 60px;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.badge .btn-close {
+    width: 0.5rem;
+    height: 0.5rem;
+    filter: brightness(0) invert(1);
+}
+</style>
+{% endblock %}

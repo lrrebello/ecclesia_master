@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app
+from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app, jsonify
 from flask_login import login_required, current_user
 from app.core.models import db, Devotional, Study, KidsActivity, StudyQuestion, Media, Ministry, Album, BibleStory, BibleQuiz
 from app.utils.logger import log_action  # <-- ÚNICA LINHA ADICIONADA
@@ -1090,3 +1090,38 @@ def delete_study(id):
     
     flash('Estudo e suas questões excluídos com sucesso!', 'info')
     return redirect(url_for('edification.studies'))
+
+@edification_bp.route('/api/emoji-for-word/<word>')
+def get_emoji_for_word(word):
+    """API para buscar emoji baseado na palavra"""
+    from app.core.models import EmojiWord
+    import unicodedata
+    
+    word_normalized = word.upper().strip()
+    word_normalized = unicodedata.normalize('NFKD', word_normalized).encode('ASCII', 'ignore').decode('ASCII')
+    
+    # 🔥 REMOVA ou COMENTE estes prints
+    # print(f"🔍 Buscando emoji para: {word_normalized}")
+    
+    all_emojis = EmojiWord.query.all()
+    
+    # Primeiro, busca correspondência EXATA
+    for emoji_item in all_emojis:
+        words = emoji_item.words or []
+        for stored_word in words:
+            stored_normalized = unicodedata.normalize('NFKD', stored_word.upper()).encode('ASCII', 'ignore').decode('ASCII')
+            if word_normalized == stored_normalized:
+                # print(f"✅ EXATO! {word_normalized} → {emoji_item.emoji}")
+                return jsonify({'success': True, 'emoji': emoji_item.emoji, 'type': emoji_item.emoji_type, 'custom_icon': emoji_item.custom_icon})
+    
+    # Se não achou exato, busca contém
+    for emoji_item in all_emojis:
+        words = emoji_item.words or []
+        for stored_word in words:
+            stored_normalized = unicodedata.normalize('NFKD', stored_word.upper()).encode('ASCII', 'ignore').decode('ASCII')
+            if stored_normalized in word_normalized or word_normalized in stored_normalized:
+                # print(f"✅ PARCIAL! {word_normalized} → {emoji_item.emoji} (via {stored_normalized})")
+                return jsonify({'success': True, 'emoji': emoji_item.emoji, 'type': emoji_item.emoji_type, 'custom_icon': emoji_item.custom_icon})
+    
+    # print(f"❌ Nenhum emoji encontrado para: {word_normalized}")
+    return jsonify({'success': True, 'emoji': word[0].upper() if word else '📖', 'type': 'text'})

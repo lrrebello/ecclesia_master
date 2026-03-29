@@ -32,6 +32,157 @@ def can_edit_church(church):
         return True
     return False
 
+# Adicione esta função de permissão no início do arquivo (após as funções existentes)
+
+def can_manage_word_emoji():
+    """Verifica se o usuário pode gerenciar palavras e emojis (admin global, pastor líder ou líder do ministério Kids)"""
+    if not current_user.is_authenticated:
+        return False
+    
+    # Admin global ou pastor líder
+    if current_user.church_role and (current_user.church_role.name == 'Administrador Global' or current_user.church_role.is_lead_pastor):
+        return True
+    
+    # Líder do ministério Kids (principal, vice ou auxiliar)
+    for ministry in current_user.ministries:
+        if ministry.is_kids_ministry:
+            if ministry.leader_id == current_user.id or ministry.vice_leader_id == current_user.id:
+                return True
+            if ministry.extra_leaders and current_user.id in ministry.extra_leaders:
+                return True
+    
+    return False
+
+
+# ==================== GESTÃO DE PALAVRAS E EMOJIS ====================
+
+@admin_bp.route('/word-emoji')
+@login_required
+def word_emoji_list():
+    """Lista palavras e emojis associados"""
+    if not can_manage_word_emoji():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('members.dashboard'))
+    
+    from app.core.models import EmojiWord
+    
+    emoji_words = EmojiWord.query.order_by(EmojiWord.id).all()
+    total_words = sum(len(item.words or []) for item in emoji_words)
+    total_emojis = len(emoji_words)
+    
+    return render_template('admin/word_emoji.html', 
+                           emoji_words=emoji_words,
+                           total_words=total_words,
+                           total_emojis=total_emojis)
+
+
+@admin_bp.route('/emoji-word/add', methods=['POST'])
+@login_required
+def emoji_word_add():
+    """Adiciona novo emoji"""
+    if not can_manage_word_emoji():
+        return jsonify({'success': False, 'message': 'Acesso negado.'}), 403
+    
+    from app.core.models import EmojiWord
+    
+    emoji = request.form.get('emoji')
+    emoji_type = request.form.get('emoji_type', 'unicode')
+    custom_icon = None
+    
+    if emoji_type == 'custom':
+        file = request.files.get('custom_icon')
+        if file and file.filename:
+            filename = secure_filename(file.filename)
+            emoji_dir = os.path.join(current_app.config['UPLOAD_FOLDER'], 'emojis')
+            os.makedirs(emoji_dir, exist_ok=True)
+            unique_filename = f"{uuid.uuid4()}_{filename}"
+            full_path = os.path.join(emoji_dir, unique_filename)
+            file.save(full_path)
+            custom_icon = f'uploads/emojis/{unique_filename}'
+            emoji = custom_icon
+    
+    new_emoji = EmojiWord(
+        emoji=emoji,
+        emoji_type=emoji_type,
+        custom_icon=custom_icon,
+        words=[],
+        created_by=current_user.id
+    )
+    
+    db.session.add(new_emoji)
+    db.session.commit()
+    
+    return jsonify({'success': True})
+
+
+@admin_bp.route('/emoji-word/<int:id>/add-word', methods=['POST'])
+@login_required
+def emoji_word_add_word(id):
+    """Adiciona palavra a um emoji"""
+    if not can_manage_word_emoji():
+        return jsonify({'success': False, 'message': 'Acesso negado.'}), 403
+    
+    from app.core.models import EmojiWord
+    
+    emoji_item = EmojiWord.query.get_or_404(id)
+    word = request.json.get('word', '').upper().strip()
+    
+    if not word:
+        return jsonify({'success': False, 'message': 'Palavra inválida.'}), 400
+    
+    words = emoji_item.words or []
+    if word not in words:
+        words.append(word)
+        emoji_item.words = words
+        db.session.commit()
+    
+    return jsonify({'success': True})
+
+
+@admin_bp.route('/emoji-word/<int:id>/remove-word', methods=['POST'])
+@login_required
+def emoji_word_remove_word(id):
+    """Remove palavra de um emoji"""
+    if not can_manage_word_emoji():
+        return jsonify({'success': False, 'message': 'Acesso negado.'}), 403
+    
+    from app.core.models import EmojiWord
+    
+    emoji_item = EmojiWord.query.get_or_404(id)
+    word = request.json.get('word', '').upper().strip()
+    
+    words = emoji_item.words or []
+    if word in words:
+        words.remove(word)
+        emoji_item.words = words
+        db.session.commit()
+    
+    return jsonify({'success': True})
+
+
+@admin_bp.route('/emoji-word/delete/<int:id>', methods=['POST'])
+@login_required
+def emoji_word_delete(id):
+    """Exclui emoji"""
+    if not can_manage_word_emoji():
+        return jsonify({'success': False, 'message': 'Acesso negado.'}), 403
+    
+    from app.core.models import EmojiWord
+    
+    emoji_item = EmojiWord.query.get_or_404(id)
+    
+    # Remover imagem customizada
+    if emoji_item.custom_icon and os.path.exists(os.path.join(current_app.config['UPLOAD_FOLDER'], emoji_item.custom_icon.replace('uploads/', ''))):
+        try:
+            os.remove(os.path.join(current_app.config['UPLOAD_FOLDER'], emoji_item.custom_icon.replace('uploads/', '')))
+        except:
+            pass
+    
+    db.session.delete(emoji_item)
+    db.session.commit()
+    
+    return jsonify({'success': True})
+
 # ==================== GESTÃO DE CONGREGAÇÕES ====================
 
 @admin_bp.route('/churches')

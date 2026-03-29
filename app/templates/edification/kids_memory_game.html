@@ -120,466 +120,52 @@
 </style>
 
 <script>
-// ========== BANCO DE EMOJIS BÍBLICOS COMPLETO ==========
-const emojiDatabase = {
-    // ==================== PERSONAGENS DO ANTIGO TESTAMENTO ====================
-    'ADÃO': { primary: '👨', secondary: '🌿', name: 'Adão' },
-    'ADAO': { primary: '👨', secondary: '🌿', name: 'Adão' },
-    'EVA': { primary: '👩', secondary: '🍎', name: 'Eva' },
-    'CAIM': { primary: '🔪', secondary: '😠', name: 'Caim' },
-    'ABEL': { primary: '🐑', secondary: '🙏', name: 'Abel' },
-    'NOÉ': { primary: '🚢', secondary: '🦒', name: 'Noé' },
-    'NOE': { primary: '🚢', secondary: '🦒', name: 'Noé' },
-    'ABRAÃO': { primary: '⭐', secondary: '🏕️', name: 'Abraão' },
-    'ABRAAM': { primary: '⭐', secondary: '🏕️', name: 'Abraão' },
-    'SARAH': { primary: '👩', secondary: '👵', name: 'Sara' },
-    'SARA': { primary: '👩', secondary: '👵', name: 'Sara' },
-    'ISAQUE': { primary: '🐏', secondary: '🙏', name: 'Isaque' },
-    'ISAQUE': { primary: '🐏', secondary: '🙏', name: 'Isaque' },
-    'JACÓ': { primary: '🐏', secondary: '😇', name: 'Jacó' },
-    'JACO': { primary: '🐏', secondary: '😇', name: 'Jacó' },
-    'JOSÉ': { primary: '🔨', secondary: '🪚', name: 'José do Egito' },
-    'JOSE': { primary: '🔨', secondary: '🪚', name: 'José do Egito' },
-    'MOISÉS': { primary: '📜', secondary: '🪄', name: 'Moisés' },
-    'MOISES': { primary: '📜', secondary: '🪄', name: 'Moisés' },
-    'ARÃO': { primary: '👑', secondary: '🙏', name: 'Arão' },
-    'ARAO': { primary: '👑', secondary: '🙏', name: 'Arão' },
-    'JOSUÉ': { primary: '⚔️', secondary: '🏛️', name: 'Josué' },
-    'JOSUE': { primary: '⚔️', secondary: '🏛️', name: 'Josué' },
-    'DÉBORA': { primary: '⚖️', secondary: '👩', name: 'Débora' },
-    'DEBORA': { primary: '⚖️', secondary: '👩', name: 'Débora' },
-    'GIDEÃO': { primary: '⚔️', secondary: '🐑', name: 'Gideão' },
-    'GIDEAO': { primary: '⚔️', secondary: '🐑', name: 'Gideão' },
-    'SANSÃO': { primary: '💪', secondary: '🦁', name: 'Sansão' },
-    'SANSAO': { primary: '💪', secondary: '🦁', name: 'Sansão' },
-    'RUTE': { primary: '🌾', secondary: '❤️', name: 'Rute' },
-    'RUT': { primary: '🌾', secondary: '❤️', name: 'Rute' },
-    'DAVI': { primary: '👑', secondary: '⚔️', name: 'Davi' },
-    'GOLIAS': { primary: '⚔️', secondary: '🛡️', name: 'Golias' },
-    'SALOMÃO': { primary: '👑', secondary: '🏛️', name: 'Salomão' },
-    'SALOMAO': { primary: '👑', secondary: '🏛️', name: 'Salomão' },
-    'ELIAS': { primary: '🔥', secondary: '☁️', name: 'Elias' },
-    'ELIZEU': { primary: '✨', secondary: '💧', name: 'Elizeu' },
-    'ELISEU': { primary: '✨', secondary: '💧', name: 'Eliseu' },
-    'ISAÍAS': { primary: '📜', secondary: '✝️', name: 'Isaías' },
-    'ISAIAS': { primary: '📜', secondary: '✝️', name: 'Isaías' },
-    'JEREMIAS': { primary: '😢', secondary: '📜', name: 'Jeremias' },
-    'DANIEL': { primary: '🦁', secondary: '⛪', name: 'Daniel' },
-    'ESTER': { primary: '👑', secondary: '💎', name: 'Ester' },
-    'JÓ': { primary: '😢', secondary: '📜', name: 'Jó' },
-    'JO': { primary: '😢', secondary: '📜', name: 'Jó' },
-    'JONAS': { primary: '🐟', secondary: '🌊', name: 'Jonas' },
-    'ZACARIAS': { primary: '👼', secondary: '📜', name: 'Zacarias' },
-    
-    // ==================== PERSONAGENS DO NOVO TESTAMENTO ====================
-    'JESUS': { primary: '✝️', secondary: '👑', name: 'Jesus' },
-    'CRISTO': { primary: '✝️', secondary: '👑', name: 'Cristo' },
-    'MARIA': { primary: '👼', secondary: '🌸', name: 'Maria' },
-    'JOSÉ DE NAZARÉ': { primary: '🔨', secondary: '🪚', name: 'José de Nazaré' },
-    'JOSE DE NAZARE': { primary: '🔨', secondary: '🪚', name: 'José de Nazaré' },
-    'JOAO BATISTA': { primary: '💧', secondary: '🐪', name: 'João Batista' },
-    'JOAO': { primary: '💧', secondary: '🐪', name: 'João Batista' },
-    'PEDRO': { primary: '🐟', secondary: '🔑', name: 'Pedro' },
-    'PAULO': { primary: '📖', secondary: '⚔️', name: 'Paulo' },
-    'TIAGO': { primary: '🐟', secondary: '✝️', name: 'Tiago' },
-    'JOÃO': { primary: '📖', secondary: '🦅', name: 'João Evangelista' },
-    'JOAO EVANGELISTA': { primary: '📖', secondary: '🦅', name: 'João Evangelista' },
-    'ANDRÉ': { primary: '🐟', secondary: '🙏', name: 'André' },
-    'ANDRE': { primary: '🐟', secondary: '🙏', name: 'André' },
-    'FELIPE': { primary: '🙏', secondary: '📖', name: 'Felipe' },
-    'TOMÉ': { primary: '🖐️', secondary: '❓', name: 'Tomé' },
-    'TOME': { primary: '🖐️', secondary: '❓', name: 'Tomé' },
-    'MATEUS': { primary: '📜', secondary: '💰', name: 'Mateus' },
-    'JAIRO': { primary: '👨‍👧', secondary: '🙏', name: 'Jairo' },
-    'ZACUEU': { primary: '🌳', secondary: '💰', name: 'Zaqueu' },
-    'ZAQUEU': { primary: '🌳', secondary: '💰', name: 'Zaqueu' },
-    'LÁZARO': { primary: '🌅', secondary: '✨', name: 'Lázaro' },
-    'LAZARO': { primary: '🌅', secondary: '✨', name: 'Lázaro' },
-    'MADALENA': { primary: '🌸', secondary: '😢', name: 'Maria Madalena' },
-    'MARTA': { primary: '🍽️', secondary: '🏠', name: 'Marta' },
-    'MARIA DE BETÂNIA': { primary: '🙏', secondary: '🌸', name: 'Maria de Betânia' },
-    
-    // ==================== ANIMAIS ====================
-    'LEÃO': { primary: '🦁', secondary: '👑', name: 'Leão' },
-    'LEAO': { primary: '🦁', secondary: '👑', name: 'Leão' },
-    'CORDEIRO': { primary: '🐑', secondary: '🐏', name: 'Cordeiro' },
-    'PEIXE': { primary: '🐟', secondary: '🐠', name: 'Peixe' },
-    'POMBA': { primary: '🕊️', secondary: '🐦', name: 'Pomba' },
-    'SERPENTE': { primary: '🐍', secondary: '🍎', name: 'Serpente' },
-    'BODE': { primary: '🐐', secondary: '🏔️', name: 'Bode' },
-    'CAMELO': { primary: '🐪', secondary: '🏜️', name: 'Camelo' },
-    'JUMENTO': { primary: '🐴', secondary: '🏃', name: 'Jumento' },
-    'BURRO': { primary: '🐴', secondary: '🏃', name: 'Burro' },
-    'OVELHA': { primary: '🐑', secondary: '🐏', name: 'Ovelha' },
-    'CABRA': { primary: '🐐', secondary: '🏔️', name: 'Cabra' },
-    'GAFANHOTO': { primary: '🦗', secondary: '🐜', name: 'Gafanhoto' },
-    'RÃ': { primary: '🐸', secondary: '💧', name: 'Rã' },
-    'RA': { primary: '🐸', secondary: '💧', name: 'Rã' },
-    
-    // ==================== OBJETOS SAGRADOS ====================
-    'ARCA': { primary: '🚢', secondary: '📦', name: 'Arca' },
-    'ARCA DE NOÉ': { primary: '🚢', secondary: '📦', name: 'Arca de Noé' },
-    'ARCA DA ALIANÇA': { primary: '📦', secondary: '✨', name: 'Arca da Aliança' },
-    'CRUZ': { primary: '✝️', secondary: '➕', name: 'Cruz' },
-    'BÍBLIA': { primary: '📖', secondary: '📚', name: 'Bíblia' },
-    'BIBLIA': { primary: '📖', secondary: '📚', name: 'Bíblia' },
-    'CÁLICE': { primary: '🥂', secondary: '🍷', name: 'Cálice' },
-    'CALICE': { primary: '🥂', secondary: '🍷', name: 'Cálice' },
-    'COROA': { primary: '👑', secondary: '⭐', name: 'Coroa' },
-    'ESPADA': { primary: '⚔️', secondary: '🗡️', name: 'Espada' },
-    'CAJADO': { primary: '🪄', secondary: '🏔️', name: 'Cajado' },
-    'TÁBUAS': { primary: '📜', secondary: '🗻', name: 'Tábuas da Lei' },
-    'TABUAS': { primary: '📜', secondary: '🗻', name: 'Tábuas da Lei' },
-    'MANÁ': { primary: '🍞', secondary: '✨', name: 'Maná' },
-    'MANA': { primary: '🍞', secondary: '✨', name: 'Maná' },
-    
-    // ==================== ELEMENTOS NATURAIS ====================
-    'TERRA': { primary: '🌍', secondary: '🌎', name: 'Terra' },
-    'SOL': { primary: '☀️', secondary: '🌞', name: 'Sol' },
-    'LUA': { primary: '🌙', secondary: '🌛', name: 'Lua' },
-    'ESTRELA': { primary: '⭐', secondary: '🌟', name: 'Estrela' },
-    'ESTRELAS': { primary: '⭐', secondary: '✨', name: 'Estrelas' },
-    'ÁGUA': { primary: '💧', secondary: '🌊', name: 'Água' },
-    'AGUA': { primary: '💧', secondary: '🌊', name: 'Água' },
-    'ÁGUAS': { primary: '💧', secondary: '🌊', name: 'Águas' },
-    'AGUAS': { primary: '💧', secondary: '🌊', name: 'Águas' },
-    'MAR': { primary: '🌊', secondary: '💧', name: 'Mar' },
-    'MAR VERMELHO': { primary: '🌊', secondary: '🔴', name: 'Mar Vermelho' },
-    'RIO': { primary: '🏞️', secondary: '💧', name: 'Rio' },
-    'JORDÃO': { primary: '🏞️', secondary: '💧', name: 'Rio Jordão' },
-    'JORDAO': { primary: '🏞️', secondary: '💧', name: 'Rio Jordão' },
-    'FOGO': { primary: '🔥', secondary: '✨', name: 'Fogo' },
-    'LUZ': { primary: '💡', secondary: '✨', name: 'Luz' },
-    'AR': { primary: '💨', secondary: '🌬️', name: 'Ar' },
-    'VENTO': { primary: '💨', secondary: '🌬️', name: 'Vento' },
-    'NUVEM': { primary: '☁️', secondary: '🌤️', name: 'Nuvem' },
-    'DESERTO': { primary: '🏜️', secondary: '🐪', name: 'Deserto' },
-    'MONTANHA': { primary: '⛰️', secondary: '🏔️', name: 'Montanha' },
-    'MONTE': { primary: '⛰️', secondary: '🏔️', name: 'Monte' },
-    'SINAI': { primary: '⛰️', secondary: '🔥', name: 'Monte Sinai' },
-    'OLIVAIS': { primary: '🌳', secondary: '⛰️', name: 'Monte das Oliveiras' },
-    
-    // ==================== LUGARES ====================
-    'ÉDEN': { primary: '🌳', secondary: '🍎', name: 'Éden' },
-    'EDEN': { primary: '🌳', secondary: '🍎', name: 'Éden' },
-    'JARDIM DO ÉDEN': { primary: '🌳', secondary: '🍎', name: 'Jardim do Éden' },
-    'EGITO': { primary: '🐪', secondary: '🏜️', name: 'Egito' },
-    'BABILÔNIA': { primary: '🏛️', secondary: '👑', name: 'Babilônia' },
-    'BABILONIA': { primary: '🏛️', secondary: '👑', name: 'Babilônia' },
-    'JERUSALÉM': { primary: '🏰', secondary: '⛪', name: 'Jerusalém' },
-    'JERUSALEM': { primary: '🏰', secondary: '⛪', name: 'Jerusalém' },
-    'BELÉM': { primary: '⭐', secondary: '🏠', name: 'Belém' },
-    'BELEM': { primary: '⭐', secondary: '🏠', name: 'Belém' },
-    'NAZARÉ': { primary: '🏠', secondary: '🔨', name: 'Nazaré' },
-    'NAZARE': { primary: '🏠', secondary: '🔨', name: 'Nazaré' },
-    'GALILEIA': { primary: '🌊', secondary: '🐟', name: 'Galileia' },
-    'IGREJA': { primary: '⛪', secondary: '🏛️', name: 'Igreja' },
-    'TEMPLO': { primary: '⛪', secondary: '🏛️', name: 'Templo' },
-    'CÉU': { primary: '☁️', secondary: '✨', name: 'Céu' },
-    'CEU': { primary: '☁️', secondary: '✨', name: 'Céu' },
-    'INFERNO': { primary: '🔥', secondary: '😈', name: 'Inferno' },
-    
-    // ==================== CONCEITOS ESPIRITUAIS ====================
-    'DEUS': { primary: '✨', secondary: '👑', name: 'Deus' },
-    'SENHOR': { primary: '✨', secondary: '👑', name: 'Senhor' },
-    'ESPÍRITO SANTO': { primary: '🕊️', secondary: '✨', name: 'Espírito Santo' },
-    'ESPIRITO SANTO': { primary: '🕊️', secondary: '✨', name: 'Espírito Santo' },
-    'FÉ': { primary: '🙏', secondary: '✨', name: 'Fé' },
-    'FE': { primary: '🙏', secondary: '✨', name: 'Fé' },
-    'AMOR': { primary: '❤️', secondary: '💕', name: 'Amor' },
-    'ESPERANÇA': { primary: '🌈', secondary: '✨', name: 'Esperança' },
-    'ESPERANCA': { primary: '🌈', secondary: '✨', name: 'Esperança' },
-    'CARIDADE': { primary: '🤝', secondary: '❤️', name: 'Caridade' },
-    'GRAÇA': { primary: '✨', secondary: '💝', name: 'Graça' },
-    'GRACA': { primary: '✨', secondary: '💝', name: 'Graça' },
-    'MISERICÓRDIA': { primary: '🤗', secondary: '❤️', name: 'Misericórdia' },
-    'MISERICORDIA': { primary: '🤗', secondary: '❤️', name: 'Misericórdia' },
-    'PERDÃO': { primary: '🤝', secondary: '❤️', name: 'Perdão' },
-    'PERDAO': { primary: '🤝', secondary: '❤️', name: 'Perdão' },
-    'SALVAÇÃO': { primary: '🛟', secondary: '✝️', name: 'Salvação' },
-    'SALVACAO': { primary: '🛟', secondary: '✝️', name: 'Salvação' },
-    'REDENÇÃO': { primary: '🛟', secondary: '✨', name: 'Redenção' },
-    'REDENCAO': { primary: '🛟', secondary: '✨', name: 'Redenção' },
-    
-    // ==================== MILAGRES E AÇÕES DIVINAS ====================
-    'MILAGRE': { primary: '✨', secondary: '🌟', name: 'Milagre' },
-    'CURA': { primary: '🩺', secondary: '💚', name: 'Cura' },
-    'DOENÇA': { primary: '🤒', secondary: '😷', name: 'Doença' },
-    'MORTE': { primary: '💀', secondary: '⚰️', name: 'Morte' },
-    'VIDA': { primary: '🌱', secondary: '❤️', name: 'Vida' },
-    'RESSURREIÇÃO': { primary: '🌅', secondary: '✨', name: 'Ressurreição' },
-    'RESSURREICAO': { primary: '🌅', secondary: '✨', name: 'Ressurreição' },
-    'RESSUSCITAR': { primary: '🌅', secondary: '✨', name: 'Ressuscitar' },
-    'RESSUSCITAÇÃO': { primary: '🌅', secondary: '✨', name: 'Ressurreição' },
-    'LEVANTAR': { primary: '⬆️', secondary: '🙌', name: 'Levantar' },
-    'SALVAR': { primary: '🛟', secondary: '✝️', name: 'Salvar' },
-    'LIBERTAR': { primary: '🕊️', secondary: '⛓️', name: 'Libertar' },
-    
-    // ==================== PESSOAS E RELACIONAMENTOS ====================
-    'PAI': { primary: '👨', secondary: '👴', name: 'Pai' },
-    'MÃE': { primary: '👩', secondary: '👵', name: 'Mãe' },
-    'MAE': { primary: '👩', secondary: '👵', name: 'Mãe' },
-    'FILHO': { primary: '👦', secondary: '🧒', name: 'Filho' },
-    'FILHA': { primary: '👧', secondary: '🧒', name: 'Filha' },
-    'FAMÍLIA': { primary: '👨‍👩‍👧‍👦', secondary: '🏠', name: 'Família' },
-    'FAMILIA': { primary: '👨‍👩‍👧‍👦', secondary: '🏠', name: 'Família' },
-    'MENINA': { primary: '👧', secondary: '🌸', name: 'Menina' },
-    'MENINO': { primary: '👦', secondary: '⚽', name: 'Menino' },
-    'CRIANÇA': { primary: '🧒', secondary: '👶', name: 'Criança' },
-    'CRIANCA': { primary: '🧒', secondary: '👶', name: 'Criança' },
-    'MULHER': { primary: '👩', secondary: '🌸', name: 'Mulher' },
-    'HOMEM': { primary: '👨', secondary: '💪', name: 'Homem' },
-    'PROFETA': { primary: '📜', secondary: '✨', name: 'Profeta' },
-    'APÓSTOLO': { primary: '👥', secondary: '✝️', name: 'Apóstolo' },
-    'APOSTOLO': { primary: '👥', secondary: '✝️', name: 'Apóstolo' },
-    'DISCÍPULO': { primary: '👥', secondary: '📖', name: 'Discípulo' },
-    'DISCIPULO': { primary: '👥', secondary: '📖', name: 'Discípulo' },
-    'LÍDER': { primary: '👑', secondary: '⭐', name: 'Líder' },
-    'LIDER': { primary: '👑', secondary: '⭐', name: 'Líder' },
-    
-    // ==================== EMOÇÕES ====================
-    'ALEGRIA': { primary: '😊', secondary: '🎉', name: 'Alegria' },
-    'TRISTEZA': { primary: '😢', secondary: '😭', name: 'Tristeza' },
-    'CHORO': { primary: '😢', secondary: '😭', name: 'Choro' },
-    'LUTO': { primary: '😔', secondary: '🕊️', name: 'Luto' },
-    'MEDO': { primary: '😨', secondary: '😱', name: 'Medo' },
-    'CORAGEM': { primary: '💪', secondary: '🦁', name: 'Coragem' },
-    'PAZ': { primary: '🕊️', secondary: '☮️', name: 'Paz' },
-    
-    // ==================== MISSÕES E AÇÕES ====================
-    'MISSÃO': { primary: '🌍', secondary: '🚀', name: 'Missão' },
-    'MISSAO': { primary: '🌍', secondary: '🚀', name: 'Missão' },
-    'MISSIONÁRIO': { primary: '🌍', secondary: '📖', name: 'Missionário' },
-    'MISSIONARIO': { primary: '🌍', secondary: '📖', name: 'Missionário' },
-    'EVANGELIZAR': { primary: '📢', secondary: '🌍', name: 'Evangelizar' },
-    'EVANGELHO': { primary: '📖', secondary: '✝️', name: 'Evangelho' },
-    'PREGAR': { primary: '📢', secondary: '🙏', name: 'Pregar' },
-    'DISCIPULAR': { primary: '👥', secondary: '📖', name: 'Discipular' },
-    'DISCIPULADO': { primary: '👥', secondary: '📖', name: 'Discipulado' },
-    'TESTEMUNHAR': { primary: '📢', secondary: '👥', name: 'Testemunhar' },
-    'TESTEMUNHO': { primary: '📢', secondary: '✨', name: 'Testemunho' },
-    'SERVIR': { primary: '🤝', secondary: '🙏', name: 'Servir' },
-    'SERVIÇO': { primary: '🤝', secondary: '❤️', name: 'Serviço' },
-    'SERVICO': { primary: '🤝', secondary: '❤️', name: 'Serviço' },
-    'AJUDAR': { primary: '🤝', secondary: '❤️', name: 'Ajudar' },
-    'COMPARTILHAR': { primary: '🤝', secondary: '📢', name: 'Compartilhar' },
-    
-    // ==================== CRIATURAS CELESTIAIS ====================
-    'ANJO': { primary: '👼', secondary: '✨', name: 'Anjo' },
-    'ARCANJO': { primary: '👼', secondary: '⚔️', name: 'Arcanjo' },
-    'GABRIEL': { primary: '👼', secondary: '📢', name: 'Gabriel' },
-    'MIGUEL': { primary: '👼', secondary: '⚔️', name: 'Miguel' },
-    'QUERUBIM': { primary: '👼', secondary: '✨', name: 'Querubim' },
-    'SERAFIM': { primary: '👼', secondary: '🔥', name: 'Serafim' },
-    
-    // ==================== DIA A DIA ====================
-    'ORAÇÃO': { primary: '🙏', secondary: '🕯️', name: 'Oração' },
-    'ORACAO': { primary: '🙏', secondary: '🕯️', name: 'Oração' },
-    'JEJUM': { primary: '🍽️', secondary: '❌', name: 'Jejum' },
-    'ADORAÇÃO': { primary: '🙌', secondary: '✨', name: 'Adoração' },
-    'ADORACAO': { primary: '🙌', secondary: '✨', name: 'Adoração' },
-    'LOUVOR': { primary: '🎵', secondary: '🙌', name: 'Louvor' },
-    'CÂNTICO': { primary: '🎵', secondary: '📖', name: 'Cântico' },
-    'CANTICO': { primary: '🎵', secondary: '📖', name: 'Cântico' },
-    'DÍZIMO': { primary: '💰', secondary: '🙏', name: 'Dízimo' },
-    'DIZIMO': { primary: '💰', secondary: '🙏', name: 'Dízimo' },
-    'OFERTA': { primary: '💰', secondary: '🙏', name: 'Oferta' },
-    
-    // ==================== VALORES ====================
-    'HUMILDADE': { primary: '🙇', secondary: '😌', name: 'Humildade' },
-    'HONESTIDADE': { primary: '⚖️', secondary: '✨', name: 'Honestidade' },
-    'JUSTIÇA': { primary: '⚖️', secondary: '👑', name: 'Justiça' },
-    'JUSTICA': { primary: '⚖️', secondary: '👑', name: 'Justiça' },
-    'VERDADE': { primary: '💡', secondary: '✨', name: 'Verdade' },
-    'SABEDORIA': { primary: '🦉', secondary: '📖', name: 'Sabedoria' },
-    'SABEDORIA': { primary: '🦉', secondary: '📖', name: 'Sabedoria' },
-    'PACIÊNCIA': { primary: '⏳', secondary: '😌', name: 'Paciência' },
-    'PACIENTE': { primary: '⏳', secondary: '😌', name: 'Paciente' },
+// Dados da história e palavras geradas pela IA
+const aiWords = {{ game_data | tojson }};
 
-    // ==================== ADICIONAR AO BANCO DE EMOJIS ====================
-// Adicione estas novas entradas ao emojiDatabase existente:
+let gameDeck = [];
+let flippedCards = [];
+let matchedPairs = 0;
+let moves = 0;
+let canFlip = true;
+let emojiCache = {};
 
-    // ==================== PROFISSÕES E OFÍCIOS ====================
-    'PESCADOR': { primary: '🎣', secondary: '🐟', name: 'Pescador' },
-    'PESCADORES': { primary: '🎣', secondary: '🐟', name: 'Pescadores' },
-    'REDES': { primary: '🕸️', secondary: '🎣', name: 'Redes' },
-    'REDE': { primary: '🕸️', secondary: '🎣', name: 'Rede' },
-    'PESCAR': { primary: '🎣', secondary: '🐟', name: 'Pescar' },
-    'PESCA': { primary: '🎣', secondary: '🐟', name: 'Pesca' },
-    'BARCO': { primary: '⛵', secondary: '🚣', name: 'Barco' },
-    'BARCOS': { primary: '⛵', secondary: '🚣', name: 'Barcos' },
+// Buscar emoji da API (URL CORRIGIDA)
+async function getEmojiForWord(word) {
+    if (emojiCache[word]) return emojiCache[word];
     
-    // ==================== CASAS E LUGARES COTIDIANOS ====================
-    'CASA': { primary: '🏠', secondary: '🏡', name: 'Casa' },
-    'LAR': { primary: '🏠', secondary: '❤️', name: 'Lar' },
-    'TELHADO': { primary: '🏠', secondary: '⬆️', name: 'Telhado' },
-    'PORTA': { primary: '🚪', secondary: '🏠', name: 'Porta' },
-    'JANELA': { primary: '🪟', secondary: '🏠', name: 'Janela' },
-    'QUARTO': { primary: '🛏️', secondary: '🏠', name: 'Quarto' },
-    
-    // ==================== AJUDANTES E AMIGOS ====================
-    'AJUDANTES': { primary: '🤝', secondary: '👥', name: 'Ajudantes' },
-    'AJUDANTE': { primary: '🤝', secondary: '👤', name: 'Ajudante' },
-    'AMIGOS': { primary: '👥', secondary: '🤝', name: 'Amigos' },
-    'AMIGO': { primary: '👤', secondary: '🤝', name: 'Amigo' },
-    'COLABORADORES': { primary: '👥', secondary: '🤝', name: 'Colaboradores' },
-    'COMPANHEIROS': { primary: '👥', secondary: '🤝', name: 'Companheiros' },
-    'SERVIDORES': { primary: '🤝', secondary: '🙏', name: 'Servidores' },
-    
-    // ==================== AÇÕES COTIDIANAS ====================
-    'SEGUIR': { primary: '👣', secondary: '➡️', name: 'Seguir' },
-    'SEGUIR JESUS': { primary: '👣', secondary: '✝️', name: 'Seguir Jesus' },
-    'CAMINHAR': { primary: '🚶', secondary: '👣', name: 'Caminhar' },
-    'ANDAR': { primary: '🚶', secondary: '👣', name: 'Andar' },
-    'TRABALHAR': { primary: '💼', secondary: '🔨', name: 'Trabalhar' },
-    'TRABALHO': { primary: '💼', secondary: '🔨', name: 'Trabalho' },
-    'DESCANSAR': { primary: '😴', secondary: '🛌', name: 'Descansar' },
-    'COMER': { primary: '🍽️', secondary: '🍞', name: 'Comer' },
-    'BEBER': { primary: '🥤', secondary: '💧', name: 'Beber' },
-    
-    // ==================== FESTAS E CELEBRAÇÕES ====================
-    'FESTA': { primary: '🎉', secondary: '🥳', name: 'Festa' },
-    'CELEBRAÇÃO': { primary: '🎉', secondary: '🥳', name: 'Celebração' },
-    'CELEBRACAO': { primary: '🎉', secondary: '🥳', name: 'Celebração' },
-    'CASAMENTO': { primary: '💒', secondary: '👰', name: 'Casamento' },
-    'BODAS': { primary: '💒', secondary: '🥂', name: 'Bodas' },
-    
-    // ==================== ENSINO E APRENDIZADO ====================
-    'ENSINAR': { primary: '📚', secondary: '👨‍🏫', name: 'Ensinar' },
-    'APRENDER': { primary: '📚', secondary: '🧠', name: 'Aprender' },
-    'ENSINO': { primary: '📚', secondary: '👨‍🏫', name: 'Ensino' },
-    'DISCÍPULOS': { primary: '👥', secondary: '📖', name: 'Discípulos' },
-    'MESTRE': { primary: '👨‍🏫', secondary: '📖', name: 'Mestre' },
-    'RABI': { primary: '👨‍🏫', secondary: '✨', name: 'Rabi' },
-    
-    // ==================== DIAS E TEMPOS ====================
-    'DIA': { primary: '☀️', secondary: '📅', name: 'Dia' },
-    'NOITE': { primary: '🌙', secondary: '🌃', name: 'Noite' },
-    'MANHÃ': { primary: '🌅', secondary: '☀️', name: 'Manhã' },
-    'MANHA': { primary: '🌅', secondary: '☀️', name: 'Manhã' },
-    'TARDE': { primary: '🌇', secondary: '☀️', name: 'Tarde' },
-    'SÁBADO': { primary: '📅', secondary: '🙏', name: 'Sábado' },
-    'SABADO': { primary: '📅', secondary: '🙏', name: 'Sábado' },
-    'DOMINGO': { primary: '📅', secondary: '⛪', name: 'Domingo' },
-    
-    // ==================== MONTANHAS E RELEVOS ====================
-    'MONTANHA': { primary: '⛰️', secondary: '🏔️', name: 'Montanha' },
-    'MONTANHAS': { primary: '⛰️', secondary: '🏔️', name: 'Montanhas' },
-    'MONTE': { primary: '⛰️', secondary: '🏔️', name: 'Monte' },
-    'COLINA': { primary: '⛰️', secondary: '🏔️', name: 'Colina' },
-    'MORRO': { primary: '⛰️', secondary: '🏔️', name: 'Morro' },
-    
-    // ==================== BÍBLIA E ESCRITURAS ====================
-    'BÍBLIA': { primary: '📖', secondary: '📚', name: 'Bíblia' },
-    'BIBLIA': { primary: '📖', secondary: '📚', name: 'Bíblia' },
-    'ESCRITURAS': { primary: '📖', secondary: '📚', name: 'Escrituras' },
-    'PALAVRA': { primary: '📖', secondary: '✨', name: 'Palavra' },
-    'PALAVRA DE DEUS': { primary: '📖', secondary: '✨', name: 'Palavra de Deus' },
-    'SALMOS': { primary: '📜', secondary: '🎵', name: 'Salmos' },
-    'SALMO': { primary: '📜', secondary: '🎵', name: 'Salmo' },
-    'PROVÉRBIOS': { primary: '📜', secondary: '🦉', name: 'Provérbios' },
-    'PROVERBIOS': { primary: '📜', secondary: '🦉', name: 'Provérbios' },
-    
-    // ==================== ORAÇÃO E COMUNICAÇÃO COM DEUS ====================
-    'ORAÇÃO': { primary: '🙏', secondary: '🕯️', name: 'Oração' },
-    'ORAR': { primary: '🙏', secondary: '🕯️', name: 'Orar' },
-    'INTERCESSÃO': { primary: '🙏', secondary: '👥', name: 'Intercessão' },
-    'INTERCESSAO': { primary: '🙏', secondary: '👥', name: 'Intercessão' },
-    'SUPLICA': { primary: '🙏', secondary: '✨', name: 'Súplica' },
-    'CLAMOR': { primary: '📢', secondary: '🙏', name: 'Clamor' },
-    
-    // ==================== CURA E SAÚDE ====================
-    'CURA': { primary: '🩺', secondary: '💚', name: 'Cura' },
-    'SAÚDE': { primary: '💪', secondary: '❤️', name: 'Saúde' },
-    'DOENÇA': { primary: '🤒', secondary: '😷', name: 'Doença' },
-    'SANGUE': { primary: '🩸', secondary: '❤️', name: 'Sangue' },
-    'MILAGRE': { primary: '✨', secondary: '🌟', name: 'Milagre' },
-    
-    // ==================== PESSOAS COMUNS ====================
-    'HOMEM': { primary: '👨', secondary: '💪', name: 'Homem' },
-    'MULHER': { primary: '👩', secondary: '🌸', name: 'Mulher' },
-    'CRIANÇA': { primary: '🧒', secondary: '👶', name: 'Criança' },
-    'CRIANCAS': { primary: '🧒', secondary: '👶', name: 'Crianças' },
-    'BEBÊ': { primary: '👶', secondary: '🍼', name: 'Bebê' },
-    'BEBE': { primary: '👶', secondary: '🍼', name: 'Bebê' },
-    'JOVEM': { primary: '🧑', secondary: '🎓', name: 'Jovem' },
-    'IDOSO': { primary: '👴', secondary: '🕊️', name: 'Idoso' },
-    'VELHO': { primary: '👴', secondary: '🕊️', name: 'Velho' },
-    
-    // ==================== AÇÕES ESPIRITUAIS ====================
-    'BATISMO': { primary: '💧', secondary: '✝️', name: 'Batismo' },
-    'BATIZAR': { primary: '💧', secondary: '✝️', name: 'Batizar' },
-    'CONVERTER': { primary: '🔄', secondary: '✨', name: 'Converter' },
-    'CONVERSÃO': { primary: '🔄', secondary: '✨', name: 'Conversão' },
-    'CONVERSAO': { primary: '🔄', secondary: '✨', name: 'Conversão' },
-    'ARREPENDIMENTO': { primary: '😔', secondary: '🔄', name: 'Arrependimento' },
-    'PERDÃO': { primary: '🤝', secondary: '❤️', name: 'Perdão' },
-    'PERDAO': { primary: '🤝', secondary: '❤️', name: 'Perdão' },
-    
-    // ==================== OUTROS ====================
-    'CRIAÇÃO': { primary: '🌍', secondary: '✨', name: 'Criação' },
-    'CRIACAO': { primary: '🌍', secondary: '✨', name: 'Criação' },
-    'DILÚVIO': { primary: '🌊', secondary: '🚢', name: 'Dilúvio' },
-    'DILUVIO': { primary: '🌊', secondary: '🚢', name: 'Dilúvio' },
-    'ALIANÇA': { primary: '🤝', secondary: '🌈', name: 'Aliança' },
-    'ALIANCA': { primary: '🤝', secondary: '🌈', name: 'Aliança' },
-    'PROMESSA': { primary: '🤝', secondary: '✨', name: 'Promessa' },
-    'SINAIS': { primary: '✨', secondary: '🌟', name: 'Sinais' },
-    'MARAVILHAS': { primary: '✨', secondary: '🌟', name: 'Maravilhas' }
-
-    
-};
-
-// Função para buscar emoji baseado na palavra
-function getEmojiForWord(word) {
-    const upperWord = word.toUpperCase().trim();
-    const entry = emojiDatabase[upperWord];
-    
-    if (entry) {
-        return entry.primary;
-    }
-    
-    // Busca parcial
-    for (const [key, value] of Object.entries(emojiDatabase)) {
-        if (upperWord.includes(key) || key.includes(upperWord)) {
-            return value.primary;
+    try {
+        // 🔥 CORRIGIDO: usar a rota correta /api/emoji-for-word/
+        const response = await fetch(`/edification/api/emoji-for-word/${encodeURIComponent(word)}`);
+        const data = await response.json();
+        
+        let emojiHtml = '';
+        if (data.success && data.emoji) {
+            if (data.type === 'unicode') {
+                emojiHtml = `<div class="card-emoji">${data.emoji}</div>`;
+            } else if (data.type === 'bootstrap') {
+                emojiHtml = `<div class="card-emoji"><i class="bi ${data.emoji}" style="font-size: 3rem;"></i></div>`;
+            } else if (data.type === 'custom' && data.custom_icon) {
+                emojiHtml = `<div class="card-emoji"><img src="{{ url_for('static', filename='') }}${data.custom_icon}" style="width: 60px; height: 60px;"></div>`;
+            } else {
+                emojiHtml = `<div class="card-emoji">${word.charAt(0).toUpperCase()}</div>`;
+            }
+        } else {
+            emojiHtml = `<div class="card-emoji">${word.charAt(0).toUpperCase()}</div>`;
         }
+        
+        emojiCache[word] = emojiHtml;
+        return emojiHtml;
+    } catch(e) {
+        console.error('Erro ao buscar emoji:', e);
+        return `<div class="card-emoji">${word.charAt(0).toUpperCase()}</div>`;
     }
-    
-    // Busca por palavras compostas
-    const words = upperWord.split(' ');
-    for (const w of words) {
-        const partialEntry = emojiDatabase[w];
-        if (partialEntry) {
-            return partialEntry.primary;
-        }
-    }
-    
-    // Fallback: primeira letra
-    return word.charAt(0).toUpperCase();
 }
 
 // Função para obter o nome amigável
 function getNameForWord(word) {
-    const upperWord = word.toUpperCase().trim();
-    const entry = emojiDatabase[upperWord];
-    
-    if (entry) {
-        return entry.name;
-    }
-    
-    // Busca parcial
-    for (const [key, value] of Object.entries(emojiDatabase)) {
-        if (upperWord.includes(key) || key.includes(upperWord)) {
-            return value.name;
-        }
-    }
-    
     return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
 }
-
-// Dados da IA ou fallback estático
-const aiWords = {{ game_data | tojson }};
 
 // Array fixo de palavras padrão (fallback)
 const defaultWords = [
@@ -588,13 +174,7 @@ const defaultWords = [
     'JESUS', 'CRUZ', 'BÍBLIA', 'ORAÇÃO'
 ];
 
-let gameDeck = [];
-let flippedCards = [];
-let matchedPairs = 0;
-let moves = 0;
-let canFlip = true;
-
-function createGameCards() {
+async function createGameCards() {
     const cards = [];
     let wordsToUse = [];
     
@@ -602,31 +182,31 @@ function createGameCards() {
     if (aiWords && aiWords.length >= 4) {
         wordsToUse = aiWords.slice(0, 8).map(w => w.word || w);
     } else {
-        // Fallback: palavras padrão
         wordsToUse = defaultWords.slice(0, 8);
     }
     
-    wordsToUse.forEach((word, idx) => {
+    for (const word of wordsToUse) {
         const cleanWord = typeof word === 'object' ? word.word : word;
         const upperWord = cleanWord.toUpperCase();
+        const emojiHtml = await getEmojiForWord(upperWord);
         
         cards.push({
-            id: idx,
+            id: Math.random(),
             name: upperWord,
             displayName: getNameForWord(upperWord),
-            emoji: getEmojiForWord(upperWord)
+            emojiHtml: emojiHtml
         });
-    });
+    }
     
     // Duplicar para formar pares e embaralhar
     const deck = [...cards, ...cards].sort(() => Math.random() - 0.5);
     return deck;
 }
 
-function initGame() {
+async function initGame() {
     const gameBoard = document.getElementById('game-board');
     gameBoard.innerHTML = '';
-    gameDeck = createGameCards();
+    gameDeck = await createGameCards();
     flippedCards = [];
     matchedPairs = 0;
     moves = 0;
@@ -642,7 +222,7 @@ function initGame() {
         cardElement.innerHTML = `
             <div class="card-back"><i class="bi bi-question-lg" style="font-size: 3rem;"></i></div>
             <div class="card-front">
-                <div class="card-emoji">${card.emoji}</div>
+                ${card.emojiHtml}
                 <div class="card-name">${card.displayName}</div>
             </div>
         `;

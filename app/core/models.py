@@ -300,6 +300,20 @@ class BibleQuiz(db.Model):
     explanation = db.Column(db.Text) # Breve explicação do porquê ser a correta
     is_published = db.Column(db.Boolean, default=True)
 
+class EmojiWord(db.Model):
+    __tablename__ = 'emoji_words'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    emoji = db.Column(db.String(50), nullable=False)  # 👑 ou bi-crown
+    emoji_type = db.Column(db.String(20), default='unicode')  # unicode, bootstrap, custom
+    custom_icon = db.Column(db.String(255), nullable=True)
+    words = db.Column(db.JSON, default=[])  # Lista de palavras ["DAVI", "REI", "SALOMÃO"]
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, onupdate=datetime.utcnow)
+    created_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    
+    user = db.relationship('User', backref='emoji_words')
+
 class Study(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(200), nullable=False)
