@@ -310,7 +310,7 @@ class EmojiWord(db.Model):
     words = db.Column(db.JSON, default=[])  # Lista de palavras ["DAVI", "REI", "SALOMÃO"]
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, onupdate=datetime.utcnow)
-    created_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    #created_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
     
     user = db.relationship('User', backref='emoji_words')
 
