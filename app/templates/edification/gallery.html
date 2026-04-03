@@ -5,10 +5,18 @@
     <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
         <h1 class="fw-bold text-primary mb-0"><i class="bi bi-images me-2"></i>Galeria da Igreja</h1>
         
-        {% set lider_ministerios = current_user.ministries | selectattr("leader_id", "equalto", current_user.id) | list %}
+        {% set ministerios_liderados = [] %}
+        {% for ministry in current_user.ministries %}
+            {% if ministry.leader_id == current_user.id 
+            or ministry.vice_leader_id == current_user.id 
+            or (ministry.extra_leaders and current_user.id in ministry.extra_leaders) %}
+                {% set _ = ministerios_liderados.append(ministry) %}
+            {% endif %}
+        {% endfor %}
+        
         {% set pode_gerenciar = current_user.can_manage_media 
-                             or (current_user.church_role and current_user.church_role.name in ["Administrador Global", "Pastor Líder"]) 
-                             or lider_ministerios | length > 0 %}
+                            or (current_user.church_role and current_user.church_role.name in ["Administrador Global", "Pastor Líder"]) 
+                            or ministerios_liderados | length > 0 %}
 
         {% if pode_gerenciar %}
         <a href="{{ url_for('edification.add_media') }}" class="btn btn-success fw-bold">

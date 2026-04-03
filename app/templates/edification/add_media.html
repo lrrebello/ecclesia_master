@@ -26,17 +26,45 @@
                 <div class="mb-3">
                     <label class="form-label small fw-bold">MINISTÉRIO (OPCIONAL)</label>
                     <select name="ministry_id" class="form-select bg-light border-0">
+                        {% if can_upload_to_general %}
                         <option value="">Geral / Igreja</option>
+                        {% else %}
+                        <option value="" disabled class="text-muted">Geral / Igreja (apenas para administradores)</option>
+                        {% endif %}
+                        
                         {% for min in ministries %}
                         <option value="{{ min.id }}">{{ min.name }}</option>
                         {% endfor %}
                     </select>
+                    
+                    {% if not can_upload_to_general %}
+                    <div class="form-text text-warning mt-2">
+                        <i class="bi bi-shield-lock"></i> 
+                        <strong>Atenção:</strong> Você só pode enviar mídia para os ministérios onde é:
+                        <ul class="mt-1 mb-0 small">
+                            <li>🔹 Líder principal</li>
+                            <li>🔹 Vice-líder</li>
+                            <li>🔹 Líder auxiliar (membro da equipe de liderança)</li>
+                        </ul>
+                        {% if ministries|length == 0 %}
+                        <br>
+                        <i class="bi bi-info-circle"></i> Você não está designado como líder, vice-líder ou líder auxiliar de nenhum ministério no momento.
+                        {% endif %}
+                    </div>
+                    {% else %}
+                    <div class="form-text">
+                        <i class="bi bi-info-circle"></i> Você pode enviar mídia para qualquer ministério ou para o geral da igreja.
+                    </div>
+                    {% endif %}
                 </div>
 
                 <div class="mb-3">
                     <label class="form-label small fw-bold">ARQUIVOS (Múltiplas imagens, PDFs ou vídeos)</label>
-                    <input type="file" name="file" class="form-control bg-light border-0" accept="image/*,application/pdf,video/mp4" required multiple>
-                    <div class="form-text">Você pode selecionar vários arquivos de uma vez.</div>
+                    <input type="file" name="file" class="form-control bg-light border-0" accept="image/*,application/pdf,video/mp4,video/quicktime" required multiple>
+                    <div class="form-text">
+                        <i class="bi bi-check-circle-fill text-success me-1"></i> Formatos suportados: 
+                        Imagens (JPG, PNG, GIF, HEIC), PDF, Vídeos (MP4, MOV)
+                    </div>
                 </div>
 
                 <div class="mb-4">
@@ -44,7 +72,13 @@
                         <input class="form-check-input" type="checkbox" id="group_as_album" name="group_as_album" checked>
                         <label class="form-check-label fw-bold" for="group_as_album">Agrupar em uma "Pasta" (Álbum)</label>
                     </div>
-                    <div class="form-text">Se marcado, as imagens aparecerão juntas em uma pasta na galeria.</div>
+                    <div class="form-text">
+                        {% if can_upload_to_general %}
+                        Se marcado, as imagens aparecerão juntas em uma pasta na galeria.
+                        {% else %}
+                        <i class="bi bi-folder"></i> Recomendado para líderes: marque esta opção para organizar melhor suas mídias.
+                        {% endif %}
+                    </div>
                 </div>
 
                 <div class="mb-3">
@@ -52,8 +86,23 @@
                     <textarea name="description" class="form-control bg-light border-0" rows="3" placeholder="Detalhes sobre este conjunto de mídias..."></textarea>
                 </div>
 
+                {% if not can_upload_to_general and ministries|length == 0 %}
+                <div class="alert alert-warning mb-3">
+                    <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                    <strong>Você não tem permissão para enviar mídias!</strong><br>
+                    Para enviar mídias, você precisa ser designado como:
+                    <ul class="mt-2 mb-0">
+                        <li><strong>Líder principal</strong> do ministério</li>
+                        <li><strong>Vice-líder</strong> do ministério</li>
+                        <li><strong>Líder auxiliar</strong> (membro da lista de líderes extras)</li>
+                    </ul>
+                    Entre em contato com o líder do ministério ou um administrador.
+                </div>
+                {% endif %}
+
                 <div class="d-grid mt-4">
-                    <button type="submit" class="btn btn-primary btn-lg py-3 fw-bold shadow-sm">
+                    <button type="submit" class="btn btn-primary btn-lg py-3 fw-bold shadow-sm" 
+                            {% if not can_upload_to_general and ministries|length == 0 %}disabled{% endif %}>
                         <i class="bi bi-upload me-2"></i> Iniciar Upload
                     </button>
                 </div>

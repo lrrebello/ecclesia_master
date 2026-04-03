@@ -1,13 +1,12 @@
 from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app, jsonify
 from flask_login import login_required, current_user
 from app.core.models import db, Devotional, Study, KidsActivity, StudyQuestion, Media, Ministry, Album, BibleStory, BibleQuiz
-from app.utils.logger import log_action  # <-- ÚNICA LINHA ADICIONADA
+from app.utils.logger import log_action
 from datetime import datetime
 from PIL import Image
 from werkzeug.utils import secure_filename
 import os
 import json
-from PIL import Image
 import pillow_heif
 from app.utils.text_extractor import extract_text
 from app.utils.gemini_service import generate_questions
@@ -17,13 +16,116 @@ pillow_heif.register_heif_opener()
 
 edification_bp = Blueprint('edification', __name__)
 
+# ============================================
+# FUNÇÕES AUXILIARES DE PERMISSÃO (CENTRALIZADAS)
+# ============================================
+
+def is_ministry_leader(ministry):
+    """Verifica se o usuário atual é líder/vice ou está na lista extra"""
+    if not current_user.is_authenticated or not ministry:
+        return False
+    
+    # Verifica líder e vice
+    if ministry.leader_id == current_user.id or ministry.vice_leader_id == current_user.id:
+        return True
+    
+    # Verifica na lista extra
+    if ministry.extra_leaders and current_user.id in ministry.extra_leaders:
+        return True
+    
+    return False
+
+def can_manage_media_globally():
+    """Verifica se o usuário pode gerenciar mídia globalmente (admin, pastor, ou permissão específica)"""
+    return (
+        current_user.can_manage_media or 
+        (current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder'])
+    )
+
+def can_manage_media_for_ministry(ministry):
+    """Verifica se o usuário pode gerenciar mídia para um ministério específico"""
+    if can_manage_media_globally():
+        return True
+    return is_ministry_leader(ministry)
+
+def get_user_managed_ministries():
+    """Retorna lista de ministérios que o usuário pode gerenciar (para exibir no select)"""
+    if can_manage_media_globally():
+        return Ministry.query.filter_by(church_id=current_user.church_id).all()
+    
+    # Filtra ministérios onde o usuário é líder (incluindo vice e extra)
+    all_ministries = Ministry.query.filter_by(church_id=current_user.church_id).all()
+    return [m for m in all_ministries if is_ministry_leader(m)]
+
 def can_publish_content():
-    return current_user.can_publish_devotionals or (
-        current_user.church_role and (
+    """Verifica se pode publicar conteúdo (devocionais, estudos)"""
+    return (
+        current_user.can_publish_devotionals or 
+        (current_user.church_role and (
             current_user.church_role.name == 'Administrador Global' or
             current_user.church_role.is_lead_pastor
-        )
+        ))
     )
+
+def can_manage_kids():
+    """Verifica se pode gerenciar conteúdo do Espaço Kids"""
+    if current_user.can_manage_kids:
+        return True
+    
+    if current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder']:
+        return True
+    
+    # Verifica se é líder do ministério kids
+    for m in current_user.ministries:
+        if m.is_kids_ministry and is_ministry_leader(m):
+            return True
+    
+    return False
+
+def can_delete_album(album):
+    """Verifica se pode deletar um álbum"""
+    if can_manage_media_globally():
+        return True
+    if album.ministry and is_ministry_leader(album.ministry):
+        return True
+    return False
+
+def can_delete_media(media):
+    """Verifica se pode deletar uma mídia"""
+    if can_manage_media_globally():
+        return True
+    if media.ministry and is_ministry_leader(media.ministry):
+        return True
+    return False
+
+def can_edit_media(media):
+    """Verifica se pode editar uma mídia"""
+    if can_manage_media_globally():
+        return True
+    if media.ministry and is_ministry_leader(media.ministry):
+        return True
+    return False
+
+# ============================================
+# FUNÇÃO DE COMPRESSÃO DE IMAGEM
+# ============================================
+
+def compress_and_resize_image(img):
+    """Redimensiona (se maior que 1920px) e comprime imagem para web."""
+    max_width = 1920
+    if img.width > max_width:
+        ratio = max_width / img.width
+        new_height = int(img.height * ratio)
+        img = img.resize((max_width, new_height), Image.LANCZOS)
+    
+    if img.mode in ("RGBA", "P"):
+        img = img.convert("RGB")
+    
+    return img
+
+# ============================================
+# ROTAS DEVOCIONAIS
+# ============================================
 
 @edification_bp.route('/devotionals')
 @login_required
@@ -57,7 +159,6 @@ def add_devotional():
         db.session.add(new_dev)
         db.session.commit()
         
-        # === LOG ADICIONADO ===
         log_action(
             action='CREATE',
             module='DEVOTIONAL',
@@ -65,7 +166,6 @@ def add_devotional():
             new_values={'id': new_dev.id, 'title': new_dev.title},
             church_id=current_user.church_id
         )
-        # ======================
         
         flash('Devocional publicado!', 'success')
         return redirect(url_for('edification.list_devotionals'))
@@ -89,7 +189,6 @@ def edit_devotional(id):
         dev.date = datetime.strptime(request.form.get('date'), '%Y-%m-%d').date()
         db.session.commit()
         
-        # === LOG ADICIONADO ===
         log_action(
             action='UPDATE',
             module='DEVOTIONAL',
@@ -98,7 +197,6 @@ def edit_devotional(id):
             new_values={'title': dev.title, 'verse': dev.verse},
             church_id=current_user.church_id
         )
-        # ======================
         
         flash('Devocional atualizado!', 'success')
         return redirect(url_for('edification.list_devotionals'))
@@ -115,7 +213,6 @@ def delete_devotional(id):
     dev = Devotional.query.get_or_404(id)
     dev_data = {'id': dev.id, 'title': dev.title}
     
-    # === LOG ANTES DE DELETAR ===
     log_action(
         action='DELETE',
         module='DEVOTIONAL',
@@ -123,12 +220,15 @@ def delete_devotional(id):
         old_values=dev_data,
         church_id=current_user.church_id
     )
-    # ============================
     
     db.session.delete(dev)
     db.session.commit()
     flash('Devocional excluído!', 'info')
     return redirect(url_for('edification.list_devotionals'))
+
+# ============================================
+# ROTAS DE ESTUDOS
+# ============================================
 
 @edification_bp.route('/studies')
 @login_required
@@ -176,7 +276,6 @@ def add_study():
         db.session.add(new_study)
         db.session.commit()
         
-        # === LOG ADICIONADO ===
         log_action(
             action='CREATE',
             module='STUDY',
@@ -184,7 +283,6 @@ def add_study():
             new_values={'id': new_study.id, 'title': new_study.title},
             church_id=current_user.church_id
         )
-        # ======================
         
         if request.form.get('generate_ai_questions'):
             question_count = 7
@@ -213,7 +311,6 @@ def add_study():
                         db.session.add(new_q)
                     db.session.commit()
                     
-                    # === LOG ADICIONADO ===
                     log_action(
                         action='GENERATE',
                         module='STUDY_QUESTIONS',
@@ -221,12 +318,11 @@ def add_study():
                         new_values={'study_id': new_study.id, 'questions_count': len(ai_data["questions"])},
                         church_id=current_user.church_id
                     )
-                    # ======================
                     
                     flash(f'{len(ai_data["questions"])} questões geradas pela IA aguardando revisão!', 'success')
                     return redirect(url_for('edification.review_study_questions', study_id=new_study.id))
             except Exception as e:
-                flash('Estudo adicionado, mas erro ao gerar questões: {str(e)}', 'warning')
+                flash(f'Erro ao gerar questões: {str(e)}', 'warning')
         
         flash('Estudo publicado com sucesso!', 'success')
         return redirect(url_for('edification.studies'))
@@ -266,7 +362,6 @@ def review_study_questions(study_id):
                     db.session.add(new_q)
                 db.session.commit()
                 
-                # === LOG ADICIONADO ===
                 log_action(
                     action='REGENERATE',
                     module='STUDY_QUESTIONS',
@@ -275,7 +370,6 @@ def review_study_questions(study_id):
                     new_values={'new_questions_count': len(ai_data["questions"])},
                     church_id=current_user.church_id
                 )
-                # ======================
                 
                 flash('Novas questões geradas com sucesso!', 'success')
             return redirect(url_for('edification.review_study_questions', study_id=study_id))
@@ -302,7 +396,6 @@ def review_study_questions(study_id):
         
         db.session.commit()
         
-        # === LOG ADICIONADO ===
         log_action(
             action='PUBLISH',
             module='STUDY_QUESTIONS',
@@ -310,51 +403,440 @@ def review_study_questions(study_id):
             new_values={'published_count': len(published_ids)},
             church_id=current_user.church_id
         )
-        # ======================
         
         flash('Questões revisadas e publicadas!', 'success')
         return redirect(url_for('edification.study_detail', id=study_id))
         
     return render_template('edification/review_questions.html', study=study, questions=questions)
 
+@edification_bp.route('/study/edit/<int:id>', methods=['GET', 'POST'])
+@login_required
+def edit_study(id):
+    if not can_publish_content():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('edification.studies'))
+    
+    study = Study.query.get_or_404(id)
+    old_values = {'title': study.title, 'category': study.category}
+    
+    if request.method == 'POST':
+        study.title = request.form.get('title')
+        study.content = request.form.get('content')
+        study.category = request.form.get('category')
+        
+        regenerate_questions = 'regenerate_questions' in request.form
+        
+        db.session.commit()
+        
+        log_action(
+            action='UPDATE',
+            module='STUDY',
+            description=f"Estudo editado: {study.title}",
+            old_values=old_values,
+            new_values={'title': study.title, 'category': study.category},
+            church_id=current_user.church_id
+        )
+        
+        flash('Estudo atualizado com sucesso!', 'success')
+        
+        if regenerate_questions:
+            StudyQuestion.query.filter_by(study_id=study.id).delete()
+            
+            question_count = 7
+            try:
+                ai_data = generate_questions(study.content, type='adult', count=question_count)
+                
+                if "error" in ai_data:
+                    flash(f'Erro na IA: {ai_data["error"]}', 'danger')
+                elif "questions" in ai_data:
+                    for q_data in ai_data["questions"]:
+                        correct_letter = q_data["correct_option"].upper()
+                        new_q = StudyQuestion(
+                            study_id=study.id,
+                            question_text=q_data["question"],
+                            options=json.dumps(q_data["options"]),
+                            correct_option=correct_letter,
+                            explanation=q_data.get("explanation"),
+                            is_published=False
+                        )
+                        db.session.add(new_q)
+                    db.session.commit()
+                    
+                    log_action(
+                        action='GENERATE',
+                        module='STUDY_QUESTIONS',
+                        description=f"Questões regeneradas para estudo: {study.title}",
+                        new_values={'study_id': study.id, 'questions_count': len(ai_data["questions"])},
+                        church_id=current_user.church_id
+                    )
+                    
+                    flash(f'{len(ai_data["questions"])} novas questões geradas pela IA aguardando revisão!', 'success')
+                    return redirect(url_for('edification.review_study_questions', study_id=study.id))
+            except Exception as e:
+                flash(f'Erro ao regenerar questões: {str(e)}', 'warning')
+        
+        return redirect(url_for('edification.studies'))
+    
+    return render_template('edification/edit_study.html', study=study)
+
+@edification_bp.route('/study/delete/<int:id>', methods=['POST'])
+@login_required
+def delete_study(id):
+    if not can_publish_content():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('edification.studies'))
+    
+    study = Study.query.get_or_404(id)
+    study_data = {'id': study.id, 'title': study.title}
+    
+    StudyQuestion.query.filter_by(study_id=id).delete()
+    
+    log_action(
+        action='DELETE',
+        module='STUDY',
+        description=f"Estudo excluído: {study_data['title']}",
+        old_values=study_data,
+        church_id=current_user.church_id
+    )
+    
+    db.session.delete(study)
+    db.session.commit()
+    
+    flash('Estudo e suas questões excluídos com sucesso!', 'info')
+    return redirect(url_for('edification.studies'))
+
+# ============================================
+# ROTAS DA GALERIA E MÍDIAS
+# ============================================
+
+@edification_bp.route('/gallery')
+@login_required
+def gallery():
+    album_id = request.args.get('album_id')
+    if album_id:
+        album = Album.query.get_or_404(album_id)
+        media_items = Media.query.filter_by(album_id=album_id).order_by(Media.created_at.desc()).all()
+        return render_template('edification/gallery_album.html', album=album, media_items=media_items)
+
+    query_albums = Album.query.filter_by(church_id=current_user.church_id)
+    query_media = Media.query.filter_by(church_id=current_user.church_id, album_id=None)
+    
+    ministry_ids = [m.id for m in current_user.ministries]
+    query_albums = query_albums.filter((Album.ministry_id.is_(None)) | (Album.ministry_id.in_(ministry_ids)))
+    query_media = query_media.filter((Media.ministry_id.is_(None)) | (Media.ministry_id.in_(ministry_ids)))
+    
+    ministry_id = request.args.get('ministry_id')
+    if ministry_id:
+        query_albums = query_albums.filter_by(ministry_id=ministry_id)
+        query_media = query_media.filter_by(ministry_id=ministry_id)
+    
+    albums = query_albums.order_by(Album.created_at.desc()).all()
+    media_items = query_media.order_by(Media.created_at.desc()).all()
+    ministries = Ministry.query.filter_by(church_id=current_user.church_id).all()
+    
+    events_grouped = {}
+    for item in media_items:
+        evt = item.event_name or "Geral / Outros"
+        if evt not in events_grouped:
+            events_grouped[evt] = []
+        events_grouped[evt].append(item)
+    
+    return render_template('edification/gallery.html', albums=albums, events_grouped=events_grouped, ministries=ministries)
+
+@edification_bp.route('/gallery/album/<int:id>')
+@login_required
+def gallery_album(id):
+    album = Album.query.get_or_404(id)
+    media_items = Media.query.filter_by(album_id=id).order_by(Media.created_at.desc()).all()
+    return render_template('edification/gallery_album.html', album=album, media_items=media_items)
+
+@edification_bp.route('/media/add', methods=['GET', 'POST'])
+@login_required
+def add_media():
+    # VALIDAÇÃO DE PERMISSÃO usando as funções centralizadas
+    if not can_manage_media_globally() and not get_user_managed_ministries():
+        flash('Acesso negado. Você não tem permissão para adicionar mídias.', 'danger')
+        return redirect(url_for('edification.gallery'))
+    
+    has_global_permission = can_manage_media_globally()
+    ministries = get_user_managed_ministries()
+    can_upload_to_general = has_global_permission
+    
+    if request.method == 'POST':
+        title = request.form.get('title')
+        description = request.form.get('description')
+        ministry_id = request.form.get('ministry_id')
+        event_name = request.form.get('event_name')
+        group_as_album = request.form.get('group_as_album') == 'on'
+        files = request.files.getlist('file')
+        
+        # VALIDAÇÃO DO MINISTÉRIO SELECIONADO
+        if ministry_id and ministry_id != '':
+            ministry_id_int = int(ministry_id)
+            selected_ministry = Ministry.query.get(ministry_id_int)
+            
+            if selected_ministry and not can_manage_media_for_ministry(selected_ministry):
+                flash('Você não tem permissão para enviar mídia para este ministério.', 'danger')
+                return redirect(url_for('edification.gallery'))
+        else:
+            if not can_upload_to_general:
+                flash('Apenas administradores e pastores podem enviar mídia para o geral da igreja.', 'danger')
+                return redirect(url_for('edification.gallery'))
+            ministry_id_int = None
+        
+        if not files or not files[0].filename:
+            flash('Nenhum arquivo selecionado.', 'danger')
+            return redirect(request.url)
+        
+        album = None
+        album_id = None
+        if group_as_album and len(files) > 0:
+            album = Album(
+                title=title,
+                description=description,
+                church_id=current_user.church_id,
+                ministry_id=ministry_id_int if ministry_id else None
+            )
+            db.session.add(album)
+            db.session.flush()
+            album_id = album.id
+            
+            log_action(
+                action='CREATE',
+                module='ALBUM',
+                description=f"Novo álbum criado via upload: {album.title}",
+                new_values={'id': album.id, 'title': album.title},
+                church_id=current_user.church_id
+            )
+        
+        count = 0
+        for idx, file in enumerate(files):
+            filename = secure_filename(file.filename)
+            if not filename: continue
+            
+            file_ext = os.path.splitext(filename)[1].lower()
+            unique_filename = f"{datetime.now().strftime('%Y%m%d%H%M%S')}_{idx}_{filename}"
+            
+            full_path = os.path.join(current_app.config['UPLOAD_FOLDER'], 'media', unique_filename)
+            os.makedirs(os.path.dirname(full_path), exist_ok=True)
+            
+            media_type = 'image'
+            try:
+                if file_ext == '.heic':
+                    img = Image.open(file)
+                    img = img.convert('RGB')
+                    new_filename = unique_filename.rsplit('.', 1)[0] + '.jpg'
+                    full_path = os.path.join(current_app.config['UPLOAD_FOLDER'], 'media', new_filename)
+                    img = compress_and_resize_image(img)
+                    img.save(full_path, 'JPEG', quality=80, optimize=True)
+                    file_path = 'uploads/media/' + new_filename
+                else:
+                    file.save(full_path)
+                    file_path = 'uploads/media/' + unique_filename
+                    
+                    if file_ext in ['.jpg', '.jpeg', '.png', '.gif']:
+                        media_type = 'image'
+                        try:
+                            img = Image.open(full_path)
+                            img = compress_and_resize_image(img)
+                            img.save(full_path, 'JPEG', quality=80, optimize=True)
+                        except Exception as e:
+                            print(f"Erro ao comprimir {filename}: {e}")
+                    elif file_ext in ['.mp4', '.mov', '.avi', '.mkv']:
+                        media_type = 'video'
+                    elif file_ext == '.pdf':
+                        media_type = 'pdf'
+                    else:
+                        flash(f'Formato não suportado: {file_ext}', 'warning')
+                        continue
+                
+                os.chmod(full_path, 0o644)
+                
+                new_media = Media(
+                    title=title if not album else file.filename,
+                    description=description,
+                    file_path=file_path,
+                    media_type=media_type,
+                    event_name=event_name,
+                    church_id=current_user.church_id,
+                    ministry_id=ministry_id_int if ministry_id else None,
+                    album_id=album_id
+                )
+                db.session.add(new_media)
+                count += 1
+                
+            except Exception as e:
+                flash(f'Erro ao processar arquivo {filename}: {str(e)}', 'warning')
+                continue
+            
+        db.session.commit()
+        
+        log_action(
+            action='CREATE',
+            module='MEDIA',
+            description=f"{count} mídia(s) adicionada(s)",
+            new_values={'count': count, 'album_id': album_id},
+            church_id=current_user.church_id
+        )
+        
+        flash(f'{count} mídias adicionadas com sucesso!', 'success')
+        
+        if album_id:
+            return redirect(url_for('edification.gallery_album', id=album_id))
+        else:
+            return redirect(url_for('edification.gallery'))
+    
+    return render_template('edification/add_media.html', 
+                         ministries=ministries,
+                         can_upload_to_general=can_upload_to_general)
+
+@edification_bp.route('/album/<int:id>/delete')
+@login_required
+def delete_album(id):
+    album = Album.query.get_or_404(id)
+    if not can_delete_album(album):
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('edification.gallery'))
+    
+    album_data = {'id': album.id, 'title': album.title}
+    
+    for media in album.media_items:
+        if media.file_path and os.path.exists(current_app.config['UPLOAD_FOLDER'] + '/' + media.file_path.replace('uploads/', '')):
+            try:
+                os.remove(current_app.config['UPLOAD_FOLDER'] + '/' + media.file_path.replace('uploads/', ''))
+            except:
+                pass
+    
+    log_action(
+        action='DELETE',
+        module='ALBUM',
+        description=f"Álbum excluído: {album_data['title']}",
+        old_values=album_data,
+        church_id=current_user.church_id
+    )
+    
+    db.session.delete(album)
+    db.session.commit()
+    flash('Álbum e todas as suas mídias foram excluídos.', 'info')
+    return redirect(url_for('edification.gallery'))
+
+@edification_bp.route('/media/<int:id>/edit', methods=['GET', 'POST'])
+@login_required
+def edit_media(id):
+    media = Media.query.get_or_404(id)
+    
+    if not can_edit_media(media):
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('edification.gallery'))
+    
+    old_values = {
+        'title': media.title,
+        'description': media.description,
+        'ministry_id': media.ministry_id
+    }
+    
+    ministries = Ministry.query.filter_by(church_id=current_user.church_id).all()
+    
+    if request.method == 'POST':
+        media.title = request.form.get('title')
+        media.description = request.form.get('description')
+        media.ministry_id = int(request.form.get('ministry_id')) if request.form.get('ministry_id') else None
+        
+        file = request.files.get('file')
+        if file and file.filename:
+            filename = secure_filename(file.filename)
+            file_ext = os.path.splitext(filename)[1].lower()
+            
+            if file_ext == '.heic':
+                img = Image.open(file)
+                new_filename = filename.replace('.heic', '.jpg', 1)
+                full_path = os.path.join(current_app.config['UPLOAD_FOLDER'], 'media', new_filename)
+                os.makedirs(os.path.dirname(full_path), exist_ok=True)
+                img.convert('RGB').save(full_path, 'JPEG', quality=95)
+                media.file_path = 'uploads/media/' + new_filename
+                media.media_type = 'image'
+            else:
+                full_path = os.path.join(current_app.config['UPLOAD_FOLDER'], 'media', filename)
+                os.makedirs(os.path.dirname(full_path), exist_ok=True)
+                file.save(full_path)
+                media.file_path = 'uploads/media/' + filename
+                
+                if file_ext in ['.jpg', '.jpeg', '.png', '.gif']:
+                    media.media_type = 'image'
+                elif file_ext in ['.mp4', '.mov']:
+                    media.media_type = 'video'
+                elif file_ext == '.pdf':
+                    media.media_type = 'pdf'
+                else:
+                    flash('Formato de arquivo não suportado.', 'danger')
+                    return redirect(request.url)
+        
+        db.session.commit()
+        
+        log_action(
+            action='UPDATE',
+            module='MEDIA',
+            description=f"Mídia editada: {media.title}",
+            old_values=old_values,
+            new_values={'title': media.title, 'description': media.description},
+            church_id=current_user.church_id
+        )
+        
+        flash('Mídia atualizada com sucesso!', 'success')
+        return redirect(url_for('edification.gallery'))
+    
+    return render_template('edification/edit_media.html', media=media, ministries=ministries)
+
+@edification_bp.route('/media/<int:id>/delete')
+@login_required
+def delete_media(id):
+    media = Media.query.get_or_404(id)
+    
+    if not can_delete_media(media):
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('edification.gallery'))
+    
+    media_data = {'id': media.id, 'title': media.title}
+    
+    if media.file_path and os.path.exists(current_app.config['UPLOAD_FOLDER'] + '/' + media.file_path.replace('uploads/', '')):
+        try:
+            os.remove(current_app.config['UPLOAD_FOLDER'] + '/' + media.file_path.replace('uploads/', ''))
+        except:
+            pass
+    
+    log_action(
+        action='DELETE',
+        module='MEDIA',
+        description=f"Mídia excluída: {media_data['title']}",
+        old_values=media_data,
+        church_id=current_user.church_id
+    )
+    
+    db.session.delete(media)
+    db.session.commit()
+    flash('Mídia excluída com sucesso!', 'info')
+    return redirect(url_for('edification.gallery'))
+
+# ============================================
+# ROTAS DO ESPAÇO KIDS
+# ============================================
+
 @edification_bp.route('/kids')
 def kids():
-    """Página do Espaço Kids"""
     stories = BibleStory.query.order_by(BibleStory.order.asc()).all()
     activities = KidsActivity.query.order_by(KidsActivity.created_at.desc()).all()
     
-    # Verificar permissões de administração
-    show_admin_buttons = False
-    if current_user.is_authenticated:
-        # Verifica se é líder (principal, vice ou auxiliar) do ministério kids
-        is_kids_leader = False
-        for m in current_user.ministries:
-            if m.is_kids_ministry:
-                if (m.leader_id == current_user.id or 
-                    m.vice_leader_id == current_user.id or 
-                    (m.extra_leaders and current_user.id in m.extra_leaders)):
-                    is_kids_leader = True
-                    break
-        
-        show_admin_buttons = (
-            current_user.can_manage_kids 
-            or (current_user.church_role and (
-                current_user.church_role.name == 'Administrador Global' 
-                or current_user.church_role.is_lead_pastor
-            ))
-            or is_kids_leader
-        )
+    show_admin_buttons = can_manage_kids()
     
     return render_template('edification/kids.html', 
                            stories=stories, 
                            activities=activities,
                            show_admin_buttons=show_admin_buttons)
 
-
 @edification_bp.route('/kids/manage')
 @login_required
 def manage_kids():
-    if not current_user.can_manage_kids and not (current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder']):
+    if not can_manage_kids():
         flash('Acesso negado.', 'danger')
         return redirect(url_for('edification.kids'))
     
@@ -365,7 +847,8 @@ def manage_kids():
 @edification_bp.route('/kids/story/add', methods=['POST'])
 @login_required
 def add_bible_story():
-    if not current_user.can_manage_kids and not (current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder']): 
+    if not can_manage_kids():
+        flash('Acesso negado.', 'danger')
         return redirect(url_for('edification.kids'))
     
     title = request.form.get('title')
@@ -395,7 +878,6 @@ def add_bible_story():
     db.session.add(new_story)
     db.session.commit()
     
-    # === LOG ADICIONADO ===
     log_action(
         action='CREATE',
         module='KIDS_STORY',
@@ -403,7 +885,6 @@ def add_bible_story():
         new_values={'id': new_story.id, 'title': new_story.title},
         church_id=current_user.church_id
     )
-    # ======================
 
     if request.form.get('generate_ai_questions'):
         try:
@@ -437,7 +918,6 @@ def add_bible_story():
                 
                 db.session.commit()
                 
-                # === LOG ADICIONADO ===
                 log_action(
                     action='GENERATE',
                     module='KIDS_QUESTIONS',
@@ -445,7 +925,6 @@ def add_bible_story():
                     new_values={'story_id': new_story.id, 'questions_count': len(ai_data["questions"])},
                     church_id=current_user.church_id
                 )
-                # ======================
                 
                 flash('História adicionada e questões geradas pela IA aguardando revisão!', 'success')
                 return redirect(url_for('edification.review_kids_questions', story_id=new_story.id))
@@ -458,7 +937,7 @@ def add_bible_story():
 @edification_bp.route('/kids/story/<int:story_id>/review-questions', methods=['GET', 'POST'])
 @login_required
 def review_kids_questions(story_id):
-    if not current_user.can_manage_kids and not (current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder']): 
+    if not can_manage_kids():
         return redirect(url_for('edification.kids'))
     
     story = BibleStory.query.get_or_404(story_id)
@@ -491,7 +970,6 @@ def review_kids_questions(story_id):
                     
                 db.session.commit()
                 
-                # === LOG ADICIONADO ===
                 log_action(
                     action='REGENERATE',
                     module='KIDS_QUESTIONS',
@@ -500,7 +978,6 @@ def review_kids_questions(story_id):
                     new_values={'new_questions_count': len(ai_data["questions"])},
                     church_id=current_user.church_id
                 )
-                # ======================
                 
                 flash('Novas questões geradas!', 'success')
             return redirect(url_for('edification.review_kids_questions', story_id=story_id))
@@ -526,7 +1003,6 @@ def review_kids_questions(story_id):
         
         db.session.commit()
         
-        # === LOG ADICIONADO ===
         log_action(
             action='PUBLISH',
             module='KIDS_QUESTIONS',
@@ -534,7 +1010,6 @@ def review_kids_questions(story_id):
             new_values={'published_count': len(published_ids)},
             church_id=current_user.church_id
         )
-        # ======================
         
         flash('Questões infantis revisadas e publicadas!', 'success')
         return redirect(url_for('edification.manage_kids'))
@@ -544,13 +1019,13 @@ def review_kids_questions(story_id):
 @edification_bp.route('/kids/story/delete/<int:id>')
 @login_required
 def delete_bible_story(id):
-    if not current_user.can_manage_kids and not (current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder']): 
+    if not can_manage_kids():
+        flash('Acesso negado.', 'danger')
         return redirect(url_for('edification.kids'))
     
     story = BibleStory.query.get_or_404(id)
     story_data = {'id': story.id, 'title': story.title}
     
-    # === LOG ANTES DE DELETAR ===
     log_action(
         action='DELETE',
         module='KIDS_STORY',
@@ -558,7 +1033,6 @@ def delete_bible_story(id):
         old_values=story_data,
         church_id=current_user.church_id
     )
-    # ============================
     
     db.session.delete(story)
     db.session.commit()
@@ -568,7 +1042,7 @@ def delete_bible_story(id):
 @edification_bp.route('/kids/activity/add', methods=['GET', 'POST'])
 @login_required
 def add_kids_activity():
-    if not current_user.can_manage_kids and not (current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder']):
+    if not can_manage_kids():
         flash('Acesso negado.', 'danger')
         return redirect(url_for('edification.kids'))
     
@@ -581,7 +1055,6 @@ def add_kids_activity():
         db.session.add(new_act)
         db.session.commit()
         
-        # === LOG ADICIONADO ===
         log_action(
             action='CREATE',
             module='KIDS_ACTIVITY',
@@ -589,15 +1062,18 @@ def add_kids_activity():
             new_values={'id': new_act.id, 'title': new_act.title},
             church_id=current_user.church_id
         )
-        # ======================
         
         flash('Atividade adicionada!', 'success')
         return redirect(url_for('edification.manage_kids'))
     
     return render_template('edification/add_kids.html')
 
+@edification_bp.route('/kids/story/<int:id>')
+def view_bible_story(id):
+    story = BibleStory.query.get_or_404(id)
+    return render_template('edification/view_bible_story.html', story=story)
+
 @edification_bp.route('/kids/memory-game')
-#@login_required
 def memory_game():
     story_id = request.args.get('story_id')
     game_data = []
@@ -607,7 +1083,6 @@ def memory_game():
     return render_template('edification/kids_memory_game.html', game_data=game_data)
 
 @edification_bp.route('/kids/who-am-i')
-#@login_required
 def who_am_i():
     story_id = request.args.get('story_id')
     game_data = []
@@ -617,7 +1092,6 @@ def who_am_i():
     return render_template('edification/kids_who_am_i.html', game_data=game_data)
 
 @edification_bp.route('/kids/puzzle')
-#@login_required
 def puzzle_game():
     story_id = request.args.get('story_id')
     if story_id:
@@ -629,7 +1103,6 @@ def puzzle_game():
     return render_template('edification/kids_puzzle.html', image_url=image_url)
 
 @edification_bp.route('/kids/word-search')
-#@login_required
 def word_search():
     story_id = request.args.get('story_id')
     story = None
@@ -639,7 +1112,6 @@ def word_search():
     return render_template('edification/kids_word_search.html', story=story)
 
 @edification_bp.route('/kids/crossword')
-#@login_required
 def crossword():
     story_id = request.args.get('story_id')
     story = None
@@ -648,480 +1120,32 @@ def crossword():
     
     return render_template('edification/kids_crossword.html', story=story)
 
-@edification_bp.route('/kids/story/<int:id>')
-#@login_required
-def view_bible_story(id):
-    story = BibleStory.query.get_or_404(id)
-    return render_template('edification/view_bible_story.html', story=story)
-
-@edification_bp.route('/gallery')
-@login_required
-def gallery():
-    # Se houver album_id na query string, mostra o álbum específico
-    album_id = request.args.get('album_id')
-    if album_id:
-        album = Album.query.get_or_404(album_id)
-        media_items = Media.query.filter_by(album_id=album_id).order_by(Media.created_at.desc()).all()
-        return render_template('edification/gallery_album.html', album=album, media_items=media_items)
-
-    # Galeria geral
-    album_id = request.args.get('album_id')
-    if album_id:
-        album = Album.query.get_or_404(album_id)
-        media_items = Media.query.filter_by(album_id=album_id).order_by(Media.created_at.desc()).all()
-        return render_template('edification/gallery_album.html', album=album, media_items=media_items)
-
-    # Caso contrário, mostra os álbuns e mídias avulsas
-    query_albums = Album.query.filter_by(church_id=current_user.church_id)
-    query_media = Media.query.filter_by(church_id=current_user.church_id, album_id=None)
-    
-    # Filtro por ministérios do usuário
-    ministry_ids = [m.id for m in current_user.ministries]
-    query_albums = query_albums.filter((Album.ministry_id.is_(None)) | (Album.ministry_id.in_(ministry_ids)))
-    query_media = query_media.filter((Media.ministry_id.is_(None)) | (Media.ministry_id.in_(ministry_ids)))
-    
-    ministry_id = request.args.get('ministry_id')
-    if ministry_id:
-        query_albums = query_albums.filter_by(ministry_id=ministry_id)
-        query_media = query_media.filter_by(ministry_id=ministry_id)
-    
-    albums = query_albums.order_by(Album.created_at.desc()).all()
-    media_items = query_media.order_by(Media.created_at.desc()).all()
-    ministries = Ministry.query.filter_by(church_id=current_user.church_id).all()
-    
-    # Agrupar mídias avulsas por evento
-    events_grouped = {}
-    for item in media_items:
-        evt = item.event_name or "Geral / Outros"
-        if evt not in events_grouped:
-            events_grouped[evt] = []
-        events_grouped[evt].append(item)
-    
-    return render_template('edification/gallery.html', albums=albums, events_grouped=events_grouped, ministries=ministries)
-
-@edification_bp.route('/media/add', methods=['GET', 'POST'])
-@login_required
-def add_media():
-    if not current_user.can_manage_media and not (current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder']) and not any(m.leader_id == current_user.id for m in current_user.ministries):
-        flash('Acesso negado.', 'danger')
-        return redirect(url_for('edification.gallery'))
-    
-    ministries = Ministry.query.filter_by(church_id=current_user.church_id).all()
-    
-    if request.method == 'POST':
-        title = request.form.get('title')
-        description = request.form.get('description')
-        ministry_id = request.form.get('ministry_id')
-        event_name = request.form.get('event_name')
-        group_as_album = request.form.get('group_as_album') == 'on'
-        files = request.files.getlist('file')
-        
-        if not files or not files[0].filename:
-            flash('Nenhum arquivo selecionado.', 'danger')
-            return redirect(request.url)
-        
-        album = None
-        album_id = None
-        if group_as_album and len(files) > 0:
-            album = Album(
-                title=title,
-                description=description,
-                church_id=current_user.church_id,
-                ministry_id=int(ministry_id) if ministry_id else None
-            )
-            db.session.add(album)
-            db.session.flush()  # Gera ID
-            album_id = album.id
-            
-            # === LOG ADICIONADO ===
-            log_action(
-                action='CREATE',
-                module='ALBUM',
-                description=f"Novo álbum criado via upload: {album.title}",
-                new_values={'id': album.id, 'title': album.title},
-                church_id=current_user.church_id
-            )
-            # ======================
-        
-        count = 0
-        for file in files:
-            filename = secure_filename(file.filename)
-            if not filename: continue
-            
-            file_ext = os.path.splitext(filename)[1].lower()
-            unique_filename = f"{datetime.now().strftime('%Y%m%d%H%M%S')}_{count}_{filename}"
-            
-            full_path = os.path.join(current_app.config['UPLOAD_FOLDER'], 'media', unique_filename)
-            os.makedirs(os.path.dirname(full_path), exist_ok=True)
-            
-            media_type = 'image'  # default
-            try:
-                if file_ext == '.heic':
-                    img = Image.open(file)
-                    img = img.convert('RGB')
-                    new_filename = unique_filename.rsplit('.', 1)[0] + '.jpg'
-                    full_path = os.path.join(current_app.config['UPLOAD_FOLDER'], 'media', new_filename)
-                    # Compressão e redimensionamento
-                    img = compress_and_resize_image(img)
-                    img.save(full_path, 'JPEG', quality=80, optimize=True)
-                    file_path = 'uploads/media/' + new_filename
-                else:
-                    file.save(full_path)
-                    file_path = 'uploads/media/' + unique_filename
-                    
-                    if file_ext in ['.jpg', '.jpeg', '.png', '.gif']:
-                        media_type = 'image'
-                        # Compressão para imagens comuns
-                        try:
-                            img = Image.open(full_path)
-                            img = compress_and_resize_image(img)
-                            img.save(full_path, 'JPEG', quality=80, optimize=True)
-                        except Exception as e:
-                            print(f"Erro ao comprimir {filename}: {e}")  # log silencioso
-                    elif file_ext in ['.mp4', '.mov']:
-                        media_type = 'video'
-                    elif file_ext == '.pdf':
-                        media_type = 'pdf'
-                    else:
-                        flash(f'Formato não suportado: {file_ext}', 'warning')
-                        continue
-                
-                # Garanta permissão de leitura para Caddy
-                os.chmod(full_path, 0o644)
-                
-                new_media = Media(
-                    title=title if not album else file.filename,
-                    description=description,
-                    file_path=file_path,
-                    media_type=media_type,
-                    event_name=event_name,
-                    church_id=current_user.church_id,
-                    ministry_id=int(ministry_id) if ministry_id else None,
-                    album_id=album_id
-                )
-                db.session.add(new_media)
-                count += 1
-                
-            except Exception as e:
-                flash(f'Erro ao processar arquivo {filename}: {str(e)}', 'warning')
-                continue
-            
-        db.session.commit()
-        
-        # === LOG ADICIONADO ===
-        log_action(
-            action='CREATE',
-            module='MEDIA',
-            description=f"{count} mídia(s) adicionada(s)",
-            new_values={'count': count, 'album_id': album_id},
-            church_id=current_user.church_id
-        )
-        # ======================
-        
-        flash(f'{count} mídias adicionadas com sucesso!', 'success')
-        
-        # Redirecionamento seguro
-        if album_id:
-            return redirect(url_for('edification.gallery_album', id=album_id))
-        else:
-            return redirect(url_for('edification.gallery'))
-    
-    return render_template('edification/add_media.html', ministries=ministries)
-
-
-# Função auxiliar de compressão e redimensionamento
-def compress_and_resize_image(img):
-    """
-    Redimensiona (se maior que 1920px) e comprime imagem para web.
-    """
-    max_width = 1920
-    if img.width > max_width:
-        ratio = max_width / img.width
-        new_height = int(img.height * ratio)
-        img = img.resize((max_width, new_height), Image.LANCZOS)
-    
-    # Converte para RGB se necessário
-    if img.mode in ("RGBA", "P"):
-        img = img.convert("RGB")
-    
-    return img
-
-@edification_bp.route('/gallery/album/<int:id>')
-@login_required
-def gallery_album(id):
-    album = Album.query.get_or_404(id)
-    media_items = Media.query.filter_by(album_id=id).order_by(Media.created_at.desc()).all()
-    return render_template('edification/gallery_album.html', album=album, media_items=media_items)
-
-@edification_bp.route('/album/<int:id>/delete')
-@login_required
-def delete_album(id):
-    album = Album.query.get_or_404(id)
-    if not (current_user.can_manage_media or (current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder']) or (album.ministry and album.ministry.leader_id == current_user.id)):
-        flash('Acesso negado.', 'danger')
-        return redirect(url_for('edification.gallery'))
-    
-    album_data = {'id': album.id, 'title': album.title}
-    
-    for media in album.media_items:
-        if media.file_path and os.path.exists(current_app.config['UPLOAD_FOLDER'] + '/' + media.file_path.replace('uploads/', '')):
-            try:
-                os.remove(current_app.config['UPLOAD_FOLDER'] + '/' + media.file_path.replace('uploads/', ''))
-            except:
-                pass
-    
-    # === LOG ANTES DE DELETAR ===
-    log_action(
-        action='DELETE',
-        module='ALBUM',
-        description=f"Álbum excluído: {album_data['title']}",
-        old_values=album_data,
-        church_id=current_user.church_id
-    )
-    # ============================
-    
-    db.session.delete(album)
-    db.session.commit()
-    flash('Álbum e todas as suas mídias foram excluídos.', 'info')
-    return redirect(url_for('edification.gallery'))
-
-@edification_bp.route('/media/<int:id>/edit', methods=['GET', 'POST'])
-@login_required
-def edit_media(id):
-    media = Media.query.get_or_404(id)
-    
-    if not (current_user.can_manage_media or (current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder']) or (media.ministry and media.ministry.leader_id == current_user.id)):
-        flash('Acesso negado.', 'danger')
-        return redirect(url_for('edification.gallery'))
-    
-    old_values = {
-        'title': media.title,
-        'description': media.description,
-        'ministry_id': media.ministry_id
-    }
-    
-    ministries = Ministry.query.filter_by(church_id=current_user.church_id).all()
-    
-    if request.method == 'POST':
-        media.title = request.form.get('title')
-        media.description = request.form.get('description')
-        media.ministry_id = int(request.form.get('ministry_id')) if request.form.get('ministry_id') else None
-        
-        file = request.files.get('file')
-        if file:
-            filename = secure_filename(file.filename)
-            file_ext = os.path.splitext(filename)[1].lower()
-            
-            if file_ext == '.heic':
-                img = Image.open(file)
-                new_filename = filename.replace('.heic', '.jpg', 1)
-                full_path = os.path.join(current_app.config['UPLOAD_FOLDER'], 'media', new_filename)
-                os.makedirs(os.path.dirname(full_path), exist_ok=True)
-                img.convert('RGB').save(full_path, 'JPEG', quality=95)
-                media.file_path = 'uploads/media/' + new_filename
-                media.media_type = 'image'
-            else:
-                full_path = os.path.join(current_app.config['UPLOAD_FOLDER'], 'media', filename)
-                os.makedirs(os.path.dirname(full_path), exist_ok=True)
-                file.save(full_path)
-                media.file_path = 'uploads/media/' + filename
-                
-                if file_ext in ['.jpg', '.jpeg', '.png', '.gif']:
-                    media.media_type = 'image'
-                elif file_ext in ['.mp4', '.mov']:
-                    media.media_type = 'video'
-                elif file_ext == '.pdf':
-                    media.media_type = 'pdf'
-                else:
-                    flash('Formato de arquivo não suportado.', 'danger')
-                    return redirect(request.url)
-        
-        db.session.commit()
-        
-        # === LOG ADICIONADO ===
-        log_action(
-            action='UPDATE',
-            module='MEDIA',
-            description=f"Mídia editada: {media.title}",
-            old_values=old_values,
-            new_values={'title': media.title, 'description': media.description},
-            church_id=current_user.church_id
-        )
-        # ======================
-        
-        flash('Mídia atualizada com sucesso!', 'success')
-        return redirect(url_for('edification.gallery'))
-    
-    return render_template('edification/edit_media.html', media=media, ministries=ministries)
-
-@edification_bp.route('/media/<int:id>/delete')
-@login_required
-def delete_media(id):
-    media = Media.query.get_or_404(id)
-    
-    if not (current_user.can_manage_media or (current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder']) or (media.ministry and media.ministry.leader_id == current_user.id)):
-        flash('Acesso negado.', 'danger')
-        return redirect(url_for('edification.gallery'))
-    
-    media_data = {'id': media.id, 'title': media.title}
-    
-    if media.file_path and os.path.exists(current_app.config['UPLOAD_FOLDER'] + '/' + media.file_path.replace('uploads/', '')):
-        try:
-            os.remove(current_app.config['UPLOAD_FOLDER'] + '/' + media.file_path.replace('uploads/', ''))
-        except:
-            pass
-    
-    # === LOG ANTES DE DELETAR ===
-    log_action(
-        action='DELETE',
-        module='MEDIA',
-        description=f"Mídia excluída: {media_data['title']}",
-        old_values=media_data,
-        church_id=current_user.church_id
-    )
-    # ============================
-    
-    db.session.delete(media)
-    db.session.commit()
-    flash('Mídia excluída com sucesso!', 'info')
-    return redirect(url_for('edification.gallery'))
-
-# Rotas de manutenção de Estudos (recuperadas e ajustadas)
-@edification_bp.route('/study/edit/<int:id>', methods=['GET', 'POST'])
-@login_required
-def edit_study(id):
-    if not can_publish_content():
-        flash('Acesso negado.', 'danger')
-        return redirect(url_for('edification.studies'))
-    
-    study = Study.query.get_or_404(id)
-    old_values = {'title': study.title, 'category': study.category}
-    
-    if request.method == 'POST':
-        study.title = request.form.get('title')
-        study.content = request.form.get('content')
-        study.category = request.form.get('category')
-        
-        regenerate_questions = 'regenerate_questions' in request.form
-        
-        db.session.commit()
-        
-        # === LOG ADICIONADO ===
-        log_action(
-            action='UPDATE',
-            module='STUDY',
-            description=f"Estudo editado: {study.title}",
-            old_values=old_values,
-            new_values={'title': study.title, 'category': study.category},
-            church_id=current_user.church_id
-        )
-        # ======================
-        
-        flash('Estudo atualizado com sucesso!', 'success')
-        
-        if regenerate_questions:
-            # Deleta questões antigas
-            StudyQuestion.query.filter_by(study_id=study.id).delete()
-            
-            question_count = 7
-            try:
-                ai_data = generate_questions(study.content, type='adult', count=question_count)
-                
-                if "error" in ai_data:
-                    flash(f'Erro na IA: {ai_data["error"]}', 'danger')
-                elif "questions" in ai_data:
-                    for q_data in ai_data["questions"]:
-                        correct_letter = q_data["correct_option"].upper()
-                        new_q = StudyQuestion(
-                            study_id=study.id,
-                            question_text=q_data["question"],
-                            options=json.dumps(q_data["options"]),
-                            correct_option=correct_letter,
-                            explanation=q_data.get("explanation"),
-                            is_published=False
-                        )
-                        db.session.add(new_q)
-                    db.session.commit()
-                    
-                    # === LOG ADICIONADO ===
-                    log_action(
-                        action='GENERATE',
-                        module='STUDY_QUESTIONS',
-                        description=f"Questões regeneradas para estudo: {study.title}",
-                        new_values={'study_id': study.id, 'questions_count': len(ai_data["questions"])},
-                        church_id=current_user.church_id
-                    )
-                    # ======================
-                    
-                    flash(f'{len(ai_data["questions"])} novas questões geradas pela IA aguardando revisão!', 'success')
-                    return redirect(url_for('edification.review_study_questions', study_id=study.id))
-            except Exception as e:
-                flash(f'Erro ao regenerar questões: {str(e)}', 'warning')
-        
-        return redirect(url_for('edification.studies'))
-    
-    return render_template('edification/edit_study.html', study=study)
-
-@edification_bp.route('/study/delete/<int:id>', methods=['POST'])
-@login_required
-def delete_study(id):
-    if not can_publish_content():
-        flash('Acesso negado.', 'danger')
-        return redirect(url_for('edification.studies'))
-    
-    study = Study.query.get_or_404(id)
-    study_data = {'id': study.id, 'title': study.title}
-    
-    # Deleta questões associadas
-    StudyQuestion.query.filter_by(study_id=id).delete()
-    
-    # === LOG ANTES DE DELETAR ===
-    log_action(
-        action='DELETE',
-        module='STUDY',
-        description=f"Estudo excluído: {study_data['title']}",
-        old_values=study_data,
-        church_id=current_user.church_id
-    )
-    # ============================
-    
-    db.session.delete(study)
-    db.session.commit()
-    
-    flash('Estudo e suas questões excluídos com sucesso!', 'info')
-    return redirect(url_for('edification.studies'))
+# ============================================
+# API ROTAS
+# ============================================
 
 @edification_bp.route('/api/emoji-for-word/<word>')
 def get_emoji_for_word(word):
-    """API para buscar emoji baseado na palavra"""
     from app.core.models import EmojiWord
     import unicodedata
     
     word_normalized = word.upper().strip()
     word_normalized = unicodedata.normalize('NFKD', word_normalized).encode('ASCII', 'ignore').decode('ASCII')
     
-    # 🔥 REMOVA ou COMENTE estes prints
-    # print(f"🔍 Buscando emoji para: {word_normalized}")
-    
     all_emojis = EmojiWord.query.all()
     
-    # Primeiro, busca correspondência EXATA
     for emoji_item in all_emojis:
         words = emoji_item.words or []
         for stored_word in words:
             stored_normalized = unicodedata.normalize('NFKD', stored_word.upper()).encode('ASCII', 'ignore').decode('ASCII')
             if word_normalized == stored_normalized:
-                # print(f"✅ EXATO! {word_normalized} → {emoji_item.emoji}")
                 return jsonify({'success': True, 'emoji': emoji_item.emoji, 'type': emoji_item.emoji_type, 'custom_icon': emoji_item.custom_icon})
     
-    # Se não achou exato, busca contém
     for emoji_item in all_emojis:
         words = emoji_item.words or []
         for stored_word in words:
             stored_normalized = unicodedata.normalize('NFKD', stored_word.upper()).encode('ASCII', 'ignore').decode('ASCII')
             if stored_normalized in word_normalized or word_normalized in stored_normalized:
-                # print(f"✅ PARCIAL! {word_normalized} → {emoji_item.emoji} (via {stored_normalized})")
                 return jsonify({'success': True, 'emoji': emoji_item.emoji, 'type': emoji_item.emoji_type, 'custom_icon': emoji_item.custom_icon})
     
-    # print(f"❌ Nenhum emoji encontrado para: {word_normalized}")
     return jsonify({'success': True, 'emoji': word[0].upper() if word else '📖', 'type': 'text'})
