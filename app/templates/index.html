@@ -22,7 +22,7 @@
             </div>
         </div>
         <div class="col-lg-6">
-            <!-- 🔥 BANNER DO ESPAÇO KIDS -->
+            <!-- Banner do Espaço Kids -->
             <a href="{{ url_for('edification.kids') }}" class="text-decoration-none">
                 <div class="card border-0 shadow-lg overflow-hidden" style="background: linear-gradient(135deg, var(--primary) 0%, var(--primary-hover) 100%); border-radius: 1.5rem;">
                     <div class="card-body p-4 p-md-5 text-center">
@@ -66,22 +66,46 @@
         </div>
     </div>
 
-    <!-- Slides com midias públicas -->
+    <!-- Carrossel de Mídias Públicas COM LIGHTBOX -->
     {% if public_media %}
     <div class="row mb-5">
         <div class="col-12">
             <div id="publicCarousel" class="carousel slide shadow-sm rounded-4 overflow-hidden" data-bs-ride="carousel">
                 <div class="carousel-inner">
                     {% for media in public_media %}
-                    <div class="carousel-item {{ 'active' if loop.first }}">
-                        <img src="{{ url_for('static', filename=media.file_path) }}" class="d-block w-100" alt="{{ media.title }}" style="height: 250px; object-fit: cover;">
-                        <div class="carousel-caption d-none d-md-block bg-dark bg-opacity-50 rounded-3 p-3">
-                            <h5 class="fw-bold">{{ media.title }}</h5>
-                            <p>{{ media.description | truncate(100) }}</p>
+                    <div class="carousel-item {{ 'active' if loop.first }}" data-media-id="{{ media.id }}">
+                        <!-- 🔥 IMAGEM CLICÁVEL PARA ABRIR LIGHTBOX -->
+                        <div class="carousel-image-container" 
+                             style="position: relative; background-color: #1a1a2e; min-height: 300px; max-height: 500px; height: 50vh; cursor: pointer;"
+                             onclick="openLightbox({{ loop.index0 }})">
+                            <img src="{{ url_for('static', filename=media.file_path) }}" 
+                                 class="carousel-image" 
+                                 alt="{{ media.title }}"
+                                 loading="lazy"
+                                 onerror="this.src='{{ url_for('static', filename='img/placeholder-image.jpg') }}'"
+                                 style="width: 100%; height: 100%; object-fit: contain;">
+                            
+                            <!-- Ícone de lupa para indicar que pode ampliar -->
+                            <div class="zoom-icon" style="position: absolute; bottom: 1rem; right: 1rem; background: rgba(0,0,0,0.6); border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; transition: all 0.3s ease;">
+                                <i class="bi bi-zoom-in text-white fs-5"></i>
+                            </div>
+                            
+                            <!-- Overlay gradiente para melhor legibilidade -->
+                            <div class="carousel-overlay" style="position: absolute; bottom: 0; left: 0; right: 0; background: linear-gradient(to top, rgba(0,0,0,0.7), transparent); padding: 2rem 1rem 1rem;">
+                            </div>
+                        </div>
+                        
+                        <!-- Legenda (apenas em desktop) -->
+                        <div class="carousel-caption d-none d-md-block" style="background: rgba(0,0,0,0.6); border-radius: 0.5rem; bottom: 1rem; left: 1rem; right: 1rem; text-align: left; padding: 0.75rem 1rem;">
+                            <h5 class="fw-bold mb-1 text-white">{{ media.title }}</h5>
+                            <p class="mb-0 text-white-50 small">{{ media.description | truncate(80) }}</p>
                         </div>
                     </div>
                     {% endfor %}
                 </div>
+                
+                <!-- Controles do Carrossel -->
+                {% if public_media|length > 1 %}
                 <button class="carousel-control-prev" type="button" data-bs-target="#publicCarousel" data-bs-slide="prev">
                     <span class="carousel-control-prev-icon" aria-hidden="true"></span>
                     <span class="visually-hidden">Anterior</span>
@@ -90,6 +114,29 @@
                     <span class="carousel-control-next-icon" aria-hidden="true"></span>
                     <span class="visually-hidden">Próximo</span>
                 </button>
+                
+                <!-- Indicadores -->
+                <div class="carousel-indicators" style="margin-bottom: 0.5rem;">
+                    {% for media in public_media %}
+                    <button type="button" data-bs-target="#publicCarousel" data-bs-slide-to="{{ loop.index0 }}" 
+                            class="{{ 'active' if loop.first else '' }}" 
+                            aria-label="Slide {{ loop.index }}" style="width: 8px; height: 8px; border-radius: 50%; margin: 0 4px;"></button>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <!-- Fallback quando não há mídias -->
+    <div class="row mb-5">
+        <div class="col-12">
+            <div class="card border-0 bg-light shadow-sm rounded-4 overflow-hidden">
+                <div class="card-body text-center py-5">
+                    <i class="bi bi-images display-1 text-muted opacity-25 d-block mb-3"></i>
+                    <h5 class="text-muted">Nenhuma mídia pública disponível</h5>
+                    <p class="text-muted small">Em breve teremos novidades por aqui!</p>
+                </div>
             </div>
         </div>
     </div>
@@ -150,7 +197,28 @@
             </div>
         </div>
     </div>
+</div>
+
+<!-- 🔥 MODAL LIGHTBOX PARA EXIBIR IMAGEM EM TAMANHO REAL -->
+<div class="modal fade" id="imageLightboxModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-xl modal-fullscreen-md-down">
+        <div class="modal-content bg-dark border-0">
+            <div class="modal-header border-0 p-3">
+                <h5 class="modal-title text-white" id="lightboxTitle"></h5>
+                <div class="ms-auto">
+                    <a href="#" id="lightboxDownloadLink" download class="btn btn-primary btn-sm me-2">
+                        <i class="bi bi-download me-1"></i> Baixar
+                    </a>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+            </div>
+            <div class="modal-body p-0 text-center">
+                <img id="lightboxImage" src="" class="img-fluid" style="max-height: 85vh; width: auto; margin: 0 auto;" alt="">
+                <div class="p-3 text-white-50 small" id="lightboxDescription"></div>
+            </div>
+        </div>
     </div>
+</div>
 
 <!-- Modal de Informações do Espaço Kids -->
 <div class="modal fade" id="kidsInfoModal" tabindex="-1" aria-hidden="true">
@@ -197,5 +265,218 @@
 .extra-small {
     font-size: 0.65rem;
 }
+
+/* 🔥 ESTILOS DO CARROSSEL MELHORADOS */
+.carousel-image-container {
+    background-color: #0f172a;
+    min-height: 300px;
+    max-height: 500px;
+    height: 50vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    transition: all 0.3s ease;
+}
+
+.carousel-image {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    transition: transform 0.3s ease;
+}
+
+/* Efeito de hover no container */
+.carousel-image-container:hover {
+    background-color: #0a0a1a;
+}
+
+.carousel-image-container:hover .zoom-icon {
+    background-color: rgba(79, 70, 229, 0.8);
+    transform: scale(1.1);
+}
+
+/* Zoom icon animado */
+.zoom-icon {
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+/* Efeito de zoom suave ao passar o mouse na imagem */
+.carousel-item:hover .carousel-image {
+    transform: scale(1.02);
+}
+
+/* Indicadores do carrossel mais bonitos */
+.carousel-indicators button {
+    width: 8px !important;
+    height: 8px !important;
+    border-radius: 50% !important;
+    margin: 0 4px !important;
+    background-color: rgba(255,255,255,0.5) !important;
+}
+
+.carousel-indicators button.active {
+    background-color: var(--primary) !important;
+    transform: scale(1.2);
+}
+
+/* Controles mais visíveis */
+.carousel-control-prev-icon,
+.carousel-control-next-icon {
+    background-color: rgba(0,0,0,0.5);
+    border-radius: 50%;
+    padding: 1.5rem;
+    background-size: 50%;
+}
+
+/* Responsividade para mobile */
+@media (max-width: 768px) {
+    .carousel-image-container {
+        min-height: 200px;
+        height: 40vh;
+    }
+    
+    .carousel-caption {
+        display: none !important;
+    }
+    
+    .zoom-icon {
+        width: 32px !important;
+        height: 32px !important;
+    }
+    
+    .zoom-icon i {
+        font-size: 0.9rem !important;
+    }
+}
+
+/* Tablet */
+@media (min-width: 769px) and (max-width: 1024px) {
+    .carousel-image-container {
+        min-height: 250px;
+        height: 45vh;
+    }
+}
+
+/* Desktop grande */
+@media (min-width: 1200px) {
+    .carousel-image-container {
+        min-height: 400px;
+        max-height: 600px;
+        height: 55vh;
+    }
+}
 </style>
+
+<!-- Script do Lightbox e Carrossel -->
+<script>
+// Dados das mídias para o lightbox
+const mediaItems = [
+    {% for media in public_media %}
+    {
+        id: {{ media.id }},
+        title: {{ media.title|tojson }},
+        description: {{ media.description|tojson }},
+        file_path: {{ media.file_path|tojson }},
+        media_type: {{ media.media_type|tojson }}
+    },
+    {% endfor %}
+];
+
+let currentLightboxIndex = 0;
+
+function openLightbox(index) {
+    if (!mediaItems.length) return;
+    
+    currentLightboxIndex = index;
+    const media = mediaItems[currentLightboxIndex];
+    
+    // Atualizar modal
+    document.getElementById('lightboxTitle').textContent = media.title || 'Imagem';
+    document.getElementById('lightboxDescription').textContent = media.description || '';
+    
+    const imgElement = document.getElementById('lightboxImage');
+    imgElement.src = "{{ url_for('static', filename='') }}" + media.file_path;
+    imgElement.alt = media.title || 'Imagem';
+    
+    // Configurar link de download
+    const downloadLink = document.getElementById('lightboxDownloadLink');
+    downloadLink.href = "{{ url_for('static', filename='') }}" + media.file_path;
+    downloadLink.download = media.title || 'imagem';
+    
+    // Abrir modal
+    const modal = new bootstrap.Modal(document.getElementById('imageLightboxModal'));
+    modal.show();
+}
+
+// Adicionar navegação por teclado no lightbox
+document.addEventListener('keydown', function(e) {
+    const modal = document.getElementById('imageLightboxModal');
+    const isModalOpen = modal.classList.contains('show');
+    
+    if (!isModalOpen) return;
+    
+    if (e.key === 'ArrowLeft') {
+        // Imagem anterior
+        if (currentLightboxIndex > 0) {
+            openLightbox(currentLightboxIndex - 1);
+        }
+    } else if (e.key === 'ArrowRight') {
+        // Próxima imagem
+        if (currentLightboxIndex < mediaItems.length - 1) {
+            openLightbox(currentLightboxIndex + 1);
+        }
+    } else if (e.key === 'Escape') {
+        // Fechar modal
+        bootstrap.Modal.getInstance(modal)?.hide();
+    }
+});
+
+// Pré-carregar imagens para navegação suave
+function preloadAdjacentImages(index) {
+    if (index > 0) {
+        const prevImg = new Image();
+        prevImg.src = "{{ url_for('static', filename='') }}" + mediaItems[index - 1].file_path;
+    }
+    if (index < mediaItems.length - 1) {
+        const nextImg = new Image();
+        nextImg.src = "{{ url_for('static', filename='') }}" + mediaItems[index + 1].file_path;
+    }
+}
+
+// Sobrescrever openLightbox para incluir pré-carregamento
+const originalOpenLightbox = openLightbox;
+window.openLightbox = function(index) {
+    originalOpenLightbox(index);
+    preloadAdjacentImages(index);
+};
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Pré-carregar a primeira imagem para evitar flash
+    const firstImage = document.querySelector('.carousel-item.active .carousel-image');
+    if (firstImage && firstImage.complete === false) {
+        firstImage.style.opacity = '0';
+        firstImage.onload = function() {
+            this.style.opacity = '1';
+        };
+    }
+    
+    // Adicionar lazy loading para as outras imagens
+    const carousel = document.getElementById('publicCarousel');
+    if (carousel) {
+        carousel.addEventListener('slid.bs.carousel', function(event) {
+            const activeImages = event.relatedTarget.querySelectorAll('.carousel-image');
+            activeImages.forEach(img => {
+                if (img.complete === false) {
+                    img.style.opacity = '0';
+                    img.onload = function() {
+                        this.style.opacity = '1';
+                    };
+                }
+            });
+        });
+    }
+});
+</script>
 {% endblock %}
