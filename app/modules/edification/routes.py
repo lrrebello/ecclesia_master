@@ -17,7 +17,7 @@ pillow_heif.register_heif_opener()
 edification_bp = Blueprint('edification', __name__)
 
 # ============================================
-# FUNÇÕES AUXILIARES DE PERMISSÃO (CENTRALIZADAS)
+# FUNÇÕES AUXILIARES DE PERMISSÃO (CORRIGIDAS - VERSÃO ROBUSTA)
 # ============================================
 
 def is_ministry_leader(ministry):
@@ -37,6 +37,9 @@ def is_ministry_leader(ministry):
 
 def can_manage_media_globally():
     """Verifica se o usuário pode gerenciar mídia globalmente (admin, pastor, ou permissão específica)"""
+    if not current_user.is_authenticated:
+        return False
+    
     return (
         current_user.can_manage_media or 
         (current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder'])
@@ -44,12 +47,18 @@ def can_manage_media_globally():
 
 def can_manage_media_for_ministry(ministry):
     """Verifica se o usuário pode gerenciar mídia para um ministério específico"""
+    if not current_user.is_authenticated:
+        return False
+    
     if can_manage_media_globally():
         return True
     return is_ministry_leader(ministry)
 
 def get_user_managed_ministries():
     """Retorna lista de ministérios que o usuário pode gerenciar (para exibir no select)"""
+    if not current_user.is_authenticated:
+        return []
+    
     if can_manage_media_globally():
         return Ministry.query.filter_by(church_id=current_user.church_id).all()
     
@@ -59,6 +68,9 @@ def get_user_managed_ministries():
 
 def can_publish_content():
     """Verifica se pode publicar conteúdo (devocionais, estudos)"""
+    if not current_user.is_authenticated:
+        return False
+    
     return (
         current_user.can_publish_devotionals or 
         (current_user.church_role and (
@@ -69,9 +81,15 @@ def can_publish_content():
 
 def can_manage_kids():
     """Verifica se pode gerenciar conteúdo do Espaço Kids"""
+    # 🔥 PRIMEIRA LINHA: usuário não autenticado NÃO pode gerenciar
+    if not current_user.is_authenticated:
+        return False
+    
+    # Usuário com permissão específica
     if current_user.can_manage_kids:
         return True
     
+    # Admin global ou pastor líder
     if current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder']:
         return True
     
@@ -84,6 +102,9 @@ def can_manage_kids():
 
 def can_delete_album(album):
     """Verifica se pode deletar um álbum"""
+    if not current_user.is_authenticated:
+        return False
+    
     if can_manage_media_globally():
         return True
     if album.ministry and is_ministry_leader(album.ministry):
@@ -92,6 +113,9 @@ def can_delete_album(album):
 
 def can_delete_media(media):
     """Verifica se pode deletar uma mídia"""
+    if not current_user.is_authenticated:
+        return False
+    
     if can_manage_media_globally():
         return True
     if media.ministry and is_ministry_leader(media.ministry):
@@ -100,6 +124,9 @@ def can_delete_media(media):
 
 def can_edit_media(media):
     """Verifica se pode editar uma mídia"""
+    if not current_user.is_authenticated:
+        return False
+    
     if can_manage_media_globally():
         return True
     if media.ministry and is_ministry_leader(media.ministry):
