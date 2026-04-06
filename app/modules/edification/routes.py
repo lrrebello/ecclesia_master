@@ -13,6 +13,14 @@ from app.utils.text_extractor import extract_text
 from app.utils.gemini_service import generate_questions
 import markdown
 import bleach
+import unicodedata
+
+def remover_acentos(texto):
+    """Remove acentos de uma string"""
+    if not texto:
+        return texto
+    texto = unicodedata.normalize('NFKD', texto).encode('ASCII', 'ignore').decode('ASCII')
+    return texto
 
 # Lista de tags HTML permitidas (segurança)
 ALLOWED_TAGS = [
@@ -1204,19 +1212,67 @@ def view_bible_story(id):
 def memory_game():
     story_id = request.args.get('story_id')
     game_data = []
+    story = None
+    
     if story_id:
-        story = BibleStory.query.get_or_404(story_id)
+        story = BibleStory.query.get_or_404(int(story_id))
         game_data = json.loads(story.game_data) if story.game_data else []
-    return render_template('edification/kids_memory_game.html', game_data=game_data)
+        # Remover acentos das palavras
+        if game_data and isinstance(game_data, list):
+            if len(game_data) > 0 and isinstance(game_data[0], dict) and 'word' in game_data[0]:
+                for item in game_data:
+                    if 'word' in item:
+                        item['word'] = remover_acentos(item['word'].upper())
+            elif isinstance(game_data[0], str):
+                game_data = [remover_acentos(w.upper()) for w in game_data]
+    else:
+        story = BibleStory.query.order_by(func.random()).first()
+        if story:
+            game_data = json.loads(story.game_data) if story.game_data else []
+            if game_data and isinstance(game_data, list):
+                if len(game_data) > 0 and isinstance(game_data[0], dict) and 'word' in game_data[0]:
+                    for item in game_data:
+                        if 'word' in item:
+                            item['word'] = remover_acentos(item['word'].upper())
+                elif isinstance(game_data[0], str):
+                    game_data = [remover_acentos(w.upper()) for w in game_data]
+    
+    return render_template('edification/kids_memory_game.html', 
+                         game_data=game_data, 
+                         story=story)
 
 @edification_bp.route('/kids/who-am-i')
 def who_am_i():
     story_id = request.args.get('story_id')
     game_data = []
+    story = None
+    
     if story_id:
-        story = BibleStory.query.get_or_404(story_id)
+        story = BibleStory.query.get_or_404(int(story_id))
         game_data = json.loads(story.game_data) if story.game_data else []
-    return render_template('edification/kids_who_am_i.html', game_data=game_data)
+        # Remover acentos das palavras
+        if game_data and isinstance(game_data, list):
+            if len(game_data) > 0 and isinstance(game_data[0], dict) and 'word' in game_data[0]:
+                for item in game_data:
+                    if 'word' in item:
+                        item['word'] = remover_acentos(item['word'].upper())
+            elif isinstance(game_data[0], str):
+                game_data = [remover_acentos(w.upper()) for w in game_data]
+    else:
+        story = BibleStory.query.order_by(func.random()).first()
+        if story:
+            game_data = json.loads(story.game_data) if story.game_data else []
+            if game_data and isinstance(game_data, list):
+                if len(game_data) > 0 and isinstance(game_data[0], dict) and 'word' in game_data[0]:
+                    for item in game_data:
+                        if 'word' in item:
+                            item['word'] = remover_acentos(item['word'].upper())
+                elif isinstance(game_data[0], str):
+                    game_data = [remover_acentos(w.upper()) for w in game_data]
+    
+    return render_template('edification/kids_who_am_i.html', 
+                         game_data=game_data, 
+                         story=story)
 
 @edification_bp.route('/kids/puzzle')
 def puzzle_game():
@@ -1233,10 +1289,48 @@ def puzzle_game():
 def word_search():
     story_id = request.args.get('story_id')
     story = None
-    if story_id:
-        story = BibleStory.query.get_or_404(story_id)
+    game_data = []
     
-    return render_template('edification/kids_word_search.html', story=story)
+    if story_id:
+        story = BibleStory.query.get_or_404(int(story_id))
+        if story.game_data:
+            try:
+                data = json.loads(story.game_data) if isinstance(story.game_data, str) else story.game_data
+                if data and isinstance(data, list):
+                    if len(data) > 0 and isinstance(data[0], dict) and 'word' in data[0]:
+                        game_data = [{
+                            'word': remover_acentos(item['word'].upper()),
+                            'hint': item.get('hint', '')
+                        } for item in data if item.get('word')]
+                    elif isinstance(data[0], str):
+                        game_data = [{
+                            'word': remover_acentos(w.upper()),
+                            'hint': ''
+                        } for w in data]
+            except Exception:
+                pass
+    else:
+        story = BibleStory.query.order_by(func.random()).first()
+        if story and story.game_data:
+            try:
+                data = json.loads(story.game_data) if isinstance(story.game_data, str) else story.game_data
+                if data and isinstance(data, list):
+                    if len(data) > 0 and isinstance(data[0], dict) and 'word' in data[0]:
+                        game_data = [{
+                            'word': remover_acentos(item['word'].upper()),
+                            'hint': item.get('hint', '')
+                        } for item in data if item.get('word')]
+                    elif isinstance(data[0], str):
+                        game_data = [{
+                            'word': remover_acentos(w.upper()),
+                            'hint': ''
+                        } for w in data]
+            except Exception:
+                pass
+    
+    return render_template('edification/kids_word_search.html', 
+                         story=story, 
+                         game_data=game_data)
 
 @edification_bp.route('/kids/crossword')
 def crossword():
@@ -1265,12 +1359,12 @@ def hangman():
                 if data and isinstance(data, list):
                     if len(data) > 0 and isinstance(data[0], dict) and 'word' in data[0]:
                         # Formato: [{"word": "DAVI", "hint": ""}, ...]
-                        game_data = [item['word'].upper() for item in data if item.get('word')]
+                        game_data = [remover_acentos(item['word'].upper()) for item in data if item.get('word')]
                     elif isinstance(data[0], str):
                         # Formato simples: ["PALAVRA1", "PALAVRA2"]
-                        game_data = [w.upper() for w in data]
+                        game_data = [remover_acentos(w.upper()) for w in data]
             except Exception:
-                pass  # Silencia o erro
+                pass
     else:
         story = BibleStory.query.order_by(func.random()).first()
         if story and story.game_data:
@@ -1278,15 +1372,16 @@ def hangman():
                 data = json.loads(story.game_data) if isinstance(story.game_data, str) else story.game_data
                 if data and isinstance(data, list):
                     if len(data) > 0 and isinstance(data[0], dict) and 'word' in data[0]:
-                        game_data = [item['word'].upper() for item in data if item.get('word')]
+                        game_data = [remover_acentos(item['word'].upper()) for item in data if item.get('word')]
                     elif isinstance(data[0], str):
-                        game_data = [w.upper() for w in data]
+                        game_data = [remover_acentos(w.upper()) for w in data]
             except Exception:
-                pass  # Silencia o erro
+                pass
     
     return render_template('edification/kids_hangman.html', 
                          story=story, 
                          game_data=game_data)
+
 # ============================================
 # API ROTAS
 # ============================================
