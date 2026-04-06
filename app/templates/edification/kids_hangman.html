@@ -53,15 +53,27 @@
     {% if game_data and game_data|length > 0 %}
         wordsList = {{ game_data|tojson }};
     {% else %}
-        wordsList = ["BÍBLIA", "DEUS", "JESUS", "AMOR", "FÉ", "GRAÇA", "SALVAÇÃO", "ORAÇÃO", "IGREJA", "CRISTO"];
+        // 🔥 FALLBACK SEM ACENTOS
+        wordsList = ["BIBLIA", "DEUS", "JESUS", "AMOR", "FE", "GRACA", "SALVACAO", "ORACAO", "IGREJA", "CRISTO"];
     {% endif %}
     
     if (!Array.isArray(wordsList)) {
         wordsList = [];
     }
     
-    wordsList = wordsList.filter(word => word && typeof word === 'string' && word.length >= 4);
+    // Garantir que todas as palavras estão sem acento e maiúsculas
+    wordsList = wordsList.map(word => {
+        if (typeof word === 'string') {
+            // Remover acentos por segurança
+            return word.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
+        }
+        return word;
+    });
+    
+    wordsList = wordsList.filter(word => word && word.length >= 4);
     wordsList = [...new Set(wordsList)];
+    
+    console.log("Palavras disponíveis:", wordsList); // Debug temporário
     
     if (wordsList.length === 0) {
         document.getElementById('gameMessage').className = 'alert alert-warning';
@@ -222,6 +234,7 @@
         }
         
         currentWord = wordsList[Math.floor(Math.random() * wordsList.length)].toUpperCase();
+        console.log("Palavra escolhida:", currentWord); // Debug
         guessedLetters = [];
         wrongGuesses = [];
         gameActive = true;
@@ -242,17 +255,6 @@
     // Inicializar
     createKeyboard();
     resetGame();
-    
-    // 🔥 Garantir que o botão Nova Palavra funciona
-    const resetBtn = document.getElementById('resetGame');
-    if (resetBtn) {
-        // Remove eventos antigos para evitar duplicação
-        const newResetBtn = resetBtn.cloneNode(true);
-        resetBtn.parentNode.replaceChild(newResetBtn, resetBtn);
-        newResetBtn.addEventListener('click', function() {
-            resetGame();
-        });
-    }
 </script>
 
 <style>
