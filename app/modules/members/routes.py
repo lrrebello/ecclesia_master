@@ -120,13 +120,19 @@ def dashboard():
                             seen_members.add(member.id)
             birthday_alerts.sort(key=lambda x: x['days_until'])
     
-    # 🔥 NOVO: Buscar últimas 4 mídias para galeria (apenas imagens)
+    # 🔥 CORREÇÃO: Galeria Recente - Apenas mídias públicas OU dos ministérios do usuário
+    # Públicas = ministry_id IS NULL
+    # Dos ministérios do usuário = ministry_id IN (ministry_ids)
     recent_media = Media.query.filter(
         Media.church_id == current_user.church_id,
-        Media.media_type == 'image'
+        Media.media_type == 'image',
+        db.or_(
+            Media.ministry_id == None,  # Mídias públicas (sem ministério)
+            Media.ministry_id.in_(ministry_ids)  # Mídias dos ministérios que o usuário participa
+        )
     ).order_by(Media.created_at.desc()).limit(4).all()
     
-    # 🔥 NOVO: Calcular contribuições do membro no mês atual
+    # 🔥 Calcular contribuições do membro no mês atual
     current_month_start = date(today.year, today.month, 1)
     monthly_contributions = db.session.query(func.sum(Transaction.amount)).filter(
         Transaction.user_id == current_user.id,
@@ -142,8 +148,8 @@ def dashboard():
                            pending_members=pending_members,
                            birthday_alerts=birthday_alerts,
                            datetime=datetime,
-                           recent_media=recent_media,  # 🔥 NOVO
-                           monthly_contributions=monthly_contributions)  # 🔥 NOVO
+                           recent_media=recent_media,
+                           monthly_contributions=monthly_contributions)
 
 @members_bp.route('/profile')
 @login_required
