@@ -266,7 +266,7 @@
     font-size: 0.65rem;
 }
 
-/* 🔥 ESTILOS DO CARROSSEL MELHORADOS */
+/* 🔥 ESTILOS DO CARROSSEL - VERSÃO COVER */
 .carousel-image-container {
     background-color: #0f172a;
     min-height: 300px;
@@ -275,20 +275,37 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    position: relative;
-    transition: all 0.3s ease;
+    overflow: hidden;  /* Esconde o excesso da imagem */
+    cursor: pointer;
 }
 
 .carousel-image {
     width: 100%;
     height: 100%;
-    object-fit: contain;
-    transition: transform 0.3s ease;
+    object-fit: cover;  /* 🔥 MUDEI AQUI - agora cobre sem margens */
+    object-position: center;
+    transition: transform 0.4s ease, filter 0.3s ease;
 }
 
-/* Efeito de hover no container */
-.carousel-image-container:hover {
-    background-color: #0a0a1a;
+/* Efeito de zoom suave ao passar o mouse */
+.carousel-item:hover .carousel-image {
+    transform: scale(1.08);
+}
+
+/* Zoom icon mantém visível */
+.zoom-icon {
+    position: absolute;
+    bottom: 1rem;
+    right: 1rem;
+    background: rgba(0,0,0,0.6);
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    z-index: 10;
 }
 
 .carousel-image-container:hover .zoom-icon {
