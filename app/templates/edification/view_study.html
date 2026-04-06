@@ -1,37 +1,228 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-lg-9">
-        <nav aria-label="breadcrumb" class="mb-4">
-            <ol class="breadcrumb">
-                <li class="breadcrumb-item"><a href="{{ url_for('edification.list_studies') }}">Estudos</a></li>
-                <li class="breadcrumb-item active" aria-current="page">{{ study.title }}</li>
-            </ol>
-        </nav>
+<div class="container py-4">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb" class="mb-4">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('edification.studies') }}">Estudos</a></li>
+            <li class="breadcrumb-item active" aria-current="page">{{ study.title|truncate(50) }}</li>
+        </ol>
+    </nav>
 
-        <div class="card border-0 shadow-sm p-4 p-md-5">
-            <div class="mb-4">
-                <span class="badge bg-primary bg-opacity-10 text-primary px-3 py-2 mb-3">{{ study.category }}</span>
-                <h1 class="fw-bold display-5 mb-3">{{ study.title }}</h1>
-                <div class="d-flex align-items-center text-muted">
-                    <i class="bi bi-person-circle me-2"></i>
-                    <span>Por <strong>{{ study.author.name }}</strong></span>
-                    <span class="mx-2">•</span>
-                    <i class="bi bi-calendar3 me-2"></i>
-                    <span>{{ study.created_at.strftime('%d de %B, %Y') }}</span>
+    <div class="row g-4">
+        <!-- Conteúdo Principal -->
+        <div class="col-lg-8">
+            <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+                <!-- Capa/Header -->
+                <div class="bg-primary bg-opacity-10 p-4 p-md-5 text-center">
+                    <span class="badge bg-primary bg-opacity-20 text-primary rounded-pill px-3 py-2 mb-3">
+                        <i class="bi bi-tag me-1"></i> {{ study.category or 'Estudo Bíblico' }}
+                    </span>
+                    <h1 class="display-5 fw-bold mb-3">{{ study.title }}</h1>
+                    <div class="d-flex align-items-center justify-content-center gap-3 text-muted flex-wrap">
+                        <div class="d-flex align-items-center">
+                            <i class="bi bi-person-circle me-2"></i>
+                            <small>Por <strong>{{ study.author.name if study.author else 'Admin' }}</strong></small>
+                        </div>
+                        <span>•</span>
+                        <div class="d-flex align-items-center">
+                            <i class="bi bi-calendar3 me-2"></i>
+                            <small>{{ study.created_at.strftime('%d de %B, %Y') }}</small>
+                        </div>
+                        <span>•</span>
+                        <div class="d-flex align-items-center">
+                            <i class="bi bi-clock-history me-2"></i>
+                            <small>{{ study.created_at.strftime('%H:%M') }}</small>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Conteúdo -->
+                <div class="card-body p-4 p-md-5">
+                    <div class="study-content">
+                        {{ content_html|safe }}
+                    </div>
+                    
+                    <!-- Compartilhar -->
+                    <div class="mt-5 pt-4 border-top">
+                        <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+                            <div>
+                                <small class="text-muted d-block mb-2">Compartilhar este estudo:</small>
+                                <div class="d-flex gap-2">
+                                    <a href="https://wa.me/?text={{ url_for('edification.study_detail', id=study.id, _external=True) }}" target="_blank" class="btn btn-sm btn-success rounded-circle" style="width: 32px; height: 32px; padding: 0;">
+                                        <i class="bi bi-whatsapp"></i>
+                                    </a>
+                                    <a href="https://www.facebook.com/sharer/sharer.php?u={{ url_for('edification.study_detail', id=study.id, _external=True) }}" target="_blank" class="btn btn-sm btn-primary rounded-circle" style="width: 32px; height: 32px; padding: 0;">
+                                        <i class="bi bi-facebook"></i>
+                                    </a>
+                                    <button onclick="copyLink()" class="btn btn-sm btn-outline-secondary rounded-circle" style="width: 32px; height: 32px; padding: 0;">
+                                        <i class="bi bi-link"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="text-end">
+                                <small class="text-muted d-block">Estudo para edificação do corpo de Cristo</small>
+                                <small class="text-muted fst-italic">"Examinai as Escrituras"</small>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
             
-            <hr class="my-4 opacity-25">
-            
-            <div class="study-content">
-                {{ content_html|safe }}
+            <!-- Seção de Estudos Relacionados -->
+            {% if related_studies %}
+            <div class="card border-0 shadow-sm rounded-4 mt-4">
+                <div class="card-header bg-transparent border-0 p-4 pb-0">
+                    <h5 class="fw-bold mb-0">
+                        <i class="bi bi-diagram-3 me-2 text-primary"></i>Estudos Relacionados
+                    </h5>
+                </div>
+                <div class="card-body p-4 pt-2">
+                    <div class="row g-3">
+                        {% for related in related_studies %}
+                        <div class="col-md-6">
+                            <a href="{{ url_for('edification.study_detail', id=related.id) }}" class="text-decoration-none">
+                                <div class="d-flex gap-3 align-items-center p-3 bg-light rounded-3 hover-bg transition">
+                                    <i class="bi bi-journal-bookmark-fill text-primary fs-3"></i>
+                                    <div>
+                                        <h6 class="fw-bold mb-1 text-dark">{{ related.title }}</h6>
+                                        <small class="text-muted">{{ related.created_at.strftime('%d/%m/%Y') }}</small>
+                                    </div>
+                                </div>
+                            </a>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
             </div>
-            
-            <div class="mt-5 pt-4 border-top opacity-75">
-                <p class="text-muted small">Este estudo foi publicado para a edificação do corpo de Cristo. Que a Palavra de Deus produza frutos em seu coração.</p>
+            {% endif %}
+        </div>
+
+        <!-- Sidebar Direita -->
+        <div class="col-lg-4">
+            <!-- Informações do Estudo -->
+            <div class="card border-0 shadow-sm rounded-4 mb-4">
+                <div class="card-header bg-transparent border-0 p-4 pb-0">
+                    <h6 class="fw-bold mb-0"><i class="bi bi-info-circle me-2 text-primary"></i>Informações</h6>
+                </div>
+                <div class="card-body p-4 pt-2">
+                    <ul class="list-unstyled mb-0">
+                        <li class="mb-3 d-flex justify-content-between">
+                            <span class="text-muted">Publicado em:</span>
+                            <span class="fw-medium">{{ study.created_at.strftime('%d/%m/%Y') }}</span>
+                        </li>
+                        <li class="mb-3 d-flex justify-content-between">
+                            <span class="text-muted">Categoria:</span>
+                            <span class="badge bg-primary bg-opacity-10 text-primary">{{ study.category or 'Geral' }}</span>
+                        </li>
+                        <li class="mb-3 d-flex justify-content-between">
+                            <span class="text-muted">Questões:</span>
+                            <span class="fw-medium">{{ study.questions|selectattr('is_published')|list|length }} publicadas</span>
+                        </li>
+                        <li class="d-flex justify-content-between">
+                            <span class="text-muted">Autor:</span>
+                            <span class="fw-medium">{{ study.author.name if study.author else 'Administrador' }}</span>
+                        </li>
+                    </ul>
+                </div>
             </div>
+
+            <!-- Questões do Estudo (se houver) -->
+            {% set published_questions = study.questions|selectattr('is_published')|list %}
+            {% if published_questions %}
+            <div class="card border-0 shadow-sm rounded-4">
+                <div class="card-header bg-transparent border-0 p-4 pb-0">
+                    <h6 class="fw-bold mb-0">
+                        <i class="bi bi-question-circle me-2 text-success"></i>Questões para Reflexão
+                        <span class="badge bg-success bg-opacity-10 text-success ms-2">{{ published_questions|length }}</span>
+                    </h6>
+                    <p class="text-muted small mt-1">Teste seu conhecimento sobre o estudo</p>
+                </div>
+                <div class="card-body p-4 pt-2">
+                    <div class="accordion" id="questionsAccordion">
+                        {% for q in published_questions[:5] %}
+                        <div class="accordion-item border-0 mb-2">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed bg-light rounded-3 p-3" type="button" 
+                                        data-bs-toggle="collapse" data-bs-target="#question{{ q.id }}">
+                                    <span class="fw-medium small">{{ loop.index }}. {{ q.question_text|truncate(80) }}</span>
+                                </button>
+                            </h2>
+                            <div id="question{{ q.id }}" class="accordion-collapse collapse" data-bs-parent="#questionsAccordion">
+                                <div class="accordion-body p-3 bg-light bg-opacity-50 rounded-3 mt-1">
+                                    {% set options = q.options|from_json if q.options else {} %}
+                                    <div class="mb-2">
+                                        <small class="text-muted d-block mb-2">Alternativas:</small>
+                                        <ul class="list-unstyled ms-3">
+                                            {% for key, value in options.items() %}
+                                            <li class="mb-1">
+                                                <strong>{{ key }}.</strong> {{ value }}
+                                                {% if q.correct_option == key %}
+                                                <i class="bi bi-check-circle-fill text-success ms-2"></i>
+                                                {% endif %}
+                                            </li>
+                                            {% endfor %}
+                                        </ul>
+                                    </div>
+                                    {% if q.explanation %}
+                                    <div class="mt-2 pt-2 border-top">
+                                        <small class="text-muted fw-bold">📖 Explicação:</small>
+                                        <p class="small mb-0 mt-1">{{ q.explanation }}</p>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% if published_questions|length > 5 %}
+                    <div class="text-center mt-3">
+                        <small class="text-muted">+ {{ published_questions|length - 5 }} questões disponíveis no estudo completo</small>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
         </div>
     </div>
 </div>
+
+<style>
+.study-content {
+    font-size: 1.1rem;
+    line-height: 1.8;
+    color: #334155;
+}
+.study-content h2, .study-content h3 {
+    margin-top: 1.5rem;
+    margin-bottom: 1rem;
+    font-weight: 700;
+}
+.study-content p {
+    margin-bottom: 1.25rem;
+}
+.study-content img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 0.75rem;
+    margin: 1rem 0;
+}
+.hover-bg:hover {
+    background-color: #e2e8f0 !important;
+}
+.transition {
+    transition: all 0.2s ease;
+}
+.bg-opacity-20 {
+    --bs-bg-opacity: 0.2;
+}
+</style>
+
+<script>
+function copyLink() {
+    navigator.clipboard.writeText(window.location.href);
+    // Opcional: mostrar um toast de sucesso
+    alert('Link copiado para a área de transferência!');
+}
+</script>
 {% endblock %}

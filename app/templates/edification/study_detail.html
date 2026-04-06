@@ -1,203 +1,771 @@
 {% extends "base.html" %}
-
 {% block content %}
-<div class="container py-5">
-    <div class="row justify-content-center">
-        <div class="col-lg-10">
-            <div class="card border-0 shadow-lg rounded-4 overflow-hidden">
-                <div class="card-header bg-primary text-white py-4">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <h3 class="mb-0 fw-bold">{{ study.title }}</h3>
-                        {% if current_user.id == study.author_id or (current_user.church_role and current_user.church_role.name == 'Administrador Global' or current_user.church_role.is_lead_pastor) %}
-                        <a href="{{ url_for('edification.review_study_questions', study_id=study.id) }}" class="btn btn-light btn-sm fw-bold rounded-pill">
-                            <i class="bi bi-pencil-square me-1"></i> Gerenciar Questões
-                        </a>
-                        {% endif %}
-                    </div>
-                </div>
-                <div class="card-body p-5">
-                    <div class="d-flex justify-content-between mb-4 pb-3 border-bottom">
-                        <small class="text-muted">
-                            <i class="bi bi-calendar-event me-1"></i>
-                            Publicado em: {{ study.created_at.strftime('%d/%m/%Y às %H:%M') }}
-                        </small>
-                        <span class="badge bg-info bg-opacity-10 text-info px-3 py-2 rounded-pill">{{ study.category }}</span>
-                    </div>
+<div class="container py-4">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb" class="mb-4">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('edification.studies') }}">Estudos</a></li>
+            <li class="breadcrumb-item active" aria-current="page">{{ study.title|truncate(50) }}</li>
+        </ol>
+    </nav>
 
-                    <div class="study-content mb-5 fs-5 lh-lg">
-                        {{ study.content | safe }}
-                    </div>
-
-                    {% set published_questions = study.questions|selectattr('is_published', 'equalto', true)|list %}
-                    {% if published_questions %}
-                    <div class="mt-5 pt-5 border-top">
-                        <h4 class="fw-bold mb-4 text-primary"><i class="bi bi-patch-question me-2"></i>Questões para Estudo</h4>
-                        
-                        <!-- Formulário para respostas -->
-                        <form id="answersForm">
-                            {% for q in published_questions %}
-                            <div class="card border-0 bg-light p-4 mb-4 rounded-4">
-                                <p class="fw-bold mb-3 fs-5">{{ loop.index }}. {{ q.question_text }}</p>
-                                <div class="ms-3">
-                                    {% if q.options %}
-                                        {% set opts = q.options|from_json %}
-                                        {% for key, val in opts.items() %}
-                                        <div class="form-check mb-3">
-                                            <input class="form-check-input question-radio" type="radio" name="q{{ q.id }}" id="q{{ q.id }}_{{ key }}" value="{{ key }}" data-question-id="{{ q.id }}" required>
-                                            <label class="form-check-label fs-6" for="q{{ q.id }}_{{ key }}">
-                                                <span class="fw-bold me-2">{{ key }})</span> {{ val }}
-                                            </label>
-                                        </div>
-                                        {% endfor %}
-                                    {% endif %}
-                                </div>
-                                <div class="mt-3 d-none answer-section" id="answer-{{ q.id }}">
-                                    <div class="p-3 bg-white rounded-3 border-start border-success border-4 shadow-sm">
-                                        <span class="text-success fw-bold"><i class="bi bi-check-circle-fill me-2"></i>Resposta Correta: 
-                                            {% set correct_map = {'1': 'A', '2': 'B', '3': 'C', '4': 'D', 1: 'A', 2: 'B', 3: 'C', 4: 'D'} %}
-                                            {{ correct_map.get(q.correct_option, q.correct_option) }}
-                                        </span>
-                                        {% if q.explanation %}
-                                        <p class="mb-0 small text-muted mt-2 italic"><strong>Fonte/Explicação:</strong> {{ q.explanation }}</p>
-                                        {% endif %}
-                                    </div>
-                                </div>
-                            </div>
-                            {% endfor %}
-                        </form>
-                        
-                        <!-- Contador de questões respondidas -->
-                        <div class="text-center mt-4">
-                            <div class="mb-3">
-                                <span id="answeredCount" class="badge bg-info text-white px-3 py-2">0/{{ published_questions|length }} respondidas</span>
-                            </div>
-                            <button onclick="toggleAnswers()" id="btn-toggle" class="btn btn-primary btn-lg fw-bold rounded-pill px-5 shadow-sm" disabled>
-                                <i class="bi bi-eye me-2"></i>Ver Gabarito
-                            </button>
+    <div class="row g-4">
+        <!-- Conteúdo Principal -->
+        <div class="col-lg-8">
+            <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+                <!-- Capa/Header -->
+                <div class="bg-primary bg-opacity-10 p-4 p-md-5 text-center">
+                    <span class="badge bg-primary bg-opacity-20 text-primary rounded-pill px-3 py-2 mb-3">
+                        <i class="bi bi-tag me-1"></i> {{ study.category or 'Estudo Bíblico' }}
+                    </span>
+                    <h1 class="display-5 fw-bold mb-3">{{ study.title }}</h1>
+                    <div class="d-flex align-items-center justify-content-center gap-3 text-muted flex-wrap">
+                        <div class="d-flex align-items-center">
+                            <i class="bi bi-person-circle me-2"></i>
+                            <small>Por <strong>{{ study.author.name if study.author else 'Admin' }}</strong></small>
+                        </div>
+                        <span>•</span>
+                        <div class="d-flex align-items-center">
+                            <i class="bi bi-calendar3 me-2"></i>
+                            <small>{{ study.created_at.strftime('%d de %B, %Y') }}</small>
+                        </div>
+                        <span>•</span>
+                        <div class="d-flex align-items-center">
+                            <i class="bi bi-clock-history me-2"></i>
+                            <small>{{ study.created_at.strftime('%H:%M') }}</small>
                         </div>
                     </div>
-                    {% endif %}
-
-                    <div class="mt-5 pt-4 text-center">
-                        <a href="{{ url_for('edification.studies') }}" class="btn btn-link text-decoration-none text-muted">
-                            <i class="bi bi-arrow-left me-1"></i> Voltar para Lista de Estudos
-                        </a>
+                </div>
+                
+                <!-- Conteúdo -->
+                <div class="card-body p-4 p-md-5">
+                    <div class="study-content">
+                        {{ content_html|safe }}
+                    </div>
+                    
+                    <!-- Compartilhar -->
+                    <div class="mt-5 pt-4 border-top">
+                        <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+                            <div>
+                                <small class="text-muted d-block mb-2">Compartilhar este estudo:</small>
+                                <div class="d-flex gap-2">
+                                    <a href="https://wa.me/?text={{ url_for('edification.study_detail', id=study.id, _external=True) }}" target="_blank" class="btn btn-sm btn-success rounded-circle" style="width: 32px; height: 32px; padding: 0;">
+                                        <i class="bi bi-whatsapp"></i>
+                                    </a>
+                                    <a href="https://www.facebook.com/sharer/sharer.php?u={{ url_for('edification.study_detail', id=study.id, _external=True) }}" target="_blank" class="btn btn-sm btn-primary rounded-circle" style="width: 32px; height: 32px; padding: 0;">
+                                        <i class="bi bi-facebook"></i>
+                                    </a>
+                                    <button onclick="copyLink()" class="btn btn-sm btn-outline-secondary rounded-circle" style="width: 32px; height: 32px; padding: 0;">
+                                        <i class="bi bi-link"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="text-end">
+                                <small class="text-muted d-block">Estudo para edificação do corpo de Cristo</small>
+                                <small class="text-muted fst-italic">"Examinai as Escrituras"</small>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
+            
+            <!-- Seção de Estudos Relacionados -->
+            {% if related_studies %}
+            <div class="card border-0 shadow-sm rounded-4 mt-4">
+                <div class="card-header bg-transparent border-0 p-4 pb-0">
+                    <h5 class="fw-bold mb-0">
+                        <i class="bi bi-diagram-3 me-2 text-primary"></i>Estudos Relacionados
+                    </h5>
+                </div>
+                <div class="card-body p-4 pt-2">
+                    <div class="row g-3">
+                        {% for related in related_studies %}
+                        <div class="col-md-6">
+                            <a href="{{ url_for('edification.study_detail', id=related.id) }}" class="text-decoration-none">
+                                <div class="d-flex gap-3 align-items-center p-3 bg-light rounded-3 hover-bg transition">
+                                    <i class="bi bi-journal-bookmark-fill text-primary fs-3"></i>
+                                    <div>
+                                        <h6 class="fw-bold mb-1 text-dark">{{ related.title }}</h6>
+                                        <small class="text-muted">{{ related.created_at.strftime('%d/%m/%Y') }}</small>
+                                    </div>
+                                </div>
+                            </a>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Sidebar Direita -->
+        <div class="col-lg-4">
+            <!-- Informações do Estudo -->
+            <div class="card border-0 shadow-sm rounded-4 mb-4">
+                <div class="card-header bg-transparent border-0 p-4 pb-0">
+                    <h6 class="fw-bold mb-0"><i class="bi bi-info-circle me-2 text-primary"></i>Informações</h6>
+                </div>
+                <div class="card-body p-4 pt-2">
+                    <ul class="list-unstyled mb-0">
+                        <li class="mb-3 d-flex justify-content-between">
+                            <span class="text-muted">Publicado em:</span>
+                            <span class="fw-medium">{{ study.created_at.strftime('%d/%m/%Y') }}</span>
+                        </li>
+                        <li class="mb-3 d-flex justify-content-between">
+                            <span class="text-muted">Categoria:</span>
+                            <span class="badge bg-primary bg-opacity-10 text-primary">{{ study.category or 'Geral' }}</span>
+                        </li>
+                        <li class="mb-3 d-flex justify-content-between">
+                            <span class="text-muted">Questões:</span>
+                            <span class="fw-medium">{{ study.questions|selectattr('is_published')|list|length }} publicadas</span>
+                        </li>
+                        <li class="d-flex justify-content-between">
+                            <span class="text-muted">Autor:</span>
+                            <span class="fw-medium">{{ study.author.name if study.author else 'Administrador' }}</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- QUIZ INTERATIVO CORRIGIDO -->
+            {% set published_questions = study.questions|selectattr('is_published')|list %}
+            {% if published_questions %}
+            <div class="card border-0 shadow-sm rounded-4">
+                <div class="card-header bg-transparent border-0 p-4 pb-0">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="fw-bold mb-0">
+                                <i class="bi bi-question-circle me-2 text-success"></i>Quiz Interativo
+                            </h6>
+                            <p class="text-muted small mt-1">Teste seus conhecimentos</p>
+                        </div>
+                        <span class="badge bg-success bg-opacity-10 text-success" id="quiz-score-badge">0/{{ published_questions|length }}</span>
+                    </div>
+                </div>
+                <div class="card-body p-4 pt-2">
+                    <div id="quiz-container">
+                        <div id="quiz-question" class="mb-4"></div>
+                        <div id="quiz-options" class="mb-4"></div>
+                        <div id="quiz-feedback" class="mb-3"></div>
+                        <div class="d-flex justify-content-between gap-2">
+                            <button id="prev-btn" class="btn btn-outline-secondary rounded-pill px-3" disabled>
+                                <i class="bi bi-chevron-left me-1"></i> Anterior
+                            </button>
+                            <button id="next-btn" class="btn btn-primary rounded-pill px-4">
+                                Próxima <i class="bi bi-chevron-right ms-1"></i>
+                            </button>
+                            <button id="submit-btn" class="btn btn-success rounded-pill px-4" style="display: none;">
+                                <i class="bi bi-check-lg me-1"></i> Finalizar
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Resultado Final com Resumo Detalhado -->
+                    <div id="quiz-result" style="display: none;">
+                        <div class="text-center mb-4">
+                            <div class="mb-3">
+                                <i class="bi bi-trophy-fill text-warning display-4"></i>
+                            </div>
+                            <h5 class="fw-bold mb-2">Quiz Concluído!</h5>
+                            <p class="mb-2">Você acertou <strong id="final-score">0</strong> de <strong id="total-questions">0</strong> questões</p>
+                            <div class="progress mb-3" style="height: 10px;">
+                                <div id="final-progress" class="progress-bar bg-success" style="width: 0%"></div>
+                            </div>
+                            <p id="final-message" class="small text-muted"></p>
+                            <button id="restart-quiz" class="btn btn-outline-primary rounded-pill px-3 mt-2">
+                                <i class="bi bi-arrow-repeat me-1"></i> Refazer Quiz
+                            </button>
+                        </div>
+                        
+                        <!-- Resumo Detalhado das Questões -->
+                        <div class="mt-4">
+                            <h6 class="fw-bold mb-3">
+                                <i class="bi bi-list-check me-2 text-primary"></i>Resumo das Questões
+                            </h6>
+                            <div id="questions-summary" class="accordion" id="summaryAccordion">
+                                <!-- Resumo será preenchido dinamicamente -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
         </div>
     </div>
 </div>
 
+<style>
+.study-content {
+    font-size: 1.1rem;
+    line-height: 1.8;
+    color: #334155;
+}
+.study-content h2, .study-content h3 {
+    margin-top: 1.5rem;
+    margin-bottom: 1rem;
+    font-weight: 700;
+}
+.study-content p {
+    margin-bottom: 1.25rem;
+}
+.study-content img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 0.75rem;
+    margin: 1rem 0;
+}
+.hover-bg:hover {
+    background-color: #e2e8f0 !important;
+}
+.transition {
+    transition: all 0.2s ease;
+}
+.bg-opacity-20 {
+    --bs-bg-opacity: 0.2;
+}
+.quiz-option {
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+.quiz-option:hover:not(.disabled) {
+    background-color: #e2e8f0 !important;
+    transform: translateX(5px);
+}
+.quiz-option.correct-review {
+    background-color: #d1fae5 !important;
+    border-color: #10b981 !important;
+}
+.quiz-option.incorrect-review {
+    background-color: #fee2e2 !important;
+    border-color: #ef4444 !important;
+}
+.quiz-option.disabled {
+    cursor: default;
+    opacity: 0.7;
+}
+.summary-item-correct {
+    border-left: 4px solid #10b981 !important;
+}
+.summary-item-incorrect {
+    border-left: 4px solid #ef4444 !important;
+}
+</style>
+
 <script>
-// Verificar se todas as questões foram respondidas
-function checkAllQuestionsAnswered() {
-    const totalQuestions = {{ published_questions|length }};
-    const radios = document.querySelectorAll('.question-radio');
-    const answeredQuestions = new Set();
+// Dados do Quiz (convertendo correct_option para letra)
+const questions = [
+    {% for q in published_questions %}
+    {
+        id: {{ q.id }},
+        text: {{ q.question_text|tojson }},
+        options: {{ q.options|from_json|tojson if q.options else {} }},
+        correct: {{ q.correct_option|tojson }},
+        explanation: {{ q.explanation|tojson if q.explanation else '' }}
+    },
+    {% endfor %}
+];
+
+// Mapeamento de números para letras (se necessário)
+function normalizeCorrectAnswer(correct) {
+    // Se for número (1,2,3,4), converter para letra (A,B,C,D)
+    if (typeof correct === 'number' || !isNaN(parseInt(correct))) {
+        const num = parseInt(correct);
+        const mapping = {1: 'A', 2: 'B', 3: 'C', 4: 'D'};
+        return mapping[num] || correct;
+    }
+    // Se já for letra, retornar em maiúsculo
+    return String(correct).toUpperCase();
+}
+
+// Normalizar todas as questões
+for (let q of questions) {
+    q.correct = normalizeCorrectAnswer(q.correct);
+}
+
+let currentIndex = 0;
+let userAnswers = new Array(questions.length).fill(null);
+let quizCompleted = false;
+
+// Função para renderizar a pergunta atual
+function renderQuestion() {
+    if (quizCompleted) return;
     
-    radios.forEach(radio => {
-        if (radio.checked) {
-            answeredQuestions.add(radio.dataset.questionId);
+    const question = questions[currentIndex];
+    const container = document.getElementById('quiz-question');
+    const optionsContainer = document.getElementById('quiz-options');
+    
+    // Renderizar pergunta
+    container.innerHTML = `
+        <div class="mb-3">
+            <span class="badge bg-primary bg-opacity-10 text-primary rounded-pill px-3 py-1 mb-2">
+                Questão ${currentIndex + 1} de ${questions.length}
+            </span>
+            <h6 class="fw-bold mb-0">${escapeHtml(question.text)}</h6>
+        </div>
+    `;
+    
+    // Renderizar opções
+    let optionsHtml = '<div class="list-group">';
+    for (const [key, value] of Object.entries(question.options)) {
+        const isSelected = userAnswers[currentIndex] === key;
+        const selectedClass = isSelected ? 'border-primary bg-primary bg-opacity-10' : '';
+        
+        optionsHtml += `
+            <button class="list-group-item list-group-item-action quiz-option mb-2 rounded-3 border ${selectedClass}" 
+                    data-option="${key}">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="fw-bold bg-light rounded-circle" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;">
+                        ${key}
+                    </div>
+                    <div class="flex-grow-1">${escapeHtml(value)}</div>
+                    ${isSelected ? '<i class="bi bi-check-circle-fill text-primary fs-5"></i>' : ''}
+                </div>
+            </button>
+        `;
+    }
+    optionsHtml += '</div>';
+    optionsContainer.innerHTML = optionsHtml;
+    
+    // Adicionar event listeners para as opções
+    document.querySelectorAll('.quiz-option').forEach(btn => {
+        btn.addEventListener('click', () => selectOption(btn.getAttribute('data-option')));
+    });
+    
+    // Atualizar botões de navegação
+    updateNavigationButtons();
+}
+
+// Função para escapar HTML
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// Função para selecionar uma opção
+function selectOption(option) {
+    if (quizCompleted) return;
+    
+    // Salvar resposta
+    userAnswers[currentIndex] = option;
+    
+    // Atualizar UI da opção selecionada
+    document.querySelectorAll('.quiz-option').forEach(btn => {
+        const btnOption = btn.getAttribute('data-option');
+        btn.classList.remove('border-primary', 'bg-primary', 'bg-opacity-10');
+        const checkIcon = btn.querySelector('.bi-check-circle-fill');
+        if (checkIcon) checkIcon.remove();
+        
+        if (btnOption === option) {
+            btn.classList.add('border-primary', 'bg-primary', 'bg-opacity-10');
+            const div = btn.querySelector('.d-flex');
+            if (div && !btn.querySelector('.bi-check-circle-fill')) {
+                div.innerHTML += '<i class="bi bi-check-circle-fill text-primary fs-5"></i>';
+            }
         }
     });
     
-    const answeredCount = answeredQuestions.size;
-    const btn = document.getElementById('btn-toggle');
-    const answeredSpan = document.getElementById('answeredCount');
+    // Atualizar badge de pontuação
+    updateScoreBadge();
+}
+
+// Função para atualizar botões de navegação
+function updateNavigationButtons() {
+    const prevBtn = document.getElementById('prev-btn');
+    const nextBtn = document.getElementById('next-btn');
+    const submitBtn = document.getElementById('submit-btn');
     
-    // Atualizar contador
-    if (answeredSpan) {
-        answeredSpan.textContent = `${answeredCount}/${totalQuestions} respondidas`;
-    }
+    prevBtn.disabled = currentIndex === 0;
     
-    // Habilitar/desabilitar botão
-    if (answeredCount === totalQuestions && totalQuestions > 0) {
-        btn.disabled = false;
-        btn.classList.remove('btn-secondary');
-        btn.classList.add('btn-primary');
+    if (currentIndex === questions.length - 1) {
+        nextBtn.style.display = 'none';
+        submitBtn.style.display = 'inline-flex';
     } else {
-        btn.disabled = true;
-        btn.classList.add('btn-secondary');
-        btn.classList.remove('btn-primary');
+        nextBtn.style.display = 'inline-flex';
+        submitBtn.style.display = 'none';
     }
 }
 
-// Adicionar event listeners para todos os radios
-document.addEventListener('DOMContentLoaded', function() {
-    const radios = document.querySelectorAll('.question-radio');
-    radios.forEach(radio => {
-        radio.addEventListener('change', checkAllQuestionsAnswered);
-    });
+// Função para atualizar badge
+function updateScoreBadge() {
+    const answered = userAnswers.filter(a => a !== null).length;
+    const badge = document.getElementById('quiz-score-badge');
+    if (badge) {
+        badge.textContent = `${answered}/${questions.length}`;
+    }
+}
+
+// Função para calcular resultado final (comparação correta)
+function calculateResults() {
+    const results = [];
+    let correctCount = 0;
     
-    // Verificar estado inicial
-    checkAllQuestionsAnswered();
+    for (let i = 0; i < questions.length; i++) {
+        const q = questions[i];
+        const userAnswer = userAnswers[i];
+        const isCorrect = userAnswer === q.correct;
+        
+        if (isCorrect) {
+            correctCount++;
+        }
+        
+        results.push({
+            questionIndex: i,
+            questionText: q.text,
+            userAnswer: userAnswer,
+            correctAnswer: q.correct,
+            isCorrect: isCorrect,
+            explanation: q.explanation,
+            options: q.options
+        });
+    }
+    
+    return { correctCount, results, total: questions.length };
+}
+
+// Função para mostrar resultado final com resumo detalhado
+function showResult() {
+    quizCompleted = true;
+    const { correctCount, results, total } = calculateResults();
+    const percentage = (correctCount / total) * 100;
+    
+    // Esconder quiz, mostrar resultado
+    document.getElementById('quiz-container').style.display = 'none';
+    document.getElementById('quiz-result').style.display = 'block';
+    
+    document.getElementById('final-score').textContent = `${correctCount}/${total}`;
+    document.getElementById('total-questions').textContent = total;
+    document.getElementById('final-progress').style.width = `${percentage}%`;
+    
+    // Mensagem personalizada
+    let message = '';
+    if (percentage === 100) {
+        message = '🎉 Excelente! Você dominou completamente este estudo! Continue assim!';
+    } else if (percentage >= 70) {
+        message = '👍 Muito bom! Você tem um bom entendimento do estudo. Revise os pontos que errou.';
+    } else if (percentage >= 50) {
+        message = '📖 Bom! Continue estudando e revise o conteúdo para fixar melhor.';
+    } else {
+        message = '📚 Que tal reler o estudo e tentar novamente? O aprendizado é uma jornada contínua!';
+    }
+    document.getElementById('final-message').textContent = message;
+    
+    // Gerar resumo detalhado
+    generateSummary(results);
+}
+
+// Função para gerar resumo das questões
+function generateSummary(results) {
+    const summaryContainer = document.getElementById('questions-summary');
+    let summaryHtml = '';
+    
+    for (let i = 0; i < results.length; i++) {
+        const r = results[i];
+        const statusIcon = r.isCorrect ? 
+            '<i class="bi bi-check-circle-fill text-success"></i>' : 
+            '<i class="bi bi-x-circle-fill text-danger"></i>';
+        const statusClass = r.isCorrect ? 'summary-item-correct' : 'summary-item-incorrect';
+        
+        // Encontrar o texto da resposta do usuário e da correta
+        const userAnswerText = r.userAnswer ? (r.options[r.userAnswer] || 'Não respondida') : 'Não respondida';
+        const correctAnswerText = r.options[r.correctAnswer] || r.correctAnswer;
+        
+        summaryHtml += `
+            <div class="card border-0 shadow-sm mb-3 rounded-3 ${statusClass}">
+                <div class="card-header bg-transparent d-flex justify-content-between align-items-center">
+                    <div>
+                        ${statusIcon}
+                        <strong class="ms-2">Questão ${i + 1}</strong>
+                    </div>
+                    <span class="badge ${r.isCorrect ? 'bg-success' : 'bg-danger'} bg-opacity-10 ${r.isCorrect ? 'text-success' : 'text-danger'} rounded-pill">
+                        ${r.isCorrect ? 'Correta' : 'Incorreta'}
+                    </span>
+                </div>
+                <div class="card-body">
+                    <p class="fw-bold mb-2">${escapeHtml(r.questionText)}</p>
+                    
+                    <div class="row g-3 mt-1">
+                        <div class="col-md-6">
+                            <div class="bg-light rounded-3 p-2">
+                                <small class="text-muted d-block mb-1">Sua resposta:</small>
+                                <span class="${r.isCorrect ? 'text-success' : 'text-danger'} fw-medium">
+                                    ${r.userAnswer ? `${r.userAnswer}. ${escapeHtml(userAnswerText)}` : 'Não respondida'}
+                                </span>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="bg-light rounded-3 p-2">
+                                <small class="text-muted d-block mb-1">Resposta correta:</small>
+                                <span class="text-success fw-medium">
+                                    ${r.correctAnswer}. ${escapeHtml(correctAnswerText)}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    ${r.explanation ? `
+                    <div class="mt-3 pt-2 border-top">
+                        <small class="text-muted fw-bold d-block mb-1">📖 Explicação:</small>
+                        <p class="small mb-0">${escapeHtml(r.explanation)}</p>
+                    </div>
+                    ` : ''}
+                </div>
+            </div>
+        `;
+    }
+    
+    summaryContainer.innerHTML = summaryHtml;
+}
+
+// Navegação
+document.getElementById('prev-btn').addEventListener('click', () => {
+    if (currentIndex > 0 && !quizCompleted) {
+        currentIndex--;
+        renderQuestion();
+    }
 });
 
-function toggleAnswers() {
-    const sections = document.querySelectorAll('.answer-section');
-    const btn = document.getElementById('btn-toggle');
-    const isShowing = btn.getAttribute('data-showing') === 'true';
-    
-    const correctMap = { '1': 'A', '2': 'B', '3': 'C', '4': 'D', 1: 'A', 2: 'B', 3: 'C', 4: 'D' };
+document.getElementById('next-btn').addEventListener('click', () => {
+    if (currentIndex < questions.length - 1 && !quizCompleted) {
+        currentIndex++;
+        renderQuestion();
+    }
+});
 
-    sections.forEach(section => {
-        const qId = section.id.replace('answer-', '');
-        const selected = document.querySelector(`input[name="q${qId}"]:checked`);
-        const feedbackDiv = section.querySelector('.p-3');
-        
-        if (!isShowing) {
-            section.classList.remove('d-none');
-            
-            // Lógica de correção visual
-            if (selected) {
-                const selectedValue = selected.value;
-                // O texto da resposta correta está dentro do span
-                const correctText = feedbackDiv.querySelector('span').textContent;
-                let correctLetter = correctText.split(':').pop().trim();
-                
-                // Normalizar se for número
-                if (correctMap[correctLetter]) {
-                    correctLetter = correctMap[correctLetter];
-                }
-
-                if (selectedValue === correctLetter) {
-                    feedbackDiv.classList.replace('border-success', 'border-success');
-                    feedbackDiv.style.backgroundColor = '#d4edda'; // Verde claro
-                } else {
-                    feedbackDiv.classList.replace('border-success', 'border-danger');
-                    feedbackDiv.style.backgroundColor = '#f8d7da'; // Vermelho claro
-                    
-                    // Adicionar indicação de que errou
-                    if (!feedbackDiv.querySelector('.user-feedback')) {
-                        const userFeedback = document.createElement('p');
-                        userFeedback.className = 'user-feedback text-danger fw-bold mb-1 small';
-                        userFeedback.innerHTML = `<i class="bi bi-x-circle-fill me-1"></i>Sua resposta: ${selectedValue}`;
-                        feedbackDiv.insertBefore(userFeedback, feedbackDiv.firstChild);
-                    }
-                }
-            } else {
-                feedbackDiv.style.backgroundColor = '#fff3cd'; // Amarelo claro (não respondida)
-            }
-        } else {
-            section.classList.add('d-none');
-            // Limpar feedbacks anteriores ao esconder
-            feedbackDiv.style.backgroundColor = '';
-            feedbackDiv.classList.replace('border-danger', 'border-success');
-            const userFeedback = feedbackDiv.querySelector('.user-feedback');
-            if (userFeedback) userFeedback.remove();
+document.getElementById('submit-btn').addEventListener('click', () => {
+    const unanswered = userAnswers.filter(a => a === null).length;
+    if (unanswered > 0) {
+        if (confirm(`Você ainda não respondeu ${unanswered} questão(ões). Deseja finalizar mesmo assim?`)) {
+            showResult();
         }
-    });
-
-    if (!isShowing) {
-        btn.innerHTML = '<i class="bi bi-eye-slash me-2"></i>Ocultar Gabarito';
-        btn.setAttribute('data-showing', 'true');
-        btn.classList.replace('btn-primary', 'btn-secondary');
     } else {
-        btn.innerHTML = '<i class="bi bi-eye me-2"></i>Ver Gabarito';
-        btn.setAttribute('data-showing', 'false');
-        btn.classList.replace('btn-secondary', 'btn-primary');
+        showResult();
+    }
+});
+
+document.getElementById('restart-quiz').addEventListener('click', () => {
+    // Resetar quiz
+    userAnswers = new Array(questions.length).fill(null);
+    currentIndex = 0;
+    quizCompleted = false;
+    
+    document.getElementById('quiz-container').style.display = 'block';
+    document.getElementById('quiz-result').style.display = 'none';
+    
+    renderQuestion();
+    updateScoreBadge();
+});
+
+// Função para copiar link
+function copyLink() {
+    navigator.clipboard.writeText(window.location.href);
+    alert('Link copiado para a área de transferência!');
+}
+
+// Inicializar quiz
+document.addEventListener('DOMContentLoaded', () => {
+    if (questions.length > 0) {
+        renderQuestion();
+        updateScoreBadge();
+    }
+});
+</script>
+<style>
+/* ... estilos existentes ... */
+
+/* 🔥 ESTILOS PARA CONTEÚDO MARKDOWN */
+.study-content {
+    font-size: 1.1rem;
+    line-height: 1.8;
+    color: #334155;
+}
+
+/* Títulos */
+.study-content h1 {
+    font-size: 2rem;
+    font-weight: 700;
+    margin-top: 2rem;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid #e2e8f0;
+}
+.study-content h2 {
+    font-size: 1.75rem;
+    font-weight: 700;
+    margin-top: 1.75rem;
+    margin-bottom: 0.875rem;
+    color: #1e293b;
+}
+.study-content h3 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin-top: 1.5rem;
+    margin-bottom: 0.75rem;
+    color: #2d3748;
+}
+.study-content h4 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-top: 1.25rem;
+    margin-bottom: 0.5rem;
+    color: #4a5568;
+}
+.study-content h5, .study-content h6 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-top: 1rem;
+    margin-bottom: 0.5rem;
+}
+
+/* Parágrafos */
+.study-content p {
+    margin-bottom: 1.25rem;
+}
+
+/* Listas */
+.study-content ul, .study-content ol {
+    margin-bottom: 1.25rem;
+    padding-left: 1.75rem;
+}
+.study-content li {
+    margin-bottom: 0.5rem;
+}
+.study-content ul li {
+    list-style-type: disc;
+}
+.study-content ol li {
+    list-style-type: decimal;
+}
+
+/* Citações */
+.study-content blockquote {
+    border-left: 4px solid #4f46e5;
+    background-color: #f8fafc;
+    padding: 1rem 1.5rem;
+    margin: 1.5rem 0;
+    border-radius: 0.5rem;
+    font-style: italic;
+    color: #475569;
+}
+.study-content blockquote p {
+    margin-bottom: 0;
+}
+
+/* Código */
+.study-content code {
+    background-color: #f1f5f9;
+    padding: 0.2rem 0.4rem;
+    border-radius: 0.25rem;
+    font-family: 'Courier New', monospace;
+    font-size: 0.9em;
+    color: #e11d48;
+}
+.study-content pre {
+    background-color: #1e293b;
+    color: #e2e8f0;
+    padding: 1rem;
+    border-radius: 0.5rem;
+    overflow-x: auto;
+    margin: 1.5rem 0;
+}
+.study-content pre code {
+    background-color: transparent;
+    color: inherit;
+    padding: 0;
+}
+
+/* Tabelas */
+.study-content table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1.5rem 0;
+}
+.study-content th,
+.study-content td {
+    border: 1px solid #e2e8f0;
+    padding: 0.75rem;
+    text-align: left;
+}
+.study-content th {
+    background-color: #f8fafc;
+    font-weight: 600;
+}
+.study-content tr:nth-child(even) {
+    background-color: #f8fafc;
+}
+
+/* Links */
+.study-content a {
+    color: #4f46e5;
+    text-decoration: none;
+    border-bottom: 1px dashed #4f46e5;
+}
+.study-content a:hover {
+    color: #4338ca;
+    border-bottom: 1px solid #4338ca;
+}
+
+/* Imagens */
+.study-content img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 0.75rem;
+    margin: 1.5rem 0;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+/* Destaque */
+.study-content mark {
+    background-color: #fef08a;
+    padding: 0.1rem 0.2rem;
+    border-radius: 0.25rem;
+}
+
+/* Linha horizontal */
+.study-content hr {
+    margin: 2rem 0;
+    border: 0;
+    height: 1px;
+    background: linear-gradient(to right, #e2e8f0, transparent);
+}
+
+/* Notas/Alertas usando blockquote com classe */
+.study-content blockquote.note {
+    background-color: #e0f2fe;
+    border-left-color: #0284c7;
+    color: #0c4a6e;
+}
+.study-content blockquote.warning {
+    background-color: #fed7aa;
+    border-left-color: #ea580c;
+    color: #7c2d12;
+}
+.study-content blockquote.tip {
+    background-color: #d1fae5;
+    border-left-color: #059669;
+    color: #064e3b;
+}
+
+/* Responsividade */
+@media (max-width: 768px) {
+    .study-content {
+        font-size: 1rem;
+        line-height: 1.6;
+    }
+    .study-content h1 { font-size: 1.75rem; }
+    .study-content h2 { font-size: 1.5rem; }
+    .study-content h3 { font-size: 1.35rem; }
+    .study-content h4 { font-size: 1.2rem; }
+    
+    .study-content pre {
+        font-size: 0.85rem;
+    }
+    
+    .study-content table {
+        display: block;
+        overflow-x: auto;
     }
 }
-</script>
+</style>
 {% endblock %}

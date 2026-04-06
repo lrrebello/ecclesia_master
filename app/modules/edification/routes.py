@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app, jsonify
 from flask_login import login_required, current_user
-from app.core.models import db, Devotional, Study, KidsActivity, StudyQuestion, Media, Ministry, Album, BibleStory, BibleQuiz
+from app.core.models import db, Devotional, Study, KidsActivity, StudyQuestion, Media, Ministry, Album, BibleStory, BibleQuiz, User
 from app.utils.logger import log_action
 from datetime import datetime
 from PIL import Image
@@ -10,6 +10,30 @@ import json
 import pillow_heif
 from app.utils.text_extractor import extract_text
 from app.utils.gemini_service import generate_questions
+import markdown
+import bleach
+
+# Lista de tags HTML permitidas (segurança)
+ALLOWED_TAGS = [
+    'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+    'p', 'br', 'hr',
+    'strong', 'b', 'em', 'i', 'u', 'mark',
+    'ul', 'ol', 'li',
+    'a', 'img',
+    'blockquote', 'pre', 'code',
+    'table', 'thead', 'tbody', 'tr', 'th', 'td',
+    'div', 'span'
+]
+
+# Atributos permitidos
+ALLOWED_ATTRIBUTES = {
+    'a': ['href', 'title', 'target'],
+    'img': ['src', 'alt', 'title', 'width', 'height'],
+    'div': ['class'],
+    'span': ['class'],
+    'code': ['class'],
+    'pre': ['class']
+}
 
 # Registra suporte a HEIC
 pillow_heif.register_heif_opener()
@@ -260,14 +284,89 @@ def delete_devotional(id):
 @edification_bp.route('/studies')
 @login_required
 def studies():
-    studies = Study.query.order_by(Study.created_at.desc()).all()
-    return render_template('edification/studies.html', studies=studies)
+    # Parâmetros de busca
+    search = request.args.get('search', '')
+    category = request.args.get('category', '')
+    page = request.args.get('page', 1, type=int)
+    per_page = 9
+    
+    query = Study.query
+    
+    if search:
+        # 🔥 CORREÇÃO: Remover busca por autor que causa erro
+        query = query.filter(
+            or_(
+                Study.title.ilike(f'%{search}%'),
+                Study.content.ilike(f'%{search}%')
+            )
+        )
+    
+    if category:
+        query = query.filter(Study.category == category)
+    
+    # Ordenar por data decrescente
+    query = query.order_by(Study.created_at.desc())
+    
+    # Paginação
+    pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+    studies = pagination.items
+    
+    # Obter categorias únicas para o filtro
+    categories = db.session.query(Study.category).distinct().filter(Study.category.isnot(None)).all()
+    categories = [c[0] for c in categories if c[0]]
+    
+    # Estatísticas
+    total_reads = 0  # Implementar se tiver contador de visualizações
+    total_questions = StudyQuestion.query.filter_by(is_published=True).count()
+    recent_count = Study.query.filter(
+        Study.created_at >= datetime.now().replace(day=1)
+    ).count()
+    
+    return render_template('edification/studies.html', 
+                         studies=studies,
+                         categories=categories,
+                         pagination=pagination,
+                         total_reads=total_reads,
+                         total_questions=total_questions,
+                         recent_count=recent_count)
 
 @edification_bp.route('/study/<int:id>')
 @login_required
 def study_detail(id):
     study = Study.query.get_or_404(id)
-    return render_template('edification/study_detail.html', study=study)
+    
+    # Buscar estudos relacionados
+    related_studies = Study.query.filter(
+        Study.category == study.category,
+        Study.id != study.id
+    ).order_by(Study.created_at.desc()).limit(3).all()
+    
+    # 🔥 CONVERTER CONTEÚDO DE MARKDOWN PARA HTML
+    if study.content:
+        # Configurações do markdown
+        md = markdown.Markdown(extensions=[
+            'extra',
+            'fenced_code',
+            'tables',
+            'nl2br'
+        ])
+        html_content = md.convert(study.content)
+        
+        # Sanitizar HTML por segurança
+        content_html = bleach.clean(
+            html_content,
+            tags=ALLOWED_TAGS,
+            attributes=ALLOWED_ATTRIBUTES,
+            strip=True
+        )
+        
+    else:
+        content_html = '<p>Nenhum conteúdo disponível.</p>'
+    
+    return render_template('edification/study_detail.html', 
+                         study=study, 
+                         content_html=content_html,
+                         related_studies=related_studies)
 
 @edification_bp.route('/study/add', methods=['GET', 'POST'])
 @login_required
