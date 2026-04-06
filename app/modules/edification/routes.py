@@ -1349,19 +1349,20 @@ def hangman():
     story_id = request.args.get('story_id')
     story = None
     game_data = []
+    hints_data = {}  # Dicionário de palavra -> dica
     
     if story_id:
         story = BibleStory.query.get_or_404(int(story_id))
         if story.game_data:
             try:
                 data = json.loads(story.game_data) if isinstance(story.game_data, str) else story.game_data
-                # Extrair apenas as palavras (strings) do formato do caça-palavras
                 if data and isinstance(data, list):
                     if len(data) > 0 and isinstance(data[0], dict) and 'word' in data[0]:
-                        # Formato: [{"word": "DAVI", "hint": ""}, ...]
+                        # Formato com hint
                         game_data = [remover_acentos(item['word'].upper()) for item in data if item.get('word')]
+                        hints_data = {remover_acentos(item['word'].upper()): item.get('hint', '') for item in data if item.get('word')}
                     elif isinstance(data[0], str):
-                        # Formato simples: ["PALAVRA1", "PALAVRA2"]
+                        # Formato simples
                         game_data = [remover_acentos(w.upper()) for w in data]
             except Exception:
                 pass
@@ -1373,6 +1374,7 @@ def hangman():
                 if data and isinstance(data, list):
                     if len(data) > 0 and isinstance(data[0], dict) and 'word' in data[0]:
                         game_data = [remover_acentos(item['word'].upper()) for item in data if item.get('word')]
+                        hints_data = {remover_acentos(item['word'].upper()): item.get('hint', '') for item in data if item.get('word')}
                     elif isinstance(data[0], str):
                         game_data = [remover_acentos(w.upper()) for w in data]
             except Exception:
@@ -1380,7 +1382,8 @@ def hangman():
     
     return render_template('edification/kids_hangman.html', 
                          story=story, 
-                         game_data=game_data)
+                         game_data=game_data,
+                         hints_data=hints_data)
 
 # ============================================
 # API ROTAS

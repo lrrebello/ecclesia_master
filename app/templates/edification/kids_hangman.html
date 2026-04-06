@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="container py-4">
-    <!-- 🔥 BOTÃO VOLTAR -->
+    <!-- Botão Voltar -->
     <div class="mb-4">
         <a href="{{ url_for('edification.kids') }}" class="btn btn-outline-secondary rounded-pill">
             <i class="bi bi-arrow-left me-2"></i> Voltar para Espaço Kids
@@ -11,6 +11,7 @@
     <div class="row justify-content-center">
         <div class="col-lg-6">
             <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+                <div class="card-header bg-primary text-white p-4 border-0 text-center">
                     <h3 class="fw-bold mb-0">🙈 Jogo da Forca</h3>
                     <p class="mb-0 opacity-75">{{ story.title if story else 'História Bíblica' }}</p>
                 </div>
@@ -18,6 +19,14 @@
                     <!-- Forca Canvas -->
                     <div class="mb-4">
                         <canvas id="hangmanCanvas" width="300" height="250" class="mx-auto d-block border rounded-3 bg-light"></canvas>
+                    </div>
+                    
+                    <!-- DICA DA PALAVRA -->
+                    <div class="mb-3">
+                        <div class="alert alert-info py-2 px-3 mb-2 d-inline-flex align-items-center gap-2">
+                            <i class="bi bi-lightbulb-fill text-warning"></i>
+                            <span id="wordHint" class="small fw-bold">Carregando dica...</span>
+                        </div>
                     </div>
                     
                     <!-- Palavra oculta -->
@@ -34,6 +43,13 @@
                     <!-- Teclado virtual -->
                     <div id="keyboard" class="d-flex flex-wrap justify-content-center gap-2 mb-4"></div>
                     
+                    <!-- Botão de Dica -->
+                    <div class="mb-3">
+                        <button id="hintBtn" class="btn btn-outline-warning rounded-pill px-3" onclick="showHint()">
+                            <i class="bi bi-lightbulb me-2"></i> Pedir Dica
+                        </button>
+                    </div>
+                    
                     <!-- Mensagem de fim de jogo -->
                     <div id="gameMessage" class="alert" style="display: none;"></div>
                     
@@ -47,13 +63,71 @@
 </div>
 
 <script>
-    // Processar game_data vindo do backend
+    // ============================================
+    // DICIONÁRIO DE DICAS PARA PALAVRAS BÍBLICAS
+    // ============================================
+    const dicasComuns = {
+        "BIBLIA": "Livro sagrado dos cristãos, dividido em Antigo e Novo Testamento",
+        "DEUS": "Criador do universo, todo-poderoso e amoroso",
+        "JESUS": "Filho de Deus, nascido em Belém, morreu na cruz por nossos pecados",
+        "AMOR": "Sentimento que Deus tem por nós e devemos ter uns pelos outros",
+        "FE": "Crer em Deus mesmo sem ver",
+        "GRACA": "Favor imerecido de Deus por nós",
+        "SALVACAO": "Jesus morreu para nos salvar do pecado",
+        "ORACAO": "Conversa com Deus",
+        "IGREJA": "Casa de Deus, reunião dos cristãos",
+        "CRISTO": "Messias, Salvador prometido na Bíblia",
+        "DAVI": "Menino pastor que derrotou Golias e virou rei de Israel",
+        "GOLIAS": "Gigante derrotado por Davi com uma pedra e funda",
+        "MOISES": "Líder que tirou o povo de Israel do Egito",
+        "NOE": "Construiu uma arca e salvou sua família do dilúvio",
+        "JOSE": "Filho de Jacó, foi vendido como escravo e virou governador do Egito",
+        "ABRAÃO": "Pai da fé, chamado por Deus para formar uma grande nação",
+        "SALMAO": "Rei mais sábio de Israel, construiu o templo de Jerusalém",
+        "PEDRO": "Apóstolo, pescador, negou Jesus mas foi perdoado",
+        "PAULO": "Apóstolo que escreveu muitas cartas no Novo Testamento",
+        "MARIA": "Mãe de Jesus, escolhida por Deus",
+        "JOAO": "Apóstolo amado, batizou Jesus",
+        "ANJOS": "Mensageiros de Deus",
+        "CEU": "Morada de Deus",
+        "PECADO": "Tudo que desagrada a Deus",
+        "PERDAO": "Deus nos perdoa quando nos arrependemos",
+        "ARCA": "Grande embarcação construída por Noé para salvar sua família e os animais",
+        "MANA": "Alimento que Deus enviou do céu para o povo de Israel no deserto",
+        "SARA": "Esposa de Abraão, mãe de Isaque",
+        "RUTE": "Mulher moabita que se tornou bisavó do rei Davi",
+        "ESTER": "Rainha que salvou o povo judeu da destruição",
+        "JONAS": "Profeta que foi engolido por um grande peixe",
+        "ELIAS": "Profeta que foi levado ao céu numa carruagem de fogo",
+        "ELISEU": "Profeta que sucedeu Elias e realizou muitos milagres",
+        "ISAIAS": "Profeta que anunciou a vinda do Messias",
+        "JEREMIAS": "Profeta conhecido como o profeta chorão",
+        "DANIEL": "Profeta que foi jogado na cova dos leões e sobreviveu",
+        "ZACARIAS": "Pai de João Batista, ficou mudo por não crer no anjo",
+        "ISABEL": "Mãe de João Batista, prima de Maria",
+        "JOSE": "Pai terreno de Jesus, carpinteiro de profissão",
+        "MAGOS": "Sábios que visitaram Jesus quando ele nasceu, levaram ouro, incenso e mirra",
+        "HERODES": "Rei que tentou matar Jesus quando ele era bebê",
+        "BETLEEM": "Cidade onde Jesus nasceu",
+        "NAZARE": "Cidade onde Jesus cresceu",
+        "GALILEIA": "Região onde Jesus realizou muitos milagres",
+        "JERUSALEM": "Cidade santa, onde Jesus foi crucificado e ressuscitou"
+    };
+    
+    // ============================================
+    // DICAS VINDAS DO BACKEND (DAS HISTÓRIAS)
+    // ============================================
+    const hintsFromBackend = {{ hints_data|tojson }};
+    const storyTitle = "{{ story.title if story else '' }}";
+    
+    // ============================================
+    // PROCESSAR PALAVRAS DO GAME_DATA
+    // ============================================
     let wordsList = [];
     
     {% if game_data and game_data|length > 0 %}
         wordsList = {{ game_data|tojson }};
     {% else %}
-        // 🔥 FALLBACK SEM ACENTOS
         wordsList = ["BIBLIA", "DEUS", "JESUS", "AMOR", "FE", "GRACA", "SALVACAO", "ORACAO", "IGREJA", "CRISTO"];
     {% endif %}
     
@@ -64,7 +138,6 @@
     // Garantir que todas as palavras estão sem acento e maiúsculas
     wordsList = wordsList.map(word => {
         if (typeof word === 'string') {
-            // Remover acentos por segurança
             return word.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
         }
         return word;
@@ -73,15 +146,44 @@
     wordsList = wordsList.filter(word => word && word.length >= 4);
     wordsList = [...new Set(wordsList)];
     
-    console.log("Palavras disponíveis:", wordsList); // Debug temporário
-    
-    if (wordsList.length === 0) {
-        document.getElementById('gameMessage').className = 'alert alert-warning';
-        document.getElementById('gameMessage').innerHTML = 'Nenhuma palavra disponível para este jogo. Volte e escolha outra história.';
-        document.getElementById('gameMessage').style.display = 'block';
+    // ============================================
+    // FUNÇÃO INTELIGENTE PARA OBTER DICA
+    // ============================================
+    function getHint(word) {
+        // 1. Tenta no dicionário de dicas comuns
+        if (dicasComuns[word]) {
+            return dicasComuns[word];
+        }
+        
+        // 2. Tenta no dicionário vindo do backend (hints das histórias)
+        if (hintsFromBackend && hintsFromBackend[word]) {
+            return hintsFromBackend[word];
+        }
+        
+        // 3. Tenta gerar dica baseada no título da história
+        if (storyTitle) {
+            const titleWords = storyTitle.toUpperCase().split(' ');
+            if (titleWords.some(tw => word.includes(tw) || tw.includes(word))) {
+                return `Palavra relacionada à história "${storyTitle}"`;
+            }
+        }
+        
+        // 4. Dica genérica (último recurso)
+        const letras = word.split('');
+        const vogais = letras.filter(l => 'AEIOU'.includes(l));
+        const consoantes = letras.filter(l => !'AEIOU'.includes(l));
+        
+        if (vogais.length > 0 && consoantes.length > 0) {
+            return `Palavra com ${letras.length} letras, ${vogais.length} vogal(is) e ${consoantes.length} consoante(s)`;
+        }
+        return `Palavra com ${letras.length} letras relacionada à história bíblica`;
     }
     
+    // ============================================
+    // VARIÁVEIS DO JOGO
+    // ============================================
     let currentWord = "";
+    let currentHint = "";
     let guessedLetters = [];
     let wrongGuesses = [];
     let maxWrong = 6;
@@ -90,26 +192,78 @@
     const canvas = document.getElementById('hangmanCanvas');
     const ctx = canvas.getContext('2d');
     
+    // ============================================
+    // FUNÇÃO PARA PEDIR DICA (REVELA 1 LETRA)
+    // ============================================
+    function showHint() {
+        if (!gameActive) return;
+        
+        // Verificar se já acabou o jogo
+        if (!currentWord) return;
+        
+        // Encontrar letras não reveladas
+        const missingLetters = currentWord.split('').filter(l => !guessedLetters.includes(l));
+        
+        if (missingLetters.length === 0) {
+            alert('🎉 Parabéns! Você já acertou todas as letras!');
+            return;
+        }
+        
+        // Escolher uma letra aleatória não revelada
+        const randomLetter = missingLetters[Math.floor(Math.random() * missingLetters.length)];
+        
+        // Revelar a letra
+        if (!guessedLetters.includes(randomLetter)) {
+            guessedLetters.push(randomLetter);
+            displayWord();
+            
+            // Desabilitar a tecla correspondente no teclado virtual
+            const btn = document.querySelector(`[data-letter="${randomLetter}"]`);
+            if (btn) {
+                btn.disabled = true;
+                btn.classList.remove('btn-outline-primary');
+                btn.classList.add('btn-secondary', 'opacity-50');
+            }
+            
+            // Mostrar mensagem com a letra revelada
+            const hintMsg = document.getElementById('gameMessage');
+            hintMsg.className = 'alert alert-info';
+            hintMsg.innerHTML = `<i class="bi bi-lightbulb-fill me-2"></i> Dica: A letra "${randomLetter}" foi revelada!`;
+            hintMsg.style.display = 'block';
+            
+            setTimeout(() => {
+                hintMsg.style.display = 'none';
+            }, 2000);
+        }
+    }
+    
+    // ============================================
+    // FUNÇÕES DO JOGO DA FORCA
+    // ============================================
     function drawHangman(attempts) {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.strokeStyle = '#333';
         ctx.lineWidth = 2;
         
+        // Base
         ctx.beginPath();
         ctx.moveTo(50, 220);
         ctx.lineTo(250, 220);
         ctx.stroke();
         
+        // Poste vertical
         ctx.beginPath();
         ctx.moveTo(100, 220);
         ctx.lineTo(100, 30);
         ctx.stroke();
         
+        // Topo
         ctx.beginPath();
         ctx.moveTo(100, 30);
         ctx.lineTo(200, 30);
         ctx.stroke();
         
+        // Corda
         ctx.beginPath();
         ctx.moveTo(200, 30);
         ctx.lineTo(200, 60);
@@ -174,7 +328,7 @@
         if (wrongGuesses.length >= maxWrong && gameActive) {
             gameActive = false;
             document.getElementById('gameMessage').className = 'alert alert-danger';
-            document.getElementById('gameMessage').innerHTML = `<i class="bi bi-emoji-frown-fill me-2"></i> Que pena! A palavra era: <strong>${currentWord}</strong>`;
+            document.getElementById('gameMessage').innerHTML = `<i class="bi bi-emoji-frown-fill me-2"></i> Que pena! A palavra era: <strong>${currentWord}</strong><br><small class="d-block mt-1">📖 Dica: ${currentHint}</small>`;
             document.getElementById('gameMessage').style.display = 'block';
             disableKeyboard(true);
         }
@@ -234,10 +388,13 @@
         }
         
         currentWord = wordsList[Math.floor(Math.random() * wordsList.length)].toUpperCase();
-        console.log("Palavra escolhida:", currentWord); // Debug
+        currentHint = getHint(currentWord);
         guessedLetters = [];
         wrongGuesses = [];
         gameActive = true;
+        
+        // Atualizar dica na tela
+        document.getElementById('wordHint').innerHTML = `💡 ${currentHint}`;
         
         displayWord();
         updateWrongLetters();
@@ -252,7 +409,9 @@
         });
     }
     
-    // Inicializar
+    // ============================================
+    // INICIALIZAR JOGO
+    // ============================================
     createKeyboard();
     resetGame();
 </script>
