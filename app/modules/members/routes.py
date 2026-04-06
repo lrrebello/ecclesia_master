@@ -41,6 +41,10 @@ def can_manage_ministries():
 @members_bp.route('/dashboard')
 @login_required
 def dashboard():
+    from app.core.models import Media, Transaction
+    from sqlalchemy import func
+    from datetime import date
+    
     today = datetime.now().date()
     devotional = Devotional.query.filter_by(date=today).first()
     if not devotional:
@@ -52,7 +56,7 @@ def dashboard():
         (Event.church_id == current_user.church_id) & 
         ((Event.ministry_id == None) | (Event.ministry_id.in_(ministry_ids))) &
         (Event.start_time >= datetime.now()) &
-        (Event.start_time <= week_later)  # ← FILTRO DOS PRÓXIMOS 7 DIAS
+        (Event.start_time <= week_later)
     ).order_by(Event.start_time.asc()).all()
     
     is_global_admin = current_user.church_role and current_user.church_role.name == 'Administrador Global'
@@ -79,8 +83,8 @@ def dashboard():
 
     birthday_alerts = []
     if is_authorized_for_alerts:
-        today = datetime.now().date()
-        future_limit = today + timedelta(days=10)
+        today_date = datetime.now().date()
+        future_limit = today_date + timedelta(days=10)
         
         if is_global_admin or is_pastor:
             target_ministries = Ministry.query.filter_by(church_id=current_user.church_id).all()
@@ -93,18 +97,18 @@ def dashboard():
                 for member in ministry.members:
                     if member.birth_date and member.id not in seen_members:
                         try:
-                            bday_this_year = member.birth_date.replace(year=today.year)
+                            bday_this_year = member.birth_date.replace(year=today_date.year)
                         except ValueError:
-                            bday_this_year = member.birth_date.replace(year=today.year, day=28)
+                            bday_this_year = member.birth_date.replace(year=today_date.year, day=28)
                         
-                        if bday_this_year < today:
+                        if bday_this_year < today_date:
                             try:
-                                bday_this_year = bday_this_year.replace(year=today.year + 1)
+                                bday_this_year = bday_this_year.replace(year=today_date.year + 1)
                             except ValueError:
-                                bday_this_year = bday_this_year.replace(year=today.year + 1, day=28)
+                                bday_this_year = bday_this_year.replace(year=today_date.year + 1, day=28)
 
-                        if today <= bday_this_year <= future_limit:
-                            days_until = (bday_this_year - today).days
+                        if today_date <= bday_this_year <= future_limit:
+                            days_until = (bday_this_year - today_date).days
                             birthday_alerts.append({
                                 'name': member.name,
                                 'day': member.birth_date.day,
@@ -115,14 +119,31 @@ def dashboard():
                             })
                             seen_members.add(member.id)
             birthday_alerts.sort(key=lambda x: x['days_until'])
-        
+    
+    # 🔥 NOVO: Buscar últimas 4 mídias para galeria (apenas imagens)
+    recent_media = Media.query.filter(
+        Media.church_id == current_user.church_id,
+        Media.media_type == 'image'
+    ).order_by(Media.created_at.desc()).limit(4).all()
+    
+    # 🔥 NOVO: Calcular contribuições do membro no mês atual
+    current_month_start = date(today.year, today.month, 1)
+    monthly_contributions = db.session.query(func.sum(Transaction.amount)).filter(
+        Transaction.user_id == current_user.id,
+        Transaction.type == 'income',
+        Transaction.date >= current_month_start,
+        Transaction.date <= today
+    ).scalar() or 0
+    
     return render_template('members/dashboard.html', 
                            devotional=devotional,
                            studies=recent_studies,
                            agenda=personal_agenda,
                            pending_members=pending_members,
                            birthday_alerts=birthday_alerts,
-                           datetime=datetime)
+                           datetime=datetime,
+                           recent_media=recent_media,  # 🔥 NOVO
+                           monthly_contributions=monthly_contributions)  # 🔥 NOVO
 
 @members_bp.route('/profile')
 @login_required

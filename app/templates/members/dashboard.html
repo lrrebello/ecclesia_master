@@ -2,7 +2,7 @@
 
 {% block content %}
 <div class="row g-4">
-    <!-- Devocional e Agenda -->
+    <!-- Coluna Principal -->
     <div class="col-lg-8">
         <!-- Seção de Alertas Críticos (Solicitações) -->
         {% if pending_members %}
@@ -27,7 +27,7 @@
                 style="background: var(--devotional-overlay-light); color: var(--devotional-text); position: relative; z-index: 2; backdrop-filter: blur(2px);">
                 <span class="badge mb-3" 
                     style="background: var(--devotional-badge-bg) !important; color: var(--devotional-badge-text) !important; padding: 0.5rem 1rem; border-radius: 2rem; font-weight: 600; display: inline-block;">
-                    Palavra do Dia
+                    📖 Palavra do Dia
                 </span>
                 {% if devotional %}
                     <h2 style="color: inherit; font-size: 1.8rem; font-weight: 700; margin-bottom: 1rem;">{{ devotional.title }}</h2>
@@ -35,12 +35,6 @@
                     {% if devotional.verse %}
                     <div style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 0.75rem; padding: 1rem; margin-top: 1rem; backdrop-filter: blur(2px);">
                         <p style="font-style: italic; margin: 0; color: inherit; opacity: 0.9;">"{{ devotional.verse }}"</p>
-                    </div>
-                    {% endif %}
-                    {% if devotional.date != datetime.utcnow().date() %}
-                    <div style="margin-top: 1rem; font-size: 0.85rem; opacity: 0.7; display: flex; align-items: center; gap: 0.5rem; color: inherit;">
-                        <i class="bi bi-info-circle"></i>
-                        <span>Devocional de {{ devotional.date.strftime('%d/%m') }}</span>
                     </div>
                     {% endif %}
                 {% else %}
@@ -52,12 +46,42 @@
             <i class="bi bi-book-half" style="position: absolute; bottom: -20px; right: -20px; font-size: 10rem; color: var(--devotional-icon-color, rgba(255,255,255,0.15)); transform: rotate(-10deg); z-index: 1; pointer-events: none;"></i>
         </div>
 
+        <!-- 🔥 NOVO: Meus Ministérios -->
+        {% if current_user.ministries %}
+        <div class="card border-0 shadow-sm mb-4 rounded-4 overflow-hidden">
+            <div class="card-header bg-transparent border-0 p-4 pb-0">
+                <div class="d-flex align-items-center gap-2">
+                    <i class="bi bi-people-fill text-primary fs-4"></i>
+                    <h5 class="fw-bold mb-0">Meus Ministérios</h5>
+                </div>
+                <p class="text-muted small mt-1">Ministérios onde você está envolvido</p>
+            </div>
+            <div class="card-body p-4 pt-0">
+                <div class="d-flex flex-wrap gap-2">
+                    {% for ministry in current_user.ministries %}
+                    <div class="bg-light rounded-pill px-3 py-2 d-inline-flex align-items-center gap-2">
+                        <i class="bi bi-star-fill text-warning small"></i>
+                        <span class="fw-medium small">{{ ministry.name }}</span>
+                        {% if ministry.leader_id == current_user.id %}
+                        <span class="badge bg-primary bg-opacity-10 text-primary ms-1">Líder</span>
+                        {% elif ministry.vice_leader_id == current_user.id %}
+                        <span class="badge bg-info bg-opacity-10 text-info ms-1">Vice</span>
+                        {% elif current_user.id in ministry.extra_leaders %}
+                        <span class="badge bg-secondary bg-opacity-10 text-secondary ms-1">Apoio</span>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
         <!-- Card Agenda - Próximos 7 dias -->
         <div class="card border-0 shadow-sm p-4 rounded-4">
             <div class="d-flex justify-content-between align-items-center mb-4">
                 <div>
-                    <h4 class="fw-bold mb-0"><i class="bi bi-calendar-check me-2 text-primary"></i>Próximos 7 Dias</h4>
-                    <p class="text-muted small mt-1">Eventos dos próximos 7 dias</p>
+                    <h4 class="fw-bold mb-0"><i class="bi bi-calendar-check me-2 text-primary"></i>Próximos Eventos</h4>
+                    <p class="text-muted small mt-1">Próximos 7 dias</p>
                 </div>
                 <a href="{{ url_for('members.agenda') }}" class="btn btn-light btn-sm rounded-pill">Ver todos</a>
             </div>
@@ -92,32 +116,122 @@
                 <div class="text-center py-4">
                     <i class="bi bi-calendar-x text-muted fs-1 opacity-25"></i>
                     <p class="text-muted mt-2">Nenhum evento agendado para os próximos 7 dias.</p>
-                    <a href="{{ url_for('members.add_event') }}" class="btn btn-outline-primary btn-sm rounded-pill mt-2">
-                        <i class="bi bi-plus-lg me-1"></i> Criar Evento
-                    </a>
                 </div>
                 {% endif %}
             </div>
         </div>
+
+        <!-- 🔥 NOVO: Galeria Recente -->
+        {% if recent_media %}
+        <div class="card border-0 shadow-sm mt-4 rounded-4 overflow-hidden">
+            <div class="card-header bg-transparent border-0 p-4 pb-2">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <i class="bi bi-images text-primary fs-4 me-2"></i>
+                        <h5 class="fw-bold d-inline-block mb-0">Momentos da Igreja</h5>
+                        <p class="text-muted small mt-1">Últimas fotos compartilhadas</p>
+                    </div>
+                    <a href="{{ url_for('edification.gallery') }}" class="btn btn-sm btn-outline-primary rounded-pill">Ver galeria</a>
+                </div>
+            </div>
+            <div class="card-body p-4 pt-0">
+                <div class="row g-3">
+                    {% for media in recent_media %}
+                    <div class="col-6 col-md-3">
+                        <div class="position-relative rounded-3 overflow-hidden" style="aspect-ratio: 1/1; cursor: pointer;" 
+                             onclick="window.location.href='{{ url_for('edification.gallery') }}'">
+                            <img src="{{ url_for('static', filename=media.file_path) }}" 
+                                 alt="{{ media.title }}"
+                                 class="w-100 h-100 object-fit-cover"
+                                 style="object-fit: cover; transition: transform 0.3s ease;">
+                            <div class="position-absolute bottom-0 start-0 end-0 bg-dark bg-opacity-50 text-white p-1 text-center">
+                                <small class="fs-10">{{ media.title|truncate(20) }}</small>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
     </div>
 
-    <!-- Sidebar -->
+    <!-- Sidebar Direita -->
     <div class="col-lg-4">
-        <!-- Alertas de Aniversário -->
+        <!-- 🔥 NOVO: Card de Boas-Vindas Personalizado -->
+        <div class="card border-0 shadow-sm rounded-4 mb-4 overflow-hidden bg-primary bg-opacity-10">
+            <div class="card-body p-4 text-center">
+                <div class="bg-white rounded-circle p-3 d-inline-flex mb-3 shadow-sm">
+                    <i class="bi bi-emoji-smile fs-1 text-primary"></i>
+                </div>
+                <h5 class="fw-bold mb-1">Olá, {{ current_user.name.split()[0] }}!</h5>
+                <p class="small text-muted mb-0">Bem-vindo ao Ecclesia Master</p>
+                <hr class="my-3">
+                <div class="row g-2 text-start">
+                    <div class="col-6">
+                        <div class="bg-white rounded-3 p-2 text-center">
+                            <small class="text-muted d-block">Membro desde</small>
+                            <strong class="small">{{ current_user.created_at.strftime('%b/%Y') }}</strong>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="bg-white rounded-3 p-2 text-center">
+                            <small class="text-muted d-block">Status</small>
+                            <span class="badge bg-success">Ativo</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 🔥 NOVO: Resumo de Contribuições (Mês Atual) - Versão Corrigida -->
+        {% if monthly_contributions is defined %}
+        <div class="card border-0 shadow-sm rounded-4 mb-4">
+            <div class="card-header bg-transparent border-0 p-4 pb-0">
+                <div class="d-flex align-items-center gap-2">
+                    <i class="bi bi-wallet2 text-success fs-4"></i>
+                    <h6 class="fw-bold mb-0 text-success">Minhas Contribuições</h6>
+                </div>
+                <p class="text-muted small mt-1">Mês de {{ datetime.now().strftime('%B/%Y') }}</p>
+            </div>
+            <div class="card-body p-4 pt-2">
+                <div class="text-center mb-3">
+                    <span class="display-5 fw-bold text-success">{{ current_user.church.currency_symbol if current_user.church else 'R$' }} {{ "%.2f"|format(monthly_contributions) }}</span>
+                    <span class="text-muted"> em contribuições</span>
+                </div>
+                <div class="text-center mt-2">
+                    <i class="bi bi-heart-fill text-danger opacity-50 me-1"></i>
+                    <span class="small text-muted">Deus ama quem dá com alegria!</span>
+                </div>
+                <hr class="my-3">
+                <div class="d-flex justify-content-between align-items-center">
+                    <small class="text-muted">
+                        <i class="bi bi-calendar-check me-1"></i> 
+                        Contribuições neste mês
+                    </small>
+                    <a href="{{ url_for('finance.member_finance') }}" class="small text-primary">
+                        Ver histórico completo <i class="bi bi-arrow-right ms-1"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Alertas de Aniversário (simplificado para todos) -->
         {% if birthday_alerts %}
         <div class="card border-0 shadow-sm rounded-4 mb-4 overflow-hidden border-top border-primary border-4">
-            <div class="card-header bg-transparent border-0 py-3 d-flex align-items-center">
+            <div class="card-header bg-transparent border-0 py-3 px-4 d-flex align-items-center">
                 <div class="bg-primary bg-opacity-10 p-2 rounded-3 me-2">
                     <i class="bi bi-cake2-fill text-primary"></i>
                 </div>
-                <h6 class="fw-bold mb-0 text-primary">Aniversariantes (10 dias)</h6>
+                <h6 class="fw-bold mb-0 text-primary">🎂 Aniversariantes</h6>
             </div>
             <div class="card-body p-0">
                 <div class="list-group list-group-flush">
-                    {% for alert in birthday_alerts %}
-                    <div class="list-group-item border-0 border-bottom px-3 py-3 {{ 'bg-danger bg-opacity-10' if alert.is_today else '' }}">
+                    {% for alert in birthday_alerts[:5] %}
+                    <div class="list-group-item border-0 border-bottom px-4 py-3 {{ 'bg-danger bg-opacity-10' if alert.is_today else '' }}">
                         <div class="d-flex justify-content-between align-items-center">
-                            <div class="text-truncate" style="max-width: 70%;">
+                            <div>
                                 <span class="fw-bold small d-block mb-1 {{ 'text-danger' if alert.is_today else 'text-primary' }}">{{ alert.name }}</span>
                                 <span class="badge bg-secondary bg-opacity-10 text-muted extra-small">{{ alert.ministry }}</span>
                             </div>
@@ -125,8 +239,6 @@
                                 <span class="fw-bold text-primary small d-block">{{ alert.day }}/{{ alert.month }}</span>
                                 {% if alert.is_today %}
                                 <span class="badge bg-danger extra-small pulse shadow-sm mt-1">HOJE! 🎂</span>
-                                {% else %}
-                                <span class="extra-small text-muted fw-medium">{{ alert.days_until }}d restantes</span>
                                 {% endif %}
                             </div>
                         </div>
@@ -137,31 +249,34 @@
         </div>
         {% endif %}
 
-        <!-- Ações Rápidas -->
+        <!-- Ações Rápidas (Melhorado) -->
         <div class="card border-0 shadow-sm p-4 mb-4 rounded-4">
-            <h6 class="fw-bold mb-3 text-muted text-uppercase small letter-spacing-1">Ações Rápidas</h6>
+            <h6 class="fw-bold mb-3 text-muted text-uppercase small letter-spacing-1">
+                <i class="bi bi-lightning-charge me-2"></i>Ações Rápidas
+            </h6>
             <div class="d-grid gap-2">
-                {% if current_user.can_manage_ministries %}
-                <a href="{{ url_for('members.add_ministry') }}" class="btn btn-outline-primary text-start border-2 fw-semibold py-2">
-                    <i class="bi bi-plus-circle me-2"></i> Criar Ministério
+                <a href="{{ url_for('edification.studies') }}" class="btn btn-outline-primary text-start border-2 fw-semibold py-2 rounded-3">
+                    <i class="bi bi-journal-bookmark-fill me-2"></i> Estudos Bíblicos
                 </a>
-                {% endif %}
+                
+                <a href="{{ url_for('edification.devotionals') }}" class="btn btn-outline-info text-start border-2 fw-semibold py-2 rounded-3">
+                    <i class="bi bi-book-half me-2"></i> Devocionais
+                </a>
 
                 {% if current_user.can_manage_events or current_user.can_manage_ministries %}
-                <a href="{{ url_for('members.add_event') }}" class="btn btn-outline-success text-start border-2 fw-semibold py-2">
+                <a href="{{ url_for('members.add_event') }}" class="btn btn-outline-success text-start border-2 fw-semibold py-2 rounded-3">
                     <i class="bi bi-calendar-plus me-2"></i> Novo Evento
                 </a>
                 {% endif %}
 
                 {% if current_user.can_manage_finance %}
-                <a href="{{ url_for('finance.add_transaction') }}" class="btn btn-outline-success text-start border-2 fw-semibold py-2">
+                <a href="{{ url_for('finance.add_transaction') }}" class="btn btn-outline-success text-start border-2 fw-semibold py-2 rounded-3">
                     <i class="bi bi-cash-coin me-2"></i> Lançar Financeiro
                 </a>
                 {% endif %}
 
-                <!-- Ecclesia Kids - Versão corrigida com namespace -->
+                <!-- Ecclesia Kids -->
                 {% set ns = namespace(is_kids_member=false, is_kids_leader=false) %}
-
                 {% for m in current_user.ministries %}
                     {% if m.is_kids_ministry %}
                         {% set ns.is_kids_member = true %}
@@ -177,41 +292,47 @@
                         current_user.church_role.name == 'Administrador Global' or 
                         current_user.church_role.is_lead_pastor
                     )) %}
-                <a href="{{ url_for('edification.kids') }}" class="btn btn-outline-warning text-start border-2 fw-semibold py-2">
+                <a href="{{ url_for('edification.kids') }}" class="btn btn-outline-warning text-start border-2 fw-semibold py-2 rounded-3">
                     <i class="bi bi-balloon me-2"></i> Ecclesia Kids
-                </a>
-                {% endif %}
-
-                {% if current_user.church_role and current_user.church_role.name == 'Administrador Global' or current_user.church_role.is_lead_pastor %}
-                <a href="{{ url_for('members.birthday_agenda') }}" class="btn btn-outline-danger text-start border-2 fw-semibold py-2">
-                    <i class="bi bi-calendar-heart me-2"></i> Aniversariantes
                 </a>
                 {% endif %}
             </div>
         </div>
 
-        <!-- Minha Família -->
+        <!-- Minha Família (Melhorado) -->
         <div class="card border-0 shadow-sm p-4 rounded-4 bg-light bg-opacity-10">
-            <h6 class="fw-bold mb-3 text-muted text-uppercase small letter-spacing-1"><i class="bi bi-people me-2"></i>Minha Família</h6>
+            <h6 class="fw-bold mb-3 text-muted text-uppercase small letter-spacing-1">
+                <i class="bi bi-people me-2"></i>Minha Família
+            </h6>
             {% if current_user.family_group %}
-                <div class="d-flex flex-wrap gap-2">
+                <div class="d-flex flex-wrap gap-2 mb-3">
                     {% for member in current_user.family_group.users %}
                     <div class="bg-white border rounded-pill px-3 py-1 small shadow-xs">
-                        <i class="bi bi-person-circle text-primary me-1"></i> {{ member.name.split(' ')[0] }}
+                        <i class="bi bi-person-circle text-primary me-1"></i> 
+                        {{ member.name }}
+                        {% if member.id == current_user.id %}
+                        <span class="text-primary ms-1">(você)</span>
+                        {% endif %}
                     </div>
                     {% endfor %}
+                </div>
+                <hr class="my-2">
+                <div class="d-flex justify-content-between align-items-center">
+                    <small class="text-muted">{{ current_user.family_group.users|length }} membros</small>
+                    <a href="{{ url_for('members.profile') }}" class="small">Gerenciar família →</a>
                 </div>
             {% else %}
                 <div class="text-center py-3 opacity-50">
                     <i class="bi bi-house-heart fs-2"></i>
                     <p class="extra-small mt-2 mb-0">Nenhum grupo familiar vinculado.</p>
+                    <a href="{{ url_for('members.profile') }}" class="small mt-2 d-inline-block">Adicionar familiares →</a>
                 </div>
             {% endif %}
         </div>
     </div>
 </div>
 
-<!-- Modal de Solicitações -->
+<!-- Modal de Solicitações (mantido igual) -->
 <div class="modal fade" id="pendingModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-lg">
         <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
@@ -237,15 +358,15 @@
                                 <td class="ps-4">
                                     <div class="fw-bold text-primary">{{ p.name }}</div>
                                     <small class="text-muted">Inscrito em {{ p.created_at.strftime('%d/%m/%Y') if p.created_at else 'Recente' }}</small>
-                                 </td>
+                                  </td>
                                 <td class="small">{{ p.email }}</td>
                                 <td class="text-end pe-4">
                                     <form action="{{ url_for('auth.approve_member', user_id=p.id) }}" method="POST" class="d-inline">
                                         <input type="hidden" name="action" value="approve">
                                         <button type="submit" class="btn btn-success rounded-pill px-3 fw-bold shadow-sm">Aprovar</button>
                                     </form>
-                                 </td>
-                             </tr>
+                                  </td>
+                              </tr>
                             {% endfor %}
                         </tbody>
                     </table>
@@ -273,6 +394,12 @@
 }
 .shadow-xs {
     box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+}
+.object-fit-cover {
+    object-fit: cover;
+}
+.fs-10 {
+    font-size: 0.65rem;
 }
 </style>
 {% endblock %}
