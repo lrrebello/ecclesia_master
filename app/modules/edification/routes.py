@@ -1,6 +1,8 @@
 from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app, jsonify
 from flask_login import login_required, current_user
-from app.core.models import db, Devotional, Study, KidsActivity, StudyQuestion, Media, Ministry, Album, BibleStory, BibleQuiz, User
+from app.core.models import (db, Devotional, Study, KidsActivity, StudyQuestion, 
+                             Media, Ministry, Album, BibleStory, BibleQuiz, User,
+                             StudyProgress, StudyHighlight, StudyNote)
 from app.utils.logger import log_action
 from datetime import datetime
 from PIL import Image
@@ -639,6 +641,173 @@ def delete_study(id):
     
     flash('Estudo e suas questões excluídos com sucesso!', 'info')
     return redirect(url_for('edification.studies'))
+
+# ============================================
+# ROTAS PARA ANOTAÇÕES E MARCAÇÕES
+# ============================================
+
+@edification_bp.route('/study/<int:study_id>/notes', methods=['GET'])
+@login_required
+def get_study_notes(study_id):
+    """Buscar anotações do usuário para este estudo"""
+    notes = StudyNote.query.filter_by(
+        user_id=current_user.id,
+        study_id=study_id
+    ).order_by(StudyNote.created_at.desc()).all()
+    
+    return jsonify([{
+        'id': n.id,
+        'text': n.text,
+        'note': n.note,
+        'created_at': n.created_at.strftime('%d/%m/%Y %H:%M')
+    } for n in notes])
+
+
+@edification_bp.route('/study/<int:study_id>/note', methods=['POST'])
+@login_required
+def add_study_note(study_id):
+    """Adicionar uma anotação"""
+    data = request.get_json()
+    
+    note = StudyNote(
+        user_id=current_user.id,
+        study_id=study_id,
+        text=data.get('text', ''),
+        note=data.get('note', ''),
+        page=data.get('page', 1)
+    )
+    db.session.add(note)
+    db.session.commit()
+    
+    return jsonify({'success': True, 'id': note.id})
+
+
+@edification_bp.route('/study/note/<int:note_id>', methods=['DELETE'])
+@login_required
+def delete_study_note(note_id):
+    """Excluir uma anotação"""
+    note = StudyNote.query.get_or_404(note_id)
+    
+    if note.user_id != current_user.id:
+        return jsonify({'success': False, 'message': 'Acesso negado'}), 403
+    
+    db.session.delete(note)
+    db.session.commit()
+    
+    return jsonify({'success': True})
+
+
+@edification_bp.route('/study/<int:study_id>/highlights', methods=['GET'])
+@login_required
+def get_study_highlights(study_id):
+    """Buscar marcações do usuário"""
+    highlights = StudyHighlight.query.filter_by(
+        user_id=current_user.id,
+        study_id=study_id
+    ).all()
+    
+    return jsonify([{
+        'id': h.id,
+        'text': h.text,
+        'note': h.note,
+        'color': h.color
+    } for h in highlights])
+
+
+@edification_bp.route('/study/<int:study_id>/highlight', methods=['POST'])
+@login_required
+def add_study_highlight(study_id):
+    """Adicionar uma marcação com anotação"""
+    data = request.get_json()
+    
+    highlight = StudyHighlight(
+        user_id=current_user.id,
+        study_id=study_id,
+        text=data.get('text', ''),
+        note=data.get('note', ''),
+        color=data.get('color', 'yellow')
+    )
+    db.session.add(highlight)
+    db.session.commit()
+    
+    return jsonify({'success': True, 'id': highlight.id})
+
+
+@edification_bp.route('/study/highlight/<int:highlight_id>', methods=['DELETE'])
+@login_required
+def delete_study_highlight(highlight_id):
+    """Excluir uma marcação"""
+    highlight = StudyHighlight.query.get_or_404(highlight_id)
+    
+    if highlight.user_id != current_user.id:
+        return jsonify({'success': False, 'message': 'Acesso negado'}), 403
+    
+    db.session.delete(highlight)
+    db.session.commit()
+    
+    return jsonify({'success': True})
+
+
+@edification_bp.route('/study/<int:study_id>/progress', methods=['GET', 'POST'])
+@login_required
+def study_progress(study_id):
+    """Salvar ou carregar progresso do usuário"""
+    if request.method == 'POST':
+        data = request.get_json()
+        page = data.get('page', 1)
+        
+        progress = StudyProgress.query.filter_by(
+            user_id=current_user.id,
+            study_id=study_id
+        ).first()
+        
+        if not progress:
+            progress = StudyProgress(
+                user_id=current_user.id,
+                study_id=study_id,
+                last_page=page
+            )
+            db.session.add(progress)
+        else:
+            progress.last_page = page
+            progress.last_access = datetime.utcnow()
+        
+        db.session.commit()
+        return jsonify({'success': True})
+    
+    else:
+        progress = StudyProgress.query.filter_by(
+            user_id=current_user.id,
+            study_id=study_id
+        ).first()
+        
+        return jsonify({
+            'page': progress.last_page if progress else 1,
+            'completed': progress.completed if progress else False
+        })
+
+
+@edification_bp.route('/study/<int:study_id>/complete', methods=['POST'])
+@login_required
+def mark_study_completed(study_id):
+    """Marcar estudo como concluído"""
+    progress = StudyProgress.query.filter_by(
+        user_id=current_user.id,
+        study_id=study_id
+    ).first()
+    
+    if not progress:
+        progress = StudyProgress(
+            user_id=current_user.id,
+            study_id=study_id,
+            completed=True
+        )
+        db.session.add(progress)
+    else:
+        progress.completed = True
+    
+    db.session.commit()
+    return jsonify({'success': True})
 
 # ============================================
 # ROTAS DA GALERIA E MÍDIAS

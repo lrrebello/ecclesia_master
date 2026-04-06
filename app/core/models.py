@@ -331,6 +331,55 @@ class StudyQuestion(db.Model):
     explanation = db.Column(db.Text)
     is_published = db.Column(db.Boolean, default=False)
 
+# Adicione estas classes no seu app/core/models.py
+
+class StudyProgress(db.Model):
+    __tablename__ = 'study_progress'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    study_id = db.Column(db.Integer, db.ForeignKey('study.id'), nullable=False)
+    last_page = db.Column(db.Integer, default=1)
+    last_position = db.Column(db.Integer, default=0)
+    completed = db.Column(db.Boolean, default=False)
+    last_access = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, onupdate=datetime.utcnow)
+    
+    user = db.relationship('User', backref='study_progress')
+    study = db.relationship('Study', backref='user_progress')
+
+
+class StudyHighlight(db.Model):
+    __tablename__ = 'study_highlights'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    study_id = db.Column(db.Integer, db.ForeignKey('study.id'), nullable=False)
+    text = db.Column(db.Text, nullable=False)
+    note = db.Column(db.Text, nullable=True)  # Anotação associada
+    color = db.Column(db.String(20), default='yellow')
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    user = db.relationship('User', backref='study_highlights')
+    study = db.relationship('Study', backref='highlights')
+
+
+class StudyNote(db.Model):
+    __tablename__ = 'study_notes'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    study_id = db.Column(db.Integer, db.ForeignKey('study.id'), nullable=False)
+    text = db.Column(db.Text, nullable=False)
+    note = db.Column(db.Text, nullable=False)
+    page = db.Column(db.Integer, default=1)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, onupdate=datetime.utcnow)
+    
+    user = db.relationship('User', backref='study_notes')
+    study = db.relationship('Study', backref='notes')
+
 class Devotional(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(200))

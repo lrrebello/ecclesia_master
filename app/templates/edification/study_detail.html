@@ -1,19 +1,40 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="container py-4">
-    <!-- Breadcrumb -->
-    <nav aria-label="breadcrumb" class="mb-4">
-        <ol class="breadcrumb">
-            <li class="breadcrumb-item"><a href="{{ url_for('edification.studies') }}">Estudos</a></li>
-            <li class="breadcrumb-item active" aria-current="page">{{ study.title|truncate(50) }}</li>
-        </ol>
-    </nav>
+    <!-- Breadcrumb e Controles -->
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{{ url_for('edification.studies') }}">Estudos</a></li>
+                <li class="breadcrumb-item active">{{ study.title|truncate(50) }}</li>
+            </ol>
+        </nav>
+        
+        <div class="d-flex gap-2">
+            <div class="btn-group" role="group">
+                <button class="btn btn-outline-secondary btn-sm" id="decreaseFontBtn" title="Diminuir fonte">
+                    <i class="bi bi-zoom-out"></i>
+                </button>
+                <button class="btn btn-outline-secondary btn-sm" id="resetFontBtn" title="Fonte padrão">
+                    A-
+                </button>
+                <button class="btn btn-outline-secondary btn-sm" id="increaseFontBtn" title="Aumentar fonte">
+                    <i class="bi bi-zoom-in"></i>
+                </button>
+            </div>
+            <button class="btn btn-outline-primary btn-sm" id="fullscreenBtn" title="Tela cheia">
+                <i class="bi bi-fullscreen"></i>
+            </button>
+            <button class="btn btn-outline-info btn-sm" id="toggleNotesBtn" title="Minhas anotações">
+                <i class="bi bi-journal-text"></i> Anotações
+            </button>
+        </div>
+    </div>
 
     <div class="row g-4">
         <!-- Conteúdo Principal -->
         <div class="col-lg-8">
             <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
-                <!-- Capa/Header -->
                 <div class="bg-primary bg-opacity-10 p-4 p-md-5 text-center">
                     <span class="badge bg-primary bg-opacity-20 text-primary rounded-pill px-3 py-2 mb-3">
                         <i class="bi bi-tag me-1"></i> {{ study.category or 'Estudo Bíblico' }}
@@ -29,47 +50,35 @@
                             <i class="bi bi-calendar3 me-2"></i>
                             <small>{{ study.created_at.strftime('%d de %B, %Y') }}</small>
                         </div>
-                        <span>•</span>
-                        <div class="d-flex align-items-center">
-                            <i class="bi bi-clock-history me-2"></i>
-                            <small>{{ study.created_at.strftime('%H:%M') }}</small>
+                    </div>
+                    <div class="mt-4">
+                        <div class="d-flex justify-content-between small mb-1">
+                            <span>Seu progresso</span>
+                            <span id="progressPercent">0%</span>
+                        </div>
+                        <div class="progress" style="height: 8px;">
+                            <div id="progressBar" class="progress-bar bg-success" style="width: 0%"></div>
                         </div>
                     </div>
                 </div>
                 
-                <!-- Conteúdo -->
                 <div class="card-body p-4 p-md-5">
-                    <div class="study-content">
+                    <div id="studyContentContainer" class="study-content">
                         {{ content_html|safe }}
                     </div>
                     
-                    <!-- Compartilhar -->
-                    <div class="mt-5 pt-4 border-top">
-                        <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
-                            <div>
-                                <small class="text-muted d-block mb-2">Compartilhar este estudo:</small>
-                                <div class="d-flex gap-2">
-                                    <a href="https://wa.me/?text={{ url_for('edification.study_detail', id=study.id, _external=True) }}" target="_blank" class="btn btn-sm btn-success rounded-circle" style="width: 32px; height: 32px; padding: 0;">
-                                        <i class="bi bi-whatsapp"></i>
-                                    </a>
-                                    <a href="https://www.facebook.com/sharer/sharer.php?u={{ url_for('edification.study_detail', id=study.id, _external=True) }}" target="_blank" class="btn btn-sm btn-primary rounded-circle" style="width: 32px; height: 32px; padding: 0;">
-                                        <i class="bi bi-facebook"></i>
-                                    </a>
-                                    <button onclick="copyLink()" class="btn btn-sm btn-outline-secondary rounded-circle" style="width: 32px; height: 32px; padding: 0;">
-                                        <i class="bi bi-link"></i>
-                                    </button>
-                                </div>
-                            </div>
-                            <div class="text-end">
-                                <small class="text-muted d-block">Estudo para edificação do corpo de Cristo</small>
-                                <small class="text-muted fst-italic">"Examinai as Escrituras"</small>
-                            </div>
-                        </div>
+                    <div class="d-flex justify-content-between align-items-center mt-4 pt-3 border-top">
+                        <button class="btn btn-outline-primary rounded-pill px-4" onclick="window.scrollTo({top: 0, behavior: 'smooth'})">
+                            <i class="bi bi-arrow-up me-2"></i> Voltar ao topo
+                        </button>
+                        <button id="markCompletedBtn" class="btn btn-success rounded-pill px-4">
+                            <i class="bi bi-check2-circle me-2"></i> Marcar como concluído
+                        </button>
                     </div>
                 </div>
             </div>
             
-            <!-- Seção de Estudos Relacionados -->
+            <!-- Estudos Relacionados -->
             {% if related_studies %}
             <div class="card border-0 shadow-sm rounded-4 mt-4">
                 <div class="card-header bg-transparent border-0 p-4 pb-0">
@@ -127,7 +136,29 @@
                 </div>
             </div>
 
-            <!-- QUIZ INTERATIVO CORRIGIDO -->
+            <!-- Painel de Anotações -->
+            <div id="notesPanel" class="card border-0 shadow-sm rounded-4 mb-4">
+                <div class="card-header bg-transparent border-0 p-4 pb-0">
+                    <h6 class="fw-bold mb-0">
+                        <i class="bi bi-journal-text me-2 text-info"></i>Minhas Anotações
+                        <span id="notesCount" class="badge bg-info bg-opacity-10 text-info ms-2">0</span>
+                    </h6>
+                </div>
+                <div class="card-body p-4 pt-2">
+                    <div id="notesList">
+                        <p class="text-muted small text-center">Selecione um texto para adicionar uma anotação</p>
+                    </div>
+                    <div id="addNoteForm" style="display: none;" class="mt-3">
+                        <textarea id="noteText" class="form-control mb-2" rows="3" placeholder="Escreva sua anotação..."></textarea>
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-sm btn-primary rounded-pill" id="saveNoteBtn">Salvar</button>
+                            <button type="button" class="btn btn-sm btn-secondary rounded-pill" id="cancelNoteBtn">Cancelar</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- QUIZ INTERATIVO -->
             {% set published_questions = study.questions|selectattr('is_published')|list %}
             {% if published_questions %}
             <div class="card border-0 shadow-sm rounded-4">
@@ -160,7 +191,6 @@
                         </div>
                     </div>
                     
-                    <!-- Resultado Final com Resumo Detalhado -->
                     <div id="quiz-result" style="display: none;">
                         <div class="text-center mb-4">
                             <div class="mb-3">
@@ -176,15 +206,11 @@
                                 <i class="bi bi-arrow-repeat me-1"></i> Refazer Quiz
                             </button>
                         </div>
-                        
-                        <!-- Resumo Detalhado das Questões -->
                         <div class="mt-4">
                             <h6 class="fw-bold mb-3">
                                 <i class="bi bi-list-check me-2 text-primary"></i>Resumo das Questões
                             </h6>
-                            <div id="questions-summary" class="accordion" id="summaryAccordion">
-                                <!-- Resumo será preenchido dinamicamente -->
-                            </div>
+                            <div id="questions-summary"></div>
                         </div>
                     </div>
                 </div>
@@ -193,6 +219,719 @@
         </div>
     </div>
 </div>
+
+<script>
+    // ============================================
+    // CONFIGURAÇÕES INICIAIS
+    // ============================================
+    const studyId = {{ study.id }};
+    let currentFontSize = parseInt(localStorage.getItem('studyFontSize')) || 100;
+    let selectedText = '';
+    let selectedRange = null;
+    
+    // Aplicar fonte salva
+    document.querySelector('.study-content').style.fontSize = currentFontSize + '%';
+    
+    // ============================================
+    // FUNÇÕES DE FONTE
+    // ============================================
+    document.getElementById('increaseFontBtn').addEventListener('click', () => {
+        currentFontSize = Math.min(currentFontSize + 10, 150);
+        document.querySelector('.study-content').style.fontSize = currentFontSize + '%';
+        localStorage.setItem('studyFontSize', currentFontSize);
+    });
+    
+    document.getElementById('decreaseFontBtn').addEventListener('click', () => {
+        currentFontSize = Math.max(currentFontSize - 10, 70);
+        document.querySelector('.study-content').style.fontSize = currentFontSize + '%';
+        localStorage.setItem('studyFontSize', currentFontSize);
+    });
+    
+    document.getElementById('resetFontBtn').addEventListener('click', () => {
+        currentFontSize = 100;
+        document.querySelector('.study-content').style.fontSize = '100%';
+        localStorage.setItem('studyFontSize', currentFontSize);
+    });
+    
+    // ============================================
+    // TELA CHEIA
+    // ============================================
+    document.getElementById('fullscreenBtn').addEventListener('click', () => {
+        if (!document.fullscreenElement) {
+            document.documentElement.requestFullscreen();
+        } else {
+            document.exitFullscreen();
+        }
+    });
+    
+    // ============================================
+    // PAINEL DE ANOTAÇÕES
+    // ============================================
+    let notesPanelVisible = true;
+    document.getElementById('toggleNotesBtn').addEventListener('click', () => {
+        const panel = document.getElementById('notesPanel');
+        notesPanelVisible = !notesPanelVisible;
+        panel.style.display = notesPanelVisible ? 'block' : 'none';
+    });
+    
+    // ============================================
+    // FUNÇÃO PARA ESCAPAR HTML
+    // ============================================
+    function escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+    
+    // ============================================
+    // SELEÇÃO DE TEXTO
+    // ============================================
+    function handleTextSelection() {
+        const selection = window.getSelection();
+        const text = selection.toString().trim();
+        
+        if (text.length > 0 && !selection.isCollapsed) {
+            selectedText = text;
+            selectedRange = selection.getRangeAt(0);
+            document.getElementById('addNoteForm').style.display = 'block';
+            document.getElementById('noteText').focus();
+        }
+    }
+    
+    document.addEventListener('mouseup', handleTextSelection);
+    
+    // ============================================
+    // MARCAR TEXTO SELECIONADO
+    // ============================================
+    function markSelectedText(noteId, text, note) {
+        if (!selectedRange) return;
+        
+        // Criar o span com a marcação
+        const span = document.createElement('span');
+        span.className = 'study-highlight';
+        span.setAttribute('data-note-id', noteId);
+        span.setAttribute('data-note', note);
+        span.setAttribute('data-text', text);
+        span.style.backgroundColor = '#fef08a';
+        span.style.padding = '2px 0';
+        span.style.borderRadius = '3px';
+        span.style.cursor = 'pointer';
+        span.title = 'Clique para ver anotação';
+        
+        // 🔥 CORREÇÃO: Usar o texto original em vez do DocumentFragment
+        span.textContent = text;
+        
+        // Adicionar evento de clique
+        span.addEventListener('click', (e) => {
+            e.stopPropagation();
+            showNotePopup(span);
+        });
+        
+        // Substituir o range selecionado pelo span
+        selectedRange.deleteContents();
+        selectedRange.insertNode(span);
+        selectedRange.collapse(false);
+        
+        // Limpar seleção
+        window.getSelection().removeAllRanges();
+    }
+    
+    // ============================================
+    // MOSTRAR POPUP DA ANOTAÇÃO
+    // ============================================
+    function showNotePopup(element) {
+        const note = element.getAttribute('data-note');
+        const text = element.getAttribute('data-text');
+        const noteId = element.getAttribute('data-note-id');
+        
+        const existingPopup = document.querySelector('.note-popup');
+        if (existingPopup) existingPopup.remove();
+        
+        const popup = document.createElement('div');
+        popup.className = 'note-popup';
+        popup.innerHTML = `
+            <div class="note-popup-content">
+                <div class="note-popup-header">
+                    <strong>📝 Anotação</strong>
+                    <button class="note-popup-close" onclick="this.closest('.note-popup').remove()">×</button>
+                </div>
+                <div class="note-popup-body">
+                    <div class="note-popup-text">"${escapeHtml(text.substring(0, 100))}..."</div>
+                    <div class="note-popup-note mt-2">${escapeHtml(note)}</div>
+                </div>
+                <div class="note-popup-footer">
+                    <button class="btn btn-sm btn-danger" onclick="deleteNoteAndHighlight(${noteId}, this)">Excluir</button>
+                </div>
+            </div>
+        `;
+        
+        const rect = element.getBoundingClientRect();
+        popup.style.position = 'absolute';
+        popup.style.top = `${rect.top + window.scrollY - 10}px`;
+        popup.style.left = `${rect.left + window.scrollX}px`;
+        popup.style.zIndex = '1000';
+        
+        document.body.appendChild(popup);
+        
+        setTimeout(() => {
+            document.addEventListener('click', function closePopup(e) {
+                if (!popup.contains(e.target) && e.target !== element) {
+                    popup.remove();
+                    document.removeEventListener('click', closePopup);
+                }
+            });
+        }, 100);
+    }
+    
+    // ============================================
+    // EXCLUIR ANOTAÇÃO E MARCAÇÃO
+    // ============================================
+    function deleteNoteAndHighlight(noteId, btn) {
+        if (confirm('Tem certeza que deseja excluir esta anotação?')) {
+            fetch(`/edification/study/note/${noteId}`, { method: 'DELETE' })
+                .then(() => {
+                    const highlight = document.querySelector(`.study-highlight[data-note-id="${noteId}"]`);
+                    if (highlight) {
+                        // 🔥 CORREÇÃO: Substituir o span pelo texto original
+                        const textNode = document.createTextNode(highlight.getAttribute('data-text') || highlight.innerText);
+                        highlight.parentNode.replaceChild(textNode, highlight);
+                    }
+                    if (btn) {
+                        const popup = btn.closest('.note-popup');
+                        if (popup) popup.remove();
+                    }
+                    loadNotes();
+                })
+                .catch(e => console.error('Erro:', e));
+        }
+    }
+    
+    window.deleteNoteAndHighlight = deleteNoteAndHighlight;
+    
+    // ============================================
+    // SALVAR ANOTAÇÃO
+    // ============================================
+    function saveNote() {
+        const note = document.getElementById('noteText').value;
+        if (!note.trim() || !selectedText) {
+            alert('Selecione um texto e escreva uma anotação');
+            return;
+        }
+        
+        // Primeiro salva a anotação
+        fetch(`/edification/study/${studyId}/note`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text: selectedText, note: note, page: 1 })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Depois salva o highlight (marcação visual)
+                return fetch(`/edification/study/${studyId}/highlight`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        text: selectedText, 
+                        note: note, 
+                        color: 'yellow',
+                        note_id: data.id 
+                    })
+                });
+            } else {
+                throw new Error('Erro ao salvar anotação');
+            }
+        })
+        .then(() => {
+            // Marcar o texto selecionado visualmente
+            markSelectedTextLocally(selectedText, note);
+            
+            document.getElementById('addNoteForm').style.display = 'none';
+            document.getElementById('noteText').value = '';
+            selectedText = '';
+            loadNotes();
+            loadHighlights(); // Recarregar highlights
+        })
+        .catch(e => console.error('Erro:', e));
+    }
+
+    // ============================================
+    // CANCELAR ANOTAÇÃO
+    // ============================================
+    function cancelNote() {
+        document.getElementById('addNoteForm').style.display = 'none';
+        document.getElementById('noteText').value = '';
+        selectedText = '';
+        window.getSelection().removeAllRanges();
+    }
+    
+    // ============================================
+    // CARREGAR ANOTAÇÕES
+    // ============================================
+    function loadNotes() {
+        fetch(`/edification/study/${studyId}/notes`)
+            .then(response => response.json())
+            .then(notes => {
+                const container = document.getElementById('notesList');
+                const notesCount = document.getElementById('notesCount');
+                notesCount.textContent = notes.length;
+                
+                if (notes.length === 0) {
+                    container.innerHTML = '<p class="text-muted small text-center">Nenhuma anotação ainda.<br>Selecione um texto para anotar.</p>';
+                    return;
+                }
+                
+                let html = '';
+                notes.forEach(n => {
+                    html += `
+                        <div class="border-bottom pb-2 mb-2">
+                            <div class="small fw-bold text-primary">"${escapeHtml(n.text.substring(0, 50))}..."</div>
+                            <div class="small text-muted mt-1">${escapeHtml(n.note)}</div>
+                            <div class="small text-muted mt-1">${n.created_at}</div>
+                            <div class="d-flex justify-content-end mt-1">
+                                <button class="btn btn-sm btn-link text-danger p-0" onclick="deleteNoteAndHighlight(${n.id}, null)">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                });
+                container.innerHTML = html;
+            })
+            .catch(e => console.error('Erro:', e));
+    }
+
+    function loadHighlights() {
+    fetch(`/edification/study/${studyId}/highlights`)
+        .then(response => response.json())
+        .then(highlights => {
+            // Para cada highlight, marcar o texto no DOM
+            highlights.forEach(h => {
+                markTextInDOM(h.text, h.note, h.id, h.color);
+            });
+        })
+        .catch(e => console.error('Erro ao carregar highlights:', e));
+    }
+
+    // ============================================
+    // FUNÇÃO PARA MARCAR TEXTO NO DOM (CORRIGIDA)
+    // ============================================
+    function markTextInDOM(text, note, highlightId, color) {
+        const content = document.getElementById('studyContentContainer');
+        if (!content) return;
+        
+        // Escapar texto para regex
+        const escapedText = text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const regex = new RegExp(`(${escapedText})`, 'g');
+        
+        let html = content.innerHTML;
+        
+        // Verificar se o texto já está marcado
+        if (html.includes(`data-highlight-id="${highlightId}"`)) return;
+        
+        // Substituir o texto por um span com marcação
+        const newHtml = html.replace(regex, `<span class="study-highlight" data-highlight-id="${highlightId}" data-note="${escapeHtml(note)}" data-text="${escapeHtml(text)}">$1</span>`);
+        
+        if (newHtml !== html) {
+            content.innerHTML = newHtml;
+        }
+        
+        // Reaplicar eventos
+        document.querySelectorAll('.study-highlight').forEach(span => {
+            // Remover eventos antigos para evitar duplicação
+            const newSpan = span.cloneNode(true);
+            span.parentNode.replaceChild(newSpan, span);
+            
+            newSpan.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const noteText = newSpan.getAttribute('data-note');
+                const originalText = newSpan.getAttribute('data-text');
+                const hid = newSpan.getAttribute('data-highlight-id');
+                showNotePopupFromHighlight(originalText, noteText, hid);
+            });
+        });
+    }
+
+    // ============================================
+    // MARCAR TEXTO LOCALMENTE (CORRIGIDA)
+    // ============================================
+    function markSelectedTextLocally(text, note) {
+        const selection = window.getSelection();
+        if (selection.rangeCount === 0) return;
+        
+        const range = selection.getRangeAt(0);
+        const span = document.createElement('span');
+        span.className = 'study-highlight';
+        span.style.backgroundColor = '#fef08a';
+        span.style.padding = '2px 0';
+        span.style.borderRadius = '3px';
+        span.style.cursor = 'pointer';
+        span.textContent = text;
+        span.setAttribute('data-note', note);
+        span.setAttribute('data-text', text);
+        
+        span.addEventListener('click', (e) => {
+            e.stopPropagation();
+            showNotePopupFromHighlight(text, note, null);
+        });
+        
+        range.deleteContents();
+        range.insertNode(span);
+        selection.removeAllRanges();
+    }
+
+    // ============================================
+    // MOSTRAR POPUP (CORRIGIDA)
+    // ============================================
+    function showNotePopupFromHighlight(text, note, highlightId) {
+        // Remover popup existente
+        const existingPopup = document.querySelector('.note-popup');
+        if (existingPopup) existingPopup.remove();
+        
+        const popup = document.createElement('div');
+        popup.className = 'note-popup';
+        popup.innerHTML = `
+            <div class="note-popup-content">
+                <div class="note-popup-header">
+                    <strong>📝 Anotação</strong>
+                    <button class="note-popup-close" onclick="this.closest('.note-popup').remove()">×</button>
+                </div>
+                <div class="note-popup-body">
+                    <div class="note-popup-text">"${escapeHtml(text.substring(0, 100))}..."</div>
+                    <div class="note-popup-note mt-2">${escapeHtml(note)}</div>
+                </div>
+                <div class="note-popup-footer">
+                    <button class="btn btn-sm btn-danger" onclick="deleteHighlightOnly(this, '${highlightId}')">Excluir</button>
+                </div>
+            </div>
+        `;
+        
+        // Posicionar próximo ao mouse ou ao elemento
+        const rect = event?.target?.getBoundingClientRect();
+        if (rect) {
+            popup.style.position = 'absolute';
+            popup.style.top = `${rect.top + window.scrollY - 10}px`;
+            popup.style.left = `${rect.left + window.scrollX}px`;
+        } else {
+            popup.style.position = 'fixed';
+            popup.style.top = '50%';
+            popup.style.left = '50%';
+            popup.style.transform = 'translate(-50%, -50%)';
+        }
+        popup.style.zIndex = '1000';
+        
+        document.body.appendChild(popup);
+    }
+
+    // ============================================
+    // EXCLUIR HIGHLIGHT (CORRIGIDA)
+    // ============================================
+    function deleteHighlightOnly(btn, highlightId) {
+        if (!highlightId || highlightId === 'null') {
+            // Highlight local não salvo
+            const popup = btn.closest('.note-popup');
+            if (popup) popup.remove();
+            return;
+        }
+        
+        if (confirm('Tem certeza que deseja excluir esta marcação?')) {
+            fetch(`/edification/study/highlight/${highlightId}`, { method: 'DELETE' })
+                .then(() => {
+                    const highlight = document.querySelector(`.study-highlight[data-highlight-id="${highlightId}"]`);
+                    if (highlight) {
+                        const text = highlight.getAttribute('data-text') || highlight.textContent;
+                        const textNode = document.createTextNode(text);
+                        highlight.parentNode.replaceChild(textNode, highlight);
+                    }
+                    const popup = btn.closest('.note-popup');
+                    if (popup) popup.remove();
+                    
+                    // Recarregar anotações
+                    loadNotes();
+                })
+                .catch(e => console.error('Erro:', e));
+        }
+    }
+
+    
+    // ============================================
+    // PROGRESSO
+    // ============================================
+    function updateProgress() {
+        const scrollPercent = (window.scrollY / (document.body.scrollHeight - window.innerHeight)) * 100;
+        document.getElementById('progressPercent').innerHTML = Math.round(scrollPercent) + '%';
+        document.getElementById('progressBar').style.width = scrollPercent + '%';
+    }
+    
+    window.addEventListener('scroll', updateProgress);
+    
+    // ============================================
+    // MARCAR COMO CONCLUÍDO
+    // ============================================
+    document.getElementById('markCompletedBtn').addEventListener('click', () => {
+        fetch(`/edification/study/${studyId}/complete`, { method: 'POST' })
+            .then(() => {
+                alert('✅ Estudo marcado como concluído!');
+                document.getElementById('markCompletedBtn').disabled = true;
+                document.getElementById('markCompletedBtn').innerHTML = '<i class="bi bi-check2-circle me-2"></i> Concluído!';
+            })
+            .catch(e => console.error('Erro:', e));
+    });
+    
+    // ============================================
+    // QUIZ INTERATIVO
+    // ============================================
+    const questions = [
+        {% for q in published_questions %}
+        {
+            id: {{ q.id }},
+            text: {{ q.question_text|tojson }},
+            options: {{ q.options|from_json|tojson if q.options else {} }},
+            correct: {{ q.correct_option|tojson }},
+            explanation: {{ q.explanation|tojson if q.explanation else '' }}
+        },
+        {% endfor %}
+    ];
+    
+    function normalizeCorrectAnswer(correct) {
+        if (typeof correct === 'number' || !isNaN(parseInt(correct))) {
+            const num = parseInt(correct);
+            const mapping = {1: 'A', 2: 'B', 3: 'C', 4: 'D'};
+            return mapping[num] || correct;
+        }
+        return String(correct).toUpperCase();
+    }
+    
+    for (let q of questions) {
+        q.correct = normalizeCorrectAnswer(q.correct);
+    }
+    
+    let currentIndex = 0;
+    let userAnswers = new Array(questions.length).fill(null);
+    let quizCompleted = false;
+    
+    function renderQuestion() {
+        if (quizCompleted || questions.length === 0) return;
+        
+        const question = questions[currentIndex];
+        const container = document.getElementById('quiz-question');
+        const optionsContainer = document.getElementById('quiz-options');
+        
+        container.innerHTML = `
+            <div class="mb-3">
+                <span class="badge bg-primary bg-opacity-10 text-primary rounded-pill px-3 py-1 mb-2">
+                    Questão ${currentIndex + 1} de ${questions.length}
+                </span>
+                <h6 class="fw-bold mb-0">${escapeHtml(question.text)}</h6>
+            </div>
+        `;
+        
+        let optionsHtml = '<div class="list-group">';
+        for (const [key, value] of Object.entries(question.options)) {
+            const isSelected = userAnswers[currentIndex] === key;
+            const selectedClass = isSelected ? 'border-primary bg-primary bg-opacity-10' : '';
+            
+            optionsHtml += `
+                <button class="list-group-item list-group-item-action quiz-option mb-2 rounded-3 border ${selectedClass}" 
+                        data-option="${key}">
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="fw-bold bg-light rounded-circle" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;">
+                            ${key}
+                        </div>
+                        <div class="flex-grow-1">${escapeHtml(value)}</div>
+                        ${isSelected ? '<i class="bi bi-check-circle-fill text-primary fs-5"></i>' : ''}
+                    </div>
+                </button>
+            `;
+        }
+        optionsHtml += '</div>';
+        optionsContainer.innerHTML = optionsHtml;
+        
+        document.querySelectorAll('.quiz-option').forEach(btn => {
+            btn.addEventListener('click', () => selectOption(btn.getAttribute('data-option')));
+        });
+        
+        updateNavigationButtons();
+    }
+    
+    function selectOption(option) {
+        if (quizCompleted) return;
+        userAnswers[currentIndex] = option;
+        renderQuestion();
+        updateScoreBadge();
+    }
+    
+    function updateNavigationButtons() {
+        const prevBtn = document.getElementById('prev-btn');
+        const nextBtn = document.getElementById('next-btn');
+        const submitBtn = document.getElementById('submit-btn');
+        
+        prevBtn.disabled = currentIndex === 0;
+        
+        if (currentIndex === questions.length - 1) {
+            nextBtn.style.display = 'none';
+            submitBtn.style.display = 'inline-flex';
+        } else {
+            nextBtn.style.display = 'inline-flex';
+            submitBtn.style.display = 'none';
+        }
+    }
+    
+    function updateScoreBadge() {
+        const answered = userAnswers.filter(a => a !== null).length;
+        const badge = document.getElementById('quiz-score-badge');
+        if (badge) badge.textContent = `${answered}/${questions.length}`;
+    }
+    
+    function calculateResults() {
+        const results = [];
+        let correctCount = 0;
+        
+        for (let i = 0; i < questions.length; i++) {
+            const q = questions[i];
+            const userAnswer = userAnswers[i];
+            const isCorrect = userAnswer === q.correct;
+            if (isCorrect) correctCount++;
+            
+            results.push({
+                questionIndex: i,
+                questionText: q.text,
+                userAnswer: userAnswer,
+                correctAnswer: q.correct,
+                isCorrect: isCorrect,
+                explanation: q.explanation,
+                options: q.options
+            });
+        }
+        return { correctCount, results, total: questions.length };
+    }
+    
+    function showResult() {
+        quizCompleted = true;
+        const { correctCount, results, total } = calculateResults();
+        const percentage = (correctCount / total) * 100;
+        
+        document.getElementById('quiz-container').style.display = 'none';
+        document.getElementById('quiz-result').style.display = 'block';
+        document.getElementById('final-score').textContent = `${correctCount}/${total}`;
+        document.getElementById('total-questions').textContent = total;
+        document.getElementById('final-progress').style.width = `${percentage}%`;
+        
+        let message = '';
+        if (percentage === 100) message = '🎉 Excelente! Você dominou completamente este estudo!';
+        else if (percentage >= 70) message = '👍 Muito bom! Continue assim!';
+        else if (percentage >= 50) message = '📖 Bom! Revise os pontos que errou.';
+        else message = '📚 Que tal reler o estudo e tentar novamente?';
+        document.getElementById('final-message').textContent = message;
+        
+        const summaryContainer = document.getElementById('questions-summary');
+        let summaryHtml = '';
+        for (let i = 0; i < results.length; i++) {
+            const r = results[i];
+            const statusIcon = r.isCorrect ? 
+                '<i class="bi bi-check-circle-fill text-success"></i>' : 
+                '<i class="bi bi-x-circle-fill text-danger"></i>';
+            const statusClass = r.isCorrect ? 'summary-item-correct' : 'summary-item-incorrect';
+            const userAnswerText = r.userAnswer ? (r.options[r.userAnswer] || 'Não respondida') : 'Não respondida';
+            const correctAnswerText = r.options[r.correctAnswer] || r.correctAnswer;
+            
+            summaryHtml += `
+                <div class="card border-0 shadow-sm mb-3 rounded-3 ${statusClass}">
+                    <div class="card-header bg-transparent d-flex justify-content-between align-items-center">
+                        <div>${statusIcon} <strong class="ms-2">Questão ${i + 1}</strong></div>
+                        <span class="badge ${r.isCorrect ? 'bg-success' : 'bg-danger'} bg-opacity-10 ${r.isCorrect ? 'text-success' : 'text-danger'} rounded-pill">
+                            ${r.isCorrect ? 'Correta' : 'Incorreta'}
+                        </span>
+                    </div>
+                    <div class="card-body">
+                        <p class="fw-bold mb-2">${escapeHtml(r.questionText)}</p>
+                        <div class="row g-3 mt-1">
+                            <div class="col-md-6">
+                                <div class="bg-light rounded-3 p-2">
+                                    <small class="text-muted d-block mb-1">Sua resposta:</small>
+                                    <span class="${r.isCorrect ? 'text-success' : 'text-danger'} fw-medium">
+                                        ${r.userAnswer ? `${r.userAnswer}. ${escapeHtml(userAnswerText)}` : 'Não respondida'}
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="bg-light rounded-3 p-2">
+                                    <small class="text-muted d-block mb-1">Resposta correta:</small>
+                                    <span class="text-success fw-medium">${r.correctAnswer}. ${escapeHtml(correctAnswerText)}</span>
+                                </div>
+                            </div>
+                        </div>
+                        ${r.explanation ? `<div class="mt-3 pt-2 border-top"><small class="text-muted fw-bold">📖 Explicação:</small><p class="small mb-0 mt-1">${escapeHtml(r.explanation)}</p></div>` : ''}
+                    </div>
+                </div>
+            `;
+        }
+        summaryContainer.innerHTML = summaryHtml;
+    }
+    
+    // ============================================
+    // EVENTOS DO QUIZ
+    // ============================================
+    document.getElementById('prev-btn')?.addEventListener('click', () => {
+        if (currentIndex > 0 && !quizCompleted) {
+            currentIndex--;
+            renderQuestion();
+        }
+    });
+    
+    document.getElementById('next-btn')?.addEventListener('click', () => {
+        if (currentIndex < questions.length - 1 && !quizCompleted) {
+            currentIndex++;
+            renderQuestion();
+        }
+    });
+    
+    document.getElementById('submit-btn')?.addEventListener('click', () => {
+        const unanswered = userAnswers.filter(a => a === null).length;
+        if (unanswered > 0) {
+            if (confirm(`Você ainda não respondeu ${unanswered} questão(ões). Deseja finalizar mesmo assim?`)) {
+                showResult();
+            }
+        } else {
+            showResult();
+        }
+    });
+    
+    document.getElementById('restart-quiz')?.addEventListener('click', () => {
+        userAnswers = new Array(questions.length).fill(null);
+        currentIndex = 0;
+        quizCompleted = false;
+        document.getElementById('quiz-container').style.display = 'block';
+        document.getElementById('quiz-result').style.display = 'none';
+        renderQuestion();
+        updateScoreBadge();
+    });
+    
+    // ============================================
+    // CONECTAR BOTÕES DE ANOTAÇÃO
+    // ============================================
+    document.getElementById('saveNoteBtn')?.addEventListener('click', saveNote);
+    document.getElementById('cancelNoteBtn')?.addEventListener('click', cancelNote);
+    
+    // ============================================
+    // INICIALIZAÇÃO
+    // ============================================
+    document.addEventListener('DOMContentLoaded', () => {
+        loadNotes();
+        loadHighlights();
+        updateProgress();
+        if (questions.length > 0) {
+            renderQuestion();
+            updateScoreBadge();
+        }
+    });
+    
+    window.copyLink = function() {
+        navigator.clipboard.writeText(window.location.href);
+        alert('Link copiado!');
+    };
+</script>
 
 <style>
 .study-content {
@@ -231,541 +970,81 @@
     background-color: #e2e8f0 !important;
     transform: translateX(5px);
 }
-.quiz-option.correct-review {
-    background-color: #d1fae5 !important;
-    border-color: #10b981 !important;
-}
-.quiz-option.incorrect-review {
-    background-color: #fee2e2 !important;
-    border-color: #ef4444 !important;
-}
-.quiz-option.disabled {
-    cursor: default;
-    opacity: 0.7;
-}
 .summary-item-correct {
     border-left: 4px solid #10b981 !important;
 }
 .summary-item-incorrect {
     border-left: 4px solid #ef4444 !important;
 }
-</style>
-
-<script>
-// Dados do Quiz (convertendo correct_option para letra)
-const questions = [
-    {% for q in published_questions %}
-    {
-        id: {{ q.id }},
-        text: {{ q.question_text|tojson }},
-        options: {{ q.options|from_json|tojson if q.options else {} }},
-        correct: {{ q.correct_option|tojson }},
-        explanation: {{ q.explanation|tojson if q.explanation else '' }}
-    },
-    {% endfor %}
-];
-
-// Mapeamento de números para letras (se necessário)
-function normalizeCorrectAnswer(correct) {
-    // Se for número (1,2,3,4), converter para letra (A,B,C,D)
-    if (typeof correct === 'number' || !isNaN(parseInt(correct))) {
-        const num = parseInt(correct);
-        const mapping = {1: 'A', 2: 'B', 3: 'C', 4: 'D'};
-        return mapping[num] || correct;
-    }
-    // Se já for letra, retornar em maiúsculo
-    return String(correct).toUpperCase();
+.progress {
+    border-radius: 10px;
 }
 
-// Normalizar todas as questões
-for (let q of questions) {
-    q.correct = normalizeCorrectAnswer(q.correct);
+/* Popup de anotação */
+.note-popup {
+    position: absolute;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    z-index: 1000;
+    min-width: 250px;
+    max-width: 300px;
 }
-
-let currentIndex = 0;
-let userAnswers = new Array(questions.length).fill(null);
-let quizCompleted = false;
-
-// Função para renderizar a pergunta atual
-function renderQuestion() {
-    if (quizCompleted) return;
-    
-    const question = questions[currentIndex];
-    const container = document.getElementById('quiz-question');
-    const optionsContainer = document.getElementById('quiz-options');
-    
-    // Renderizar pergunta
-    container.innerHTML = `
-        <div class="mb-3">
-            <span class="badge bg-primary bg-opacity-10 text-primary rounded-pill px-3 py-1 mb-2">
-                Questão ${currentIndex + 1} de ${questions.length}
-            </span>
-            <h6 class="fw-bold mb-0">${escapeHtml(question.text)}</h6>
-        </div>
-    `;
-    
-    // Renderizar opções
-    let optionsHtml = '<div class="list-group">';
-    for (const [key, value] of Object.entries(question.options)) {
-        const isSelected = userAnswers[currentIndex] === key;
-        const selectedClass = isSelected ? 'border-primary bg-primary bg-opacity-10' : '';
-        
-        optionsHtml += `
-            <button class="list-group-item list-group-item-action quiz-option mb-2 rounded-3 border ${selectedClass}" 
-                    data-option="${key}">
-                <div class="d-flex align-items-center gap-3">
-                    <div class="fw-bold bg-light rounded-circle" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;">
-                        ${key}
-                    </div>
-                    <div class="flex-grow-1">${escapeHtml(value)}</div>
-                    ${isSelected ? '<i class="bi bi-check-circle-fill text-primary fs-5"></i>' : ''}
-                </div>
-            </button>
-        `;
-    }
-    optionsHtml += '</div>';
-    optionsContainer.innerHTML = optionsHtml;
-    
-    // Adicionar event listeners para as opções
-    document.querySelectorAll('.quiz-option').forEach(btn => {
-        btn.addEventListener('click', () => selectOption(btn.getAttribute('data-option')));
-    });
-    
-    // Atualizar botões de navegação
-    updateNavigationButtons();
+.note-popup-content {
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    overflow: hidden;
 }
-
-// Função para escapar HTML
-function escapeHtml(text) {
-    if (!text) return '';
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
+.note-popup-header {
+    background: #f8fafc;
+    padding: 8px 12px;
+    border-bottom: 1px solid #e2e8f0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
 }
-
-// Função para selecionar uma opção
-function selectOption(option) {
-    if (quizCompleted) return;
-    
-    // Salvar resposta
-    userAnswers[currentIndex] = option;
-    
-    // Atualizar UI da opção selecionada
-    document.querySelectorAll('.quiz-option').forEach(btn => {
-        const btnOption = btn.getAttribute('data-option');
-        btn.classList.remove('border-primary', 'bg-primary', 'bg-opacity-10');
-        const checkIcon = btn.querySelector('.bi-check-circle-fill');
-        if (checkIcon) checkIcon.remove();
-        
-        if (btnOption === option) {
-            btn.classList.add('border-primary', 'bg-primary', 'bg-opacity-10');
-            const div = btn.querySelector('.d-flex');
-            if (div && !btn.querySelector('.bi-check-circle-fill')) {
-                div.innerHTML += '<i class="bi bi-check-circle-fill text-primary fs-5"></i>';
-            }
-        }
-    });
-    
-    // Atualizar badge de pontuação
-    updateScoreBadge();
+.note-popup-close {
+    background: none;
+    border: none;
+    font-size: 1.2rem;
+    cursor: pointer;
+    color: #94a3b8;
 }
-
-// Função para atualizar botões de navegação
-function updateNavigationButtons() {
-    const prevBtn = document.getElementById('prev-btn');
-    const nextBtn = document.getElementById('next-btn');
-    const submitBtn = document.getElementById('submit-btn');
-    
-    prevBtn.disabled = currentIndex === 0;
-    
-    if (currentIndex === questions.length - 1) {
-        nextBtn.style.display = 'none';
-        submitBtn.style.display = 'inline-flex';
-    } else {
-        nextBtn.style.display = 'inline-flex';
-        submitBtn.style.display = 'none';
-    }
+.note-popup-close:hover {
+    color: #ef4444;
 }
-
-// Função para atualizar badge
-function updateScoreBadge() {
-    const answered = userAnswers.filter(a => a !== null).length;
-    const badge = document.getElementById('quiz-score-badge');
-    if (badge) {
-        badge.textContent = `${answered}/${questions.length}`;
-    }
+.note-popup-body {
+    padding: 12px;
 }
-
-// Função para calcular resultado final (comparação correta)
-function calculateResults() {
-    const results = [];
-    let correctCount = 0;
-    
-    for (let i = 0; i < questions.length; i++) {
-        const q = questions[i];
-        const userAnswer = userAnswers[i];
-        const isCorrect = userAnswer === q.correct;
-        
-        if (isCorrect) {
-            correctCount++;
-        }
-        
-        results.push({
-            questionIndex: i,
-            questionText: q.text,
-            userAnswer: userAnswer,
-            correctAnswer: q.correct,
-            isCorrect: isCorrect,
-            explanation: q.explanation,
-            options: q.options
-        });
-    }
-    
-    return { correctCount, results, total: questions.length };
+.note-popup-text {
+    font-size: 0.85rem;
+    color: #4f46e5;
+    font-style: italic;
 }
-
-// Função para mostrar resultado final com resumo detalhado
-function showResult() {
-    quizCompleted = true;
-    const { correctCount, results, total } = calculateResults();
-    const percentage = (correctCount / total) * 100;
-    
-    // Esconder quiz, mostrar resultado
-    document.getElementById('quiz-container').style.display = 'none';
-    document.getElementById('quiz-result').style.display = 'block';
-    
-    document.getElementById('final-score').textContent = `${correctCount}/${total}`;
-    document.getElementById('total-questions').textContent = total;
-    document.getElementById('final-progress').style.width = `${percentage}%`;
-    
-    // Mensagem personalizada
-    let message = '';
-    if (percentage === 100) {
-        message = '🎉 Excelente! Você dominou completamente este estudo! Continue assim!';
-    } else if (percentage >= 70) {
-        message = '👍 Muito bom! Você tem um bom entendimento do estudo. Revise os pontos que errou.';
-    } else if (percentage >= 50) {
-        message = '📖 Bom! Continue estudando e revise o conteúdo para fixar melhor.';
-    } else {
-        message = '📚 Que tal reler o estudo e tentar novamente? O aprendizado é uma jornada contínua!';
-    }
-    document.getElementById('final-message').textContent = message;
-    
-    // Gerar resumo detalhado
-    generateSummary(results);
-}
-
-// Função para gerar resumo das questões
-function generateSummary(results) {
-    const summaryContainer = document.getElementById('questions-summary');
-    let summaryHtml = '';
-    
-    for (let i = 0; i < results.length; i++) {
-        const r = results[i];
-        const statusIcon = r.isCorrect ? 
-            '<i class="bi bi-check-circle-fill text-success"></i>' : 
-            '<i class="bi bi-x-circle-fill text-danger"></i>';
-        const statusClass = r.isCorrect ? 'summary-item-correct' : 'summary-item-incorrect';
-        
-        // Encontrar o texto da resposta do usuário e da correta
-        const userAnswerText = r.userAnswer ? (r.options[r.userAnswer] || 'Não respondida') : 'Não respondida';
-        const correctAnswerText = r.options[r.correctAnswer] || r.correctAnswer;
-        
-        summaryHtml += `
-            <div class="card border-0 shadow-sm mb-3 rounded-3 ${statusClass}">
-                <div class="card-header bg-transparent d-flex justify-content-between align-items-center">
-                    <div>
-                        ${statusIcon}
-                        <strong class="ms-2">Questão ${i + 1}</strong>
-                    </div>
-                    <span class="badge ${r.isCorrect ? 'bg-success' : 'bg-danger'} bg-opacity-10 ${r.isCorrect ? 'text-success' : 'text-danger'} rounded-pill">
-                        ${r.isCorrect ? 'Correta' : 'Incorreta'}
-                    </span>
-                </div>
-                <div class="card-body">
-                    <p class="fw-bold mb-2">${escapeHtml(r.questionText)}</p>
-                    
-                    <div class="row g-3 mt-1">
-                        <div class="col-md-6">
-                            <div class="bg-light rounded-3 p-2">
-                                <small class="text-muted d-block mb-1">Sua resposta:</small>
-                                <span class="${r.isCorrect ? 'text-success' : 'text-danger'} fw-medium">
-                                    ${r.userAnswer ? `${r.userAnswer}. ${escapeHtml(userAnswerText)}` : 'Não respondida'}
-                                </span>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="bg-light rounded-3 p-2">
-                                <small class="text-muted d-block mb-1">Resposta correta:</small>
-                                <span class="text-success fw-medium">
-                                    ${r.correctAnswer}. ${escapeHtml(correctAnswerText)}
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    ${r.explanation ? `
-                    <div class="mt-3 pt-2 border-top">
-                        <small class="text-muted fw-bold d-block mb-1">📖 Explicação:</small>
-                        <p class="small mb-0">${escapeHtml(r.explanation)}</p>
-                    </div>
-                    ` : ''}
-                </div>
-            </div>
-        `;
-    }
-    
-    summaryContainer.innerHTML = summaryHtml;
-}
-
-// Navegação
-document.getElementById('prev-btn').addEventListener('click', () => {
-    if (currentIndex > 0 && !quizCompleted) {
-        currentIndex--;
-        renderQuestion();
-    }
-});
-
-document.getElementById('next-btn').addEventListener('click', () => {
-    if (currentIndex < questions.length - 1 && !quizCompleted) {
-        currentIndex++;
-        renderQuestion();
-    }
-});
-
-document.getElementById('submit-btn').addEventListener('click', () => {
-    const unanswered = userAnswers.filter(a => a === null).length;
-    if (unanswered > 0) {
-        if (confirm(`Você ainda não respondeu ${unanswered} questão(ões). Deseja finalizar mesmo assim?`)) {
-            showResult();
-        }
-    } else {
-        showResult();
-    }
-});
-
-document.getElementById('restart-quiz').addEventListener('click', () => {
-    // Resetar quiz
-    userAnswers = new Array(questions.length).fill(null);
-    currentIndex = 0;
-    quizCompleted = false;
-    
-    document.getElementById('quiz-container').style.display = 'block';
-    document.getElementById('quiz-result').style.display = 'none';
-    
-    renderQuestion();
-    updateScoreBadge();
-});
-
-// Função para copiar link
-function copyLink() {
-    navigator.clipboard.writeText(window.location.href);
-    alert('Link copiado para a área de transferência!');
-}
-
-// Inicializar quiz
-document.addEventListener('DOMContentLoaded', () => {
-    if (questions.length > 0) {
-        renderQuestion();
-        updateScoreBadge();
-    }
-});
-</script>
-<style>
-/* ... estilos existentes ... */
-
-/* 🔥 ESTILOS PARA CONTEÚDO MARKDOWN */
-.study-content {
-    font-size: 1.1rem;
-    line-height: 1.8;
+.note-popup-note {
+    font-size: 0.9rem;
     color: #334155;
 }
-
-/* Títulos */
-.study-content h1 {
-    font-size: 2rem;
-    font-weight: 700;
-    margin-top: 2rem;
-    margin-bottom: 1rem;
-    padding-bottom: 0.5rem;
-    border-bottom: 2px solid #e2e8f0;
+.note-popup-footer {
+    padding: 8px 12px;
+    border-top: 1px solid #e2e8f0;
+    text-align: right;
 }
-.study-content h2 {
-    font-size: 1.75rem;
-    font-weight: 700;
-    margin-top: 1.75rem;
-    margin-bottom: 0.875rem;
-    color: #1e293b;
-}
-.study-content h3 {
-    font-size: 1.5rem;
-    font-weight: 600;
-    margin-top: 1.5rem;
-    margin-bottom: 0.75rem;
-    color: #2d3748;
-}
-.study-content h4 {
-    font-size: 1.25rem;
-    font-weight: 600;
-    margin-top: 1.25rem;
-    margin-bottom: 0.5rem;
-    color: #4a5568;
-}
-.study-content h5, .study-content h6 {
-    font-size: 1.1rem;
-    font-weight: 600;
-    margin-top: 1rem;
-    margin-bottom: 0.5rem;
-}
-
-/* Parágrafos */
-.study-content p {
-    margin-bottom: 1.25rem;
-}
-
-/* Listas */
-.study-content ul, .study-content ol {
-    margin-bottom: 1.25rem;
-    padding-left: 1.75rem;
-}
-.study-content li {
-    margin-bottom: 0.5rem;
-}
-.study-content ul li {
-    list-style-type: disc;
-}
-.study-content ol li {
-    list-style-type: decimal;
-}
-
-/* Citações */
-.study-content blockquote {
-    border-left: 4px solid #4f46e5;
-    background-color: #f8fafc;
-    padding: 1rem 1.5rem;
-    margin: 1.5rem 0;
-    border-radius: 0.5rem;
-    font-style: italic;
-    color: #475569;
-}
-.study-content blockquote p {
-    margin-bottom: 0;
-}
-
-/* Código */
-.study-content code {
-    background-color: #f1f5f9;
-    padding: 0.2rem 0.4rem;
-    border-radius: 0.25rem;
-    font-family: 'Courier New', monospace;
-    font-size: 0.9em;
-    color: #e11d48;
-}
-.study-content pre {
-    background-color: #1e293b;
-    color: #e2e8f0;
-    padding: 1rem;
-    border-radius: 0.5rem;
-    overflow-x: auto;
-    margin: 1.5rem 0;
-}
-.study-content pre code {
-    background-color: transparent;
-    color: inherit;
-    padding: 0;
-}
-
-/* Tabelas */
-.study-content table {
-    width: 100%;
-    border-collapse: collapse;
-    margin: 1.5rem 0;
-}
-.study-content th,
-.study-content td {
-    border: 1px solid #e2e8f0;
-    padding: 0.75rem;
-    text-align: left;
-}
-.study-content th {
-    background-color: #f8fafc;
-    font-weight: 600;
-}
-.study-content tr:nth-child(even) {
-    background-color: #f8fafc;
-}
-
-/* Links */
-.study-content a {
-    color: #4f46e5;
-    text-decoration: none;
-    border-bottom: 1px dashed #4f46e5;
-}
-.study-content a:hover {
-    color: #4338ca;
-    border-bottom: 1px solid #4338ca;
-}
-
-/* Imagens */
-.study-content img {
-    max-width: 100%;
-    height: auto;
-    border-radius: 0.75rem;
-    margin: 1.5rem 0;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-}
-
-/* Destaque */
-.study-content mark {
+/* Estilo para os highlights */
+.study-highlight {
     background-color: #fef08a;
-    padding: 0.1rem 0.2rem;
-    border-radius: 0.25rem;
+    padding: 0 2px;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+.study-highlight:hover {
+    background-color: #fde047;
 }
 
-/* Linha horizontal */
-.study-content hr {
-    margin: 2rem 0;
-    border: 0;
-    height: 1px;
-    background: linear-gradient(to right, #e2e8f0, transparent);
-}
-
-/* Notas/Alertas usando blockquote com classe */
-.study-content blockquote.note {
-    background-color: #e0f2fe;
-    border-left-color: #0284c7;
-    color: #0c4a6e;
-}
-.study-content blockquote.warning {
-    background-color: #fed7aa;
-    border-left-color: #ea580c;
-    color: #7c2d12;
-}
-.study-content blockquote.tip {
-    background-color: #d1fae5;
-    border-left-color: #059669;
-    color: #064e3b;
-}
-
-/* Responsividade */
-@media (max-width: 768px) {
-    .study-content {
-        font-size: 1rem;
-        line-height: 1.6;
-    }
-    .study-content h1 { font-size: 1.75rem; }
-    .study-content h2 { font-size: 1.5rem; }
-    .study-content h3 { font-size: 1.35rem; }
-    .study-content h4 { font-size: 1.2rem; }
-    
-    .study-content pre {
-        font-size: 0.85rem;
-    }
-    
-    .study-content table {
-        display: block;
-        overflow-x: auto;
-    }
+/* Remover estilos inline que possam estar duplicados */
+.study-highlight[style*="background-color"] {
+    background-color: #fef08a !important;
 }
 </style>
 {% endblock %}
