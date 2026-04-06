@@ -405,13 +405,21 @@ def delete_ministry(id):
 @members_bp.route('/agenda')
 @login_required
 def agenda():
+    from datetime import datetime, timedelta
+    
     ministry_ids = [m.id for m in current_user.ministries]
     events = Event.query.filter(
         (Event.church_id == current_user.church_id) & 
         ((Event.ministry_id == None) | (Event.ministry_id.in_(ministry_ids))) &
         (Event.start_time >= datetime.now() - timedelta(hours=24))
     ).order_by(Event.start_time.asc()).all()
-    return render_template('members/agenda.html', events=events)
+    
+    # Buscar ministérios para o filtro
+    ministries = Ministry.query.filter_by(church_id=current_user.church_id).all()
+    
+    return render_template('members/agenda.html', 
+                         events=events,
+                         ministries=ministries)
 
 def create_recurring_events(base_event, recurrence_type, count=12):
     """Gera ocorrências futuras para um evento recorrente"""

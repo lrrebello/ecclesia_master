@@ -1,40 +1,104 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="container py-4">
-    <div class="d-flex justify-content-between align-items-center mb-5">
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
         <div>
             <h1 class="fw-bold text-primary"><i class="bi bi-calendar-event-fill me-2"></i>Minha Agenda</h1>
             <p class="text-muted">Todos os eventos da sua congregação e dos seus ministérios em um só lugar.</p>
         </div>
-        <a href="{{ url_for('members.dashboard') }}" class="btn btn-outline-secondary">
-            <i class="bi bi-arrow-left me-1"></i> Voltar ao Dashboard
-        </a>
-    </div>
-
-    <div class="card border-0 shadow-sm">
-        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center py-3">
-            <h5 class="mb-0">Próximos Eventos</h5>
+        <div class="d-flex gap-2">
+            <a href="{{ url_for('members.dashboard') }}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left me-1"></i> Voltar
+            </a>
             {% if current_user.can_manage_events or (current_user.church_role and current_user.church_role.name == 'Administrador Global' or current_user.church_role.is_lead_pastor) %}
-            <a href="{{ url_for('members.add_event') }}" class="btn btn-light btn-sm fw-bold">
+            <a href="{{ url_for('members.add_event') }}" class="btn btn-primary">
                 <i class="bi bi-plus-circle me-1"></i> Novo Evento
             </a>
             {% endif %}
         </div>
+    </div>
+
+    <!-- Filtros -->
+    <div class="card border-0 shadow-sm rounded-4 mb-4">
+        <div class="card-body p-3">
+            <div class="row g-2 align-items-center">
+                <div class="col-md-3">
+                    <select id="monthFilter" class="form-select form-select-sm bg-light border-0" onchange="applyFilters()">
+                        <option value="all">Todos os meses</option>
+                        <option value="1">Janeiro</option>
+                        <option value="2">Fevereiro</option>
+                        <option value="3">Março</option>
+                        <option value="4">Abril</option>
+                        <option value="5">Maio</option>
+                        <option value="6">Junho</option>
+                        <option value="7">Julho</option>
+                        <option value="8">Agosto</option>
+                        <option value="9">Setembro</option>
+                        <option value="10">Outubro</option>
+                        <option value="11">Novembro</option>
+                        <option value="12">Dezembro</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <select id="yearFilter" class="form-select form-select-sm bg-light border-0" onchange="applyFilters()">
+                        <option value="all">Todos os anos</option>
+                        {% set years = [] %}
+                        {% for event in events %}
+                            {% set year = event.start_time.year %}
+                            {% if year not in years %}
+                                {% set _ = years.append(year) %}
+                                <option value="{{ year }}">{{ year }}</option>
+                            {% endif %}
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <select id="ministryFilter" class="form-select form-select-sm bg-light border-0" onchange="applyFilters()">
+                        <option value="all">Todos os ministérios</option>
+                        <option value="none">Eventos gerais</option>
+                        {% for ministry in ministries %}
+                        <option value="{{ ministry.id }}">{{ ministry.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <div class="btn-group w-100">
+                        <button type="button" class="btn btn-outline-primary btn-sm active" id="viewListBtn" onclick="setView('list')">
+                            <i class="bi bi-list-ul me-1"></i> Lista
+                        </button>
+                        <button type="button" class="btn btn-outline-primary btn-sm" id="viewGridBtn" onclick="setView('grid')">
+                            <i class="bi bi-grid-3x3-gap-fill me-1"></i> Grade
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Visualização em Lista (original, mas compactada) -->
+    <div id="listView" class="card border-0 shadow-sm">
+        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center py-3">
+            <h5 class="mb-0">Próximos Eventos</h5>
+            <span class="badge bg-light text-primary" id="eventCount">0 eventos</span>
+        </div>
         <div class="card-body p-0">
-            <div class="list-group list-group-flush">
+            <div class="list-group list-group-flush" id="listContainer">
                 {% for event in events %}
-                <div class="list-group-item px-4 py-4 border-bottom">
-                    <div class="d-flex justify-content-between align-items-start">
+                <div class="list-group-item px-4 py-3 border-bottom event-item" 
+                     data-month="{{ event.start_time.month }}" 
+                     data-year="{{ event.start_time.year }}"
+                     data-ministry="{{ event.ministry_id or 'none' }}">
+                    <div class="d-flex justify-content-between align-items-start flex-wrap gap-3">
                         <div class="d-flex align-items-start flex-grow-1">
-                            <!-- Card de Data -->
-                            <div class="bg-primary bg-opacity-10 text-primary p-3 rounded-4 me-4 text-center" style="min-width: 90px;">
-                                <div class="fw-bold fs-4">{{ event.start_time.strftime('%d') }}</div>
+                            <!-- Card de Data compacto -->
+                            <div class="bg-primary bg-opacity-10 text-primary p-2 rounded-3 me-3 text-center" style="min-width: 65px;">
+                                <div class="fw-bold fs-5">{{ event.start_time.strftime('%d') }}</div>
                                 <div class="text-uppercase small fw-bold">{{ event.start_time.strftime('%b') }}</div>
                                 <div class="extra-small opacity-75">{{ event.start_time.strftime('%Y') }}</div>
                                 <hr class="my-1 opacity-25">
                                 <div class="small fw-bold">
                                     {% if event.end_time %}
-                                        {{ event.start_time.strftime('%H:%M') }} - {{ event.end_time.strftime('%H:%M') }}
+                                        {{ event.start_time.strftime('%H:%M') }}
                                     {% else %}
                                         {{ event.start_time.strftime('%H:%M') }}
                                     {% endif %}
@@ -43,37 +107,37 @@
                             
                             <div class="flex-grow-1">
                                 <div class="d-flex align-items-center gap-2 mb-1 flex-wrap">
-                                    <h5 class="fw-bold mb-0">{{ event.title }}</h5>
+                                    <h6 class="fw-bold mb-0">{{ event.title }}</h6>
                                     {% if event.recurrence != 'none' %}
-                                    <span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25 extra-small">
-                                        <i class="bi bi-arrow-repeat me-1"></i> 
-                                        {{ 'Semanal' if event.recurrence == 'weekly' else 'Mensal' }}
+                                    <span class="badge bg-warning bg-opacity-10 text-warning extra-small">
+                                        <i class="bi bi-arrow-repeat me-1"></i> {{ 'Semanal' if event.recurrence == 'weekly' else 'Mensal' }}
                                     </span>
                                     {% endif %}
                                 </div>
                                 
-                                <div class="d-flex flex-wrap gap-3 align-items-center text-muted">
+                                <div class="d-flex flex-wrap gap-3 align-items-center text-muted small">
                                     <span><i class="bi bi-geo-alt me-1"></i> {{ event.location or 'Local não definido' }}</span>
                                     {% if event.ministry %}
-                                    <span class="badge bg-info bg-opacity-10 text-info border border-info border-opacity-25">
+                                    <span class="badge bg-info bg-opacity-10 text-info">
                                         <i class="bi bi-tag me-1"></i> {{ event.ministry.name }}
                                     </span>
                                     {% else %}
-                                    <span class="badge bg-secondary bg-opacity-10 text-muted border border-secondary border-opacity-25">
-                                        <i class="bi bi-globe me-1"></i> Evento Geral
+                                    <span class="badge bg-secondary bg-opacity-10 text-muted">
+                                        <i class="bi bi-globe me-1"></i> Geral
                                     </span>
                                     {% endif %}
                                 </div>
                                 {% if event.description %}
-                                <p class="mt-3 mb-0 text-muted">{{ event.description }}</p>
+                                <p class="mt-2 mb-0 text-muted small">{{ event.description|truncate(100) }}</p>
                                 {% endif %}
                             </div>
                         </div>
                         
                         {# Lógica de Permissão para Ações #}
                         {% set is_admin = current_user.church_role and current_user.church_role.name == 'Administrador Global' or current_user.church_role.is_lead_pastor %}
-                        {% set is_leader = event.ministry and (event.ministry.leader_id == current_user.id or event.ministry.vice_leader_id == current_user.id or (event.ministry.extra_leaders and current_user.id in event.ministry.extra_leaders)) %}                            {% if is_admin or is_leader or current_user.can_manage_events %}
-                        <div class="ms-3 d-flex gap-2">
+                        {% set is_leader = event.ministry and (event.ministry.leader_id == current_user.id or event.ministry.vice_leader_id == current_user.id or (event.ministry.extra_leaders and current_user.id in event.ministry.extra_leaders)) %}
+                        {% if is_admin or is_leader or current_user.can_manage_events %}
+                        <div class="d-flex gap-2">
                             <a href="{{ url_for('members.edit_event', id=event.id) }}" class="btn btn-outline-primary btn-sm rounded-pill px-3">
                                 <i class="bi bi-pencil me-1"></i> Editar
                             </a>
@@ -109,15 +173,181 @@
                 <div class="text-center py-5 text-muted">
                     <i class="bi bi-calendar-x fs-1 d-block mb-3 opacity-25"></i>
                     <p class="fs-5">Nenhum evento agendado para os próximos dias.</p>
-                    <a href="{{ url_for('members.dashboard') }}" class="btn btn-primary mt-2">Voltar ao Dashboard</a>
                 </div>
                 {% endfor %}
             </div>
         </div>
     </div>
+
+    <!-- Visualização em Grade (Cards) -->
+    <div id="gridView" style="display: none;">
+        <div class="row g-4" id="gridContainer">
+            <!-- Cards serão populados via JavaScript -->
+        </div>
+    </div>
 </div>
 
+<script>
+    // Coletar todos os eventos do backend
+    const allEvents = [
+        {% for event in events %}
+        {
+            id: {{ event.id }},
+            title: {{ event.title|tojson }},
+            date: "{{ event.start_time.strftime('%Y-%m-%d') }}",
+            time: "{{ event.start_time.strftime('%H:%M') }}",
+            location: {{ event.location|tojson or 'Local não definido' }},
+            description: {{ event.description|tojson or '' }},
+            month: {{ event.start_time.month }},
+            year: {{ event.start_time.year }},
+            ministry_id: {{ event.ministry_id|tojson or 'null' }},
+            ministry_name: {{ event.ministry.name|tojson if event.ministry else 'null' }},
+            recurrence: {{ event.recurrence|tojson }},
+            can_edit: {{ (is_admin or is_leader or current_user.can_manage_events)|tojson }}
+        },
+        {% endfor %}
+    ];
+    
+    let currentView = 'list';
+    
+    function applyFilters() {
+        const month = document.getElementById('monthFilter').value;
+        const year = document.getElementById('yearFilter').value;
+        const ministry = document.getElementById('ministryFilter').value;
+        
+        // Filtrar lista
+        const items = document.querySelectorAll('#listContainer .event-item');
+        let visibleCount = 0;
+        
+        items.forEach(item => {
+            let show = true;
+            const itemMonth = item.dataset.month;
+            const itemYear = item.dataset.year;
+            const itemMinistry = item.dataset.ministry;
+            
+            if (month !== 'all' && itemMonth !== month) show = false;
+            if (year !== 'all' && itemYear !== year) show = false;
+            if (ministry !== 'all') {
+                if (ministry === 'none' && itemMinistry !== 'none') show = false;
+                if (ministry !== 'none' && itemMinistry !== ministry) show = false;
+            }
+            
+            if (show) {
+                item.style.display = '';
+                visibleCount++;
+            } else {
+                item.style.display = 'none';
+            }
+        });
+        
+        document.getElementById('eventCount').textContent = visibleCount + ' eventos';
+        
+        // Se estiver na view de grade, atualizar também
+        if (currentView === 'grid') {
+            renderGridView();
+        }
+    }
+    
+    function setView(view) {
+        currentView = view;
+        const listView = document.getElementById('listView');
+        const gridView = document.getElementById('gridView');
+        const listBtn = document.getElementById('viewListBtn');
+        const gridBtn = document.getElementById('viewGridBtn');
+        
+        if (view === 'list') {
+            listView.style.display = 'block';
+            gridView.style.display = 'none';
+            listBtn.classList.add('active');
+            gridBtn.classList.remove('active');
+            applyFilters();
+        } else {
+            listView.style.display = 'none';
+            gridView.style.display = 'block';
+            listBtn.classList.remove('active');
+            gridBtn.classList.add('active');
+            renderGridView();
+        }
+    }
+    
+    function renderGridView() {
+        const month = document.getElementById('monthFilter').value;
+        const year = document.getElementById('yearFilter').value;
+        const ministry = document.getElementById('ministryFilter').value;
+        
+        let filteredEvents = allEvents;
+        
+        if (month !== 'all') {
+            filteredEvents = filteredEvents.filter(e => e.month == month);
+        }
+        if (year !== 'all') {
+            filteredEvents = filteredEvents.filter(e => e.year == year);
+        }
+        if (ministry !== 'all') {
+            if (ministry === 'none') {
+                filteredEvents = filteredEvents.filter(e => !e.ministry_id);
+            } else {
+                filteredEvents = filteredEvents.filter(e => e.ministry_id == ministry);
+            }
+        }
+        
+        const container = document.getElementById('gridContainer');
+        container.innerHTML = '';
+        
+        if (filteredEvents.length === 0) {
+            container.innerHTML = `
+                <div class="col-12 text-center py-5">
+                    <i class="bi bi-calendar-x fs-1 text-muted opacity-25 d-block mb-3"></i>
+                    <p class="text-muted">Nenhum evento encontrado com os filtros selecionados.</p>
+                </div>
+            `;
+            return;
+        }
+        
+        filteredEvents.forEach(event => {
+            const col = document.createElement('div');
+            col.className = 'col-md-6 col-lg-4';
+            col.innerHTML = `
+                <div class="card h-100 border-0 shadow-sm rounded-3 hover-lift">
+                    <div class="card-body p-3">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <div class="bg-primary bg-opacity-10 rounded-3 p-2 text-center" style="min-width: 55px;">
+                                <div class="fw-bold small">${event.date.split('-')[2]}</div>
+                                <div class="extra-small text-uppercase">${new Date(event.date).toLocaleDateString('pt-BR', { month: 'short' })}</div>
+                            </div>
+                            ${event.ministry_name ? 
+                                `<span class="badge bg-info bg-opacity-10 text-info extra-small">${event.ministry_name}</span>` : 
+                                `<span class="badge bg-secondary bg-opacity-10 text-muted extra-small">Geral</span>`
+                            }
+                        </div>
+                        <h6 class="fw-bold mb-1 text-truncate">${event.title}</h6>
+                        <div class="d-flex flex-wrap gap-2 align-items-center mt-2">
+                            <small class="text-muted"><i class="bi bi-clock me-1"></i> ${event.time}</small>
+                            <small class="text-muted"><i class="bi bi-geo-alt me-1"></i> ${event.location}</small>
+                        </div>
+                        ${event.description ? `<p class="small text-muted mt-2 mb-0">${event.description.substring(0, 80)}...</p>` : ''}
+                        ${event.recurrence !== 'none' ? `<div class="mt-2"><span class="badge bg-warning bg-opacity-10 text-warning extra-small"><i class="bi bi-arrow-repeat me-1"></i> ${event.recurrence === 'weekly' ? 'Semanal' : 'Mensal'}</span></div>` : ''}
+                    </div>
+                </div>
+            `;
+            container.appendChild(col);
+        });
+    }
+    
+    // Inicializar
+    document.addEventListener('DOMContentLoaded', function() {
+        applyFilters();
+    });
+</script>
+
 <style>
-.extra-small { font-size: 0.7rem; }
+.extra-small { font-size: 0.65rem; }
+.hover-lift {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.hover-lift:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 16px rgba(0,0,0,0.1) !important;
+}
 </style>
 {% endblock %}
