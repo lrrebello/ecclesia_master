@@ -254,7 +254,7 @@ def manage_settings():
 @finance_bp.route('/categories/edit/<int:id>', methods=['POST'])
 @login_required
 def edit_category(id):
-    """Editar categoria (nome ou tipo)"""
+    """Editar categoria (nome, tipo ou requires_linked_entity)"""
     if not can_manage_finance():
         return jsonify({'success': False, 'message': 'Acesso negado.'}), 403
     
@@ -265,16 +265,17 @@ def edit_category(id):
     old_values = {
         'name': category.name,
         'type': category.type,
-        'is_active': category.is_active
+        'is_active': category.is_active,
+        'requires_linked_entity': category.requires_linked_entity
     }
     
     category.name = request.form.get('name', category.name)
     category.type = request.form.get('type', category.type)
+    category.requires_linked_entity = 'requires_linked_entity' in request.form
     
     try:
         db.session.commit()
         
-        # LOG: Edição de categoria
         log_action(
             action='UPDATE',
             module='FINANCE',
@@ -283,7 +284,8 @@ def edit_category(id):
             new_values={
                 'name': category.name,
                 'type': category.type,
-                'is_active': category.is_active
+                'is_active': category.is_active,
+                'requires_linked_entity': category.requires_linked_entity
             },
             church_id=category.church_id
         )
@@ -636,11 +638,18 @@ def add_transaction():
         user_id = request.form.get('user_id')
         category_id = request.form.get('category_id')
         payment_method_id = request.form.get('payment_method_id')
-        bank_account_id = request.form.get('bank_account_id')  # NOVO: conta bancária
+        bank_account_id = request.form.get('bank_account_id')
+        transaction_type = request.form.get('type')  # 🔥 PEGAR O TIPO
         
         category = TransactionCategory.query.get(category_id) if category_id else None
         payment_method = PaymentMethod.query.get(payment_method_id) if payment_method_id else None
         
+        # 🔥 NOVA VALIDAÇÃO: Verifica se a categoria exige vínculo
+        if category and category.requires_linked_entity and not user_id:
+            flash(f'A categoria "{category.name}" exige a identificação do membro vinculado para fins fiscais.', 'danger')
+            return redirect(url_for('finance.add_transaction'))
+        
+        # Validação para meios eletrônicos (mantida)
         if payment_method and payment_method.is_electronic and not user_id:
             flash('Para pagamentos eletrônicos, a identificação do membro é obrigatória para fins fiscais.', 'danger')
             return redirect(url_for('finance.add_transaction'))
@@ -649,7 +658,7 @@ def add_transaction():
         is_cash = payment_method and payment_method.name.lower() in ['dinheiro', 'numerário', 'cash']
         is_portugal = current_user.church and current_user.church.country.lower() == 'portugal'
         
-        if is_portugal and is_cash and amount > 200:
+        if is_portugal and is_cash and amount > 200 and transaction_type == 'income':
             flash('Conforme o Artigo 63º do EBF (Portugal), donativos superiores a 200€ não podem ser efetuados em numerário.', 'danger')
             return redirect(url_for('finance.add_transaction'))
 
@@ -671,7 +680,7 @@ def add_transaction():
             category_name=category.name if category else "Geral",
             payment_method_id=int(payment_method_id) if payment_method_id else None,
             payment_method_name=payment_method.name if payment_method else "Dinheiro",
-            bank_account_id=int(bank_account_id) if bank_account_id else None,  # NOVO: salva o ID da conta
+            bank_account_id=int(bank_account_id) if bank_account_id else None,
             amount=amount,
             description=request.form.get('description'),
             user_id=int(user_id) if user_id and user_id != '' else None,
@@ -708,7 +717,7 @@ def add_transaction():
     categories = TransactionCategory.query.filter_by(church_id=current_user.church_id, is_active=True).all()
     payment_methods = PaymentMethod.query.filter_by(church_id=current_user.church_id, is_active=True).all()
     
-    # NOVO: buscar contas bancárias disponíveis
+    # Buscar contas bancárias disponíveis
     church_bank_accounts = BankAccount.query.filter_by(
         church_id=current_user.church_id,
         ministry_id=None,
@@ -733,8 +742,8 @@ def add_transaction():
                            members=members, 
                            categories=categories, 
                            payment_methods=payment_methods,
-                           church_bank_accounts=church_bank_accounts,  # NOVO
-                           ministry_bank_accounts=ministry_bank_accounts,  # NOVO
+                           church_bank_accounts=church_bank_accounts,
+                           ministry_bank_accounts=ministry_bank_accounts,
                            today=today)
 
 @finance_bp.route('/transaction/edit/<int:id>', methods=['POST'])
@@ -750,7 +759,7 @@ def edit_transaction(id):
     if not is_admin() and transaction.church_id != current_user.church_id:
         return jsonify({'success': False, 'message': 'Acesso negado.'}), 403
     
-    # Guardar valores antigos (incluindo conta bancária)
+    # Guardar valores antigos
     old_values = {
         'type': transaction.type,
         'amount': transaction.amount,
@@ -760,37 +769,81 @@ def edit_transaction(id):
         'payment_method_id': transaction.payment_method_id,
         'payment_method_name': transaction.payment_method_name,
         'user_id': transaction.user_id,
-        'bank_account_id': transaction.bank_account_id,  # NOVO
+        'bank_account_id': transaction.bank_account_id,
         'date': transaction.date.strftime('%Y-%m-%d') if transaction.date else None
     }
     
+    # Obter novos valores do formulário
+    new_type = request.form.get('type', transaction.type)
+    new_category_id = request.form.get('category_id')
+    new_payment_method_id = request.form.get('payment_method_id')
+    new_user_id = request.form.get('user_id')
+    new_bank_account_id = request.form.get('bank_account_id')
+    
+    # Buscar a nova categoria selecionada
+    new_category = None
+    if new_category_id:
+        new_category = TransactionCategory.query.get(int(new_category_id))
+    
+    # Buscar o método de pagamento
+    payment_method = None
+    if new_payment_method_id:
+        payment_method = PaymentMethod.query.get(int(new_payment_method_id))
+    
+    # 🔥 VALIDAÇÃO: Verificar se a nova categoria exige vínculo
+    if new_category and new_category.requires_linked_entity and not new_user_id:
+        return jsonify({
+            'success': False, 
+            'message': f'A categoria "{new_category.name}" exige a identificação do membro vinculado para fins fiscais.'
+        }), 400
+    
+    # 🔥 VALIDAÇÃO: Meios eletrônicos exigem vínculo
+    if payment_method and payment_method.is_electronic and not new_user_id:
+        return jsonify({
+            'success': False, 
+            'message': 'Para pagamentos eletrônicos, a identificação do membro é obrigatória para fins fiscais.'
+        }), 400
+    
+    # Validar limite de dinheiro em Portugal (se aplicável)
+    amount = float(request.form.get('amount', transaction.amount))
+    is_cash = payment_method and payment_method.name.lower() in ['dinheiro', 'numerário', 'cash']
+    is_portugal = current_user.church and current_user.church.country.lower() == 'portugal'
+    
+    if is_portugal and is_cash and amount > 200 and new_type == 'income':
+        flash('Conforme o Artigo 63º do EBF (Portugal), donativos superiores a 200€ não podem ser efetuados em numerário.', 'danger')
+        return redirect(url_for('finance.add_transaction'))
+    
     # Atualizar valores
-    transaction.type = request.form.get('type', transaction.type)
-    transaction.amount = float(request.form.get('amount', transaction.amount))
+    transaction.type = new_type
+    transaction.amount = amount
     transaction.description = request.form.get('description', transaction.description)
     transaction.date = datetime.strptime(request.form.get('date'), '%Y-%m-%d') if request.form.get('date') else transaction.date
     
-    category_id = request.form.get('category_id')
-    if category_id:
-        category = TransactionCategory.query.get(int(category_id))
+    # Atualizar categoria
+    if new_category_id:
+        category = TransactionCategory.query.get(int(new_category_id))
         if category:
             transaction.category_id = category.id
             transaction.category_name = category.name
+    else:
+        transaction.category_id = None
+        transaction.category_name = "Geral"
     
-    payment_method_id = request.form.get('payment_method_id')
-    if payment_method_id:
-        payment_method = PaymentMethod.query.get(int(payment_method_id))
-        if payment_method:
-            transaction.payment_method_id = payment_method.id
-            transaction.payment_method_name = payment_method.name
+    # Atualizar método de pagamento
+    if new_payment_method_id:
+        pm = PaymentMethod.query.get(int(new_payment_method_id))
+        if pm:
+            transaction.payment_method_id = pm.id
+            transaction.payment_method_name = pm.name
+    else:
+        transaction.payment_method_id = None
+        transaction.payment_method_name = "Dinheiro"
     
-    user_id = request.form.get('user_id')
-    transaction.user_id = int(user_id) if user_id and user_id != '' else None
+    # Atualizar membro vinculado
+    transaction.user_id = int(new_user_id) if new_user_id and new_user_id != '' else None
     
-    # NOVO: atualizar conta bancária
-    bank_account_id = request.form.get('bank_account_id')
-    old_bank_account_id = old_values['bank_account_id']
-    transaction.bank_account_id = int(bank_account_id) if bank_account_id else None
+    # Atualizar conta bancária
+    transaction.bank_account_id = int(new_bank_account_id) if new_bank_account_id else None
     
     # Buscar informações da conta para o log
     bank_account = None
@@ -805,7 +858,7 @@ def edit_transaction(id):
     try:
         db.session.commit()
         
-        # LOG: Edição de transação com informação da conta
+        # LOG: Edição de transação
         log_action(
             action='UPDATE',
             module='FINANCE',

@@ -19,10 +19,13 @@
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label fw-bold small">CATEGORIA</label>
-                                <select name="category_id" id="category_select" class="form-select bg-light border-0" required>
+                                <select name="category_id" id="category_select" class="form-select bg-light border-0" required onchange="checkCategoryRequiresLinkedEntity()">
                                     <option value="">Selecione uma categoria</option>
                                     {% for cat in categories %}
-                                    <option value="{{ cat.id }}" data-type="{{ cat.type }}">{{ cat.name }}</option>
+                                    <option value="{{ cat.id }}" data-type="{{ cat.type }}" data-requires-linked="{{ 'true' if cat.requires_linked_entity else 'false' }}">
+                                        {{ cat.name }}
+                                        {% if cat.requires_linked_entity %}(exige vínculo){% endif %}
+                                    </option>
                                     {% endfor %}
                                 </select>
                                 <div class="form-text extra-small">Gerencie as categorias nas configurações.</div>
@@ -45,7 +48,7 @@
                                 </select>
                                 <div class="form-text extra-small">Gerencie os meios de pagamento nas configurações.</div>
                             </div>
-                            <!-- Conta Bancária (novo campo) -->
+                            <!-- Conta Bancária -->
                             <div class="col-md-12 mt-3">
                                 <div class="card border-0 bg-light">
                                     <div class="card-body p-3">
@@ -85,16 +88,21 @@
                                     </div>
                                 </div>
                             </div>
-                            <div class="col-md-6" id="member_select_div">
-                                <label class="form-label fw-bold small">MEMBRO VINCULADO <span id="required_label" class="text-danger d-none">* FISCAL</span></label>
+                            
+                            <!-- 🔥 MEMBRO VINCULADO - Agora condicional -->
+                            <div class="col-md-6" id="member_select_div" style="display: none;">
+                                <label class="form-label fw-bold small">MEMBRO VINCULADO <span id="required_label" class="text-danger d-none">* OBRIGATÓRIO</span></label>
                                 <select name="user_id" id="user_id" class="form-select bg-light border-0">
                                     <option value="">Nenhum (Lançamento Geral)</option>
                                     {% for member in members %}
                                     <option value="{{ member.id }}">{{ member.name }}</option>
                                     {% endfor %}
                                 </select>
-                                <div class="form-text extra-small">Obrigatório para meios eletrônicos (ex: PIX, MB WAY).</div>
+                                <div class="form-text extra-small" id="member_help_text">
+                                    Obrigatório para meios eletrônicos ou categorias que exigem identificação fiscal.
+                                </div>
                             </div>
+                            
                             <div class="col-md-12">
                                 <label class="form-label fw-bold small">DESCRIÇÃO / OBSERVAÇÃO</label>
                                 <textarea name="description" class="form-control bg-light border-0" rows="3" placeholder="Detalhes adicionais sobre o lançamento..."></textarea>
@@ -121,27 +129,85 @@ function filterCategories() {
         if (opt.value === "") return;
         opt.style.display = (opt.getAttribute('data-type') === type) ? "block" : "none";
     });
+    // Chamar a verificação de vínculo após filtrar
+    checkCategoryRequiresLinkedEntity();
+}
+
+function checkCategoryRequiresLinkedEntity() {
+    const catSelect = document.getElementById('category_select');
+    const selectedOption = catSelect.options[catSelect.selectedIndex];
+    const requiresLinked = selectedOption && selectedOption.getAttribute('data-requires-linked') === 'true';
+    const memberDiv = document.getElementById('member_select_div');
+    const memberSelect = document.getElementById('user_id');
+    const requiredLabel = document.getElementById('required_label');
+    const memberHelpText = document.getElementById('member_help_text');
+    
+    if (requiresLinked) {
+        memberDiv.style.display = 'block';
+        memberSelect.setAttribute('required', 'required');
+        memberHelpText.innerHTML = '<i class="bi bi-exclamation-triangle-fill text-warning me-1"></i> <strong class="text-warning">Obrigatório!</strong> Esta categoria exige identificação do membro para fins fiscais.';
+    } else {
+        // Se não exige vínculo pela categoria, ainda pode exigir por ser eletrônico
+        // A função checkElectronic() vai decidir
+        memberDiv.style.display = 'none';
+        memberSelect.removeAttribute('required');
+        memberSelect.value = '';
+        memberHelpText.innerHTML = 'Obrigatório para meios eletrônicos ou categorias que exigem identificação fiscal.';
+    }
 }
 
 function checkElectronic() {
     const paySelect = document.getElementById('payment_select');
     const selectedOption = paySelect.options[paySelect.selectedIndex];
-    const isElectronic = selectedOption.getAttribute('data-electronic') === '1';
-    const requiredLabel = document.getElementById('required_label');
-    const userSelect = document.getElementById('user_id');
+    const isElectronic = selectedOption && selectedOption.getAttribute('data-electronic') === '1';
+    const catSelect = document.getElementById('category_select');
+    const selectedCat = catSelect.options[catSelect.selectedIndex];
+    const requiresLinkedByCategory = selectedCat && selectedCat.getAttribute('data-requires-linked') === 'true';
     
-    if (isElectronic) {
+    const memberDiv = document.getElementById('member_select_div');
+    const memberSelect = document.getElementById('user_id');
+    const requiredLabel = document.getElementById('required_label');
+    const memberHelpText = document.getElementById('member_help_text');
+    
+    // Se for eletrônico OU a categoria exigir vínculo, mostrar campo
+    if (isElectronic || requiresLinkedByCategory) {
+        memberDiv.style.display = 'block';
+        memberSelect.setAttribute('required', 'required');
         requiredLabel.classList.remove('d-none');
-        userSelect.setAttribute('required', 'required');
-        userSelect.classList.add('border-primary');
+        
+        if (isElectronic && requiresLinkedByCategory) {
+            memberHelpText.innerHTML = '<i class="bi bi-exclamation-triangle-fill text-danger me-1"></i> <strong class="text-danger">OBRIGATÓRIO!</strong> Meio eletrônico + categoria que exige identificação fiscal.';
+        } else if (isElectronic) {
+            memberHelpText.innerHTML = '<i class="bi bi-exclamation-triangle-fill text-warning me-1"></i> <strong class="text-warning">Obrigatório!</strong> Meios eletrônicos exigem identificação do membro para fins fiscais.';
+        } else if (requiresLinkedByCategory) {
+            memberHelpText.innerHTML = '<i class="bi bi-exclamation-triangle-fill text-warning me-1"></i> <strong class="text-warning">Obrigatório!</strong> Esta categoria exige identificação do membro.';
+        }
     } else {
+        memberDiv.style.display = 'none';
+        memberSelect.removeAttribute('required');
         requiredLabel.classList.add('d-none');
-        userSelect.removeAttribute('required');
-        userSelect.classList.remove('border-primary');
+        memberSelect.value = '';
     }
 }
 
-document.addEventListener('DOMContentLoaded', filterCategories);
+document.addEventListener('DOMContentLoaded', function() {
+    filterCategories();
+    checkElectronic();
+    
+    // Event listeners
+    const paymentSelect = document.getElementById('payment_select');
+    if (paymentSelect) {
+        paymentSelect.addEventListener('change', checkElectronic);
+    }
+    
+    const categorySelect = document.getElementById('category_select');
+    if (categorySelect) {
+        categorySelect.addEventListener('change', function() {
+            checkCategoryRequiresLinkedEntity();
+            checkElectronic(); // Reavaliar após mudar categoria
+        });
+    }
+});
 </script>
 <style>
 .extra-small { font-size: 0.7rem; }

@@ -172,6 +172,7 @@ class TransactionCategory(db.Model):
     type = db.Column(db.String(10), nullable=False) # income, expense
     church_id = db.Column(db.Integer, db.ForeignKey('church.id'), nullable=False)
     is_active = db.Column(db.Boolean, default=True)
+    requires_linked_entity = db.Column(db.Boolean, default=False)  # 🔥 NOVO CAMPO
     
     church = db.relationship('Church', backref='transaction_categories')
 

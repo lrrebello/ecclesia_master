@@ -28,6 +28,7 @@
                                 <tr>
                                     <th class="px-4">Nome</th>
                                     <th>Tipo</th>
+                                    <th>Exige Vínculo</th>
                                     <th class="text-end px-4">Ações</th>
                                 </tr>
                             </thead>
@@ -40,7 +41,27 @@
                                             {{ 'Entrada' if cat.type == 'income' else 'Saída' }}
                                         </span>
                                     </td>
+                                    <td>
+                                        {% if cat.requires_linked_entity %}
+                                        <span class="badge bg-warning bg-opacity-10 text-warning">
+                                            <i class="bi bi-person-badge me-1"></i> Exige
+                                        </span>
+                                        {% else %}
+                                        <span class="badge bg-secondary bg-opacity-10 text-secondary">
+                                            <i class="bi bi-check-lg me-1"></i> Não exige
+                                        </span>
+                                        {% endif %}
+                                    </td>
                                     <td class="text-end px-4">
+                                        <button class="btn btn-sm btn-outline-primary border-0 me-1" 
+                                                data-bs-toggle="modal" 
+                                                data-bs-target="#editCategoryModal"
+                                                data-id="{{ cat.id }}"
+                                                data-name="{{ cat.name }}"
+                                                data-type="{{ cat.type }}"
+                                                data-requires="{{ cat.requires_linked_entity|lower }}">
+                                            <i class="bi bi-pencil"></i>
+                                        </button>
                                         <form action="{{ url_for('finance.delete_category', id=cat.id) }}" method="POST" class="d-inline">
                                             <button type="submit" class="btn btn-sm btn-outline-danger border-0" onclick="return confirm('Desativar esta categoria?')">
                                                 <i class="bi bi-trash"></i>
@@ -49,7 +70,7 @@
                                     </td>
                                 </tr>
                                 {% else %}
-                                <tr><td colspan="3" class="text-center py-4 text-muted">Nenhuma categoria cadastrada.</td></tr>
+                                <tr><td colspan="4" class="text-center py-4 text-muted">Nenhuma categoria cadastrada.</td></tr>
                                 {% endfor %}
                             </tbody>
                         </table>
@@ -89,6 +110,14 @@
                                         {% endif %}
                                     </td>
                                     <td class="text-end px-4">
+                                        <button class="btn btn-sm btn-outline-primary border-0 me-1" 
+                                                data-bs-toggle="modal" 
+                                                data-bs-target="#editPaymentModal"
+                                                data-id="{{ method.id }}"
+                                                data-name="{{ method.name }}"
+                                                data-electronic="{{ method.is_electronic|lower }}">
+                                            <i class="bi bi-pencil"></i>
+                                        </button>
                                         <form action="{{ url_for('finance.delete_payment_method', id=method.id) }}" method="POST" class="d-inline">
                                             <button type="submit" class="btn btn-sm btn-outline-danger border-0" onclick="return confirm('Desativar este meio de pagamento?')">
                                                 <i class="bi bi-trash"></i>
@@ -108,7 +137,7 @@
     </div>
 </div>
 
-<!-- Modal Categoria -->
+<!-- Modal Nova Categoria -->
 <div class="modal fade" id="addCategoryModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow">
@@ -121,7 +150,7 @@
                 <div class="modal-body">
                     <div class="mb-3">
                         <label class="form-label small fw-bold">NOME</label>
-                        <input type="text" name="name" class="form-control" placeholder="Ex: Dízimos, Aluguel..." required>
+                        <input type="text" name="name" class="form-control" placeholder="Ex: Dízimos, Alimentação..." required>
                     </div>
                     <div class="mb-3">
                         <label class="form-label small fw-bold">TIPO</label>
@@ -129,6 +158,18 @@
                             <option value="income">Entrada (Receita)</option>
                             <option value="expense">Saída (Despesa)</option>
                         </select>
+                    </div>
+                    <div class="mb-3">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" name="requires_linked_entity" id="requires_linked_entity">
+                            <label class="form-check-label fw-bold small" for="requires_linked_entity">
+                                EXIGE VÍNCULO (Membro ou Fornecedor)
+                            </label>
+                            <div class="form-text extra-small">
+                                Marque para categorias que precisam identificar quem recebeu/pagou (ex: Dízimo, Reembolso, Doação).
+                                Desmarque para compras operacionais (ex: Alimentação, Limpeza, Combustível).
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer border-0">
@@ -139,7 +180,49 @@
     </div>
 </div>
 
-<!-- Modal Meio de Pagamento -->
+<!-- Modal Editar Categoria (ÚNICO) -->
+<div class="modal fade" id="editCategoryModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header border-0">
+                <h5 class="modal-title fw-bold">Editar Categoria</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="editCategoryForm" method="POST">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">NOME</label>
+                        <input type="text" name="name" id="edit_category_name" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">TIPO</label>
+                        <select name="type" id="edit_category_type" class="form-select" required>
+                            <option value="income">Entrada (Receita)</option>
+                            <option value="expense">Saída (Despesa)</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" name="requires_linked_entity" id="edit_category_requires">
+                            <label class="form-check-label fw-bold small" for="edit_category_requires">
+                                EXIGE VÍNCULO (Membro ou Fornecedor)
+                            </label>
+                            <div class="form-text extra-small">
+                                Marque para categorias que precisam identificar quem recebeu/pagou (ex: Dízimo, Reembolso, Doação).
+                                Desmarque para compras operacionais (ex: Alimentação, Limpeza, Combustível).
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-0">
+                    <button type="submit" class="btn btn-primary w-100 py-2">Salvar Alterações</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Novo Meio de Pagamento -->
 <div class="modal fade" id="addPaymentModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow">
@@ -168,6 +251,139 @@
     </div>
 </div>
 
+<!-- Modal Editar Meio de Pagamento (ÚNICO) -->
+<div class="modal fade" id="editPaymentModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header border-0">
+                <h5 class="modal-title fw-bold">Editar Meio de Pagamento</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="editPaymentForm" method="POST">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">NOME</label>
+                        <input type="text" name="name" id="edit_payment_name" class="form-control" required>
+                    </div>
+                    <div class="form-check form-switch mb-3">
+                        <input class="form-check-input" type="checkbox" name="is_electronic" id="edit_payment_electronic">
+                        <label class="form-check-label fw-bold small" for="edit_payment_electronic">MEIO ELETRÔNICO (EXIGE DADOS FISCAIS)</label>
+                        <div class="form-text extra-small">Marque para meios que exigem identificação do cliente para fins fiscais.</div>
+                    </div>
+                </div>
+                <div class="modal-footer border-0">
+                    <button type="submit" class="btn btn-primary w-100 py-2">Salvar Alterações</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+// Script para preencher o modal de edição de categoria usando data-attributes
+document.addEventListener('DOMContentLoaded', function() {
+    // Modal de Categoria
+    const editCategoryModal = document.getElementById('editCategoryModal');
+    if (editCategoryModal) {
+        editCategoryModal.addEventListener('show.bs.modal', function(event) {
+            const button = event.relatedTarget;
+            const id = button.getAttribute('data-id');
+            const name = button.getAttribute('data-name');
+            const type = button.getAttribute('data-type');
+            const requires = button.getAttribute('data-requires') === 'true';
+            
+            const form = document.getElementById('editCategoryForm');
+            form.action = "{{ url_for('finance.edit_category', id=0) }}".replace('0', id);
+            
+            document.getElementById('edit_category_name').value = name;
+            document.getElementById('edit_category_type').value = type;
+            document.getElementById('edit_category_requires').checked = requires;
+        });
+    }
+    
+    // Modal de Método de Pagamento
+    const editPaymentModal = document.getElementById('editPaymentModal');
+    if (editPaymentModal) {
+        editPaymentModal.addEventListener('show.bs.modal', function(event) {
+            const button = event.relatedTarget;
+            const id = button.getAttribute('data-id');
+            const name = button.getAttribute('data-name');
+            const isElectronic = button.getAttribute('data-electronic') === 'true';
+            
+            const form = document.getElementById('editPaymentForm');
+            form.action = "{{ url_for('finance.edit_payment_method', id=0) }}".replace('0', id);
+            
+            document.getElementById('edit_payment_name').value = name;
+            document.getElementById('edit_payment_electronic').checked = isElectronic;
+        });
+    }
+});
+</script>
+<script>
+// Adicione este script para tratar o submit do formulário via AJAX
+document.addEventListener('DOMContentLoaded', function() {
+    // Formulário de edição de categoria
+    const editCategoryForm = document.getElementById('editCategoryForm');
+    if (editCategoryForm) {
+        editCategoryForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(this);
+            
+            fetch(this.action, {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Fechar modal
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('editCategoryModal'));
+                    modal.hide();
+                    
+                    // Recarregar a página
+                    location.reload();
+                } else {
+                    alert('Erro: ' + (data.message || 'Não foi possível salvar'));
+                }
+            })
+            .catch(error => {
+                console.error('Erro:', error);
+                alert('Erro ao salvar. Tente novamente.');
+            });
+        });
+    }
+    
+    // Formulário de edição de método de pagamento
+    const editPaymentForm = document.getElementById('editPaymentForm');
+    if (editPaymentForm) {
+        editPaymentForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(this);
+            
+            fetch(this.action, {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('editPaymentModal'));
+                    modal.hide();
+                    location.reload();
+                } else {
+                    alert('Erro: ' + (data.message || 'Não foi possível salvar'));
+                }
+            })
+            .catch(error => {
+                console.error('Erro:', error);
+                alert('Erro ao salvar. Tente novamente.');
+            });
+        });
+    }
+});
+</script>
 <style>
 .extra-small { font-size: 0.7rem; }
 </style>
