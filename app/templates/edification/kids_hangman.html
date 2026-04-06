@@ -1,0 +1,282 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container py-4">
+    <!-- 🔥 BOTÃO VOLTAR -->
+    <div class="mb-4">
+        <a href="{{ url_for('edification.kids') }}" class="btn btn-outline-secondary rounded-pill">
+            <i class="bi bi-arrow-left me-2"></i> Voltar para Espaço Kids
+        </a>
+    </div>
+    
+    <div class="row justify-content-center">
+        <div class="col-lg-6">
+            <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+                    <h3 class="fw-bold mb-0">🙈 Jogo da Forca</h3>
+                    <p class="mb-0 opacity-75">{{ story.title if story else 'História Bíblica' }}</p>
+                </div>
+                <div class="card-body p-4 text-center">
+                    <!-- Forca Canvas -->
+                    <div class="mb-4">
+                        <canvas id="hangmanCanvas" width="300" height="250" class="mx-auto d-block border rounded-3 bg-light"></canvas>
+                    </div>
+                    
+                    <!-- Palavra oculta -->
+                    <div class="mb-4">
+                        <div id="wordDisplay" class="display-5 fw-bold tracking-wide" style="letter-spacing: 10px; font-family: monospace;"></div>
+                    </div>
+                    
+                    <!-- Letras erradas -->
+                    <div class="mb-3">
+                        <small class="text-muted">Letras erradas:</small>
+                        <div id="wrongLetters" class="text-danger fw-bold"></div>
+                    </div>
+                    
+                    <!-- Teclado virtual -->
+                    <div id="keyboard" class="d-flex flex-wrap justify-content-center gap-2 mb-4"></div>
+                    
+                    <!-- Mensagem de fim de jogo -->
+                    <div id="gameMessage" class="alert" style="display: none;"></div>
+                    
+                    <button class="btn btn-warning fw-bold rounded-pill px-4 mt-2" onclick="resetGame()">
+                        <i class="bi bi-arrow-repeat me-2"></i> Nova Palavra
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Processar game_data vindo do backend
+    let wordsList = [];
+    
+    {% if game_data and game_data|length > 0 %}
+        wordsList = {{ game_data|tojson }};
+    {% else %}
+        wordsList = ["BÍBLIA", "DEUS", "JESUS", "AMOR", "FÉ", "GRAÇA", "SALVAÇÃO", "ORAÇÃO", "IGREJA", "CRISTO"];
+    {% endif %}
+    
+    if (!Array.isArray(wordsList)) {
+        wordsList = [];
+    }
+    
+    wordsList = wordsList.filter(word => word && typeof word === 'string' && word.length >= 4);
+    wordsList = [...new Set(wordsList)];
+    
+    if (wordsList.length === 0) {
+        document.getElementById('gameMessage').className = 'alert alert-warning';
+        document.getElementById('gameMessage').innerHTML = 'Nenhuma palavra disponível para este jogo. Volte e escolha outra história.';
+        document.getElementById('gameMessage').style.display = 'block';
+    }
+    
+    let currentWord = "";
+    let guessedLetters = [];
+    let wrongGuesses = [];
+    let maxWrong = 6;
+    let gameActive = true;
+    
+    const canvas = document.getElementById('hangmanCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    function drawHangman(attempts) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.strokeStyle = '#333';
+        ctx.lineWidth = 2;
+        
+        ctx.beginPath();
+        ctx.moveTo(50, 220);
+        ctx.lineTo(250, 220);
+        ctx.stroke();
+        
+        ctx.beginPath();
+        ctx.moveTo(100, 220);
+        ctx.lineTo(100, 30);
+        ctx.stroke();
+        
+        ctx.beginPath();
+        ctx.moveTo(100, 30);
+        ctx.lineTo(200, 30);
+        ctx.stroke();
+        
+        ctx.beginPath();
+        ctx.moveTo(200, 30);
+        ctx.lineTo(200, 60);
+        ctx.stroke();
+        
+        if (attempts >= 1) {
+            ctx.beginPath();
+            ctx.arc(200, 80, 20, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+        if (attempts >= 2) {
+            ctx.beginPath();
+            ctx.moveTo(200, 100);
+            ctx.lineTo(200, 150);
+            ctx.stroke();
+        }
+        if (attempts >= 3) {
+            ctx.beginPath();
+            ctx.moveTo(200, 110);
+            ctx.lineTo(170, 130);
+            ctx.stroke();
+        }
+        if (attempts >= 4) {
+            ctx.beginPath();
+            ctx.moveTo(200, 110);
+            ctx.lineTo(230, 130);
+            ctx.stroke();
+        }
+        if (attempts >= 5) {
+            ctx.beginPath();
+            ctx.moveTo(200, 150);
+            ctx.lineTo(170, 190);
+            ctx.stroke();
+        }
+        if (attempts >= 6) {
+            ctx.beginPath();
+            ctx.moveTo(200, 150);
+            ctx.lineTo(230, 190);
+            ctx.stroke();
+        }
+    }
+    
+    function displayWord() {
+        const display = currentWord.split('').map(letter => 
+            guessedLetters.includes(letter) ? letter : '_'
+        ).join(' ');
+        document.getElementById('wordDisplay').innerHTML = display;
+        
+        if (!display.includes('_') && gameActive) {
+            gameActive = false;
+            document.getElementById('gameMessage').className = 'alert alert-success';
+            document.getElementById('gameMessage').innerHTML = '<i class="bi bi-trophy-fill me-2"></i> Parabéns! Você acertou a palavra!';
+            document.getElementById('gameMessage').style.display = 'block';
+            disableKeyboard(true);
+        }
+    }
+    
+    function updateWrongLetters() {
+        document.getElementById('wrongLetters').innerHTML = wrongGuesses.join(', ');
+        drawHangman(wrongGuesses.length);
+        
+        if (wrongGuesses.length >= maxWrong && gameActive) {
+            gameActive = false;
+            document.getElementById('gameMessage').className = 'alert alert-danger';
+            document.getElementById('gameMessage').innerHTML = `<i class="bi bi-emoji-frown-fill me-2"></i> Que pena! A palavra era: <strong>${currentWord}</strong>`;
+            document.getElementById('gameMessage').style.display = 'block';
+            disableKeyboard(true);
+        }
+    }
+    
+    function guessLetter(letter) {
+        if (!gameActive) return;
+        if (guessedLetters.includes(letter) || wrongGuesses.includes(letter)) return;
+        
+        if (currentWord.includes(letter)) {
+            guessedLetters.push(letter);
+            displayWord();
+        } else {
+            wrongGuesses.push(letter);
+            updateWrongLetters();
+        }
+        
+        const btn = document.querySelector(`[data-letter="${letter}"]`);
+        if (btn) {
+            btn.disabled = true;
+            btn.classList.remove('btn-outline-primary');
+            btn.classList.add('btn-secondary', 'opacity-50');
+        }
+    }
+    
+    function disableKeyboard(disabled) {
+        document.querySelectorAll('.key-btn').forEach(btn => {
+            btn.disabled = disabled;
+        });
+    }
+    
+    function createKeyboard() {
+        const keyboardDiv = document.getElementById('keyboard');
+        keyboardDiv.innerHTML = '';
+        const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+        
+        letters.forEach(letter => {
+            const btn = document.createElement('button');
+            btn.textContent = letter;
+            btn.className = 'btn btn-outline-primary rounded-circle key-btn';
+            btn.style.width = '50px';
+            btn.style.height = '50px';
+            btn.style.fontSize = '1.2rem';
+            btn.style.fontWeight = 'bold';
+            btn.setAttribute('data-letter', letter);
+            btn.addEventListener('click', () => guessLetter(letter));
+            keyboardDiv.appendChild(btn);
+        });
+    }
+    
+    function resetGame() {
+        if (wordsList.length === 0) {
+            document.getElementById('gameMessage').className = 'alert alert-warning';
+            document.getElementById('gameMessage').innerHTML = 'Nenhuma palavra disponível para este jogo. Volte e escolha outra história.';
+            document.getElementById('gameMessage').style.display = 'block';
+            return;
+        }
+        
+        currentWord = wordsList[Math.floor(Math.random() * wordsList.length)].toUpperCase();
+        guessedLetters = [];
+        wrongGuesses = [];
+        gameActive = true;
+        
+        displayWord();
+        updateWrongLetters();
+        drawHangman(0);
+        
+        document.getElementById('gameMessage').style.display = 'none';
+        
+        document.querySelectorAll('.key-btn').forEach(btn => {
+            btn.disabled = false;
+            btn.classList.remove('btn-secondary', 'opacity-50');
+            btn.classList.add('btn-outline-primary');
+        });
+    }
+    
+    // Inicializar
+    createKeyboard();
+    resetGame();
+    
+    // 🔥 Garantir que o botão Nova Palavra funciona
+    const resetBtn = document.getElementById('resetGame');
+    if (resetBtn) {
+        // Remove eventos antigos para evitar duplicação
+        const newResetBtn = resetBtn.cloneNode(true);
+        resetBtn.parentNode.replaceChild(newResetBtn, resetBtn);
+        newResetBtn.addEventListener('click', function() {
+            resetGame();
+        });
+    }
+</script>
+
+<style>
+.tracking-wide {
+    letter-spacing: 8px;
+    font-size: 2rem;
+}
+.key-btn {
+    font-weight: bold;
+    transition: all 0.2s ease;
+}
+.key-btn:hover:not(:disabled) {
+    transform: scale(1.05);
+}
+@media (max-width: 768px) {
+    .tracking-wide {
+        letter-spacing: 4px;
+        font-size: 1.5rem;
+    }
+    .key-btn {
+        width: 40px !important;
+        height: 40px !important;
+        font-size: 1rem !important;
+    }
+}
+</style>
+{% endblock %}

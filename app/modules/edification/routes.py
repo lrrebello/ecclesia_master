@@ -5,6 +5,7 @@ from app.utils.logger import log_action
 from datetime import datetime
 from PIL import Image
 from werkzeug.utils import secure_filename
+from sqlalchemy import func
 import os
 import json
 import pillow_heif
@@ -1246,6 +1247,46 @@ def crossword():
     
     return render_template('edification/kids_crossword.html', story=story)
 
+@edification_bp.route('/kids/hangman')
+def hangman():
+    from sqlalchemy import func
+    import json
+    
+    story_id = request.args.get('story_id')
+    story = None
+    game_data = []
+    
+    if story_id:
+        story = BibleStory.query.get_or_404(int(story_id))
+        if story.game_data:
+            try:
+                data = json.loads(story.game_data) if isinstance(story.game_data, str) else story.game_data
+                # Extrair apenas as palavras (strings) do formato do caça-palavras
+                if data and isinstance(data, list):
+                    if len(data) > 0 and isinstance(data[0], dict) and 'word' in data[0]:
+                        # Formato: [{"word": "DAVI", "hint": ""}, ...]
+                        game_data = [item['word'].upper() for item in data if item.get('word')]
+                    elif isinstance(data[0], str):
+                        # Formato simples: ["PALAVRA1", "PALAVRA2"]
+                        game_data = [w.upper() for w in data]
+            except Exception:
+                pass  # Silencia o erro
+    else:
+        story = BibleStory.query.order_by(func.random()).first()
+        if story and story.game_data:
+            try:
+                data = json.loads(story.game_data) if isinstance(story.game_data, str) else story.game_data
+                if data and isinstance(data, list):
+                    if len(data) > 0 and isinstance(data[0], dict) and 'word' in data[0]:
+                        game_data = [item['word'].upper() for item in data if item.get('word')]
+                    elif isinstance(data[0], str):
+                        game_data = [w.upper() for w in data]
+            except Exception:
+                pass  # Silencia o erro
+    
+    return render_template('edification/kids_hangman.html', 
+                         story=story, 
+                         game_data=game_data)
 # ============================================
 # API ROTAS
 # ============================================
