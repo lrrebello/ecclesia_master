@@ -50,6 +50,11 @@
                             <i class="bi bi-calendar3 me-2"></i>
                             <small>{{ study.created_at.strftime('%d de %B, %Y') }}</small>
                         </div>
+                        {% if is_completed %}
+                        <span class="badge bg-success rounded-pill">
+                            <i class="bi bi-check2-circle me-1"></i> Concluído
+                        </span>
+                        {% endif %}
                     </div>
                     <div class="mt-4">
                         <div class="d-flex justify-content-between small mb-1">
@@ -109,8 +114,9 @@
                     </div>
                     
                     <div class="d-flex justify-content-center mt-3">
-                        <button id="markCompletedBtn" class="btn btn-success rounded-pill px-4">
-                            <i class="bi bi-check2-circle me-2"></i> Marcar como concluído
+                        <button id="markCompletedBtn" class="btn {{ 'btn-success' if not is_completed else 'btn-outline-success' }} rounded-pill px-4" {{ 'disabled' if is_completed }}>
+                            <i class="bi bi-{{ 'check2-circle' if not is_completed else 'check2-circle-fill' }} me-2"></i> 
+                            {{ 'Marcar como concluído' if not is_completed else 'Estudo concluído!' }}
                         </button>
                     </div>
                 </div>
@@ -678,28 +684,64 @@
     }
     
     // ============================================
-    // PROGRESSO
+    // PROGRESSO BASEADO EM PÁGINAS
     // ============================================
     function updateProgress() {
-        const scrollPercent = (window.scrollY / (document.body.scrollHeight - window.innerHeight)) * 100;
-        document.getElementById('progressPercent').innerHTML = Math.round(scrollPercent) + '%';
-        document.getElementById('progressBar').style.width = scrollPercent + '%';
+        const currentPage = {{ current_page|default(1) }};
+        const totalPages = {{ total_pages|default(1) }};
+        const progressPercent = (currentPage / totalPages) * 100;
+        
+        document.getElementById('progressPercent').innerHTML = `${Math.round(progressPercent)}%`;
+        document.getElementById('progressBar').style.width = `${progressPercent}%`;
     }
-    
-    window.addEventListener('scroll', updateProgress);
-    
+
+    // Chamar ao carregar a página
+    updateProgress();
+
     // ============================================
     // MARCAR COMO CONCLUÍDO
     // ============================================
+    let isStudyCompleted = {{ is_completed|default(false)|tojson }};
+
+    function updateCompletedButton() {
+        const btn = document.getElementById('markCompletedBtn');
+        if (isStudyCompleted) {
+            btn.innerHTML = '<i class="bi bi-check2-circle-fill me-2"></i> Estudo concluído!';
+            btn.classList.remove('btn-success');
+            btn.classList.add('btn-outline-success');
+            btn.disabled = true;
+            
+            // Adicionar badge de concluído no cabeçalho se não existir
+            const headerDiv = document.querySelector('.bg-primary.bg-opacity-10 .d-flex.gap-3');
+            if (headerDiv && !document.querySelector('.badge.bg-success.rounded-pill')) {
+                const badge = document.createElement('span');
+                badge.className = 'badge bg-success rounded-pill';
+                badge.innerHTML = '<i class="bi bi-check2-circle me-1"></i> Concluído';
+                headerDiv.appendChild(badge);
+            }
+        } else {
+            btn.innerHTML = '<i class="bi bi-check2-circle me-2"></i> Marcar como concluído';
+            btn.classList.add('btn-success');
+            btn.classList.remove('btn-outline-success');
+            btn.disabled = false;
+        }
+    }
+
     document.getElementById('markCompletedBtn').addEventListener('click', () => {
         fetch(`/edification/study/${studyId}/complete`, { method: 'POST' })
             .then(() => {
+                isStudyCompleted = true;
+                updateCompletedButton();
                 alert('✅ Estudo marcado como concluído!');
-                document.getElementById('markCompletedBtn').disabled = true;
-                document.getElementById('markCompletedBtn').innerHTML = '<i class="bi bi-check2-circle me-2"></i> Concluído!';
+                
+                // Recarregar a página para mostrar o badge
+                location.reload();
             })
             .catch(e => console.error('Erro:', e));
     });
+
+    // Inicializar estado do botão
+    updateCompletedButton();
     
     // ============================================
     // SALVAR PROGRESSO DA PÁGINA

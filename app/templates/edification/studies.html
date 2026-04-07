@@ -14,6 +14,23 @@
         {% endif %}
     </div>
 
+    <!-- Filtros Rápidos (Concluídos/Pendentes) -->
+    <div class="row justify-content-center mb-4">
+        <div class="col-lg-8">
+            <div class="d-flex gap-2 justify-content-center flex-wrap">
+                <button class="btn btn-sm btn-outline-secondary filter-btn active" data-filter="all">
+                    <i class="bi bi-grid-3x3-gap-fill me-1"></i> Todos
+                </button>
+                <button class="btn btn-sm btn-outline-success filter-btn" data-filter="completed">
+                    <i class="bi bi-check2-circle me-1"></i> Concluídos
+                </button>
+                <button class="btn btn-sm btn-outline-secondary filter-btn" data-filter="pending">
+                    <i class="bi bi-hourglass-split me-1"></i> Pendentes
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Barra de Busca e Filtros -->
     <div class="row justify-content-center mb-5">
         <div class="col-lg-8">
@@ -26,7 +43,7 @@
                                     <i class="bi bi-search text-muted"></i>
                                 </span>
                                 <input type="text" name="search" class="form-control border-start-0" 
-                                       placeholder="Buscar por título, autor ou conteúdo..." 
+                                       placeholder="Buscar por título ou conteúdo..." 
                                        value="{{ request.args.get('search', '') }}">
                             </div>
                         </div>
@@ -56,16 +73,16 @@
         </div>
         <div class="col-md-3 col-6">
             <div class="card border-0 shadow-sm text-center p-3 rounded-4">
-                <i class="bi bi-people-fill fs-2 text-success mb-2"></i>
-                <h3 class="fw-bold mb-0">{{ total_reads|default(0) }}</h3>
-                <small class="text-muted">Total Leituras</small>
+                <i class="bi bi-check2-circle-fill fs-2 text-success mb-2"></i>
+                <h3 class="fw-bold mb-0">{{ completed_count|default(0) }}</h3>
+                <small class="text-muted">Concluídos</small>
             </div>
         </div>
         <div class="col-md-3 col-6">
             <div class="card border-0 shadow-sm text-center p-3 rounded-4">
                 <i class="bi bi-question-circle-fill fs-2 text-info mb-2"></i>
                 <h3 class="fw-bold mb-0">{{ total_questions|default(0) }}</h3>
-                <small class="text-muted">Questões Disponíveis</small>
+                <small class="text-muted">Questões</small>
             </div>
         </div>
         <div class="col-md-3 col-6">
@@ -78,23 +95,36 @@
     </div>
 
     <!-- Grid de Estudos -->
-    <div class="row g-4">
+    <div class="row g-4" id="studiesGrid">
         {% for study in studies %}
-        <div class="col-md-6 col-lg-4">
+        {% set is_completed = study.id in completed_study_ids %}
+        <div class="col-md-6 col-lg-4 study-card" data-completed="{{ 'true' if is_completed else 'false' }}">
             <div class="card h-100 border-0 shadow-sm rounded-4 overflow-hidden hover-lift">
                 <div class="card-header bg-transparent border-0 pt-4 pb-0">
                     <div class="d-flex justify-content-between align-items-start">
                         <span class="badge bg-{{ 'primary' if study.category == 'Bíblico' else 'success' if study.category == 'Teológico' else 'info' }} bg-opacity-10 text-{{ 'primary' if study.category == 'Bíblico' else 'success' if study.category == 'Teológico' else 'info' }} rounded-pill px-3 py-2">
                             <i class="bi bi-tag me-1 small"></i> {{ study.category or 'Geral' }}
                         </span>
-                        <small class="text-muted">
-                            <i class="bi bi-calendar3 me-1"></i> {{ study.created_at.strftime('%d/%m/%Y') }}
-                        </small>
+                        <div class="d-flex align-items-center gap-2">
+                            {% if is_completed %}
+                            <span class="badge bg-success rounded-pill completed-badge">
+                                <i class="bi bi-check2-circle me-1"></i> Concluído
+                            </span>
+                            {% endif %}
+                            <small class="text-muted">
+                                <i class="bi bi-calendar3 me-1"></i> {{ study.created_at.strftime('%d/%m/%Y') }}
+                            </small>
+                        </div>
                     </div>
                 </div>
                 
                 <div class="card-body p-4">
-                    <h5 class="fw-bold mb-3 line-clamp-2">{{ study.title }}</h5>
+                    <div class="d-flex align-items-start justify-content-between">
+                        <h5 class="fw-bold mb-3 line-clamp-2 flex-grow-1">{{ study.title }}</h5>
+                        {% if is_completed %}
+                        <i class="bi bi-check2-circle text-success fs-4 ms-2" title="Estudo concluído"></i>
+                        {% endif %}
+                    </div>
                     <p class="text-muted small mb-3 line-clamp-3">{{ study.content|striptags|truncate(120) }}</p>
                     
                     <div class="d-flex align-items-center gap-2 mb-3">
@@ -104,12 +134,12 @@
                         <small class="text-muted">Por <strong>{{ study.author.name if study.author else 'Admin' }}</strong></small>
                         <span class="text-muted small">•</span>
                         <small class="text-muted">
-                            <i class="bi bi-chat-dots me-1"></i> {{ study.questions|length }} questões
+                            <i class="bi bi-chat-dots me-1"></i> {{ study.questions|selectattr('is_published')|list|length }} questões
                         </small>
                     </div>
                     
                     <div class="d-flex gap-2 mt-3">
-                        <a href="{{ url_for('edification.study_detail', id=study.id) }}" class="btn btn-primary rounded-pill px-4 flex-grow-1">
+                        <a href="{{ url_for('edification.study_detail', id=study.id, page=1) }}" class="btn btn-primary rounded-pill px-4 flex-grow-1">
                             <i class="bi bi-book me-2"></i>Ler Estudo
                         </a>
                         
@@ -245,22 +275,60 @@
     -webkit-box-orient: vertical;
     overflow: hidden;
 }
+.filter-btn {
+    transition: all 0.2s ease;
+}
+.filter-btn.active {
+    background-color: #0d6efd;
+    color: white;
+    border-color: #0d6efd;
+}
+.filter-btn.active:hover {
+    background-color: #0b5ed7;
+    color: white;
+}
 </style>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // Modal de exclusão
     const deleteModal = document.getElementById('deleteStudyModal');
-    if (!deleteModal) return;
+    if (deleteModal) {
+        deleteModal.addEventListener('show.bs.modal', function(event) {
+            const button = event.relatedTarget;
+            const studyId = button.getAttribute('data-study-id');
+            const studyTitle = button.getAttribute('data-study-title');
 
-    deleteModal.addEventListener('show.bs.modal', function(event) {
-        const button = event.relatedTarget;
-        const studyId = button.getAttribute('data-study-id');
-        const studyTitle = button.getAttribute('data-study-title');
+            document.getElementById('modalStudyTitle').textContent = studyTitle;
 
-        document.getElementById('modalStudyTitle').textContent = studyTitle;
-
-        const form = document.getElementById('deleteStudyForm');
-        form.action = "{{ url_for('edification.delete_study', id=0) }}".replace('/0', '/' + studyId);
+            const form = document.getElementById('deleteStudyForm');
+            form.action = "{{ url_for('edification.delete_study', id=0) }}".replace('/0', '/' + studyId);
+        });
+    }
+    
+    // Filtro de estudos por conclusão
+    const filterBtns = document.querySelectorAll('.filter-btn');
+    const studyCards = document.querySelectorAll('.study-card');
+    
+    filterBtns.forEach(btn => {
+        btn.addEventListener('click', function() {
+            const filter = this.dataset.filter;
+            
+            // Atualizar botões ativos
+            filterBtns.forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+            
+            // Filtrar cards
+            studyCards.forEach(card => {
+                if (filter === 'all') {
+                    card.style.display = '';
+                } else if (filter === 'completed') {
+                    card.style.display = card.dataset.completed === 'true' ? '' : 'none';
+                } else if (filter === 'pending') {
+                    card.style.display = card.dataset.completed === 'false' ? '' : 'none';
+                }
+            });
+        });
     });
 });
 </script>

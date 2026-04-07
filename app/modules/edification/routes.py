@@ -295,6 +295,9 @@ def delete_devotional(id):
 @edification_bp.route('/studies')
 @login_required
 def studies():
+    from app.core.models import StudyProgress
+    from sqlalchemy import or_
+    
     # Parâmetros de busca
     search = request.args.get('search', '')
     category = request.args.get('category', '')
@@ -304,7 +307,6 @@ def studies():
     query = Study.query
     
     if search:
-        # 🔥 CORREÇÃO: Remover busca por autor que causa erro
         query = query.filter(
             or_(
                 Study.title.ilike(f'%{search}%'),
@@ -326,6 +328,17 @@ def studies():
     categories = db.session.query(Study.category).distinct().filter(Study.category.isnot(None)).all()
     categories = [c[0] for c in categories if c[0]]
     
+    # 🔥 ESTUDOS CONCLUÍDOS PELO USUÁRIO
+    completed_study_ids = set()
+    user_progress = StudyProgress.query.filter_by(
+        user_id=current_user.id, 
+        completed=True
+    ).all()
+    for p in user_progress:
+        completed_study_ids.add(p.study_id)
+    
+    completed_count = len(completed_study_ids)
+    
     # Estatísticas
     total_reads = 0  # Implementar se tiver contador de visualizações
     total_questions = StudyQuestion.query.filter_by(is_published=True).count()
@@ -339,7 +352,9 @@ def studies():
                          pagination=pagination,
                          total_reads=total_reads,
                          total_questions=total_questions,
-                         recent_count=recent_count)
+                         recent_count=recent_count,
+                         completed_study_ids=completed_study_ids,
+                         completed_count=completed_count)
 
 @edification_bp.route('/study/<int:id>')
 @login_required
