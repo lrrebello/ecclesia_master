@@ -284,22 +284,39 @@
         return div.innerHTML;
     }
     
-    // ============================================
-    // SELEÇÃO DE TEXTO
-    // ============================================
-    function handleTextSelection() {
+// ============================================
+// SELEÇÃO DE TEXTO (COMPATÍVEL COM MOBILE)
+// ============================================
+let touchTimeout = null;
+
+function handleTextSelection() {
+    setTimeout(() => {
         const selection = window.getSelection();
         const text = selection.toString().trim();
         
         if (text.length > 0 && !selection.isCollapsed) {
             selectedText = text;
             selectedRange = selection.getRangeAt(0);
-            document.getElementById('addNoteForm').style.display = 'block';
+            
+            // Esconder teclado virtual no mobile
+            document.activeElement?.blur();
+            
+            // Mostrar formulário de anotação
+            const addNoteForm = document.getElementById('addNoteForm');
+            addNoteForm.style.display = 'block';
             document.getElementById('noteText').focus();
+            
+            // Rolar para o formulário no mobile
+            if (window.innerWidth < 768) {
+                addNoteForm.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
         }
-    }
-    
-    document.addEventListener('mouseup', handleTextSelection);
+    }, 10);
+}
+
+// Suporte para mouse e toque
+document.addEventListener('mouseup', handleTextSelection);
+document.addEventListener('touchend', handleTextSelection);
     
     // ============================================
     // MARCAR TEXTO SELECIONADO
@@ -338,13 +355,9 @@
     }
     
     // ============================================
-    // MOSTRAR POPUP DA ANOTAÇÃO
+    // MOSTRAR POPUP (COMPATÍVEL COM MOBILE)
     // ============================================
-    function showNotePopup(element) {
-        const note = element.getAttribute('data-note');
-        const text = element.getAttribute('data-text');
-        const noteId = element.getAttribute('data-note-id');
-        
+    function showNotePopupFromHighlight(text, note, highlightId) {
         const existingPopup = document.querySelector('.note-popup');
         if (existingPopup) existingPopup.remove();
         
@@ -361,29 +374,50 @@
                     <div class="note-popup-note mt-2">${escapeHtml(note)}</div>
                 </div>
                 <div class="note-popup-footer">
-                    <button class="btn btn-sm btn-danger" onclick="deleteNoteAndHighlight(${noteId}, this)">Excluir</button>
+                    <button class="btn btn-sm btn-danger" onclick="deleteHighlightOnly(this, '${highlightId}')">Excluir</button>
                 </div>
             </div>
         `;
         
-        const rect = element.getBoundingClientRect();
-        popup.style.position = 'absolute';
-        popup.style.top = `${rect.top + window.scrollY - 10}px`;
-        popup.style.left = `${rect.left + window.scrollX}px`;
-        popup.style.zIndex = '1000';
+        // Posicionamento responsivo
+        const isMobile = window.innerWidth < 768;
+        
+        if (isMobile) {
+            // Mobile: popup no centro da tela
+            popup.style.position = 'fixed';
+            popup.style.top = '50%';
+            popup.style.left = '50%';
+            popup.style.transform = 'translate(-50%, -50%)';
+            popup.style.width = '90%';
+            popup.style.maxWidth = '320px';
+            popup.style.zIndex = '10000';
+        } else {
+            // Desktop: popup próximo ao elemento
+            const rect = event?.target?.getBoundingClientRect();
+            if (rect) {
+                popup.style.position = 'absolute';
+                popup.style.top = `${rect.top + window.scrollY - 10}px`;
+                popup.style.left = `${rect.left + window.scrollX}px`;
+            } else {
+                popup.style.position = 'fixed';
+                popup.style.top = '50%';
+                popup.style.left = '50%';
+                popup.style.transform = 'translate(-50%, -50%)';
+            }
+            popup.style.zIndex = '1000';
+        }
         
         document.body.appendChild(popup);
         
-        setTimeout(() => {
-            document.addEventListener('click', function closePopup(e) {
-                if (!popup.contains(e.target) && e.target !== element) {
+        // Fechar ao clicar fora no mobile
+        if (isMobile) {
+            popup.addEventListener('click', (e) => {
+                if (e.target === popup || e.target.classList.contains('note-popup-close')) {
                     popup.remove();
-                    document.removeEventListener('click', closePopup);
                 }
             });
-        }, 100);
+        }
     }
-    
     // ============================================
     // EXCLUIR ANOTAÇÃO E MARCAÇÃO
     // ============================================
@@ -521,29 +555,35 @@
         const content = document.getElementById('studyContentContainer');
         if (!content) return;
         
-        // Escapar texto para regex
         const escapedText = text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         const regex = new RegExp(`(${escapedText})`, 'g');
         
         let html = content.innerHTML;
         
-        // Verificar se o texto já está marcado
         if (html.includes(`data-highlight-id="${highlightId}"`)) return;
         
-        // Substituir o texto por um span com marcação
         const newHtml = html.replace(regex, `<span class="study-highlight" data-highlight-id="${highlightId}" data-note="${escapeHtml(note)}" data-text="${escapeHtml(text)}">$1</span>`);
         
         if (newHtml !== html) {
             content.innerHTML = newHtml;
         }
         
-        // Reaplicar eventos
+        // Reaplicar eventos (compatível com mobile)
         document.querySelectorAll('.study-highlight').forEach(span => {
-            // Remover eventos antigos para evitar duplicação
             const newSpan = span.cloneNode(true);
             span.parentNode.replaceChild(newSpan, span);
             
+            // Evento para clique (mouse)
             newSpan.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const noteText = newSpan.getAttribute('data-note');
+                const originalText = newSpan.getAttribute('data-text');
+                const hid = newSpan.getAttribute('data-highlight-id');
+                showNotePopupFromHighlight(originalText, noteText, hid);
+            });
+            
+            // Evento para toque (mobile)
+            newSpan.addEventListener('touchstart', (e) => {
                 e.stopPropagation();
                 const noteText = newSpan.getAttribute('data-note');
                 const originalText = newSpan.getAttribute('data-text');
@@ -567,12 +607,24 @@
         span.style.padding = '2px 0';
         span.style.borderRadius = '3px';
         span.style.cursor = 'pointer';
+        span.style.display = 'inline'; // Importante para mobile
         span.textContent = text;
         span.setAttribute('data-note', note);
         span.setAttribute('data-text', text);
         
+        // Adicionar atributo para debug
+        span.setAttribute('data-mobile', 'true');
+        
         span.addEventListener('click', (e) => {
             e.stopPropagation();
+            e.preventDefault();
+            showNotePopupFromHighlight(text, note, null);
+        });
+        
+        // Para mobile, adicionar também evento de toque
+        span.addEventListener('touchstart', (e) => {
+            e.stopPropagation();
+            e.preventDefault();
             showNotePopupFromHighlight(text, note, null);
         });
         
@@ -1045,6 +1097,67 @@
 /* Remover estilos inline que possam estar duplicados */
 .study-highlight[style*="background-color"] {
     background-color: #fef08a !important;
+}
+/* Popup de anotação - responsivo */
+.note-popup {
+    position: absolute;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+    z-index: 1000;
+    min-width: 250px;
+    max-width: 300px;
+}
+
+/* Mobile */
+@media (max-width: 768px) {
+    .note-popup {
+        position: fixed !important;
+        top: 50% !important;
+        left: 50% !important;
+        transform: translate(-50%, -50%) !important;
+        width: 90%;
+        max-width: 320px;
+        z-index: 10000;
+    }
+    
+    .note-popup-content {
+        border-radius: 16px;
+    }
+    
+    .note-popup-header {
+        padding: 12px 16px;
+    }
+    
+    .note-popup-body {
+        padding: 16px;
+        max-height: 300px;
+        overflow-y: auto;
+    }
+    
+    .note-popup-footer {
+        padding: 12px 16px;
+    }
+    
+    /* Botões maiores para mobile */
+    .note-popup-footer .btn {
+        padding: 8px 16px;
+        font-size: 14px;
+    }
+    
+    /* Formulário de anotação no mobile */
+    #addNoteForm {
+        position: sticky;
+        bottom: 0;
+        background: white;
+        padding: 12px;
+        border-top: 1px solid #e2e8f0;
+        margin-top: 16px;
+    }
+    
+    #noteText {
+        font-size: 16px !important; /* Evita zoom automático no iOS */
+    }
 }
 </style>
 {% endblock %}

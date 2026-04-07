@@ -748,3 +748,34 @@ button.btn-primary:hover {
 [data-theme="dark"] .list-group-item { 
     border-color: rgba(255,255,255,0.05) !important; 
 }
+/* Melhorar seleção de texto no mobile */
+.study-content {
+    -webkit-touch-callout: text;
+    -webkit-user-select: text;
+    user-select: text;
+}
+
+/* Indicador visual de que pode selecionar */
+.study-content p {
+    cursor: text;
+}
+
+/* Aumentar área de toque nos botões */
+.btn, 
+.quiz-option,
+.key-btn {
+    min-height: 44px; /* Altura mínima recomendada para toque no mobile */
+}
+
+/* Ajustes para o quiz no mobile */
+@media (max-width: 768px) {
+    .quiz-option {
+        padding: 12px !important;
+    }
+    
+    .quiz-option .fw-bold.bg-light.rounded-circle {
+        width: 28px !important;
+        height: 28px !important;
+        font-size: 14px !important;
+    }
+}
