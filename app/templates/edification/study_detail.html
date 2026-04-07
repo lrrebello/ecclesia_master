@@ -67,10 +67,48 @@
                         {{ content_html|safe }}
                     </div>
                     
+                    <!-- Navegação de Páginas -->
+                    {% if total_pages > 1 %}
                     <div class="d-flex justify-content-between align-items-center mt-4 pt-3 border-top">
-                        <button class="btn btn-outline-primary rounded-pill px-4" onclick="window.scrollTo({top: 0, behavior: 'smooth'})">
-                            <i class="bi bi-arrow-up me-2"></i> Voltar ao topo
+                        <div>
+                            {% if current_page > 1 %}
+                            <a href="{{ url_for('edification.study_detail', id=study_id, page=current_page-1) }}" class="btn btn-outline-primary rounded-pill px-4">
+                                <i class="bi bi-chevron-left me-2"></i> Anterior
+                            </a>
+                            {% else %}
+                            <button class="btn btn-outline-secondary rounded-pill px-4" disabled>
+                                <i class="bi bi-chevron-left me-2"></i> Anterior
+                            </button>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="text-center">
+                            <span class="badge bg-primary bg-opacity-10 text-primary px-3 py-2">
+                                <i class="bi bi-bookmark me-1"></i> Página {{ current_page }} de {{ total_pages }}
+                            </span>
+                        </div>
+                        
+                        <div>
+                            {% if current_page < total_pages %}
+                            <a href="{{ url_for('edification.study_detail', id=study_id, page=current_page+1) }}" class="btn btn-outline-primary rounded-pill px-4">
+                                Próxima <i class="bi bi-chevron-right ms-2"></i>
+                            </a>
+                            {% else %}
+                            <button class="btn btn-outline-secondary rounded-pill px-4" disabled>
+                                Próxima <i class="bi bi-chevron-right ms-2"></i>
+                            </button>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <div class="text-center mt-3">
+                        <button class="btn btn-link text-muted btn-sm" onclick="window.scrollTo({top: 0, behavior: 'smooth'})">
+                            <i class="bi bi-arrow-up me-1"></i> Voltar ao topo
                         </button>
+                    </div>
+                    
+                    <div class="d-flex justify-content-center mt-3">
                         <button id="markCompletedBtn" class="btn btn-success rounded-pill px-4">
                             <i class="bi bi-check2-circle me-2"></i> Marcar como concluído
                         </button>
@@ -90,7 +128,7 @@
                     <div class="row g-3">
                         {% for related in related_studies %}
                         <div class="col-md-6">
-                            <a href="{{ url_for('edification.study_detail', id=related.id) }}" class="text-decoration-none">
+                            <a href="{{ url_for('edification.study_detail', id=related.id, page=1) }}" class="text-decoration-none">
                                 <div class="d-flex gap-3 align-items-center p-3 bg-light rounded-3 hover-bg transition">
                                     <i class="bi bi-journal-bookmark-fill text-primary fs-3"></i>
                                     <div>
@@ -225,6 +263,7 @@
     // CONFIGURAÇÕES INICIAIS
     // ============================================
     const studyId = {{ study.id }};
+    const studyTitle = {{ study.title|tojson }};
     let currentFontSize = parseInt(localStorage.getItem('studyFontSize')) || 100;
     let selectedText = '';
     let selectedRange = null;
@@ -284,39 +323,33 @@
         return div.innerHTML;
     }
     
-// ============================================
-// SELEÇÃO DE TEXTO (COMPATÍVEL COM MOBILE)
-// ============================================
-let touchTimeout = null;
-
-function handleTextSelection() {
-    setTimeout(() => {
-        const selection = window.getSelection();
-        const text = selection.toString().trim();
-        
-        if (text.length > 0 && !selection.isCollapsed) {
-            selectedText = text;
-            selectedRange = selection.getRangeAt(0);
+    // ============================================
+    // SELEÇÃO DE TEXTO (COMPATÍVEL COM MOBILE)
+    // ============================================
+    function handleTextSelection() {
+        setTimeout(() => {
+            const selection = window.getSelection();
+            const text = selection.toString().trim();
             
-            // Esconder teclado virtual no mobile
-            document.activeElement?.blur();
-            
-            // Mostrar formulário de anotação
-            const addNoteForm = document.getElementById('addNoteForm');
-            addNoteForm.style.display = 'block';
-            document.getElementById('noteText').focus();
-            
-            // Rolar para o formulário no mobile
-            if (window.innerWidth < 768) {
-                addNoteForm.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            if (text.length > 0 && !selection.isCollapsed) {
+                selectedText = text;
+                selectedRange = selection.getRangeAt(0);
+                
+                document.activeElement?.blur();
+                
+                const addNoteForm = document.getElementById('addNoteForm');
+                addNoteForm.style.display = 'block';
+                document.getElementById('noteText').focus();
+                
+                if (window.innerWidth < 768) {
+                    addNoteForm.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
             }
-        }
-    }, 10);
-}
-
-// Suporte para mouse e toque
-document.addEventListener('mouseup', handleTextSelection);
-document.addEventListener('touchend', handleTextSelection);
+        }, 10);
+    }
+    
+    document.addEventListener('mouseup', handleTextSelection);
+    document.addEventListener('touchend', handleTextSelection);
     
     // ============================================
     // MARCAR TEXTO SELECIONADO
@@ -324,7 +357,6 @@ document.addEventListener('touchend', handleTextSelection);
     function markSelectedText(noteId, text, note) {
         if (!selectedRange) return;
         
-        // Criar o span com a marcação
         const span = document.createElement('span');
         span.className = 'study-highlight';
         span.setAttribute('data-note-id', noteId);
@@ -334,23 +366,21 @@ document.addEventListener('touchend', handleTextSelection);
         span.style.padding = '2px 0';
         span.style.borderRadius = '3px';
         span.style.cursor = 'pointer';
-        span.title = 'Clique para ver anotação';
-        
-        // 🔥 CORREÇÃO: Usar o texto original em vez do DocumentFragment
         span.textContent = text;
         
-        // Adicionar evento de clique
         span.addEventListener('click', (e) => {
             e.stopPropagation();
-            showNotePopup(span);
+            showNotePopupFromHighlight(text, note, null);
         });
         
-        // Substituir o range selecionado pelo span
+        span.addEventListener('touchstart', (e) => {
+            e.stopPropagation();
+            showNotePopupFromHighlight(text, note, null);
+        });
+        
         selectedRange.deleteContents();
         selectedRange.insertNode(span);
         selectedRange.collapse(false);
-        
-        // Limpar seleção
         window.getSelection().removeAllRanges();
     }
     
@@ -379,11 +409,9 @@ document.addEventListener('touchend', handleTextSelection);
             </div>
         `;
         
-        // Posicionamento responsivo
         const isMobile = window.innerWidth < 768;
         
         if (isMobile) {
-            // Mobile: popup no centro da tela
             popup.style.position = 'fixed';
             popup.style.top = '50%';
             popup.style.left = '50%';
@@ -391,8 +419,13 @@ document.addEventListener('touchend', handleTextSelection);
             popup.style.width = '90%';
             popup.style.maxWidth = '320px';
             popup.style.zIndex = '10000';
+            
+            popup.addEventListener('click', (e) => {
+                if (e.target === popup || e.target.classList.contains('note-popup-close')) {
+                    popup.remove();
+                }
+            });
         } else {
-            // Desktop: popup próximo ao elemento
             const rect = event?.target?.getBoundingClientRect();
             if (rect) {
                 popup.style.position = 'absolute';
@@ -408,16 +441,8 @@ document.addEventListener('touchend', handleTextSelection);
         }
         
         document.body.appendChild(popup);
-        
-        // Fechar ao clicar fora no mobile
-        if (isMobile) {
-            popup.addEventListener('click', (e) => {
-                if (e.target === popup || e.target.classList.contains('note-popup-close')) {
-                    popup.remove();
-                }
-            });
-        }
     }
+    
     // ============================================
     // EXCLUIR ANOTAÇÃO E MARCAÇÃO
     // ============================================
@@ -427,7 +452,6 @@ document.addEventListener('touchend', handleTextSelection);
                 .then(() => {
                     const highlight = document.querySelector(`.study-highlight[data-note-id="${noteId}"]`);
                     if (highlight) {
-                        // 🔥 CORREÇÃO: Substituir o span pelo texto original
                         const textNode = document.createTextNode(highlight.getAttribute('data-text') || highlight.innerText);
                         highlight.parentNode.replaceChild(textNode, highlight);
                     }
@@ -436,6 +460,7 @@ document.addEventListener('touchend', handleTextSelection);
                         if (popup) popup.remove();
                     }
                     loadNotes();
+                    loadHighlights();
                 })
                 .catch(e => console.error('Erro:', e));
         }
@@ -453,16 +478,14 @@ document.addEventListener('touchend', handleTextSelection);
             return;
         }
         
-        // Primeiro salva a anotação
         fetch(`/edification/study/${studyId}/note`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ text: selectedText, note: note, page: 1 })
+            body: JSON.stringify({ text: selectedText, note: note, page: {{ current_page|default(1) }} })
         })
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                // Depois salva o highlight (marcação visual)
                 return fetch(`/edification/study/${studyId}/highlight`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -478,18 +501,17 @@ document.addEventListener('touchend', handleTextSelection);
             }
         })
         .then(() => {
-            // Marcar o texto selecionado visualmente
             markSelectedTextLocally(selectedText, note);
             
             document.getElementById('addNoteForm').style.display = 'none';
             document.getElementById('noteText').value = '';
             selectedText = '';
             loadNotes();
-            loadHighlights(); // Recarregar highlights
+            loadHighlights();
         })
         .catch(e => console.error('Erro:', e));
     }
-
+    
     // ============================================
     // CANCELAR ANOTAÇÃO
     // ============================================
@@ -535,21 +557,23 @@ document.addEventListener('touchend', handleTextSelection);
             })
             .catch(e => console.error('Erro:', e));
     }
-
-    function loadHighlights() {
-    fetch(`/edification/study/${studyId}/highlights`)
-        .then(response => response.json())
-        .then(highlights => {
-            // Para cada highlight, marcar o texto no DOM
-            highlights.forEach(h => {
-                markTextInDOM(h.text, h.note, h.id, h.color);
-            });
-        })
-        .catch(e => console.error('Erro ao carregar highlights:', e));
-    }
-
+    
     // ============================================
-    // FUNÇÃO PARA MARCAR TEXTO NO DOM (CORRIGIDA)
+    // CARREGAR HIGHLIGHTS
+    // ============================================
+    function loadHighlights() {
+        fetch(`/edification/study/${studyId}/highlights`)
+            .then(response => response.json())
+            .then(highlights => {
+                highlights.forEach(h => {
+                    markTextInDOM(h.text, h.note, h.id, h.color);
+                });
+            })
+            .catch(e => console.error('Erro ao carregar highlights:', e));
+    }
+    
+    // ============================================
+    // MARCAR TEXTO NO DOM
     // ============================================
     function markTextInDOM(text, note, highlightId, color) {
         const content = document.getElementById('studyContentContainer');
@@ -559,7 +583,6 @@ document.addEventListener('touchend', handleTextSelection);
         const regex = new RegExp(`(${escapedText})`, 'g');
         
         let html = content.innerHTML;
-        
         if (html.includes(`data-highlight-id="${highlightId}"`)) return;
         
         const newHtml = html.replace(regex, `<span class="study-highlight" data-highlight-id="${highlightId}" data-note="${escapeHtml(note)}" data-text="${escapeHtml(text)}">$1</span>`);
@@ -568,12 +591,10 @@ document.addEventListener('touchend', handleTextSelection);
             content.innerHTML = newHtml;
         }
         
-        // Reaplicar eventos (compatível com mobile)
         document.querySelectorAll('.study-highlight').forEach(span => {
             const newSpan = span.cloneNode(true);
             span.parentNode.replaceChild(newSpan, span);
             
-            // Evento para clique (mouse)
             newSpan.addEventListener('click', (e) => {
                 e.stopPropagation();
                 const noteText = newSpan.getAttribute('data-note');
@@ -582,7 +603,6 @@ document.addEventListener('touchend', handleTextSelection);
                 showNotePopupFromHighlight(originalText, noteText, hid);
             });
             
-            // Evento para toque (mobile)
             newSpan.addEventListener('touchstart', (e) => {
                 e.stopPropagation();
                 const noteText = newSpan.getAttribute('data-note');
@@ -592,9 +612,9 @@ document.addEventListener('touchend', handleTextSelection);
             });
         });
     }
-
+    
     // ============================================
-    // MARCAR TEXTO LOCALMENTE (CORRIGIDA)
+    // MARCAR TEXTO LOCALMENTE
     // ============================================
     function markSelectedTextLocally(text, note) {
         const selection = window.getSelection();
@@ -607,13 +627,10 @@ document.addEventListener('touchend', handleTextSelection);
         span.style.padding = '2px 0';
         span.style.borderRadius = '3px';
         span.style.cursor = 'pointer';
-        span.style.display = 'inline'; // Importante para mobile
+        span.style.display = 'inline';
         span.textContent = text;
         span.setAttribute('data-note', note);
         span.setAttribute('data-text', text);
-        
-        // Adicionar atributo para debug
-        span.setAttribute('data-mobile', 'true');
         
         span.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -621,7 +638,6 @@ document.addEventListener('touchend', handleTextSelection);
             showNotePopupFromHighlight(text, note, null);
         });
         
-        // Para mobile, adicionar também evento de toque
         span.addEventListener('touchstart', (e) => {
             e.stopPropagation();
             e.preventDefault();
@@ -632,56 +648,12 @@ document.addEventListener('touchend', handleTextSelection);
         range.insertNode(span);
         selection.removeAllRanges();
     }
-
+    
     // ============================================
-    // MOSTRAR POPUP (CORRIGIDA)
-    // ============================================
-    function showNotePopupFromHighlight(text, note, highlightId) {
-        // Remover popup existente
-        const existingPopup = document.querySelector('.note-popup');
-        if (existingPopup) existingPopup.remove();
-        
-        const popup = document.createElement('div');
-        popup.className = 'note-popup';
-        popup.innerHTML = `
-            <div class="note-popup-content">
-                <div class="note-popup-header">
-                    <strong>📝 Anotação</strong>
-                    <button class="note-popup-close" onclick="this.closest('.note-popup').remove()">×</button>
-                </div>
-                <div class="note-popup-body">
-                    <div class="note-popup-text">"${escapeHtml(text.substring(0, 100))}..."</div>
-                    <div class="note-popup-note mt-2">${escapeHtml(note)}</div>
-                </div>
-                <div class="note-popup-footer">
-                    <button class="btn btn-sm btn-danger" onclick="deleteHighlightOnly(this, '${highlightId}')">Excluir</button>
-                </div>
-            </div>
-        `;
-        
-        // Posicionar próximo ao mouse ou ao elemento
-        const rect = event?.target?.getBoundingClientRect();
-        if (rect) {
-            popup.style.position = 'absolute';
-            popup.style.top = `${rect.top + window.scrollY - 10}px`;
-            popup.style.left = `${rect.left + window.scrollX}px`;
-        } else {
-            popup.style.position = 'fixed';
-            popup.style.top = '50%';
-            popup.style.left = '50%';
-            popup.style.transform = 'translate(-50%, -50%)';
-        }
-        popup.style.zIndex = '1000';
-        
-        document.body.appendChild(popup);
-    }
-
-    // ============================================
-    // EXCLUIR HIGHLIGHT (CORRIGIDA)
+    // EXCLUIR HIGHLIGHT
     // ============================================
     function deleteHighlightOnly(btn, highlightId) {
         if (!highlightId || highlightId === 'null') {
-            // Highlight local não salvo
             const popup = btn.closest('.note-popup');
             if (popup) popup.remove();
             return;
@@ -698,14 +670,12 @@ document.addEventListener('touchend', handleTextSelection);
                     }
                     const popup = btn.closest('.note-popup');
                     if (popup) popup.remove();
-                    
-                    // Recarregar anotações
                     loadNotes();
+                    loadHighlights();
                 })
                 .catch(e => console.error('Erro:', e));
         }
     }
-
     
     // ============================================
     // PROGRESSO
@@ -730,6 +700,18 @@ document.addEventListener('touchend', handleTextSelection);
             })
             .catch(e => console.error('Erro:', e));
     });
+    
+    // ============================================
+    // SALVAR PROGRESSO DA PÁGINA
+    // ============================================
+    function saveCurrentPage() {
+        const currentPage = {{ current_page|default(1) }};
+        fetch(`/edification/study/${studyId}/progress`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ page: currentPage })
+        }).catch(e => console.error('Erro ao salvar progresso:', e));
+    }
     
     // ============================================
     // QUIZ INTERATIVO
@@ -973,6 +955,8 @@ document.addEventListener('touchend', handleTextSelection);
         loadNotes();
         loadHighlights();
         updateProgress();
+        saveCurrentPage();
+        
         if (questions.length > 0) {
             renderQuestion();
             updateScoreBadge();
@@ -1032,24 +1016,35 @@ document.addEventListener('touchend', handleTextSelection);
     border-radius: 10px;
 }
 
-/* Popup de anotação */
+/* Estilos para highlights e popup */
+.study-highlight {
+    background-color: #fef08a;
+    padding: 0 2px;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+.study-highlight:hover {
+    background-color: #fde047;
+}
+
 .note-popup {
     position: absolute;
     background: white;
-    border-radius: 8px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.15);
     z-index: 1000;
     min-width: 250px;
     max-width: 300px;
 }
 .note-popup-content {
     border: 1px solid #e2e8f0;
-    border-radius: 8px;
+    border-radius: 12px;
     overflow: hidden;
 }
 .note-popup-header {
     background: #f8fafc;
-    padding: 8px 12px;
+    padding: 10px 14px;
     border-bottom: 1px solid #e2e8f0;
     display: flex;
     justify-content: space-between;
@@ -1066,7 +1061,7 @@ document.addEventListener('touchend', handleTextSelection);
     color: #ef4444;
 }
 .note-popup-body {
-    padding: 12px;
+    padding: 14px;
 }
 .note-popup-text {
     font-size: 0.85rem;
@@ -1076,37 +1071,12 @@ document.addEventListener('touchend', handleTextSelection);
 .note-popup-note {
     font-size: 0.9rem;
     color: #334155;
+    margin-top: 8px;
 }
 .note-popup-footer {
-    padding: 8px 12px;
+    padding: 10px 14px;
     border-top: 1px solid #e2e8f0;
     text-align: right;
-}
-/* Estilo para os highlights */
-.study-highlight {
-    background-color: #fef08a;
-    padding: 0 2px;
-    border-radius: 3px;
-    cursor: pointer;
-    transition: background-color 0.2s ease;
-}
-.study-highlight:hover {
-    background-color: #fde047;
-}
-
-/* Remover estilos inline que possam estar duplicados */
-.study-highlight[style*="background-color"] {
-    background-color: #fef08a !important;
-}
-/* Popup de anotação - responsivo */
-.note-popup {
-    position: absolute;
-    background: white;
-    border-radius: 12px;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.15);
-    z-index: 1000;
-    min-width: 250px;
-    max-width: 300px;
 }
 
 /* Mobile */
@@ -1139,13 +1109,11 @@ document.addEventListener('touchend', handleTextSelection);
         padding: 12px 16px;
     }
     
-    /* Botões maiores para mobile */
     .note-popup-footer .btn {
         padding: 8px 16px;
         font-size: 14px;
     }
     
-    /* Formulário de anotação no mobile */
     #addNoteForm {
         position: sticky;
         bottom: 0;
@@ -1156,7 +1124,15 @@ document.addEventListener('touchend', handleTextSelection);
     }
     
     #noteText {
-        font-size: 16px !important; /* Evita zoom automático no iOS */
+        font-size: 16px !important;
+    }
+    
+    .btn, .quiz-option, .key-btn {
+        min-height: 44px;
+    }
+    
+    .quiz-option {
+        padding: 12px !important;
     }
 }
 </style>
