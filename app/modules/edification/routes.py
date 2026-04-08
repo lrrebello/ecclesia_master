@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app, jsonify
+from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app, jsonify, send_file
 from flask_login import login_required, current_user
 from app.core.models import (db, Devotional, Study, KidsActivity, StudyQuestion, 
                              Media, Ministry, Album, BibleStory, BibleQuiz, User,
@@ -16,6 +16,8 @@ from app.utils.gemini_service import generate_questions
 import markdown
 import bleach
 import unicodedata
+from weasyprint import HTML
+from io import BytesIO
 
 def remover_acentos(texto):
     """Remove acentos de uma string"""
@@ -869,7 +871,176 @@ def mark_study_uncompleted(study_id):
         db.session.commit()
     
     return jsonify({'success': True})
+@edification_bp.route('/study/<int:id>/download/<format>')
+@login_required
+def download_study(id, format):
+    
+    study = Study.query.get_or_404(id)
+    
+    # Buscar o autor (se existir)
+    author_name = 'Admin'
+    if study.author_id:
+        author = User.query.get(study.author_id)
+        if author:
+            author_name = author.name
+    
+    # Converter conteúdo para HTML
+    if study.content:
+        md = markdown.Markdown(extensions=['extra', 'fenced_code', 'tables'])
+        html_content = md.convert(study.content)
+    else:
+        html_content = '<p>Nenhum conteúdo disponível.</p>'
+    
+    # Template HTML para os downloads
+    html_template = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <title>{study.title} - Ecclesia Master</title>
+        <style>
+            body {{
+                font-family: 'Georgia', 'Times New Roman', serif;
+                line-height: 1.6;
+                max-width: 800px;
+                margin: 0 auto;
+                padding: 40px;
+                color: #333;
+            }}
+            h1 {{
+                color: #4f46e5;
+                border-bottom: 2px solid #e2e8f0;
+                padding-bottom: 10px;
+            }}
+            h2, h3 {{
+                color: #1e293b;
+                margin-top: 1.5em;
+            }}
+            .meta {{
+                color: #64748b;
+                font-size: 0.9em;
+                margin-bottom: 30px;
+                padding-bottom: 20px;
+                border-bottom: 1px solid #e2e8f0;
+            }}
+            .category {{
+                display: inline-block;
+                background: #e2e8f0;
+                padding: 4px 12px;
+                border-radius: 20px;
+                font-size: 0.8em;
+                margin-bottom: 15px;
+            }}
+            blockquote {{
+                border-left: 4px solid #4f46e5;
+                margin: 20px 0;
+                padding-left: 20px;
+                color: #475569;
+                font-style: italic;
+            }}
+            code {{
+                background: #f1f5f9;
+                padding: 2px 6px;
+                border-radius: 4px;
+                font-family: monospace;
+            }}
+            pre {{
+                background: #1e293b;
+                color: #e2e8f0;
+                padding: 15px;
+                border-radius: 8px;
+                overflow-x: auto;
+            }}
+            table {{
+                width: 100%;
+                border-collapse: collapse;
+                margin: 20px 0;
+            }}
+            th, td {{
+                border: 1px solid #e2e8f0;
+                padding: 8px 12px;
+                text-align: left;
+            }}
+            th {{
+                background: #f8fafc;
+            }}
+            .footer {{
+                margin-top: 50px;
+                padding-top: 20px;
+                border-top: 1px solid #e2e8f0;
+                text-align: center;
+                font-size: 0.8em;
+                color: #94a3b8;
+            }}
+        </style>
+    </head>
+    <body>
+        <div class="category">{study.category or 'Estudo Bíblico'}</div>
+        <h1>{study.title}</h1>
+        <div class="meta">
+            <strong>Autor:</strong> {author_name} &nbsp;|&nbsp;
+            <strong>Data:</strong> {study.created_at.strftime('%d/%m/%Y')}
+        </div>
+        <div class="content">
+            {html_content}
+        </div>
+        <div class="footer">
+            Gerado pelo Ecclesia Master - Estudo para edificação do corpo de Cristo
+        </div>
+    </body>
+    </html>
+    """
+    
+    if format == 'html':
+        return send_file(
+            BytesIO(html_template.encode('utf-8')),
+            mimetype='text/html',
+            as_attachment=True,
+            download_name=f"{study.title.replace(' ', '_')}.html"
+        )
+    
+    elif format == 'md':
+        # Download como Markdown
+        md_content = f"""# {study.title}
 
+**Autor:** {author_name}  
+**Data:** {study.created_at.strftime('%d/%m/%Y')}  
+**Categoria:** {study.category or 'Estudo Bíblico'}
+
+---
+
+{study.content}
+
+---
+
+*Gerado pelo Ecclesia Master - Estudo para edificação do corpo de Cristo*
+"""
+        return send_file(
+            BytesIO(md_content.encode('utf-8')),
+            mimetype='text/markdown',
+            as_attachment=True,
+            download_name=f"{study.title.replace(' ', '_')}.md"
+        )
+    
+    elif format == 'pdf':
+        # Download como PDF
+        try:
+            from weasyprint import HTML
+            pdf_file = HTML(string=html_template).write_pdf()
+            return send_file(
+                BytesIO(pdf_file),
+                mimetype='application/pdf',
+                as_attachment=True,
+                download_name=f"{study.title.replace(' ', '_')}.pdf"
+            )
+        except Exception as e:
+            flash(f'Erro ao gerar PDF: {str(e)}', 'danger')
+            return redirect(url_for('edification.study_detail', id=study.id))
+    
+    else:
+        flash('Formato não suportado', 'danger')
+        return redirect(url_for('edification.study_detail', id=study.id))
+    
 # ============================================
 # ROTAS DA GALERIA E MÍDIAS
 # ============================================

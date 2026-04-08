@@ -91,3 +91,4 @@ xlsxwriter==3.2.9
 yarl==1.22.0
 markdown==3.5.1
 bleach==6.1.0
+weasyprint==61.2

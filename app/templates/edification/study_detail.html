@@ -108,6 +108,17 @@
                     {% endif %}
                     
                     <div class="text-center mt-3">
+                        <div class="d-flex gap-2">
+                            <a href="{{ url_for('edification.download_study', id=study.id, format='pdf') }}" class="btn btn-outline-danger rounded-pill px-3" title="Baixar PDF">
+                                <i class="bi bi-file-pdf me-1"></i> PDF
+                            </a>
+                            <a href="{{ url_for('edification.download_study', id=study.id, format='html') }}" class="btn btn-outline-primary rounded-pill px-3" title="Baixar HTML">
+                                <i class="bi bi-filetype-html me-1"></i> HTML
+                            </a>
+                            <a href="{{ url_for('edification.download_study', id=study.id, format='md') }}" class="btn btn-outline-info rounded-pill px-3" title="Baixar Markdown">
+                                <i class="bi bi-markdown me-1"></i> MD
+                            </a>
+                        </div>
                         <button class="btn btn-link text-muted btn-sm" onclick="window.scrollTo({top: 0, behavior: 'smooth'})">
                             <i class="bi bi-arrow-up me-1"></i> Voltar ao topo
                         </button>
