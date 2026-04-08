@@ -674,7 +674,21 @@ def delete_study(id):
     study = Study.query.get_or_404(id)
     study_data = {'id': study.id, 'title': study.title}
     
+    # 🔥 IMPORTANTE: Deletar registros relacionados MANUALMENTE antes
+    from app.core.models import StudyProgress, StudyHighlight, StudyNote
+    
+    # Deletar progresso
+    StudyProgress.query.filter_by(study_id=id).delete()
+    # Deletar highlights
+    StudyHighlight.query.filter_by(study_id=id).delete()
+    # Deletar anotações
+    StudyNote.query.filter_by(study_id=id).delete()
+    # Deletar questões
     StudyQuestion.query.filter_by(study_id=id).delete()
+    
+    # Agora sim, deletar o estudo
+    db.session.delete(study)
+    db.session.commit()
     
     log_action(
         action='DELETE',
@@ -683,9 +697,6 @@ def delete_study(id):
         old_values=study_data,
         church_id=current_user.church_id
     )
-    
-    db.session.delete(study)
-    db.session.commit()
     
     flash('Estudo e suas questões excluídos com sucesso!', 'info')
     return redirect(url_for('edification.studies'))
