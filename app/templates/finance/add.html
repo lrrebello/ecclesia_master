@@ -145,18 +145,20 @@ function checkCategoryRequiresLinkedEntity() {
     if (requiresLinked) {
         memberDiv.style.display = 'block';
         memberSelect.setAttribute('required', 'required');
+        requiredLabel.classList.remove('d-none');
         memberHelpText.innerHTML = '<i class="bi bi-exclamation-triangle-fill text-warning me-1"></i> <strong class="text-warning">Obrigatório!</strong> Esta categoria exige identificação do membro para fins fiscais.';
     } else {
-        // Se não exige vínculo pela categoria, ainda pode exigir por ser eletrônico
-        // A função checkElectronic() vai decidir
+        // 🔥 CORREÇÃO: Se a categoria NÃO exige vínculo, esconder o campo independente do meio de pagamento
         memberDiv.style.display = 'none';
         memberSelect.removeAttribute('required');
         memberSelect.value = '';
-        memberHelpText.innerHTML = 'Obrigatório para meios eletrônicos ou categorias que exigem identificação fiscal.';
+        requiredLabel.classList.add('d-none');
+        memberHelpText.innerHTML = 'Apenas categorias que exigem vínculo necessitam de identificação.';
     }
 }
 
 function checkElectronic() {
+    // 🔥 CORREÇÃO: Esta função agora só atualiza o texto de ajuda, mas não força exibição
     const paySelect = document.getElementById('payment_select');
     const selectedOption = paySelect.options[paySelect.selectedIndex];
     const isElectronic = selectedOption && selectedOption.getAttribute('data-electronic') === '1';
@@ -164,35 +166,31 @@ function checkElectronic() {
     const selectedCat = catSelect.options[catSelect.selectedIndex];
     const requiresLinkedByCategory = selectedCat && selectedCat.getAttribute('data-requires-linked') === 'true';
     
-    const memberDiv = document.getElementById('member_select_div');
-    const memberSelect = document.getElementById('user_id');
-    const requiredLabel = document.getElementById('required_label');
     const memberHelpText = document.getElementById('member_help_text');
+    const requiredLabel = document.getElementById('required_label');
+    const memberSelect = document.getElementById('user_id');
     
-    // Se for eletrônico OU a categoria exigir vínculo, mostrar campo
-    if (isElectronic || requiresLinkedByCategory) {
-        memberDiv.style.display = 'block';
-        memberSelect.setAttribute('required', 'required');
-        requiredLabel.classList.remove('d-none');
-        
-        if (isElectronic && requiresLinkedByCategory) {
+    // Se a categoria exige vínculo, já está tratado pela checkCategoryRequiresLinkedEntity
+    if (requiresLinkedByCategory) {
+        // Já está visível e obrigatório
+        if (isElectronic) {
             memberHelpText.innerHTML = '<i class="bi bi-exclamation-triangle-fill text-danger me-1"></i> <strong class="text-danger">OBRIGATÓRIO!</strong> Meio eletrônico + categoria que exige identificação fiscal.';
-        } else if (isElectronic) {
-            memberHelpText.innerHTML = '<i class="bi bi-exclamation-triangle-fill text-warning me-1"></i> <strong class="text-warning">Obrigatório!</strong> Meios eletrônicos exigem identificação do membro para fins fiscais.';
-        } else if (requiresLinkedByCategory) {
+        } else {
             memberHelpText.innerHTML = '<i class="bi bi-exclamation-triangle-fill text-warning me-1"></i> <strong class="text-warning">Obrigatório!</strong> Esta categoria exige identificação do membro.';
         }
     } else {
-        memberDiv.style.display = 'none';
-        memberSelect.removeAttribute('required');
-        requiredLabel.classList.add('d-none');
-        memberSelect.value = '';
+        // Categoria NÃO exige vínculo - campo deve ficar escondido
+        // A função checkCategoryRequiresLinkedEntity já cuida de esconder
+        // Apenas garantir que não está visível
+        const memberDiv = document.getElementById('member_select_div');
+        if (memberDiv) memberDiv.style.display = 'none';
+        if (memberSelect) memberSelect.removeAttribute('required');
+        if (requiredLabel) requiredLabel.classList.add('d-none');
     }
 }
 
 document.addEventListener('DOMContentLoaded', function() {
     filterCategories();
-    checkElectronic();
     
     // Event listeners
     const paymentSelect = document.getElementById('payment_select');
@@ -204,7 +202,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (categorySelect) {
         categorySelect.addEventListener('change', function() {
             checkCategoryRequiresLinkedEntity();
-            checkElectronic(); // Reavaliar após mudar categoria
+            checkElectronic();
         });
     }
 });

@@ -644,14 +644,20 @@ def add_transaction():
         category = TransactionCategory.query.get(category_id) if category_id else None
         payment_method = PaymentMethod.query.get(payment_method_id) if payment_method_id else None
         
-        # 🔥 NOVA VALIDAÇÃO: Verifica se a categoria exige vínculo
-        if category and category.requires_linked_entity and not user_id:
+        # 🔥 NOVA LÓGICA: Verificar se precisa de vínculo
+        # Precisa de vínculo se: (categoria exige) OU (meio eletrônico E categoria existe E categoria NÃO exige? Não)
+        # Na verdade: Só exige vínculo se a categoria REQUER linked_entity
+        requires_link = category and category.requires_linked_entity
+        
+        # 🔥 VALIDAÇÃO: Se a categoria exige vínculo, obriga informar membro
+        if requires_link and not user_id:
             flash(f'A categoria "{category.name}" exige a identificação do membro vinculado para fins fiscais.', 'danger')
             return redirect(url_for('finance.add_transaction'))
         
-        # Validação para meios eletrônicos (mantida)
-        if payment_method and payment_method.is_electronic and not user_id:
-            flash('Para pagamentos eletrônicos, a identificação do membro é obrigatória para fins fiscais.', 'danger')
+        # 🔥 VALIDAÇÃO PARA MEIOS ELETRÔNICOS: Só obriga se a categoria exigir vínculo
+        # Se a categoria NÃO exige vínculo, pode ser eletrônico sem informar membro
+        if payment_method and payment_method.is_electronic and requires_link and not user_id:
+            flash(f'Para pagamentos eletrônicos na categoria "{category.name}", a identificação do membro é obrigatória.', 'danger')
             return redirect(url_for('finance.add_transaction'))
             
         amount = float(request.form.get('amount') or 0)
