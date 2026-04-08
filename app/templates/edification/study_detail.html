@@ -113,11 +113,16 @@
                         </button>
                     </div>
                     
-                    <div class="d-flex justify-content-center mt-3">
-                        <button id="markCompletedBtn" class="btn {{ 'btn-success' if not is_completed else 'btn-outline-success' }} rounded-pill px-4" {{ 'disabled' if is_completed }}>
-                            <i class="bi bi-{{ 'check2-circle' if not is_completed else 'check2-circle-fill' }} me-2"></i> 
-                            {{ 'Marcar como concluído' if not is_completed else 'Estudo concluído!' }}
+                    <div class="d-flex justify-content-center gap-3 mt-3">
+                        {% if is_completed %}
+                        <button id="unmarkCompletedBtn" class="btn btn-outline-warning rounded-pill px-4">
+                            <i class="bi bi-arrow-undo me-2"></i> Desmarcar como concluído
                         </button>
+                        {% else %}
+                        <button id="markCompletedBtn" class="btn btn-success rounded-pill px-4">
+                            <i class="bi bi-check2-circle me-2"></i> Marcar como concluído
+                        </button>
+                        {% endif %}
                     </div>
                 </div>
             </div>
@@ -699,50 +704,86 @@
     updateProgress();
 
     // ============================================
-    // MARCAR COMO CONCLUÍDO
+    // MARCAR / DESMARCAR COMO CONCLUÍDO
     // ============================================
     let isStudyCompleted = {{ is_completed|default(false)|tojson }};
 
     function updateCompletedButton() {
-        const btn = document.getElementById('markCompletedBtn');
+        const container = document.querySelector('.d-flex.justify-content-center.gap-3.mt-3');
+        if (!container) return;
+        
         if (isStudyCompleted) {
-            btn.innerHTML = '<i class="bi bi-check2-circle-fill me-2"></i> Estudo concluído!';
-            btn.classList.remove('btn-success');
-            btn.classList.add('btn-outline-success');
-            btn.disabled = true;
+            container.innerHTML = `
+                <button id="unmarkCompletedBtn" class="btn btn-outline-warning rounded-pill px-4">
+                    <i class="bi bi-arrow-undo me-2"></i> Desmarcar como concluído
+                </button>
+            `;
+            document.getElementById('unmarkCompletedBtn')?.addEventListener('click', unmarkCompleted);
             
-            // Adicionar badge de concluído no cabeçalho se não existir
+            // Adicionar badge no cabeçalho
             const headerDiv = document.querySelector('.bg-primary.bg-opacity-10 .d-flex.gap-3');
-            if (headerDiv && !document.querySelector('.badge.bg-success.rounded-pill')) {
+            if (headerDiv && !document.querySelector('.completed-badge-header')) {
                 const badge = document.createElement('span');
-                badge.className = 'badge bg-success rounded-pill';
+                badge.className = 'badge bg-success rounded-pill completed-badge-header';
                 badge.innerHTML = '<i class="bi bi-check2-circle me-1"></i> Concluído';
                 headerDiv.appendChild(badge);
             }
         } else {
-            btn.innerHTML = '<i class="bi bi-check2-circle me-2"></i> Marcar como concluído';
-            btn.classList.add('btn-success');
-            btn.classList.remove('btn-outline-success');
-            btn.disabled = false;
+            container.innerHTML = `
+                <button id="markCompletedBtn" class="btn btn-success rounded-pill px-4">
+                    <i class="bi bi-check2-circle me-2"></i> Marcar como concluído
+                </button>
+            `;
+            document.getElementById('markCompletedBtn')?.addEventListener('click', markCompleted);
+            
+            // Remover badge do cabeçalho
+            const badge = document.querySelector('.completed-badge-header');
+            if (badge) badge.remove();
         }
     }
 
-    document.getElementById('markCompletedBtn').addEventListener('click', () => {
+    function markCompleted() {
         fetch(`/edification/study/${studyId}/complete`, { method: 'POST' })
             .then(() => {
                 isStudyCompleted = true;
                 updateCompletedButton();
-                alert('✅ Estudo marcado como concluído!');
-                
-                // Recarregar a página para mostrar o badge
-                location.reload();
+                showToast('✅ Estudo marcado como concluído!', 'success');
             })
             .catch(e => console.error('Erro:', e));
-    });
+    }
 
-    // Inicializar estado do botão
-    updateCompletedButton();
-    
+    function unmarkCompleted() {
+        fetch(`/edification/study/${studyId}/uncomplete`, { method: 'POST' })
+            .then(() => {
+                isStudyCompleted = false;
+                updateCompletedButton();
+                showToast('📖 Estudo desmarcado como concluído', 'info');
+            })
+            .catch(e => console.error('Erro:', e));
+    }
+
+    function showToast(message, type) {
+        // Criar toast simples
+        const toast = document.createElement('div');
+        toast.className = `toast align-items-center text-white bg-${type === 'success' ? 'success' : 'secondary'} border-0 position-fixed bottom-0 end-0 m-3`;
+        toast.style.zIndex = '1050';
+        toast.innerHTML = `
+            <div class="d-flex">
+                <div class="toast-body">${message}</div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+            </div>
+        `;
+        document.body.appendChild(toast);
+        const bsToast = new bootstrap.Toast(toast, { delay: 3000 });
+        bsToast.show();
+        toast.addEventListener('hidden.bs.toast', () => toast.remove());
+    }
+
+    // Inicializar
+    document.addEventListener('DOMContentLoaded', () => {
+        updateCompletedButton();
+    });
+        
     // ============================================
     // SALVAR PROGRESSO DA PÁGINA
     // ============================================

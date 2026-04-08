@@ -855,6 +855,21 @@ def mark_study_completed(study_id):
     db.session.commit()
     return jsonify({'success': True})
 
+@edification_bp.route('/study/<int:study_id>/uncomplete', methods=['POST'])
+@login_required
+def mark_study_uncompleted(study_id):
+    """Desmarcar estudo como concluído"""
+    progress = StudyProgress.query.filter_by(
+        user_id=current_user.id,
+        study_id=study_id
+    ).first()
+    
+    if progress:
+        progress.completed = False
+        db.session.commit()
+    
+    return jsonify({'success': True})
+
 # ============================================
 # ROTAS DA GALERIA E MÍDIAS
 # ============================================

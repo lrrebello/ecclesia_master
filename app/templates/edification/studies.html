@@ -142,6 +142,16 @@
                         <a href="{{ url_for('edification.study_detail', id=study.id, page=1) }}" class="btn btn-primary rounded-pill px-4 flex-grow-1">
                             <i class="bi bi-book me-2"></i>Ler Estudo
                         </a>
+
+                            {% if is_completed %}
+                            <button class="btn btn-outline-warning rounded-circle p-2 unmark-completed-btn" 
+                                    data-study-id="{{ study.id }}" 
+                                    data-study-title="{{ study.title }}"
+                                    style="width: 38px; height: 38px;"
+                                    title="Desmarcar como concluído">
+                                <i class="bi bi-arrow-undo"></i>
+                            </button>
+                            {% endif %}
                         
                         {% if current_user.can_publish_devotionals or (current_user.church_role and current_user.church_role.name in ['Administrador Global', 'Pastor Líder']) %}
                         <div class="dropdown">
@@ -290,6 +300,24 @@
 </style>
 
 <script>
+
+// Desmarcar conclusão direto da lista
+document.querySelectorAll('.unmark-completed-btn').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+        e.preventDefault();
+        const studyId = btn.dataset.studyId;
+        const studyTitle = btn.dataset.studyTitle;
+        
+        if (confirm(`Deseja desmarcar o estudo "${studyTitle}" como concluído?`)) {
+            const response = await fetch(`/edification/study/${studyId}/uncomplete`, { method: 'POST' });
+            if (response.ok) {
+                // Recarregar a página ou remover o botão
+                location.reload();
+            }
+        }
+    });
+});
+
 document.addEventListener('DOMContentLoaded', function() {
     // Modal de exclusão
     const deleteModal = document.getElementById('deleteStudyModal');
