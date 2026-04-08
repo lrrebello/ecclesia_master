@@ -34,7 +34,21 @@
                     <label class="form-label small fw-bold text-uppercase opacity-75">Local</label>
                     <input type="text" name="location" class="form-control bg-light border-0 py-2" placeholder="Ex: Templo Sede, Sala 02" required>
                 </div>
-
+                <!-- Adicione após o campo Local, antes do Tipo de Evento -->
+                {% if ministries %}
+                <div class="mb-3">
+                    <label class="form-label small fw-bold text-uppercase opacity-75">MINISTÉRIO (OPCIONAL)</label>
+                    <select name="ministry_id" class="form-select bg-light border-0 py-2">
+                        <option value="">-- Evento Geral da Igreja --</option>
+                        {% for min in ministries %}
+                        <option value="{{ min.id }}" {% if ministry and ministry.id == min.id %}selected{% endif %}>
+                            {{ min.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                    <div class="form-text small">Selecione um ministério para vincular o evento a ele.</div>
+                </div>
+                {% endif %}
                 <div class="mb-4">
                     <label class="form-label small fw-bold text-uppercase opacity-75">Tipo de Evento</label>
                     <div class="d-flex gap-3">

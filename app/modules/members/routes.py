@@ -407,15 +407,31 @@ def delete_ministry(id):
 def agenda():
     from datetime import datetime, timedelta
     
-    ministry_ids = [m.id for m in current_user.ministries]
-    events = Event.query.filter(
-        (Event.church_id == current_user.church_id) & 
-        ((Event.ministry_id == None) | (Event.ministry_id.in_(ministry_ids))) &
-        (Event.start_time >= datetime.now() - timedelta(hours=24))
-    ).order_by(Event.start_time.asc()).all()
+    # 🔥 VERIFICAR SE O USUÁRIO TEM PERMISSÃO TOTAL
+    is_global_admin = current_user.church_role and current_user.church_role.name == 'Administrador Global'
+    is_lead_pastor = current_user.church_role and current_user.church_role.is_lead_pastor
+    can_manage_all_events = current_user.can_manage_events
     
-    # Buscar ministérios para o filtro
-    ministries = Ministry.query.filter_by(church_id=current_user.church_id).all()
+    # 🔥 SE TEM PERMISSÃO TOTAL, VÊ TODOS OS EVENTOS DA IGREJA
+    if is_global_admin or is_lead_pastor or can_manage_all_events:
+        events = Event.query.filter(
+            Event.church_id == current_user.church_id,
+            Event.start_time >= datetime.now() - timedelta(hours=24)
+        ).order_by(Event.start_time.asc()).all()
+    else:
+        # Usuário comum: vê apenas eventos gerais + dos ministérios que participa
+        ministry_ids = [m.id for m in current_user.ministries]
+        events = Event.query.filter(
+            (Event.church_id == current_user.church_id) & 
+            ((Event.ministry_id == None) | (Event.ministry_id.in_(ministry_ids))) &
+            (Event.start_time >= datetime.now() - timedelta(hours=24))
+        ).order_by(Event.start_time.asc()).all()
+    
+    # Buscar ministérios para o filtro (todos para quem tem permissão, apenas os que participa para outros)
+    if is_global_admin or is_lead_pastor or can_manage_all_events:
+        ministries = Ministry.query.filter_by(church_id=current_user.church_id).all()
+    else:
+        ministries = current_user.ministries
     
     return render_template('members/agenda.html', 
                          events=events,
@@ -451,14 +467,53 @@ def create_recurring_events(base_event, recurrence_type, count=12):
 def add_event(id=None):
     ministry = Ministry.query.get(id) if id else None
     
-    is_authorized = current_user.can_manage_events or (
-        current_user.church_role and (current_user.church_role.name == 'Administrador Global' or current_user.church_role.is_lead_pastor)) or (ministry and is_ministry_leader(ministry))
+    # 🔥 VERIFICAR PERMISSÃO
+    is_global_admin = current_user.church_role and current_user.church_role.name == 'Administrador Global'
+    is_lead_pastor = current_user.church_role and current_user.church_role.is_lead_pastor
+    can_manage_events = current_user.can_manage_events
+    
+    # Permissão para criar evento neste ministério
+    is_authorized = False
+    
+    if ministry:
+        # Criando evento em um ministério específico
+        is_authorized = (
+            is_global_admin or 
+            is_lead_pastor or 
+            can_manage_events or 
+            is_ministry_leader(ministry)
+        )
+    else:
+        # Criando evento geral
+        is_authorized = (
+            is_global_admin or 
+            is_lead_pastor or 
+            can_manage_events
+        )
 
     if not is_authorized:
         flash('Acesso negado.', 'danger')
         return redirect(url_for('members.dashboard'))
 
     if request.method == 'POST':
+        # 🔥 PERMITIR QUE ADMIN MUDE O MINISTÉRIO DO EVENTO
+        ministry_id = request.form.get('ministry_id')
+        selected_ministry = None
+        
+        if ministry_id:
+            selected_ministry = Ministry.query.get(int(ministry_id))
+            # Verificar se o usuário tem permissão para este ministério
+            if selected_ministry:
+                can_edit_this_ministry = (
+                    is_global_admin or 
+                    is_lead_pastor or 
+                    can_manage_events or 
+                    is_ministry_leader(selected_ministry)
+                )
+                if not can_edit_this_ministry:
+                    flash('Você não tem permissão para criar eventos neste ministério.', 'danger')
+                    return redirect(url_for('members.agenda'))
+        
         event_type = request.form.get('event_type', 'single')
         
         if event_type == 'multi':
@@ -481,7 +536,7 @@ def add_event(id=None):
                     start_time=start_datetime,
                     end_time=end_datetime,
                     location=request.form.get('location'),
-                    ministry_id=ministry.id if ministry else None,
+                    ministry_id=selected_ministry.id if selected_ministry else None,
                     church_id=current_user.church_id,
                     recurrence='none'
                 )
@@ -503,7 +558,7 @@ def add_event(id=None):
             return redirect(url_for('members.agenda'))
             
         else:
-            # Evento de um dia (comportamento original)
+            # Evento de um dia
             start_time = datetime.strptime(request.form.get('start_time'), '%Y-%m-%dT%H:%M')
             end_time_str = request.form.get('end_time')
             end_time = datetime.strptime(end_time_str, '%Y-%m-%dT%H:%M') if end_time_str else None
@@ -515,7 +570,7 @@ def add_event(id=None):
                 start_time=start_time,
                 end_time=end_time,
                 location=request.form.get('location'),
-                ministry_id=ministry.id if ministry else None,
+                ministry_id=selected_ministry.id if selected_ministry else None,
                 church_id=current_user.church_id,
                 recurrence=recurrence
             )
@@ -543,7 +598,18 @@ def add_event(id=None):
             flash('Evento(s) agendado(s) com sucesso!', 'success')
             return redirect(url_for('members.agenda'))
 
-    return render_template('members/add_event.html', ministry=ministry)
+    # GET - buscar dados para o formulário
+    if is_global_admin or is_lead_pastor or can_manage_events:
+        # Admins veem todos os ministérios para escolher
+        ministries = Ministry.query.filter_by(church_id=current_user.church_id).all()
+    else:
+        # Líderes só veem os ministérios que lideram
+        all_ministries = Ministry.query.filter_by(church_id=current_user.church_id).all()
+        ministries = [m for m in all_ministries if is_ministry_leader(m)]
+    
+    return render_template('members/add_event.html', 
+                         ministry=ministry,
+                         ministries=ministries)
 
 # Aliases para compatibilidade
 @members_bp.route('/ministry/<int:id>/event/add_legacy')
@@ -558,34 +624,54 @@ def add_general_event():
 @login_required
 def edit_event(id):
     event = Event.query.get_or_404(id)
-    is_authorized = (current_user.church_role and (current_user.church_role.name == 'Administrador Global' or current_user.church_role.is_lead_pastor)) or \
-                    (event.ministry and is_ministry_leader(event.ministry)) or \
-                    current_user.can_manage_events
+    
+    # 🔥 VERIFICAR PERMISSÃO
+    is_global_admin = current_user.church_role and current_user.church_role.name == 'Administrador Global'
+    is_lead_pastor = current_user.church_role and current_user.church_role.is_lead_pastor
+    can_manage_events = current_user.can_manage_events
+    
+    is_authorized = (
+        is_global_admin or 
+        is_lead_pastor or 
+        can_manage_events or 
+        (event.ministry and is_ministry_leader(event.ministry))
+    )
     
     if not is_authorized:
         flash('Acesso negado.', 'danger')
         return redirect(url_for('members.agenda'))
     
-    old_values = {
-        'title': event.title,
-        'description': event.description,
-        'start_time': str(event.start_time),
-        'end_time': str(event.end_time) if event.end_time else None,
-        'location': event.location,
-        'recurrence': event.recurrence
-    }
+    # Buscar ministérios para o select (se for admin)
+    if is_global_admin or is_lead_pastor or can_manage_events:
+        ministries = Ministry.query.filter_by(church_id=current_user.church_id).all()
+    else:
+        ministries = []
     
     if request.method == 'POST':
+        old_values = {
+            'title': event.title,
+            'description': event.description,
+            'start_time': str(event.start_time),
+            'end_time': str(event.end_time) if event.end_time else None,
+            'location': event.location,
+            'recurrence': event.recurrence,
+            'ministry_id': event.ministry_id
+        }
+        
         event.title = request.form.get('title')
         event.description = request.form.get('description')
         event.start_time = datetime.strptime(request.form.get('start_time'), '%Y-%m-%dT%H:%M')
         
-        # 🔥 NOVO: atualizar end_time
         end_time_str = request.form.get('end_time')
         event.end_time = datetime.strptime(end_time_str, '%Y-%m-%dT%H:%M') if end_time_str else None
         
         event.location = request.form.get('location')
         event.recurrence = request.form.get('recurrence', 'none')
+        
+        # 🔥 PERMITIR MUDAR O MINISTÉRIO DO EVENTO (apenas para admins)
+        ministry_id = request.form.get('ministry_id')
+        if is_global_admin or is_lead_pastor or can_manage_events:
+            event.ministry_id = int(ministry_id) if ministry_id else None
         
         db.session.commit()
 
@@ -598,7 +684,8 @@ def edit_event(id):
                 'title': event.title,
                 'start_time': str(event.start_time),
                 'end_time': str(event.end_time) if event.end_time else None,
-                'location': event.location
+                'location': event.location,
+                'ministry_id': event.ministry_id
             },
             church_id=event.church_id
         )
@@ -606,7 +693,9 @@ def edit_event(id):
         flash('Evento atualizado!', 'success')
         return redirect(url_for('members.agenda'))
     
-    return render_template('members/edit_event.html', event=event)
+    return render_template('members/edit_event.html', 
+                         event=event,
+                         ministries=ministries)
 
 @members_bp.route('/event/<int:id>/delete', methods=['POST'])
 @login_required

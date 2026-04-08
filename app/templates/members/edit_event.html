@@ -23,7 +23,20 @@
                     <label class="form-label small fw-bold text-uppercase opacity-75">Descrição</label>
                     <textarea name="description" class="form-control bg-light border-0 py-2" rows="3">{{ event.description or '' }}</textarea>
                 </div>
-
+                {% if ministries %}
+                <div class="mb-3">
+                    <label class="form-label small fw-bold text-uppercase opacity-75">MINISTÉRIO</label>
+                    <select name="ministry_id" class="form-select bg-light border-0 py-2">
+                        <option value="">-- Evento Geral da Igreja --</option>
+                        {% for min in ministries %}
+                        <option value="{{ min.id }}" {% if event.ministry_id == min.id %}selected{% endif %}>
+                            {{ min.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                    <div class="form-text small">Altere o ministério vinculado ao evento (apenas administradores).</div>
+                </div>
+                {% endif %}
                 <div class="mb-3">
                     <label class="form-label small fw-bold text-uppercase opacity-75">Local</label>
                     <input type="text" name="location" class="form-control bg-light border-0 py-2" value="{{ event.location or '' }}" required>
