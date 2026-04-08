@@ -275,7 +275,7 @@
     document.querySelector('.study-content').style.fontSize = currentFontSize + '%';
     
     // ============================================
-    // PROCESSAR CONTEÚDO EM BLOCOS - VERSÃO QUE DIVIDE POR <br>
+    // PROCESSAR CONTEÚDO EM BLOCOS - COM MESCLAGEM
     // ============================================
     function processContentToBlocks() {
         const rawHtml = {{ content_html|tojson }};
@@ -284,112 +284,95 @@
         const temp = document.createElement('div');
         temp.innerHTML = rawHtml;
         
-        let blocks = [];
+        let rawBlocks = [];
         
-        // 1. Verificar se há marcadores de quebra de página manuais
-        if (rawHtml.includes('<!-- pagebreak -->')) {
-            const parts = rawHtml.split('<!-- pagebreak -->');
-            allBlocks = parts.map(part => `<div class="content-block">${part}</div>`);
-            console.log('Quebras manuais encontradas:', allBlocks.length);
-            return;
-        }
-        
-        // 2. Tentar pegar por tags HTML de bloco
+        // 1. Coletar blocos iniciais (parágrafos, títulos, etc.)
         const blockTags = ['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'div', 'blockquote', 'pre', 'ul', 'ol', 'table'];
-        let foundBlocks = false;
-        
         for (const tag of blockTags) {
             const elements = temp.querySelectorAll(tag);
             if (elements.length > 0) {
                 elements.forEach(el => {
                     const text = el.innerText || el.innerHTML;
                     if (text && text.trim().length > 0) {
-                        blocks.push(el.outerHTML);
+                        rawBlocks.push(el.outerHTML);
                     }
                 });
-                if (blocks.length > 0) {
-                    foundBlocks = true;
-                    break;
-                }
+                break; // Usa o primeiro tipo de tag encontrado
             }
         }
         
-        // 3. Se não encontrou blocos, dividir por <br> e quebras de linha
-        if (!foundBlocks) {
-            const html = temp.innerHTML;
+        // 2. Se não encontrou, dividir por quebras de linha
+        if (rawBlocks.length === 0) {
+            const text = temp.innerText || rawHtml;
+            const lines = text.split(/\n/).filter(l => l.trim().length > 0);
+            rawBlocks = lines.map(l => `<p class="content-block">${l}</p>`);
+        }
+        
+        // 3. Mesclar blocos pequenos (menos de 300 caracteres) com o próximo
+        const MIN_BLOCK_LENGTH = 300; // Caracteres mínimos por bloco
+        const mergedBlocks = [];
+        let currentBlock = '';
+        
+        for (let i = 0; i < rawBlocks.length; i++) {
+            // Extrair texto do bloco (removendo tags HTML)
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = rawBlocks[i];
+            const blockText = tempDiv.textContent || tempDiv.innerText || '';
             
-            // Dividir por <br> e <br/> tags
-            let lines = html.split(/<br\s*\/?>/i);
-            
-            if (lines.length > 1) {
-                blocks = lines.filter(l => l.trim()).map(l => `<p class="content-block">${l}</p>`);
-                foundBlocks = true;
+            if (currentBlock === '') {
+                currentBlock = rawBlocks[i];
             } else {
-                // Dividir por quebras de linha
-                const text = temp.innerText || rawHtml;
-                const textLines = text.split(/\n/).filter(l => l.trim().length > 0);
-                if (textLines.length > 1) {
-                    blocks = textLines.map(l => `<p class="content-block">${l}</p>`);
-                    foundBlocks = true;
+                // Verificar se o bloco atual é pequeno
+                const currentText = document.createElement('div');
+                currentText.innerHTML = currentBlock;
+                const currentLength = (currentText.textContent || currentText.innerText || '').length;
+                
+                if (currentLength < MIN_BLOCK_LENGTH) {
+                    // Mesclar com o próximo
+                    currentBlock += rawBlocks[i];
+                } else {
+                    mergedBlocks.push(currentBlock);
+                    currentBlock = rawBlocks[i];
                 }
             }
         }
-        
-        // 4. Dividir por pontos finais (sentenças)
-        if (!foundBlocks) {
-            const text = temp.innerText || rawHtml;
-            const sentences = text.split(/(?<=[.!?])\s+/);
-            if (sentences.length > 1) {
-                blocks = sentences.map(s => `<p class="content-block">${s}</p>`);
-                foundBlocks = true;
-            }
+        if (currentBlock) {
+            mergedBlocks.push(currentBlock);
         }
         
-        // 5. Dividir por tamanho (último recurso)
-        if (!foundBlocks && rawHtml.length > 500) {
-            const text = temp.innerText || rawHtml;
-            const chunkSize = 300; // caracteres por bloco
-            let chunks = [];
-            for (let i = 0; i < text.length; i += chunkSize) {
-                chunks.push(text.substring(i, i + chunkSize));
+        // 4. Se ainda tiver muitos blocos, mesclar até no máximo 30 blocos
+        const MAX_BLOCKS = 30;
+        let finalBlocks = mergedBlocks;
+        if (finalBlocks.length > MAX_BLOCKS) {
+            finalBlocks = [];
+            let chunk = [];
+            for (let i = 0; i < mergedBlocks.length; i++) {
+                chunk.push(mergedBlocks[i]);
+                if (chunk.length >= Math.ceil(mergedBlocks.length / MAX_BLOCKS) || i === mergedBlocks.length - 1) {
+                    finalBlocks.push(chunk.join(''));
+                    chunk = [];
+                }
             }
-            if (chunks.length > 1) {
-                blocks = chunks.map(c => `<p class="content-block">${c}</p>`);
-                foundBlocks = true;
-            }
-        }
-        
-        // 6. Se ainda não tem blocos, é um único bloco
-        if (!foundBlocks && rawHtml.trim()) {
-            blocks = [`<div class="content-block">${rawHtml}</div>`];
         }
         
         // Adicionar classe a cada bloco
-        blocks = blocks.map(block => {
-            if (!block.includes('class="content-block"') && !block.includes('class=\'content-block\'')) {
+        allBlocks = finalBlocks.map(block => {
+            if (!block.includes('class="content-block"')) {
                 return block.replace(/^<([a-z0-9]+)(>| )/, `<$1 class="content-block"$2`);
             }
             return block;
         });
         
-        allBlocks = blocks;
-        console.log('Blocos processados:', allBlocks.length);
-        console.log('Primeiros 3 blocos:', allBlocks.slice(0, 3).map(b => b.substring(0, 50)));
+        console.log('Blocos originais:', rawBlocks.length);
+        console.log('Blocos após mesclagem:', allBlocks.length);
     }
     // ============================================
     // CALCULAR BLOCOS POR PÁGINA - VERSÃO SIMPLIFICADA
     // ============================================
     function calculateBlocksPerPage() {
-        if (allBlocks.length === 0) return 3;
+        if (allBlocks.length === 0) return 1;
         
-        // Altura disponível estimada
-        const viewportHeight = window.innerHeight;
-        const headerHeight = document.querySelector('.bg-primary.bg-opacity-10')?.offsetHeight || 250;
-        const controlsHeight = document.querySelector('.d-flex.justify-content-between.align-items-center')?.offsetHeight || 100;
-        const navHeight = document.querySelector('.d-flex.justify-content-between.align-items-center.mt-4')?.offsetHeight || 80;
-        const availableHeight = viewportHeight - headerHeight - controlsHeight - navHeight - 150;
-        
-        // Criar elemento de teste
+        // Calcular altura média dos blocos
         const testDiv = document.createElement('div');
         testDiv.style.position = 'absolute';
         testDiv.style.visibility = 'hidden';
@@ -397,29 +380,26 @@
         testDiv.style.fontSize = window.getComputedStyle(document.querySelector('.study-content'))?.fontSize || '16px';
         document.body.appendChild(testDiv);
         
-        let blocksCount = 0;
         let totalHeight = 0;
-        
-        for (let i = 0; i < allBlocks.length; i++) {
+        let sampleSize = Math.min(allBlocks.length, 10);
+        for (let i = 0; i < sampleSize; i++) {
             testDiv.innerHTML = allBlocks[i];
-            const blockHeight = testDiv.offsetHeight;
-            if (totalHeight + blockHeight <= availableHeight && blocksCount < 20) {
-                totalHeight += blockHeight;
-                blocksCount++;
-            } else if (blocksCount === 0) {
-                // Se nem um bloco cabe, pelo menos mostrar um
-                blocksCount = 1;
-                break;
-            } else {
-                break;
-            }
+            totalHeight += testDiv.offsetHeight;
         }
+        const avgBlockHeight = totalHeight / sampleSize;
+        
+        // Altura disponível
+        const viewportHeight = window.innerHeight;
+        const headerHeight = document.querySelector('.bg-primary.bg-opacity-10')?.offsetHeight || 250;
+        const controlsHeight = document.querySelector('.d-flex.justify-content-between.align-items-center')?.offsetHeight || 100;
+        const navHeight = document.querySelector('.d-flex.justify-content-between.align-items-center.mt-4')?.offsetHeight || 80;
+        const availableHeight = viewportHeight - headerHeight - controlsHeight - navHeight - 150;
+        
+        // Calcular blocos por página (mínimo 2, máximo 15)
+        let blocksPer = Math.max(2, Math.min(15, Math.floor(availableHeight / avgBlockHeight)));
         
         document.body.removeChild(testDiv);
-        
-        const result = Math.max(1, blocksCount);
-        console.log('Blocks per page:', result); // Debug
-        return result;
+        return blocksPer;
     }
     
     function renderPageFront() {

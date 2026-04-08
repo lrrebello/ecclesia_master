@@ -436,10 +436,18 @@ def add_study():
         if request.form.get('generate_ai_questions'):
             question_count = 7
             try:
+                # Verificar tamanho do conteúdo
+                content_for_ai = content
+                content_warning = None
+                
+                if content and len(content) > 8000:
+                    content_warning = f"Conteúdo muito extenso ({len(content)} caracteres). A IA processará apenas os primeiros 6000 caracteres. Para melhores resultados, considere dividir este estudo em partes."
+                    flash(content_warning, 'warning')
+                
                 if file_path:
                     ai_data = generate_questions(file_path, type='adult', count=question_count, is_file=True)
-                elif content and len(content.strip()) >= 100:
-                    ai_data = generate_questions(content, type='adult', count=question_count)
+                elif content_for_ai and len(content_for_ai.strip()) >= 100:
+                    ai_data = generate_questions(content_for_ai, type='adult', count=question_count)
                 else:
                     flash('Conteúdo insuficiente para gerar questões com IA.', 'warning')
                     ai_data = {}

@@ -14,29 +14,64 @@ def get_gemini_client():
         return None
     return genai.Client(api_key=api_key)
 
+def split_content_for_ai(content, max_chars=5000):
+    """Divide conteúdo grande em partes menores para processamento"""
+    if not content or len(content) <= max_chars:
+        return [content] if content else []
+    
+    parts = []
+    current_part = ""
+    
+    # Tentar dividir por parágrafos
+    paragraphs = content.split('\n\n')
+    
+    for para in paragraphs:
+        if len(current_part) + len(para) > max_chars:
+            if current_part:
+                parts.append(current_part)
+            current_part = para
+        else:
+            if current_part:
+                current_part += '\n\n' + para
+            else:
+                current_part = para
+    
+    if current_part:
+        parts.append(current_part)
+    
+    return parts
+
+def extract_text_from_file(file_path):
+    """Extrai texto de arquivos localmente (fallback)"""
+    try:
+        from .text_extractor import extract_text
+        return extract_text(file_path)
+    except Exception as e:
+        current_app.logger.error(f"Erro no extract_text: {e}")
+        return None
+
 def generate_questions(content_or_path, type='adult', count=7, is_file=False):
     client = get_gemini_client()
     if not client:
         return {"error": "GEMINI_API_KEY não configurada no ambiente."}
 
-    # Modelo recomendado para 2026
-    model_name = 'gemini-2.5-flash'
+    model_name = 'gemini-2.0-flash'  # Mais rápido que o 2.5 para textos grandes
     contents = []
-    
-    # Tempo de espera para indexação de arquivos (reduzido para 2s)
     indexing_wait = 2
-
-    # Preparar o conteúdo
     text_content = ""
+
+    # Processar arquivo
     if is_file and os.path.exists(content_or_path):
         try:
             ext = os.path.splitext(content_or_path)[1].lower()
             mime_type = "application/pdf"
-            if ext == ".docx": mime_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-            elif ext == ".pptx": mime_type = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
-            elif ext == ".txt": mime_type = "text/plain"
+            if ext == ".docx": 
+                mime_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            elif ext == ".pptx": 
+                mime_type = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+            elif ext == ".txt": 
+                mime_type = "text/plain"
 
-            # Upload do arquivo
             uploaded_file = client.files.upload(
                 file=content_or_path,
                 config=types.UploadFileConfig(mime_type=mime_type)
@@ -53,20 +88,27 @@ def generate_questions(content_or_path, type='adult', count=7, is_file=False):
         except Exception as e:
             current_app.logger.error(f"Erro no upload Gemini: {e}")
             # Fallback: extrair texto localmente
-            try:
-                from .text_extractor import extract_text
-                text_content = extract_text(content_or_path)
-            except Exception as extract_err:
-                return {"error": f"Falha no processamento do arquivo: {str(extract_err)}"}
+            text_content = extract_text_from_file(content_or_path)
+            if not text_content:
+                return {"error": f"Falha no processamento do arquivo: {str(e)}"}
     else:
         # Conteúdo direto como texto
-        text_content = content_or_path[:15000]  # limite de caracteres
+        text_content = content_or_path
 
-    # Se tiver texto extraído ou direto, adiciona como Part de texto
+    # 🔥 SE TEXTO FOR MUITO GRANDE, PEGAR APENAS A PRIMEIRA PARTE
+    if text_content and len(text_content) > 8000:
+        # Avisar que apenas parte será processada
+        current_app.logger.info(f"Conteúdo grande ({len(text_content)} caracteres). Usando primeiros 6000 caracteres.")
+        text_content = text_content[:6000]
+        # Adicionar observação no resultado
+        partial_note = "\n\n[Nota: O conteúdo original é muito extenso. As questões foram geradas com base na primeira parte do texto.]"
+        text_content += partial_note
+
+    # Se tiver texto, adiciona como Part
     if text_content:
         contents.append(types.Part(text=text_content))
 
-    # Montar o prompt correto baseado no tipo
+    # Montar o prompt baseado no tipo
     if type == 'kids':
         prompt_text = f"""
         Você é um educador infantil especializado em criar atividades bíblicas divertidas.
@@ -75,9 +117,10 @@ def generate_questions(content_or_path, type='adult', count=7, is_file=False):
         1. Crie {count} perguntas de múltipla escolha para crianças de 5 a 10 anos.
         Para cada pergunta, forneça 3 opções (A, B, C).
         Indique a resposta correta e uma breve explicação alegre.
+        DISTRIBUA A RESPOSTA CORRETA ALEATORIAMENTE ENTRE A, B e C (não coloque sempre em A).
 
-        2. Extraia 12 palavras-chave importantes da história para jogos de Caça-Palavras e Palavras Cruzadas.
-        As palavras devem ser substantivos simples (sem espaços ou hífens). Para cada palavra, forneça uma dica curta.
+        2. Extraia 8 palavras-chave importantes da história para jogos.
+        As palavras devem ser substantivos simples (sem espaços).
 
         Responda APENAS em formato JSON seguindo EXATAMENTE esta estrutura:
         {{
@@ -89,26 +132,24 @@ def generate_questions(content_or_path, type='adult', count=7, is_file=False):
                         "B": "Opção B",
                         "C": "Opção C"
                     }},
-                    "correct_option": "A",
+                    "correct_option": "B",
                     "explanation": "Explicação curta"
                 }}
             ],
-            "game_words": [
-                {{ "word": "PALAVRA", "hint": "Dica da palavra" }}
-            ]
+            "game_words": ["PALAVRA1", "PALAVRA2", "PALAVRA3"]
         }}
         """
-    else:  # adult
+    else:
         prompt_text = f"""
-        Gere {count} questões de múltipla escolha baseadas no seguinte conteúdo: {text_content}.
+        Gere {count} questões de múltipla escolha baseadas no seguinte conteúdo bíblico.
         
-        Para cada questão:
-        - Crie uma pergunta clara e relevante.
-        - Gere 4 opções (A, B, C, D).
-        - A resposta correta deve ser variada e aleatória entre A, B, C e D (NÃO coloque sempre na A ou na primeira opção).
-        - Inclua uma explicação breve para a resposta correta.
-
-        Responda APENAS em formato JSON estrito, sem texto adicional:
+        REGRAS IMPORTANTES:
+        - DISTRIBUA a resposta correta aleatoriamente entre A, B, C e D (NÃO coloque sempre em A)
+        - As perguntas devem ser relevantes e baseadas APENAS no conteúdo fornecido
+        - Cada questão deve ter 4 opções (A, B, C, D)
+        - Inclua uma explicação breve para a resposta correta
+        
+        Responda APENAS em formato JSON, sem texto adicional:
         {{
             "questions": [
                 {{
@@ -119,14 +160,13 @@ def generate_questions(content_or_path, type='adult', count=7, is_file=False):
                         "C": "Opção C",
                         "D": "Opção D"
                     }},
-                    "correct_option": "B",  // exemplo - deve variar!
+                    "correct_option": "C",
                     "explanation": "Explicação curta"
                 }}
             ]
         }}
         """
 
-    # Adiciona o prompt como última parte
     contents.append(types.Part(text=prompt_text))
 
     try:
@@ -136,7 +176,7 @@ def generate_questions(content_or_path, type='adult', count=7, is_file=False):
             config=types.GenerateContentConfig(
                 response_mime_type='application/json',
                 temperature=0.3,
-                http_options={'timeout': 25000}  # 25 segundos
+                http_options={'timeout': 60000}  # 60 segundos
             )
         )
         
@@ -148,9 +188,20 @@ def generate_questions(content_or_path, type='adult', count=7, is_file=False):
         # Limpa formatação markdown se vier
         if ai_text.startswith("```json"):
             ai_text = ai_text.split("```json")[1].split("```")[0].strip()
+        elif ai_text.startswith("```"):
+            ai_text = ai_text.split("```")[1].split("```")[0].strip()
         
         ai_data = json.loads(ai_text)
+        
+        # 🔥 Se for kids e não tiver game_words, criar lista vazia
+        if type == 'kids' and 'game_words' not in ai_data:
+            ai_data['game_words'] = []
+        
         return ai_data
+    
+    except json.JSONDecodeError as e:
+        current_app.logger.error(f"Erro ao decodificar JSON: {e}")
+        return {"error": f"Resposta da IA não é JSON válido: {str(e)}"}
     
     except Exception as e:
         current_app.logger.error(f"Erro na API do Gemini: {str(e)}")
