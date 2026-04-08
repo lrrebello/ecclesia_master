@@ -369,63 +369,27 @@ def study_detail(id):
         Study.id != study.id
     ).order_by(Study.created_at.desc()).limit(3).all()
     
-    # 🔥 CONVERTER CONTEÚDO DE MARKDOWN PARA HTML
+    # Converter conteúdo de Markdown para HTML (apenas para exibição)
     if study.content:
-        md = markdown.Markdown(extensions=[
-            'extra',
-            'fenced_code',
-            'tables',
-            'nl2br'
-        ])
+        md = markdown.Markdown(extensions=['extra', 'fenced_code', 'tables', 'nl2br'])
         html_content = md.convert(study.content)
-        
-        content_html = bleach.clean(
-            html_content,
-            tags=ALLOWED_TAGS,
-            attributes=ALLOWED_ATTRIBUTES,
-            strip=True
-        )
+        content_html = bleach.clean(html_content, tags=ALLOWED_TAGS, attributes=ALLOWED_ATTRIBUTES, strip=True)
     else:
         content_html = '<p>Nenhum conteúdo disponível.</p>'
     
-    # 🔥 PAGINAÇÃO: Dividir o conteúdo por parágrafos
-    # Dividir o HTML em parágrafos individuais
-    import re
-    paragraphs = re.split(r'(</p>)', content_html)
-    # Reconstruir parágrafos completos
-    full_paragraphs = []
-    for i in range(0, len(paragraphs)-1, 2):
-        if i+1 < len(paragraphs):
-            full_paragraphs.append(paragraphs[i] + paragraphs[i+1])
-    if len(paragraphs) % 2 == 1:
-        full_paragraphs.append(paragraphs[-1])
-    
-    # Configuração de paginação
-    items_per_page = 5  # Parágrafos por página
-    total_pages = max(1, (len(full_paragraphs) + items_per_page - 1) // items_per_page)
-    current_page = request.args.get('page', 1, type=int)
-    current_page = max(1, min(current_page, total_pages))
-    
-    # Calcular índices
-    start_idx = (current_page - 1) * items_per_page
-    end_idx = start_idx + items_per_page
-    page_paragraphs = full_paragraphs[start_idx:end_idx]
-    
-    # Reconstruir o HTML da página atual
-    page_content_html = ''.join(page_paragraphs)
-    
-    # Adicionar indicador de página (opcional)
-    if total_pages > 1:
-        page_indicator = f'<div class="alert alert-info text-center small py-1 mb-3"><i class="bi bi-bookmark me-1"></i> Página {current_page} de {total_pages}</div>'
-        page_content_html = page_indicator + page_content_html
+    # Verificar se o estudo já foi concluído
+    progress = StudyProgress.query.filter_by(
+        user_id=current_user.id,
+        study_id=study.id
+    ).first()
+    is_completed = progress.completed if progress else False
     
     return render_template('edification/study_detail.html', 
                          study=study, 
-                         content_html=page_content_html,
+                         content_html=content_html,  # Envia todo o conteúdo
                          related_studies=related_studies,
-                         current_page=current_page,
-                         total_pages=total_pages,
-                         study_id=study.id)
+                         study_id=study.id,
+                         is_completed=is_completed)
 
 @edification_bp.route('/study/add', methods=['GET', 'POST'])
 @login_required

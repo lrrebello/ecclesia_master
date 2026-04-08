@@ -28,6 +28,16 @@
             <button class="btn btn-outline-info btn-sm" id="toggleNotesBtn" title="Minhas anotações">
                 <i class="bi bi-journal-text"></i> Anotações
             </button>
+            <div class="dropdown">
+                <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                    <i class="bi bi-download me-1"></i>
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0">
+                    <li><a class="dropdown-item" href="{{ url_for('edification.download_study', id=study.id, format='pdf') }}"><i class="bi bi-file-pdf text-danger me-2"></i> PDF</a></li>
+                    <li><a class="dropdown-item" href="{{ url_for('edification.download_study', id=study.id, format='html') }}"><i class="bi bi-filetype-html text-primary me-2"></i> HTML</a></li>
+                    <li><a class="dropdown-item" href="{{ url_for('edification.download_study', id=study.id, format='md') }}"><i class="bi bi-markdown text-info me-2"></i> Markdown</a></li>
+                </ul>
+            </div>
         </div>
     </div>
 
@@ -59,66 +69,31 @@
                     <div class="mt-4">
                         <div class="d-flex justify-content-between small mb-1">
                             <span>Seu progresso</span>
-                            <span id="progressPercent">0%</span>
+                            <span id="progressPercentFront">0%</span>
                         </div>
                         <div class="progress" style="height: 8px;">
-                            <div id="progressBar" class="progress-bar bg-success" style="width: 0%"></div>
+                            <div id="progressBarFront" class="progress-bar bg-success" style="width: 0%"></div>
                         </div>
                     </div>
                 </div>
                 
                 <div class="card-body p-4 p-md-5">
-                    <div id="studyContentContainer" class="study-content">
-                        {{ content_html|safe }}
-                    </div>
+                    <div id="studyContentContainer" class="study-content"></div>
                     
                     <!-- Navegação de Páginas -->
-                    {% if total_pages > 1 %}
                     <div class="d-flex justify-content-between align-items-center mt-4 pt-3 border-top">
-                        <div>
-                            {% if current_page > 1 %}
-                            <a href="{{ url_for('edification.study_detail', id=study_id, page=current_page-1) }}" class="btn btn-outline-primary rounded-pill px-4">
-                                <i class="bi bi-chevron-left me-2"></i> Anterior
-                            </a>
-                            {% else %}
-                            <button class="btn btn-outline-secondary rounded-pill px-4" disabled>
-                                <i class="bi bi-chevron-left me-2"></i> Anterior
-                            </button>
-                            {% endif %}
-                        </div>
-                        
-                        <div class="text-center">
-                            <span class="badge bg-primary bg-opacity-10 text-primary px-3 py-2">
-                                <i class="bi bi-bookmark me-1"></i> Página {{ current_page }} de {{ total_pages }}
-                            </span>
-                        </div>
-                        
-                        <div>
-                            {% if current_page < total_pages %}
-                            <a href="{{ url_for('edification.study_detail', id=study_id, page=current_page+1) }}" class="btn btn-outline-primary rounded-pill px-4">
-                                Próxima <i class="bi bi-chevron-right ms-2"></i>
-                            </a>
-                            {% else %}
-                            <button class="btn btn-outline-secondary rounded-pill px-4" disabled>
-                                Próxima <i class="bi bi-chevron-right ms-2"></i>
-                            </button>
-                            {% endif %}
-                        </div>
+                        <button id="prevPageBtn" class="btn btn-outline-primary rounded-pill px-4" onclick="prevPageFront()" disabled>
+                            <i class="bi bi-chevron-left me-2"></i> Anterior
+                        </button>
+                        <span id="pageIndicator" class="badge bg-primary bg-opacity-10 text-primary px-3 py-2">
+                            Página 1 de 1
+                        </span>
+                        <button id="nextPageBtn" class="btn btn-outline-primary rounded-pill px-4" onclick="nextPageFront()">
+                            Próxima <i class="bi bi-chevron-right ms-2"></i>
+                        </button>
                     </div>
-                    {% endif %}
                     
                     <div class="text-center mt-3">
-                        <div class="d-flex gap-2">
-                            <a href="{{ url_for('edification.download_study', id=study.id, format='pdf') }}" class="btn btn-outline-danger rounded-pill px-3" title="Baixar PDF">
-                                <i class="bi bi-file-pdf me-1"></i> PDF
-                            </a>
-                            <a href="{{ url_for('edification.download_study', id=study.id, format='html') }}" class="btn btn-outline-primary rounded-pill px-3" title="Baixar HTML">
-                                <i class="bi bi-filetype-html me-1"></i> HTML
-                            </a>
-                            <a href="{{ url_for('edification.download_study', id=study.id, format='md') }}" class="btn btn-outline-info rounded-pill px-3" title="Baixar Markdown">
-                                <i class="bi bi-markdown me-1"></i> MD
-                            </a>
-                        </div>
                         <button class="btn btn-link text-muted btn-sm" onclick="window.scrollTo({top: 0, behavior: 'smooth'})">
                             <i class="bi bi-arrow-up me-1"></i> Voltar ao topo
                         </button>
@@ -150,7 +125,7 @@
                     <div class="row g-3">
                         {% for related in related_studies %}
                         <div class="col-md-6">
-                            <a href="{{ url_for('edification.study_detail', id=related.id, page=1) }}" class="text-decoration-none">
+                            <a href="{{ url_for('edification.study_detail', id=related.id) }}" class="text-decoration-none">
                                 <div class="d-flex gap-3 align-items-center p-3 bg-light rounded-3 hover-bg transition">
                                     <i class="bi bi-journal-bookmark-fill text-primary fs-3"></i>
                                     <div>
@@ -290,28 +265,282 @@
     let selectedText = '';
     let selectedRange = null;
     
+    // Conteúdo original em blocos
+    let allBlocks = [];
+    let blocksPerPage = 5;
+    let currentPageFront = 1;
+    let totalPagesFront = 1;
+    
     // Aplicar fonte salva
     document.querySelector('.study-content').style.fontSize = currentFontSize + '%';
     
     // ============================================
-    // FUNÇÕES DE FONTE
+    // PROCESSAR CONTEÚDO EM BLOCOS - VERSÃO QUE DIVIDE POR <br>
     // ============================================
+    function processContentToBlocks() {
+        const rawHtml = {{ content_html|tojson }};
+        
+        // Criar elemento temporário
+        const temp = document.createElement('div');
+        temp.innerHTML = rawHtml;
+        
+        let blocks = [];
+        
+        // 1. Verificar se há marcadores de quebra de página manuais
+        if (rawHtml.includes('<!-- pagebreak -->')) {
+            const parts = rawHtml.split('<!-- pagebreak -->');
+            allBlocks = parts.map(part => `<div class="content-block">${part}</div>`);
+            console.log('Quebras manuais encontradas:', allBlocks.length);
+            return;
+        }
+        
+        // 2. Tentar pegar por tags HTML de bloco
+        const blockTags = ['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'div', 'blockquote', 'pre', 'ul', 'ol', 'table'];
+        let foundBlocks = false;
+        
+        for (const tag of blockTags) {
+            const elements = temp.querySelectorAll(tag);
+            if (elements.length > 0) {
+                elements.forEach(el => {
+                    const text = el.innerText || el.innerHTML;
+                    if (text && text.trim().length > 0) {
+                        blocks.push(el.outerHTML);
+                    }
+                });
+                if (blocks.length > 0) {
+                    foundBlocks = true;
+                    break;
+                }
+            }
+        }
+        
+        // 3. Se não encontrou blocos, dividir por <br> e quebras de linha
+        if (!foundBlocks) {
+            const html = temp.innerHTML;
+            
+            // Dividir por <br> e <br/> tags
+            let lines = html.split(/<br\s*\/?>/i);
+            
+            if (lines.length > 1) {
+                blocks = lines.filter(l => l.trim()).map(l => `<p class="content-block">${l}</p>`);
+                foundBlocks = true;
+            } else {
+                // Dividir por quebras de linha
+                const text = temp.innerText || rawHtml;
+                const textLines = text.split(/\n/).filter(l => l.trim().length > 0);
+                if (textLines.length > 1) {
+                    blocks = textLines.map(l => `<p class="content-block">${l}</p>`);
+                    foundBlocks = true;
+                }
+            }
+        }
+        
+        // 4. Dividir por pontos finais (sentenças)
+        if (!foundBlocks) {
+            const text = temp.innerText || rawHtml;
+            const sentences = text.split(/(?<=[.!?])\s+/);
+            if (sentences.length > 1) {
+                blocks = sentences.map(s => `<p class="content-block">${s}</p>`);
+                foundBlocks = true;
+            }
+        }
+        
+        // 5. Dividir por tamanho (último recurso)
+        if (!foundBlocks && rawHtml.length > 500) {
+            const text = temp.innerText || rawHtml;
+            const chunkSize = 300; // caracteres por bloco
+            let chunks = [];
+            for (let i = 0; i < text.length; i += chunkSize) {
+                chunks.push(text.substring(i, i + chunkSize));
+            }
+            if (chunks.length > 1) {
+                blocks = chunks.map(c => `<p class="content-block">${c}</p>`);
+                foundBlocks = true;
+            }
+        }
+        
+        // 6. Se ainda não tem blocos, é um único bloco
+        if (!foundBlocks && rawHtml.trim()) {
+            blocks = [`<div class="content-block">${rawHtml}</div>`];
+        }
+        
+        // Adicionar classe a cada bloco
+        blocks = blocks.map(block => {
+            if (!block.includes('class="content-block"') && !block.includes('class=\'content-block\'')) {
+                return block.replace(/^<([a-z0-9]+)(>| )/, `<$1 class="content-block"$2`);
+            }
+            return block;
+        });
+        
+        allBlocks = blocks;
+        console.log('Blocos processados:', allBlocks.length);
+        console.log('Primeiros 3 blocos:', allBlocks.slice(0, 3).map(b => b.substring(0, 50)));
+    }
+    // ============================================
+    // CALCULAR BLOCOS POR PÁGINA - VERSÃO SIMPLIFICADA
+    // ============================================
+    function calculateBlocksPerPage() {
+        if (allBlocks.length === 0) return 3;
+        
+        // Altura disponível estimada
+        const viewportHeight = window.innerHeight;
+        const headerHeight = document.querySelector('.bg-primary.bg-opacity-10')?.offsetHeight || 250;
+        const controlsHeight = document.querySelector('.d-flex.justify-content-between.align-items-center')?.offsetHeight || 100;
+        const navHeight = document.querySelector('.d-flex.justify-content-between.align-items-center.mt-4')?.offsetHeight || 80;
+        const availableHeight = viewportHeight - headerHeight - controlsHeight - navHeight - 150;
+        
+        // Criar elemento de teste
+        const testDiv = document.createElement('div');
+        testDiv.style.position = 'absolute';
+        testDiv.style.visibility = 'hidden';
+        testDiv.style.width = document.querySelector('.study-content')?.offsetWidth + 'px' || '800px';
+        testDiv.style.fontSize = window.getComputedStyle(document.querySelector('.study-content'))?.fontSize || '16px';
+        document.body.appendChild(testDiv);
+        
+        let blocksCount = 0;
+        let totalHeight = 0;
+        
+        for (let i = 0; i < allBlocks.length; i++) {
+            testDiv.innerHTML = allBlocks[i];
+            const blockHeight = testDiv.offsetHeight;
+            if (totalHeight + blockHeight <= availableHeight && blocksCount < 20) {
+                totalHeight += blockHeight;
+                blocksCount++;
+            } else if (blocksCount === 0) {
+                // Se nem um bloco cabe, pelo menos mostrar um
+                blocksCount = 1;
+                break;
+            } else {
+                break;
+            }
+        }
+        
+        document.body.removeChild(testDiv);
+        
+        const result = Math.max(1, blocksCount);
+        console.log('Blocks per page:', result); // Debug
+        return result;
+    }
+    
+    function renderPageFront() {
+        const container = document.getElementById('studyContentContainer');
+        if (!container || allBlocks.length === 0) return;
+        
+        const start = (currentPageFront - 1) * blocksPerPage;
+        const end = Math.min(start + blocksPerPage, allBlocks.length);
+        const pageBlocks = allBlocks.slice(start, end);
+        
+        if (pageBlocks.length === 0 && currentPageFront > 1) {
+            currentPageFront--;
+            renderPageFront();
+            return;
+        }
+        
+        container.innerHTML = pageBlocks.join('');
+        
+        // Atualizar indicadores
+        totalPagesFront = Math.ceil(allBlocks.length / blocksPerPage);
+        document.getElementById('pageIndicator').innerHTML = `Página ${currentPageFront} de ${totalPagesFront}`;
+        document.getElementById('progressPercentFront').innerHTML = `${Math.round((currentPageFront / totalPagesFront) * 100)}%`;
+        document.getElementById('progressBarFront').style.width = `${(currentPageFront / totalPagesFront) * 100}%`;
+        
+        // Atualizar botões
+        const prevBtn = document.getElementById('prevPageBtn');
+        const nextBtn = document.getElementById('nextPageBtn');
+        if (prevBtn) prevBtn.disabled = currentPageFront === 1;
+        if (nextBtn) nextBtn.disabled = currentPageFront === totalPagesFront;
+        
+        // Recarregar anotações e highlights
+        setTimeout(() => {
+            loadNotes();
+            loadHighlights();
+            attachSelectionListener();
+        }, 100);
+    }
+    
+    function nextPageFront() {
+        if (currentPageFront < totalPagesFront) {
+            currentPageFront++;
+            renderPageFront();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            saveProgressFront();
+        }
+    }
+    
+    function prevPageFront() {
+        if (currentPageFront > 1) {
+            currentPageFront--;
+            renderPageFront();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            saveProgressFront();
+        }
+    }
+    
+    function saveProgressFront() {
+        fetch(`/edification/study/${studyId}/progress`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ page: currentPageFront, blocks_per_page: blocksPerPage })
+        }).catch(e => console.error('Erro ao salvar progresso:', e));
+    }
+    
+    function loadProgressFront() {
+        fetch(`/edification/study/${studyId}/progress`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.page) {
+                    currentPageFront = data.page;
+                    if (data.blocks_per_page) blocksPerPage = data.blocks_per_page;
+                }
+                // Recalcular baseado no tamanho atual
+                blocksPerPage = calculateBlocksPerPage();
+                // Ajustar página se necessário
+                totalPagesFront = Math.ceil(allBlocks.length / blocksPerPage);
+                if (currentPageFront > totalPagesFront) currentPageFront = totalPagesFront;
+                renderPageFront();
+            })
+            .catch(e => console.error('Erro ao carregar progresso:', e));
+    }
+    
+    // ============================================
+    // FUNÇÕES DE FONTE (recalcula paginação)
+    // ============================================
+    function recalcAndRender() {
+        blocksPerPage = calculateBlocksPerPage();
+        totalPagesFront = Math.ceil(allBlocks.length / blocksPerPage);
+        if (currentPageFront > totalPagesFront) currentPageFront = totalPagesFront;
+        renderPageFront();
+        saveProgressFront();
+    }
+    
     document.getElementById('increaseFontBtn').addEventListener('click', () => {
         currentFontSize = Math.min(currentFontSize + 10, 150);
         document.querySelector('.study-content').style.fontSize = currentFontSize + '%';
         localStorage.setItem('studyFontSize', currentFontSize);
+        recalcAndRender();
     });
     
     document.getElementById('decreaseFontBtn').addEventListener('click', () => {
         currentFontSize = Math.max(currentFontSize - 10, 70);
         document.querySelector('.study-content').style.fontSize = currentFontSize + '%';
         localStorage.setItem('studyFontSize', currentFontSize);
+        recalcAndRender();
     });
     
     document.getElementById('resetFontBtn').addEventListener('click', () => {
         currentFontSize = 100;
         document.querySelector('.study-content').style.fontSize = '100%';
         localStorage.setItem('studyFontSize', currentFontSize);
+        recalcAndRender();
+    });
+    
+    // Recalcular ao redimensionar a janela
+    let resizeTimeout;
+    window.addEventListener('resize', () => {
+        clearTimeout(resizeTimeout);
+        resizeTimeout = setTimeout(() => {
+            recalcAndRender();
+        }, 250);
     });
     
     // ============================================
@@ -323,6 +552,7 @@
         } else {
             document.exitFullscreen();
         }
+        setTimeout(() => recalcAndRender(), 300);
     });
     
     // ============================================
@@ -348,6 +578,13 @@
     // ============================================
     // SELEÇÃO DE TEXTO (COMPATÍVEL COM MOBILE)
     // ============================================
+    function attachSelectionListener() {
+        document.removeEventListener('mouseup', handleTextSelection);
+        document.removeEventListener('touchend', handleTextSelection);
+        document.addEventListener('mouseup', handleTextSelection);
+        document.addEventListener('touchend', handleTextSelection);
+    }
+    
     function handleTextSelection() {
         setTimeout(() => {
             const selection = window.getSelection();
@@ -369,9 +606,6 @@
             }
         }, 10);
     }
-    
-    document.addEventListener('mouseup', handleTextSelection);
-    document.addEventListener('touchend', handleTextSelection);
     
     // ============================================
     // MARCAR TEXTO SELECIONADO
@@ -503,7 +737,7 @@
         fetch(`/edification/study/${studyId}/note`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ text: selectedText, note: note, page: {{ current_page|default(1) }} })
+            body: JSON.stringify({ text: selectedText, note: note, page: currentPageFront })
         })
         .then(response => response.json())
         .then(data => {
@@ -700,25 +934,10 @@
     }
     
     // ============================================
-    // PROGRESSO BASEADO EM PÁGINAS
-    // ============================================
-    function updateProgress() {
-        const currentPage = {{ current_page|default(1) }};
-        const totalPages = {{ total_pages|default(1) }};
-        const progressPercent = (currentPage / totalPages) * 100;
-        
-        document.getElementById('progressPercent').innerHTML = `${Math.round(progressPercent)}%`;
-        document.getElementById('progressBar').style.width = `${progressPercent}%`;
-    }
-
-    // Chamar ao carregar a página
-    updateProgress();
-
-    // ============================================
-    // MARCAR / DESMARCAR COMO CONCLUÍDO
+    // MARCAR COMO CONCLUÍDO
     // ============================================
     let isStudyCompleted = {{ is_completed|default(false)|tojson }};
-
+    
     function updateCompletedButton() {
         const container = document.querySelector('.d-flex.justify-content-center.gap-3.mt-3');
         if (!container) return;
@@ -731,7 +950,6 @@
             `;
             document.getElementById('unmarkCompletedBtn')?.addEventListener('click', unmarkCompleted);
             
-            // Adicionar badge no cabeçalho
             const headerDiv = document.querySelector('.bg-primary.bg-opacity-10 .d-flex.gap-3');
             if (headerDiv && !document.querySelector('.completed-badge-header')) {
                 const badge = document.createElement('span');
@@ -747,64 +965,29 @@
             `;
             document.getElementById('markCompletedBtn')?.addEventListener('click', markCompleted);
             
-            // Remover badge do cabeçalho
             const badge = document.querySelector('.completed-badge-header');
             if (badge) badge.remove();
         }
     }
-
+    
     function markCompleted() {
         fetch(`/edification/study/${studyId}/complete`, { method: 'POST' })
             .then(() => {
                 isStudyCompleted = true;
                 updateCompletedButton();
-                showToast('✅ Estudo marcado como concluído!', 'success');
+                alert('✅ Estudo marcado como concluído!');
             })
             .catch(e => console.error('Erro:', e));
     }
-
+    
     function unmarkCompleted() {
         fetch(`/edification/study/${studyId}/uncomplete`, { method: 'POST' })
             .then(() => {
                 isStudyCompleted = false;
                 updateCompletedButton();
-                showToast('📖 Estudo desmarcado como concluído', 'info');
+                alert('📖 Estudo desmarcado como concluído');
             })
             .catch(e => console.error('Erro:', e));
-    }
-
-    function showToast(message, type) {
-        // Criar toast simples
-        const toast = document.createElement('div');
-        toast.className = `toast align-items-center text-white bg-${type === 'success' ? 'success' : 'secondary'} border-0 position-fixed bottom-0 end-0 m-3`;
-        toast.style.zIndex = '1050';
-        toast.innerHTML = `
-            <div class="d-flex">
-                <div class="toast-body">${message}</div>
-                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
-            </div>
-        `;
-        document.body.appendChild(toast);
-        const bsToast = new bootstrap.Toast(toast, { delay: 3000 });
-        bsToast.show();
-        toast.addEventListener('hidden.bs.toast', () => toast.remove());
-    }
-
-    // Inicializar
-    document.addEventListener('DOMContentLoaded', () => {
-        updateCompletedButton();
-    });
-        
-    // ============================================
-    // SALVAR PROGRESSO DA PÁGINA
-    // ============================================
-    function saveCurrentPage() {
-        const currentPage = {{ current_page|default(1) }};
-        fetch(`/edification/study/${studyId}/progress`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ page: currentPage })
-        }).catch(e => console.error('Erro ao salvar progresso:', e));
     }
     
     // ============================================
@@ -1046,21 +1229,27 @@
     // INICIALIZAÇÃO
     // ============================================
     document.addEventListener('DOMContentLoaded', () => {
+        console.log('Inicializando...');
+        processContentToBlocks();
+        console.log('Total de blocos:', allBlocks.length);
+        
+        blocksPerPage = calculateBlocksPerPage();
+        totalPagesFront = Math.ceil(allBlocks.length / blocksPerPage);
+        console.log('Blocos por página:', blocksPerPage);
+        console.log('Total de páginas:', totalPagesFront);
+        
+        currentPageFront = 1;
+        renderPageFront();
+        loadProgressFront();
         loadNotes();
-        loadHighlights();
-        updateProgress();
-        saveCurrentPage();
         
         if (questions.length > 0) {
             renderQuestion();
             updateScoreBadge();
         }
+        
+        updateCompletedButton();
     });
-    
-    window.copyLink = function() {
-        navigator.clipboard.writeText(window.location.href);
-        alert('Link copiado!');
-    };
 </script>
 
 <style>
