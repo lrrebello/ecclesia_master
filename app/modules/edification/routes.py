@@ -717,12 +717,18 @@ def edit_study(id):
         
         flash('Estudo atualizado com sucesso!', 'success')
         
+        # 🔥 Se marcou para regenerar, gerar novas questões
         if regenerate_questions:
+            # Remover questões existentes
             StudyQuestion.query.filter_by(study_id=study.id).delete()
+            db.session.commit()
             
-            question_count = 7
             try:
-                ai_data = generate_questions(study.content, type='adult', count=question_count)
+                content_for_ai = study.content
+                if content_for_ai and len(content_for_ai) > 8000:
+                    flash(f'Conteúdo muito extenso ({len(content_for_ai)} caracteres). A IA processará apenas os primeiros 6000 caracteres.', 'warning')
+                
+                ai_data = generate_questions(content_for_ai, type='adult', count=7)
                 
                 if "error" in ai_data:
                     flash(f'Erro na IA: {ai_data["error"]}', 'danger')
@@ -739,23 +745,22 @@ def edit_study(id):
                         )
                         db.session.add(new_q)
                     db.session.commit()
+                    flash(f'{len(ai_data["questions"])} novas questões geradas pela IA!', 'success')
+                else:
+                    flash('IA não retornou questões válidas. Você pode adicionar manualmente.', 'warning')
                     
-                    log_action(
-                        action='GENERATE',
-                        module='STUDY_QUESTIONS',
-                        description=f"Questões regeneradas para estudo: {study.title}",
-                        new_values={'study_id': study.id, 'questions_count': len(ai_data["questions"])},
-                        church_id=current_user.church_id
-                    )
-                    
-                    flash(f'{len(ai_data["questions"])} novas questões geradas pela IA aguardando revisão!', 'success')
-                    return redirect(url_for('edification.review_study_questions', study_id=study.id))
             except Exception as e:
                 flash(f'Erro ao regenerar questões: {str(e)}', 'warning')
         
-        return redirect(url_for('edification.studies'))
+        # 🔥 SEMPRE redirecionar para a tela de revisão (com ou sem IA)
+        return redirect(url_for('edification.review_study_questions', study_id=study.id))
     
-    return render_template('edification/edit_study.html', study=study)
+    # GET - contar questões existentes
+    questions_count = StudyQuestion.query.filter_by(study_id=study.id).count()
+    
+    return render_template('edification/edit_study.html', 
+                         study=study,
+                         questions_count=questions_count)
 
 @edification_bp.route('/study/delete/<int:id>', methods=['POST'])
 @login_required
