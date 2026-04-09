@@ -3,12 +3,19 @@
 <div class="row justify-content-center">
     <div class="col-md-8">
         <div class="card border-0 shadow-sm p-4">
-            <h3 class="fw-bold mb-4">Novo Estudo Bíblico</h3>
+            <div class="d-flex align-items-center mb-4">
+                <a href="{{ url_for('edification.studies') }}" class="btn btn-light rounded-circle me-3">
+                    <i class="bi bi-arrow-left"></i>
+                </a>
+                <h3 class="fw-bold mb-0">Novo Estudo Bíblico</h3>
+            </div>
+            
             <form method="POST" enctype="multipart/form-data">
                 <div class="mb-3">
                     <label class="form-label small fw-bold">TÍTULO DO ESTUDO</label>
                     <input type="text" name="title" class="form-control bg-light border-0" placeholder="Ex: A Importância da Oração" required>
                 </div>
+                
                 <div class="mb-3">
                     <label class="form-label small fw-bold">CATEGORIA</label>
                     <input type="text" name="category" class="form-control bg-light border-0" placeholder="Ex: Doutrina, Família, Escatologia" required>
@@ -17,30 +24,67 @@
                 <div class="mb-3">
                     <label class="form-label small fw-bold">UPLOAD DE ARQUIVO (OPCIONAL)</label>
                     <input type="file" name="study_file" class="form-control bg-light border-0" accept=".pdf,.docx,.pptx,.txt">
-                    <div class="form-text small">Se você enviar um arquivo, o conteúdo será extraído automaticamente.</div>
+                    <div class="form-text small">Formatos suportados: PDF, DOCX, PPTX, TXT. O texto será extraído automaticamente.</div>
                 </div>
 
                 <div class="mb-3">
                     <label class="form-label small fw-bold">CONTEÚDO (SUPORTA MARKDOWN)</label>
-                    <textarea name="content" class="form-control bg-light border-0" rows="12" placeholder="Escreva o estudo aqui ou deixe em branco se enviar um arquivo..."></textarea>
-                    <div class="form-text small">Você pode usar negrito (**texto**), listas (- item) e títulos (# Título).</div>
-                </div>
-
-                <div class="mb-4">
-                    <div class="form-check form-switch">
-                        <input class="form-check-input" type="checkbox" name="generate_ai_questions" id="aiSwitch" checked>
-                        <label class="form-check-label fw-bold" for="aiSwitch">Gerar questões automaticamente com Gemini AI</label>
+                    <textarea name="content" class="form-control bg-light border-0" rows="12" placeholder="Escreva o estudo aqui ou deixe em branco se enviar um arquivo...&#10;&#10;Dicas de formatação:&#10;# Título principal&#10;## Subtítulo&#10;**negrito**&#10;*itálico*&#10;- Lista de itens&#10;1. Lista numerada"></textarea>
+                    <div class="form-text small">
+                        <i class="bi bi-markdown me-1"></i> 
+                        Você pode usar Markdown para formatar seu estudo: negrito (**texto**), itálico (*texto*), listas (- item) e títulos (# Título).
                     </div>
-                    <div class="form-text small text-primary">As questões geradas ficarão pendentes de sua revisão antes de serem publicadas.</div>
                 </div>
 
-                <div class="d-grid mt-4">
+                <div class="mb-4 p-3 bg-light rounded-3">
+                    <div class="form-check form-switch mb-2">
+                        <input class="form-check-input" type="checkbox" name="generate_ai_questions" id="aiSwitch" checked>
+                        <label class="form-check-label fw-bold" for="aiSwitch">
+                            <i class="bi bi-stars me-1 text-warning"></i> Gerar questões automaticamente com IA
+                        </label>
+                    </div>
+                    <div class="form-text small text-muted ms-4">
+                        <i class="bi bi-info-circle me-1"></i>
+                        A IA criará 7 questões de múltipla escolha baseadas no conteúdo do estudo. 
+                        Você poderá revisar, editar ou adicionar mais questões na tela de revisão antes de publicar.
+                    </div>
+                    <div class="form-text small text-warning ms-4 mt-1">
+                        <i class="bi bi-lightbulb me-1"></i>
+                        <strong>Dica:</strong> Para estudos muito longos, a IA processará apenas os primeiros 6000 caracteres. 
+                        Se desmarcar esta opção, você poderá criar suas próprias questões manualmente.
+                    </div>
+                </div>
+
+                <div class="alert alert-info border-0 small mb-4">
+                    <i class="bi bi-question-circle-fill me-2"></i>
+                    <strong>O que acontece depois?</strong>
+                    <ol class="mb-0 mt-2 ps-3">
+                        <li>O estudo será salvo</li>
+                        <li>Você será redirecionado para a tela de revisão de questões</li>
+                        <li>Lá você poderá editar, adicionar ou remover questões</li>
+                        <li>Quando estiver satisfeito, publique as questões</li>
+                    </ol>
+                </div>
+
+                <div class="d-grid gap-2 mt-4">
                     <button type="submit" class="btn btn-primary btn-lg py-3 fw-bold shadow-sm">
-                        Publicar Estudo
+                        <i class="bi bi-save me-2"></i> Salvar e Revisar Questões
                     </button>
+                    <a href="{{ url_for('edification.studies') }}" class="btn btn-link text-muted">Cancelar</a>
                 </div>
             </form>
         </div>
     </div>
 </div>
+
+<style>
+    textarea {
+        font-family: monospace;
+        font-size: 0.9rem;
+    }
+    .form-check-input:checked {
+        background-color: #0d6efd;
+        border-color: #0d6efd;
+    }
+</style>
 {% endblock %}

@@ -1,76 +1,267 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="container py-4">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2 class="fw-bold">Revisar Questões: {{ study.title }}</h2>
-        <form method="POST" class="d-inline">
-            <input type="hidden" name="action" value="regenerate">
-            <button type="submit" class="btn btn-outline-secondary shadow-sm">
-                <i class="bi bi-arrow-clockwise me-2"></i>Regerar Questões
-            </button>
-        </form>
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
+        <div>
+            <h2 class="fw-bold mb-0">Revisar Questões</h2>
+            <p class="text-muted">{{ study.title }}</p>
+        </div>
+        <div class="d-flex gap-2">
+            <form method="POST" class="d-inline" onsubmit="return confirm('Isso irá substituir todas as questões existentes. Deseja continuar?');">
+                <input type="hidden" name="action" value="regenerate">
+                <button type="submit" class="btn btn-outline-warning shadow-sm">
+                    <i class="bi bi-arrow-clockwise me-2"></i>Regenerar com IA
+                </button>
+            </form>
+            <a href="{{ url_for('edification.studies') }}" class="btn btn-outline-secondary">
+                <i class="bi bi-x-lg me-2"></i>Cancelar
+            </a>
+        </div>
     </div>
 
     <div class="alert alert-info shadow-sm border-0">
         <i class="bi bi-info-circle-fill me-2"></i>
-        Revise as questões geradas pela IA abaixo. Você pode editar o texto, a resposta correta e escolher quais deseja publicar.
+        <strong>Dicas:</strong> Você pode editar as questões existentes, adicionar novas questões manualmente ou regenerar com IA. 
+        As questões só aparecerão no estudo após serem publicadas (marcar checkbox "Publicar").
     </div>
 
-    <form method="POST">
-        {% for q in questions %}
-        {% set opts = q.options|from_json if q.options else {} %}
-        <div class="card border-0 shadow-sm mb-4 p-4">
-            <div class="d-flex justify-content-between align-items-start mb-3">
-                <h5 class="fw-bold mb-0">Questão {{ loop.index }}</h5>
-                <div class="form-check form-switch">
-                    <input class="form-check-input" type="checkbox" name="publish_ids[]" value="{{ q.id }}" id="publish_{{ q.id }}" {% if q.is_published %}checked{% endif %}>
-                    <label class="form-check-label fw-bold" for="publish_{{ q.id }}">Publicar</label>
-                </div>
-            </div>
-
-            <div class="mb-3">
-                <label class="form-label small fw-bold">TEXTO DA PERGUNTA</label>
-                <textarea name="question_{{ q.id }}" class="form-control bg-light border-0" rows="2">{{ q.question_text }}</textarea>
-            </div>
-
-            <div class="row g-3 mb-3">
-                {% for key, val in opts.items() %}
-                <div class="col-md-6">
-                    <div class="input-group">
-                        <span class="input-group-text border-0 bg-white fw-bold">{{ key }}</span>
-                        <input type="text" class="form-control bg-light border-0" value="{{ val }}" readonly>
-                        <div class="input-group-text border-0 bg-white">
-                            <input class="form-check-input mt-0" type="radio" name="correct_{{ q.id }}" value="{{ key }}" {% if q.correct_option == key %}checked{% endif %}>
+    <form method="POST" id="reviewForm">
+        <input type="hidden" name="action" value="save" id="formAction">
+        
+        <!-- Questões Existentes -->
+        <div id="existing-questions">
+            {% for q in questions %}
+            {% set opts = q.options|from_json if q.options else {} %}
+            <div class="card border-0 shadow-sm mb-4 p-4 question-card" data-id="{{ q.id }}">
+                <div class="d-flex justify-content-between align-items-start mb-3">
+                    <h5 class="fw-bold mb-0">Questão {{ loop.index }}</h5>
+                    <div class="d-flex gap-3 align-items-center">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" name="publish_{{ q.id }}" id="publish_{{ q.id }}" {% if q.is_published %}checked{% endif %}>
+                            <label class="form-check-label fw-bold" for="publish_{{ q.id }}">Publicar</label>
                         </div>
+                        <button type="button" class="btn btn-sm btn-outline-danger rounded-circle" onclick="removeQuestion(this)" style="width: 32px; height: 32px;">
+                            <i class="bi bi-trash"></i>
+                        </button>
                     </div>
                 </div>
-                {% endfor %}
-            </div>
 
-            {% if q.explanation %}
-            <div class="p-3 bg-light rounded border-start border-primary border-4">
-                <small class="fw-bold text-primary d-block mb-1">FONTE/EXPLICAÇÃO DA IA:</small>
-                <p class="mb-0 small italic">{{ q.explanation }}</p>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">PERGUNTA</label>
+                    <textarea name="question_{{ q.id }}" class="form-control bg-light border-0" rows="2" placeholder="Digite a pergunta...">{{ q.question_text }}</textarea>
+                </div>
+
+                <div class="row g-3 mb-3">
+                    {% for key, val in opts.items() %}
+                    <div class="col-md-6">
+                        <div class="input-group">
+                            <span class="input-group-text border-0 bg-white fw-bold">{{ key }}</span>
+                            <input type="text" name="option_{{ key.lower() }}_{{ q.id }}" class="form-control bg-light border-0" value="{{ val }}" placeholder="Opção {{ key }}">
+                            <div class="input-group-text border-0 bg-white">
+                                <input class="form-check-input mt-0" type="radio" name="correct_{{ q.id }}" value="{{ key }}" {% if q.correct_option == key %}checked{% endif %}>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                    <!-- Opção D (se não existir) -->
+                    {% if opts|length < 4 %}
+                    <div class="col-md-6">
+                        <div class="input-group">
+                            <span class="input-group-text border-0 bg-white fw-bold">D</span>
+                            <input type="text" name="option_d_{{ q.id }}" class="form-control bg-light border-0" placeholder="Opção D (opcional)">
+                            <div class="input-group-text border-0 bg-white">
+                                <input class="form-check-input mt-0" type="radio" name="correct_{{ q.id }}" value="D">
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">EXPLICAÇÃO (opcional)</label>
+                    <textarea name="explanation_{{ q.id }}" class="form-control bg-light border-0" rows="2" placeholder="Explique por que esta é a resposta correta...">{{ q.explanation or '' }}</textarea>
+                </div>
             </div>
-            {% endif %}
+            {% else %}
+            <div class="alert alert-warning text-center" id="noQuestionsAlert">
+                <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                Nenhuma questão cadastrada. Clique em "Adicionar Questão" para criar manualmente ou "Regenerar com IA" para gerar automaticamente.
+            </div>
+            {% endfor %}
         </div>
-        {% endfor %}
 
+        <!-- Botão Adicionar Nova Questão -->
+        <div class="text-center my-4">
+            <button type="button" class="btn btn-outline-success rounded-pill px-4" onclick="addNewQuestion()">
+                <i class="bi bi-plus-lg me-2"></i> Adicionar Nova Questão
+            </button>
+        </div>
+
+        <!-- Botões de ação -->
         <div class="sticky-bottom bg-white py-3 border-top mt-5">
-            <div class="d-grid">
-                <button type="submit" class="btn btn-primary btn-lg fw-bold shadow">
-                    Salvar Revisão e Finalizar
+            <div class="d-flex gap-3 justify-content-end">
+                <button type="button" class="btn btn-success btn-lg fw-bold shadow px-5" onclick="submitForm('save')">
+                    <i class="bi bi-save me-2"></i> Salvar Todas as Questões
                 </button>
             </div>
         </div>
     </form>
 </div>
 
+<script>
+    let newQuestionCounter = 0;
+    
+    function addNewQuestion() {
+        const container = document.getElementById('existing-questions');
+        const noQuestionsAlert = document.getElementById('noQuestionsAlert');
+        if (noQuestionsAlert) noQuestionsAlert.remove();
+        
+        const newId = 'new_' + Date.now() + '_' + newQuestionCounter++;
+        const questionCount = document.querySelectorAll('.question-card').length + 1;
+        
+        const questionHtml = `
+            <div class="card border-0 shadow-sm mb-4 p-4 question-card" data-id="${newId}">
+                <div class="d-flex justify-content-between align-items-start mb-3">
+                    <h5 class="fw-bold mb-0">Nova Questão</h5>
+                    <button type="button" class="btn btn-sm btn-outline-danger rounded-circle" onclick="removeQuestion(this)" style="width: 32px; height: 32px;">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">PERGUNTA</label>
+                    <textarea name="new_question_text_${newId}" class="form-control bg-light border-0" rows="2" placeholder="Digite a pergunta..."></textarea>
+                </div>
+
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <div class="input-group">
+                            <span class="input-group-text border-0 bg-white fw-bold">A</span>
+                            <input type="text" name="new_option_a_${newId}" class="form-control bg-light border-0" placeholder="Opção A">
+                            <div class="input-group-text border-0 bg-white">
+                                <input class="form-check-input mt-0" type="radio" name="new_correct_${newId}" value="A">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="input-group">
+                            <span class="input-group-text border-0 bg-white fw-bold">B</span>
+                            <input type="text" name="new_option_b_${newId}" class="form-control bg-light border-0" placeholder="Opção B">
+                            <div class="input-group-text border-0 bg-white">
+                                <input class="form-check-input mt-0" type="radio" name="new_correct_${newId}" value="B">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="input-group">
+                            <span class="input-group-text border-0 bg-white fw-bold">C</span>
+                            <input type="text" name="new_option_c_${newId}" class="form-control bg-light border-0" placeholder="Opção C">
+                            <div class="input-group-text border-0 bg-white">
+                                <input class="form-check-input mt-0" type="radio" name="new_correct_${newId}" value="C">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="input-group">
+                            <span class="input-group-text border-0 bg-white fw-bold">D</span>
+                            <input type="text" name="new_option_d_${newId}" class="form-control bg-light border-0" placeholder="Opção D (opcional)">
+                            <div class="input-group-text border-0 bg-white">
+                                <input class="form-check-input mt-0" type="radio" name="new_correct_${newId}" value="D">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">EXPLICAÇÃO (opcional)</label>
+                    <textarea name="new_explanation_${newId}" class="form-control bg-light border-0" rows="2" placeholder="Explique por que esta é a resposta correta..."></textarea>
+                </div>
+                
+                <div class="form-check form-switch mt-2">
+                    <input class="form-check-input" type="checkbox" name="new_publish_${newId}" id="new_publish_${newId}" checked>
+                    <label class="form-check-label fw-bold small" for="new_publish_${newId}">Publicar esta questão</label>
+                </div>
+            </div>
+        `;
+        
+        container.insertAdjacentHTML('beforeend', questionHtml);
+        
+        // Rolar até a nova questão
+        const newCard = container.lastElementChild;
+        newCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+    
+    function removeQuestion(btn) {
+        const card = btn.closest('.question-card');
+        const cardId = card.dataset.id;
+        
+        // Se for uma questão existente (não nova), marcar para exclusão
+        if (!cardId.startsWith('new_')) {
+            const hiddenInput = document.createElement('input');
+            hiddenInput.type = 'hidden';
+            hiddenInput.name = 'deleted_questions[]';
+            hiddenInput.value = cardId;
+            document.getElementById('reviewForm').appendChild(hiddenInput);
+        }
+        
+        card.remove();
+    }
+    
+    function submitForm(action) {
+        const form = document.getElementById('reviewForm');
+        document.getElementById('formAction').value = action;
+        
+        // Verificar se há pelo menos uma questão
+        const questions = document.querySelectorAll('.question-card');
+        if (questions.length === 0) {
+            alert('Adicione pelo menos uma questão antes de salvar.');
+            return;
+        }
+        
+        // Verificar se as questões têm pergunta preenchida
+        let hasEmptyQuestion = false;
+        questions.forEach((card, idx) => {
+            let questionText;
+            if (card.dataset.id.startsWith('new_')) {
+                questionText = card.querySelector(`textarea[name^="new_question_text_"]`)?.value;
+            } else {
+                questionText = card.querySelector(`textarea[name^="question_"]`)?.value;
+            }
+            if (!questionText || !questionText.trim()) {
+                hasEmptyQuestion = true;
+                card.style.border = '2px solid #dc3545';
+                setTimeout(() => card.style.border = '', 2000);
+            }
+        });
+        
+        if (hasEmptyQuestion) {
+            alert('Por favor, preencha o texto de todas as perguntas.');
+            return;
+        }
+        
+        if (confirm('Deseja salvar todas as questões? As questões publicadas estarão visíveis no estudo.')) {
+            form.submit();
+        }
+    }
+</script>
+
 <style>
     .sticky-bottom {
         position: sticky;
         bottom: 0;
         z-index: 1020;
+    }
+    .question-card {
+        transition: all 0.2s ease;
+    }
+    .question-card:hover {
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.1) !important;
+    }
+    textarea, input {
+        transition: all 0.2s ease;
+    }
+    textarea:focus, input:focus {
+        box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
     }
 </style>
 {% endblock %}
