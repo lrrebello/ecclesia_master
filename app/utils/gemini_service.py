@@ -55,7 +55,7 @@ def generate_questions(content_or_path, type='adult', count=7, is_file=False):
     if not client:
         return {"error": "GEMINI_API_KEY não configurada no ambiente."}
 
-    model_name = 'gemini-2.0-flash'  # Mais rápido que o 2.5 para textos grandes
+    model_name = 'gemini-2.5-flash'  # Mais rápido que o 2.5 para textos grandes
     contents = []
     indexing_wait = 2
     text_content = ""
