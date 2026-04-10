@@ -494,49 +494,71 @@ def add_study():
 @edification_bp.route('/study/<int:study_id>/save-questions', methods=['POST'])
 @login_required
 def save_study_questions(study_id):
-    """Salva todas as questões (novas, editadas, removidas)"""
+    """Salvar questões do estudo"""
     if not can_publish_content():
         flash('Acesso negado.', 'danger')
         return redirect(url_for('edification.studies'))
     
     study = Study.query.get_or_404(study_id)
-    data = request.get_json()
     
-    try:
-        # Remover questões que foram marcadas para exclusão
-        if data.get('deleted_ids'):
-            StudyQuestion.query.filter(StudyQuestion.id.in_(data['deleted_ids'])).delete()
-        
-        # Salvar/Atualizar questões existentes
-        for q_data in data.get('questions', []):
-            if q_data.get('id', '').startswith('new_'):
-                # Nova questão
-                new_q = StudyQuestion(
-                    study_id=study_id,
-                    question_text=q_data['question'],
-                    options=json.dumps(q_data['options']),
-                    correct_option=q_data['correct_option'],
-                    explanation=q_data.get('explanation', ''),
-                    is_published=q_data.get('is_published', False)
-                )
-                db.session.add(new_q)
-            else:
-                # Atualizar questão existente
-                q = StudyQuestion.query.get(int(q_data['id']))
-                if q:
-                    q.question_text = q_data['question']
-                    q.options = json.dumps(q_data['options'])
-                    q.correct_option = q_data['correct_option']
-                    q.explanation = q_data.get('explanation', '')
-                    q.is_published = q_data.get('is_published', False)
-        
-        db.session.commit()
-        flash('Questões salvas com sucesso!', 'success')
-        
-    except Exception as e:
-        db.session.rollback()
-        flash(f'Erro ao salvar questões: {str(e)}', 'danger')
+    # Remover questões existentes
+    StudyQuestion.query.filter_by(study_id=study_id).delete()
     
+    # Coletar dados do formulário
+    question_texts = request.form.getlist('question_text[]')
+    option_as = request.form.getlist('option_a[]')
+    option_bs = request.form.getlist('option_b[]')
+    option_cs = request.form.getlist('option_c[]')
+    option_ds = request.form.getlist('option_d[]')
+    correct_options = request.form.getlist('correct_option[]')
+    explanations = request.form.getlist('explanation[]')
+    is_published_list = request.form.getlist('is_published[]')
+    
+    saved_count = 0
+    
+    for i in range(len(question_texts)):
+        if question_texts[i] and option_as[i] and option_bs[i] and option_cs[i]:
+            options = {
+                'A': option_as[i],
+                'B': option_bs[i],
+                'C': option_cs[i]
+            }
+            if i < len(option_ds) and option_ds[i]:
+                options['D'] = option_ds[i]
+            
+            # Converter correct_option para letra
+            correct = correct_options[i] if i < len(correct_options) else 'A'
+            if correct in ['1', '2', '3', '4']:
+                mapping = {'1': 'A', '2': 'B', '3': 'C', '4': 'D'}
+                correct = mapping.get(correct, 'A')
+            
+            is_published = False
+            if i < len(is_published_list):
+                is_published = is_published_list[i] == '1'
+            
+            explanation = explanations[i] if i < len(explanations) else ''
+            
+            new_q = StudyQuestion(
+                study_id=study_id,
+                question_text=question_texts[i],
+                options=json.dumps(options),
+                correct_option=correct,
+                explanation=explanation if explanation else None,
+                is_published=is_published
+            )
+            db.session.add(new_q)
+            saved_count += 1
+    
+    db.session.commit()
+    
+    log_action(
+        action='UPDATE',
+        module='STUDY_QUESTIONS',
+        description=f"Questões atualizadas para estudo: {study.title}",
+        church_id=current_user.church_id
+    )
+    
+    flash(f'{saved_count} questões salvas com sucesso!', 'success')
     return redirect(url_for('edification.study_detail', id=study_id))
 
 @edification_bp.route('/study/<int:study_id>/review-questions', methods=['GET', 'POST'])
@@ -686,6 +708,23 @@ def review_study_questions(study_id):
                          study=study, 
                          questions=questions,
                          study_id=study_id)
+
+
+@edification_bp.route('/study/<int:id>/questions')
+@login_required
+def manage_study_questions(id):
+    """Gerenciar questões do estudo"""
+    if not can_publish_content():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('edification.studies'))
+    
+    study = Study.query.get_or_404(id)
+    questions = StudyQuestion.query.filter_by(study_id=id).all()
+    
+    return render_template('edification/manage_questions.html', 
+                         study=study, 
+                         questions=questions)
+
 
 @edification_bp.route('/study/edit/<int:id>', methods=['GET', 'POST'])
 @login_required

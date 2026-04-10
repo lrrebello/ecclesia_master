@@ -61,6 +61,9 @@
             </div>
             
             <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                    <a href="{{ url_for('edification.manage_study_questions', id=study.id) }}" class="btn btn-outline-info">
+                        <i class="bi bi-question-circle me-2"></i> Gerenciar Questões
+                    </a>
                 <button type="submit" class="btn btn-primary btn-lg px-5 py-3 fw-bold shadow-sm">
                     <i class="bi bi-save me-2"></i> Salvar e Revisar Questões
                 </button>
