@@ -720,6 +720,16 @@ def manage_study_questions(id):
     
     study = Study.query.get_or_404(id)
     questions = StudyQuestion.query.filter_by(study_id=id).all()
+
+        # 🔥 Processar as opções de cada questão
+    for q in questions:
+        if q.options:
+            try:
+                q.options_dict = json.loads(q.options) if isinstance(q.options, str) else q.options
+            except:
+                q.options_dict = {'A': '', 'B': '', 'C': '', 'D': ''}
+        else:
+            q.options_dict = {'A': '', 'B': '', 'C': '', 'D': ''}
     
     return render_template('edification/manage_questions.html', 
                          study=study, 

@@ -37,21 +37,27 @@
                                     <textarea name="question_text[]" class="form-control bg-light border-0" rows="2" required>{{ q.question_text }}</textarea>
                                 </div>
                                 <div class="row g-3">
-                                    <div class="col-md-6">
-                                        <label class="form-label small fw-bold text-success">OPÇÃO A</label>
-                                        <input type="text" name="option_a[]" class="form-control bg-light border-0" value="{{ q.options.A if q.options else '' }}" required>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <label class="form-label small fw-bold text-danger">OPÇÃO B</label>
-                                        <input type="text" name="option_b[]" class="form-control bg-light border-0" value="{{ q.options.B if q.options else '' }}" required>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <label class="form-label small fw-bold text-warning">OPÇÃO C</label>
-                                        <input type="text" name="option_c[]" class="form-control bg-light border-0" value="{{ q.options.C if q.options else '' }}" required>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <label class="form-label small fw-bold text-info">OPÇÃO D</label>
-                                        <input type="text" name="option_d[]" class="form-control bg-light border-0" value="{{ q.options.D if q.options else '' }}">
+                                    <div class="row g-3">
+                                        <div class="col-md-6">
+                                            <label class="form-label small fw-bold text-success">OPÇÃO A</label>
+                                            <input type="text" name="option_a[]" class="form-control bg-light border-0" 
+                                                value="{{ q.options_dict.A if q.options_dict else '' }}" required>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label small fw-bold text-danger">OPÇÃO B</label>
+                                            <input type="text" name="option_b[]" class="form-control bg-light border-0" 
+                                                value="{{ q.options_dict.B if q.options_dict else '' }}" required>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label small fw-bold text-warning">OPÇÃO C</label>
+                                            <input type="text" name="option_c[]" class="form-control bg-light border-0" 
+                                                value="{{ q.options_dict.C if q.options_dict else '' }}" required>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label small fw-bold text-info">OPÇÃO D</label>
+                                            <input type="text" name="option_d[]" class="form-control bg-light border-0" 
+                                                value="{{ q.options_dict.D if q.options_dict else '' }}">
+                                        </div>
                                     </div>
                                 </div>
                                 <div class="row mt-3">
