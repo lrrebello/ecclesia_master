@@ -155,15 +155,18 @@ def dashboard():
     ).scalar() or 0
     
     return render_template('members/dashboard.html', 
-                           devotional=devotional,
-                           studies=recent_studies,
-                           agenda=personal_agenda,
-                           pending_members=pending_members,
-                           birthday_alerts=birthday_alerts,
-                           datetime=datetime,
-                           recent_media=recent_media,
-                           monthly_contributions=monthly_contributions,
-                           managed_ministries=managed_ministries)  # 🔥 NOVO
+                        devotional=devotional,
+                        studies=recent_studies,
+                        agenda=personal_agenda,
+                        pending_members=pending_members,
+                        birthday_alerts=birthday_alerts,
+                        datetime=datetime,
+                        recent_media=recent_media,
+                        monthly_contributions=monthly_contributions,
+                        managed_ministries=managed_ministries,
+                        is_global_admin=is_global_admin,  # 🔥 ADICIONAR
+                        is_pastor=is_pastor)  # 🔥 ADICIONAR
+                           
 
 @members_bp.route('/profile')
 @login_required

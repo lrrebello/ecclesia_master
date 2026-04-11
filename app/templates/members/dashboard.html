@@ -265,40 +265,13 @@
                     <i class="bi bi-book-half me-2"></i> Devocionais
                 </a>
 
-                <!-- 🔥 GERENCIAR MEMBROS DOS MINISTÉRIOS -->
+                <!-- 🔥 GERENCIAR MEMBROS DOS MINISTÉRIOS - VERSÃO COM MODAL -->
                 {% if managed_ministries and managed_ministries|length > 0 %}
-                <div class="dropdown">
-                    <button class="btn btn-outline-secondary text-start border-2 fw-semibold py-2 rounded-3 w-100 d-flex justify-content-between align-items-center" 
-                            type="button" data-bs-toggle="dropdown" aria-expanded="false">
-                        <span><i class="bi bi-people me-2"></i> Gerenciar Membros</span>
-                        <i class="bi bi-chevron-down"></i>
-                    </button>
-                    <ul class="dropdown-menu w-100 shadow-sm border-0">
-                        {% if is_global_admin or is_pastor %}
-                        <li>
-                            <a class="dropdown-item fw-semibold" href="{{ url_for('members.church_members') }}">
-                                <i class="bi bi-building me-2 text-primary"></i> Todos os membros da igreja
-                            </a>
-                        </li>
-                        <li><hr class="dropdown-divider"></li>
-                        {% endif %}
-                        {% for ministry in managed_ministries %}
-                        <li>
-                            <a class="dropdown-item" href="{{ url_for('members.ministry_manage_members', ministry_id=ministry.id) }}">
-                                <i class="bi bi-people-fill me-2 text-{{ 'warning' if ministry.leader_id == current_user.id else 'info' if ministry.vice_leader_id == current_user.id else 'secondary' }}"></i>
-                                {{ ministry.name }}
-                                {% if ministry.leader_id == current_user.id %}
-                                <span class="badge bg-warning bg-opacity-10 text-warning ms-2">Líder</span>
-                                {% elif ministry.vice_leader_id == current_user.id %}
-                                <span class="badge bg-info bg-opacity-10 text-info ms-2">Vice</span>
-                                {% elif current_user.id in ministry.extra_leaders %}
-                                <span class="badge bg-secondary bg-opacity-10 text-secondary ms-2">Auxiliar</span>
-                                {% endif %}
-                            </a>
-                        </li>
-                        {% endfor %}
-                    </ul>
-                </div>
+                <button type="button" class="btn btn-outline-secondary text-start border-2 fw-semibold py-2 rounded-3" 
+                        data-bs-toggle="modal" data-bs-target="#manageMembersModal">
+                    <i class="bi bi-people me-2"></i> Gerenciar Membros
+                    <span class="badge bg-secondary ms-2">{{ managed_ministries|length }}</span>
+                </button>
                 {% endif %}
 
                 {% if current_user.can_manage_events or current_user.can_manage_ministries %}
@@ -366,6 +339,90 @@
                     <a href="{{ url_for('members.profile') }}" class="small mt-2 d-inline-block">Adicionar familiares →</a>
                 </div>
             {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Gerenciar Membros dos Ministérios -->
+<div class="modal fade" id="manageMembersModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+            <div class="modal-header bg-primary text-white border-0">
+                <h5 class="modal-title fw-bold">
+                    <i class="bi bi-people-fill me-2"></i>Gerenciar Membros
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <p class="text-muted mb-4">Selecione um ministério para gerenciar seus membros:</p>
+                
+                <!-- Opção para administradores/pastores -->
+                {% if is_global_admin or is_pastor %}
+                <div class="mb-3">
+                    <a href="{{ url_for('members.church_members') }}" class="text-decoration-none">
+                        <div class="d-flex align-items-center p-3 bg-light rounded-3 hover-bg transition">
+                            <div class="bg-primary bg-opacity-10 rounded-circle p-3 me-3">
+                                <i class="bi bi-building fs-4 text-primary"></i>
+                            </div>
+                            <div class="flex-grow-1">
+                                <h6 class="fw-bold mb-0">Todos os membros da igreja</h6>
+                                <small class="text-muted">Gerenciar todos os membros da congregação</small>
+                            </div>
+                            <i class="bi bi-chevron-right text-muted"></i>
+                        </div>
+                    </a>
+                </div>
+                <hr class="my-3">
+                <h6 class="fw-bold mb-3 text-muted">MINISTÉRIOS</h6>
+                {% endif %}
+                
+                <div class="row g-3">
+                    {% for ministry in managed_ministries %}
+                    <div class="col-md-6">
+                        <a href="{{ url_for('members.ministry_manage_members', ministry_id=ministry.id) }}" class="text-decoration-none">
+                            <div class="d-flex align-items-center p-3 border rounded-3 hover-bg transition h-100">
+                                <div class="rounded-circle p-2 me-3 
+                                    {% if ministry.leader_id == current_user.id %}
+                                        bg-warning bg-opacity-10 text-warning
+                                    {% elif ministry.vice_leader_id == current_user.id %}
+                                        bg-info bg-opacity-10 text-info
+                                    {% elif current_user.id in ministry.extra_leaders %}
+                                        bg-secondary bg-opacity-10 text-secondary
+                                    {% else %}
+                                        bg-primary bg-opacity-10 text-primary
+                                    {% endif %}">
+                                    <i class="bi bi-people-fill fs-5"></i>
+                                </div>
+                                <div class="flex-grow-1">
+                                    <h6 class="fw-bold mb-0">{{ ministry.name }}</h6>
+                                    <small class="text-muted">
+                                        {% if ministry.leader_id == current_user.id %}
+                                            <span class="badge bg-warning bg-opacity-10 text-warning">Líder</span>
+                                        {% elif ministry.vice_leader_id == current_user.id %}
+                                            <span class="badge bg-info bg-opacity-10 text-info">Vice</span>
+                                        {% elif current_user.id in ministry.extra_leaders %}
+                                            <span class="badge bg-secondary bg-opacity-10 text-secondary">Auxiliar</span>
+                                        {% endif %}
+                                            {{ ministry.members.count() }} membros
+                                    </small>
+                                </div>
+                                <i class="bi bi-chevron-right text-muted"></i>
+                            </div>
+                        </a>
+                    </div>
+                    {% endfor %}
+                </div>
+                
+                {% if managed_ministries|length == 0 %}
+                <div class="text-center py-4">
+                    <i class="bi bi-inbox fs-1 text-muted opacity-25 d-block mb-3"></i>
+                    <p class="text-muted mb-0">Você não lidera nenhum ministério no momento.</p>
+                </div>
+                {% endif %}
+            </div>
+            <div class="modal-footer border-0">
+                <button type="button" class="btn btn-secondary rounded-pill px-4" data-bs-dismiss="modal">Fechar</button>
+            </div>
         </div>
     </div>
 </div>
