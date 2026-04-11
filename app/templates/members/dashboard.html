@@ -265,6 +265,42 @@
                     <i class="bi bi-book-half me-2"></i> Devocionais
                 </a>
 
+                <!-- 🔥 GERENCIAR MEMBROS DOS MINISTÉRIOS -->
+                {% if managed_ministries and managed_ministries|length > 0 %}
+                <div class="dropdown">
+                    <button class="btn btn-outline-secondary text-start border-2 fw-semibold py-2 rounded-3 w-100 d-flex justify-content-between align-items-center" 
+                            type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        <span><i class="bi bi-people me-2"></i> Gerenciar Membros</span>
+                        <i class="bi bi-chevron-down"></i>
+                    </button>
+                    <ul class="dropdown-menu w-100 shadow-sm border-0">
+                        {% if is_global_admin or is_pastor %}
+                        <li>
+                            <a class="dropdown-item fw-semibold" href="{{ url_for('members.church_members') }}">
+                                <i class="bi bi-building me-2 text-primary"></i> Todos os membros da igreja
+                            </a>
+                        </li>
+                        <li><hr class="dropdown-divider"></li>
+                        {% endif %}
+                        {% for ministry in managed_ministries %}
+                        <li>
+                            <a class="dropdown-item" href="{{ url_for('members.ministry_manage_members', ministry_id=ministry.id) }}">
+                                <i class="bi bi-people-fill me-2 text-{{ 'warning' if ministry.leader_id == current_user.id else 'info' if ministry.vice_leader_id == current_user.id else 'secondary' }}"></i>
+                                {{ ministry.name }}
+                                {% if ministry.leader_id == current_user.id %}
+                                <span class="badge bg-warning bg-opacity-10 text-warning ms-2">Líder</span>
+                                {% elif ministry.vice_leader_id == current_user.id %}
+                                <span class="badge bg-info bg-opacity-10 text-info ms-2">Vice</span>
+                                {% elif current_user.id in ministry.extra_leaders %}
+                                <span class="badge bg-secondary bg-opacity-10 text-secondary ms-2">Auxiliar</span>
+                                {% endif %}
+                            </a>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
+
                 {% if current_user.can_manage_events or current_user.can_manage_ministries %}
                 <a href="{{ url_for('members.add_event') }}" class="btn btn-outline-success text-start border-2 fw-semibold py-2 rounded-3">
                     <i class="bi bi-calendar-plus me-2"></i> Novo Evento

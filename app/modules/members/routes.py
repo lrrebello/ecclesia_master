@@ -26,7 +26,11 @@ def is_ministry_leader(ministry):
     return False
 
 def can_manage_members():
-    return current_user.can_approve_members or (current_user.church_role and current_user.church_role.name == 'Administrador Global' or current_user.church_role.is_lead_pastor)
+    return (current_user.can_approve_members or 
+            (current_user.church_role and (
+                current_user.church_role.name == 'Administrador Global' or 
+                current_user.church_role.is_lead_pastor
+            )))
 
 def can_manage_ministries():
     """Verifica se o usuário tem permissão para gerenciar ministérios (global)"""
@@ -61,6 +65,17 @@ def dashboard():
     
     is_global_admin = current_user.church_role and current_user.church_role.name == 'Administrador Global'
     is_pastor = current_user.church_role and current_user.church_role.is_lead_pastor
+    
+    # 🔥 LISTA MINISTÉRIOS QUE O USUÁRIO PODE GERENCIAR MEMBROS
+    # Administradores e pastores líderes podem gerenciar TODOS os ministérios
+    if is_global_admin or is_pastor:
+        managed_ministries = Ministry.query.filter_by(church_id=current_user.church_id).all()
+    else:
+        # Líderes, vice-líderes e auxiliares só gerenciam os ministérios que lideram
+        managed_ministries = []
+        for m in current_user.ministries:
+            if is_ministry_leader(m):
+                managed_ministries.append(m)
     
     # Lista ministérios onde o usuário é líder (incluindo extra_leaders)
     led_ministries_list = []
@@ -120,19 +135,17 @@ def dashboard():
                             seen_members.add(member.id)
             birthday_alerts.sort(key=lambda x: x['days_until'])
     
-    # 🔥 CORREÇÃO: Galeria Recente - Apenas mídias públicas OU dos ministérios do usuário
-    # Públicas = ministry_id IS NULL
-    # Dos ministérios do usuário = ministry_id IN (ministry_ids)
+    # Galeria Recente
     recent_media = Media.query.filter(
         Media.church_id == current_user.church_id,
         Media.media_type == 'image',
         db.or_(
-            Media.ministry_id == None,  # Mídias públicas (sem ministério)
-            Media.ministry_id.in_(ministry_ids)  # Mídias dos ministérios que o usuário participa
+            Media.ministry_id == None,
+            Media.ministry_id.in_(ministry_ids)
         )
     ).order_by(Media.created_at.desc()).limit(4).all()
     
-    # 🔥 Calcular contribuições do membro no mês atual
+    # Contribuições do membro
     current_month_start = date(today.year, today.month, 1)
     monthly_contributions = db.session.query(func.sum(Transaction.amount)).filter(
         Transaction.user_id == current_user.id,
@@ -149,7 +162,8 @@ def dashboard():
                            birthday_alerts=birthday_alerts,
                            datetime=datetime,
                            recent_media=recent_media,
-                           monthly_contributions=monthly_contributions)
+                           monthly_contributions=monthly_contributions,
+                           managed_ministries=managed_ministries)  # 🔥 NOVO
 
 @members_bp.route('/profile')
 @login_required
