@@ -115,6 +115,11 @@
                             </div>
                         </div>
 
+                        <div class="alert alert-info small">
+                            <i class="bi bi-info-circle me-2"></i>
+                            Após o cadastro, enviaremos um link de verificação para seu e-mail. Você precisará confirmar seu e-mail antes de fazer login.
+                        </div>
+
                         <div class="d-grid gap-2">
                             <button type="submit" class="btn btn-primary btn-lg rounded-pill fw-bold">Finalizar Cadastro</button>
                             <a href="{{ url_for('auth.select_church') }}" class="btn btn-link text-muted text-decoration-none">Voltar e escolher outra filial</a>
@@ -135,19 +140,15 @@ document.addEventListener('DOMContentLoaded', function() {
     const taxIdInput = document.getElementById('tax_id');
 
     if (country === 'Brasil') {
-        // Máscara de Telefone BR
         IMask(phoneInput, {
             mask: [
                 { mask: '(00) 0000-0000' },
                 { mask: '(00) 00000-0000' }
             ]
         });
-        // Máscara de CPF
         IMask(taxIdInput, { mask: '000.000.000-00' });
     } else if (country === 'Portugal') {
-        // Máscara de Telefone PT
         IMask(phoneInput, { mask: '000 000 000' });
-        // Máscara de NIF
         IMask(taxIdInput, { mask: '000 000 000' });
     }
 });

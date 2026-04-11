@@ -1,81 +1,15 @@
-# app/modules/auth/routes.py
 from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app
 from flask_login import login_user, logout_user, current_user, login_required
 from app.core.models import db, User, Church
-from app.utils.logger import log_action  # <-- ÚNICA LINHA ADICIONADA
+from app.utils.logger import log_action
+from app.utils.email_utils import send_verification_email_via_smtp
 from werkzeug.utils import secure_filename
 from datetime import datetime
 import os
 import uuid
 
-# SendGrid imports
-from sendgrid import SendGridAPIClient
-from sendgrid.helpers.mail import Mail
-
 auth_bp = Blueprint('auth', __name__)
 
-def send_verification_email(user):
-    """
-    Envia email de verificação usando SendGrid API (não SMTP).
-    Retorna o token gerado ou None em caso de erro.
-    """
-    # Gera novo token se necessário (mas você já gera antes de chamar)
-    token = user.email_verification_token
-    if not token:
-        token = str(uuid.uuid4())
-        user.email_verification_token = token
-        db.session.commit()
-
-    # Busca nome da igreja para personalizar
-    church = Church.query.get(user.church_id) if user.church_id else None
-    church_name = church.name if church else "Ecclesia Master"
-
-    # URL de verificação
-    verification_url = url_for('auth.verify_email', token=token, _external=True)
-
-    # Mensagem HTML bonita e simples
-    html_content = f"""
-    <html>
-    <body style="font-family: Arial, sans-serif; line-height: 1.6;">
-        <h2>Olá {user.name},</h2>
-        <p>Bem-vindo à <strong>{church_name}</strong>!</p>
-        <p>Ficamos muito felizes com seu interesse em se juntar a nós.</p>
-        <p>Para ativar sua conta no sistema Ecclesia Master, clique no botão abaixo:</p>
-        <p style="text-align: center; margin: 30px 0;">
-            <a href="{verification_url}" 
-               style="background-color: #4CAF50; color: white; padding: 12px 24px; 
-                      text-decoration: none; border-radius: 5px; font-size: 16px;">
-                Verificar Meu Email Agora
-            </a>
-        </p>
-        <p>Se o botão não funcionar, copie e cole este link no navegador:</p>
-        <p><a href="{verification_url}">{verification_url}</a></p>
-        <p>Este link expira em 24 horas.</p>
-        <p>Que Deus te abençoe ricamente!</p>
-        <p>Atenciosamente,<br>Equipe {church_name}</p>
-    </body>
-    </html>
-    """
-
-    message = Mail(
-        from_email='adjesus.sede@gmail.com',  # Seu email verificado no SendGrid
-        to_emails=user.email,
-        subject=f'Verifique seu e-mail - {church_name}',
-        html_content=html_content
-    )
-
-    try:
-        sg = SendGridAPIClient(current_app.config.get('SENDGRID_API_KEY'))
-        response = sg.send(message)
-        current_app.logger.info(f"Email de verificação enviado para {user.email} - Status: {response.status_code}")
-        print(f"✓ Email enviado com sucesso para {user.email} via SendGrid")
-        return token
-    except Exception as e:
-        current_app.logger.error(f"Erro ao enviar email via SendGrid: {str(e)}")
-        print(f"✗ Erro ao enviar email: {str(e)}")
-        # Em dev, mostra o link de simulação
-        flash(f'DEBUG (envio falhou): Clique aqui para verificar: {verification_url}', 'warning')
-        return token  # Retorna token mesmo com erro para debug
 
 @auth_bp.route('/login', methods=['GET', 'POST'])
 def login():
@@ -88,18 +22,12 @@ def login():
         user = User.query.filter_by(email=email).first()
         if user and user.check_password(password):
             if user.status == 'active':
+                # Verificar se email foi verificado
+                if not user.is_email_verified:
+                    flash('Por favor, verifique seu e-mail antes de fazer login. Verifique sua caixa de entrada e spam.', 'warning')
+                    return redirect(url_for('auth.login'))
+                
                 login_user(user)
-                
-                # === LOG ADICIONADO ===
-                #log_action(
-                #    action='LOGIN',
-                #    module='AUTH',
-                #    description=f"Login realizado: {user.name}",
-                #    new_values={'user_id': user.id, 'email': user.email},
-                #    church_id=user.church_id
-                #)
-                # ======================
-                
                 flash('Login bem-sucedido!', 'success')
                 return redirect(url_for('members.dashboard'))
             elif user.status == 'pending':
@@ -111,10 +39,12 @@ def login():
     
     return render_template('auth/login.html')
 
+
 @auth_bp.route('/register/select-church')
 def select_church():
     churches = Church.query.all()
     return render_template('auth/select_church.html', churches=churches)
+
 
 @auth_bp.route('/register', methods=['GET', 'POST'])
 def register():
@@ -128,10 +58,10 @@ def register():
     if request.method == 'POST':
         email = request.form.get('email').lower().strip()
         
-        # 🔥 VERIFICAR SE E-MAIL JÁ EXISTE
+        # Verificar se e-mail já existe
         existing_user = User.query.filter_by(email=email).first()
         if existing_user:
-            flash('Este e-mail já está cadastrado no sistema. Se você já possui cadastro, faça login. Caso tenha esquecido sua senha, utilize a opção "Esqueci minha senha".', 'danger')
+            flash('Este e-mail já está cadastrado no sistema.', 'danger')
             return render_template('auth/register.html', church=church)
         
         name = request.form.get('name')
@@ -146,7 +76,7 @@ def register():
         gender = request.form.get('gender')
         marital_status = request.form.get('marital_status')
         spouse_name = request.form.get('spouse_name')
-        tax_id = request.form.get('tax_id') # CPF ou NIF
+        tax_id = request.form.get('tax_id')
         address = request.form.get('address')
         phone = request.form.get('phone')
         
@@ -168,6 +98,8 @@ def register():
             file.save(os.path.join(upload_path, filename))
             profile_photo = 'uploads/profiles/' + filename
         
+        token = str(uuid.uuid4())
+        
         new_user = User(
             name=name.strip() if name else '',
             email=email,
@@ -185,31 +117,26 @@ def register():
             data_consent=data_consent,
             data_consent_date=datetime.utcnow(),
             marketing_consent=marketing_consent,
-            is_email_verified=True  # Definido como True por padrão enquanto a verificação está desativada
+            is_email_verified=False,  # Agora exige verificação
+            email_verification_token=token
         )
         new_user.set_password(password)
-
-        # Gera token antes de commit (mantido para compatibilidade futura)
-        token = str(uuid.uuid4())
-        new_user.email_verification_token = token
 
         db.session.add(new_user)
         db.session.commit()
         
-        # === LOG ADICIONADO ===
-        log_action(
-            action='REGISTER',
-            module='AUTH',
-            description=f"Novo registro: {new_user.name}",
-            new_values={'id': new_user.id, 'name': new_user.name, 'email': new_user.email},
-            church_id=church.id
-        )
-        # ======================
+        # Enviar email de verificação
+        success, message = send_verification_email_via_smtp(new_user)
         
-        flash('Cadastro realizado com sucesso! Agora aguarde a aprovação da liderança para acessar o sistema.', 'success')
+        if success:
+            flash('Cadastro realizado! Enviamos um link de verificação para seu e-mail. Verifique sua caixa de entrada e também a pasta de spam.', 'success')
+        else:
+            flash(f'Cadastro realizado, mas não foi possível enviar o email de verificação: {message}. Entre em contato com o administrador.', 'warning')
+                
         return redirect(url_for('auth.login'))
     
     return render_template('auth/register.html', church=church)
+
 
 @auth_bp.route('/verify-email/<token>')
 def verify_email(token):
@@ -218,7 +145,6 @@ def verify_email(token):
     user.email_verification_token = None
     db.session.commit()
     
-    # === LOG ADICIONADO ===
     log_action(
         action='VERIFY_EMAIL',
         module='AUTH',
@@ -226,10 +152,10 @@ def verify_email(token):
         new_values={'user_id': user.id, 'email': user.email},
         church_id=user.church_id
     )
-    # ======================
     
     flash('E-mail verificado com sucesso! Agora aguarde a aprovação da liderança.', 'success')
     return redirect(url_for('auth.login'))
+
 
 @auth_bp.route('/resend-verification', methods=['GET', 'POST'])
 def resend_verification():
@@ -240,29 +166,24 @@ def resend_verification():
             if user.is_email_verified:
                 flash('Este e-mail já foi verificado. Faça login normalmente.', 'info')
             else:
-                # token = send_verification_email(user)
-                flash('A verificação de e-mail está desativada no momento.', 'info')
+                success, message = send_verification_email_via_smtp(user)
+                if success:
+                    flash('Um novo link de verificação foi enviado para seu e-mail!', 'success')
+                else:
+                    flash(f'Erro ao enviar email: {message}', 'danger')
         else:
             flash('E-mail não encontrado.', 'danger')
         return redirect(url_for('auth.login'))
     return render_template('auth/resend_verification.html')
 
+
 @auth_bp.route('/logout')
 @login_required
 def logout():
-    # === LOG ADICIONADO ===
-    #log_action(
-    #    action='LOGOUT',
-    #    module='AUTH',
-    #    description=f"Logout realizado: {current_user.name}",
-    #    new_values={'user_id': current_user.id},
-    #    church_id=current_user.church_id
-    #)
-    # ======================
-    
     logout_user()
     flash('Logout realizado com sucesso.', 'info')
     return redirect(url_for('auth.login'))
+
 
 @auth_bp.route('/approve_member/<int:user_id>', methods=['POST'])
 @login_required
@@ -274,7 +195,6 @@ def approve_member(user_id):
     if action == 'approve':
         member.status = 'active'
         
-        # === LOG DE APROVAÇÃO ===
         log_action(
             action='APPROVE',
             module='MEMBERS',
@@ -283,14 +203,12 @@ def approve_member(user_id):
             new_values={'status': 'active', 'id': member.id, 'name': member.name},
             church_id=member.church_id
         )
-        # ========================
         
         flash('Membro aprovado com sucesso!', 'success')
         
     elif action == 'reject':
         member.status = 'rejected'
         
-        # === LOG DE REJEIÇÃO ===
         log_action(
             action='REJECT',
             module='MEMBERS',
@@ -299,12 +217,12 @@ def approve_member(user_id):
             new_values={'status': 'rejected', 'id': member.id, 'name': member.name},
             church_id=member.church_id
         )
-        # ========================
         
         flash('Solicitação de membro rejeitada.', 'info')
         
     db.session.commit()
     return redirect(request.referrer or url_for('members.dashboard'))
+
 
 @auth_bp.route('/change-password', methods=['GET', 'POST'])
 @login_required
@@ -322,7 +240,6 @@ def change_password():
             current_user.set_password(new_password)
             db.session.commit()
             
-            # === LOG ADICIONADO ===
             log_action(
                 action='CHANGE_PASSWORD',
                 module='AUTH',
@@ -330,7 +247,6 @@ def change_password():
                 new_values={'user_id': current_user.id},
                 church_id=current_user.church_id
             )
-            # ======================
             
             flash('Senha alterada com sucesso!', 'success')
             return redirect(url_for('members.profile'))
