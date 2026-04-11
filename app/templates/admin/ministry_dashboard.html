@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="fw-bold text-primary"><i class="bi bi-diagram-3 me-2"></i>Dashboard - {{ ministry.name }}</h1>
+            <p class="text-muted">Visão geral do ministério</p>
+        </div>
+        <a href="{{ url_for('members.ministry_manage_members', ministry_id=ministry.id) }}" class="btn btn-primary">
+            <i class="bi bi-people me-2"></i> Gerenciar Membros
+        </a>
+    </div>
+
+    <div class="row g-4 mb-4">
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm rounded-4 bg-primary bg-opacity-10">
+                <div class="card-body p-4 text-center">
+                    <h3 class="fw-bold mb-0">{{ stats.total_members }}</h3>
+                    <small class="text-muted">Membros</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm rounded-4 bg-info bg-opacity-10">
+                <div class="card-body p-4 text-center">
+                    <h3 class="fw-bold mb-0">{{ stats.events_count }}</h3>
+                    <small class="text-muted">Eventos</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm rounded-4 bg-success bg-opacity-10">
+                <div class="card-body p-4 text-center">
+                    <h5 class="fw-bold mb-0 text-success">
+                        {{ current_user.church.currency_symbol if current_user.church else 'R$' }} {{ "%.2f"|format(stats.monthly_income) }}
+                    </h5>
+                    <small class="text-muted">Receitas (Mês)</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm rounded-4 bg-danger bg-opacity-10">
+                <div class="card-body p-4 text-center">
+                    <h5 class="fw-bold mb-0 text-danger">
+                        {{ current_user.church.currency_symbol if current_user.church else 'R$' }} {{ "%.2f"|format(stats.pending_debts) }}
+                    </h5>
+                    <small class="text-muted">Dívidas Pendentes</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <!-- Próximos Eventos -->
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm rounded-4">
+                <div class="card-header bg-transparent border-0 p-4 pb-0">
+                    <h5 class="fw-bold mb-0"><i class="bi bi-calendar-event me-2 text-primary"></i>Próximos Eventos</h5>
+                </div>
+                <div class="card-body p-4">
+                    {% for event in upcoming_events %}
+                    <div class="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom">
+                        <div>
+                            <h6 class="fw-bold mb-0">{{ event.title }}</h6>
+                            <small class="text-muted">{{ event.start_time.strftime('%d/%m/%Y %H:%M') }}</small>
+                        </div>
+                        <span class="badge bg-primary">{{ event.location or 'Local a definir' }}</span>
+                    </div>
+                    {% else %}
+                    <p class="text-muted text-center">Nenhum evento agendado</p>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Aniversariantes -->
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm rounded-4">
+                <div class="card-header bg-transparent border-0 p-4 pb-0">
+                    <h5 class="fw-bold mb-0"><i class="bi bi-cake2 me-2 text-warning"></i>Aniversariantes (10 dias)</h5>
+                </div>
+                <div class="card-body p-4">
+                    {% for alert in birthday_alerts[:5] %}
+                    <div class="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom">
+                        <span class="fw-bold">{{ alert.name }}</span>
+                        <span class="badge bg-{{ 'danger' if alert.is_today else 'warning' }}">
+                            {{ alert.day }}/{{ alert.month }} {% if alert.is_today %} - HOJE!{% endif %}
+                        </span>
+                    </div>
+                    {% else %}
+                    <p class="text-muted text-center">Nenhum aniversariante nos próximos 10 dias</p>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Últimos Membros Adicionados -->
+    <div class="card border-0 shadow-sm rounded-4 mt-4">
+        <div class="card-header bg-transparent border-0 p-4 pb-0">
+            <h5 class="fw-bold mb-0"><i class="bi bi-person-plus me-2 text-primary"></i>Últimos Membros</h5>
+        </div>
+        <div class="card-body p-4">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr><th>Nome</th><th>E-mail</th><th>Telefone</th><th>Entrada</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for member in members %}
+                        <tr>
+                            <td>{{ member.name }}</td>
+                            <td>{{ member.email }}</td>
+                            <td>{{ member.phone or '-' }}</td>
+                            <td>{{ member.created_at.strftime('%d/%m/%Y') }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -6,7 +6,7 @@
 
 from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app, jsonify
 from flask_login import login_required, current_user
-from app.core.models import Church, db, User, ChurchRole
+from app.core.models import Church, db, User, ChurchRole, Transaction, StudyQuestion, Ministry, Study, StudyProgress, SystemLog, Event
 from app.utils.logger import log_action  # <-- ÚNICA LINHA ADICIONADA
 from werkzeug.utils import secure_filename
 import os
@@ -53,6 +53,372 @@ def can_manage_word_emoji():
     
     return False
 
+
+# ==================== DASHBOARD ADMIN KPI ====================
+
+@admin_bp.route('/dashboard')
+@login_required
+def admin_dashboard():
+    """Dashboard administrativo com KPIs"""
+    if not is_global_admin():
+        flash('Acesso negado. Apenas administradores globais.', 'danger')
+        return redirect(url_for('members.dashboard'))
+    
+    # Importar modelos
+    from app.core.models import User, Church, Study, StudyQuestion, Event, SystemLog, Transaction, Ministry, StudyProgress
+    from sqlalchemy import func, extract
+    from datetime import datetime, timedelta
+    
+    today = datetime.now().date()
+    first_day_month = today.replace(day=1)
+    last_month = today - timedelta(days=30)
+    
+    # ========== MEMBROS ==========
+    total_members = User.query.count()
+    active_members = User.query.filter_by(status='active').count()
+    pending_members = User.query.filter_by(status='pending').count()
+    new_members_month = User.query.filter(
+        User.created_at >= first_day_month
+    ).count()
+    
+    # Membros por igreja
+    members_by_church = db.session.query(
+        Church.name, func.count(User.id)
+    ).outerjoin(User, Church.id == User.church_id).group_by(Church.id).all()
+    
+    # ========== FINANCEIRO ==========
+    monthly_income = db.session.query(func.sum(Transaction.amount)).filter(
+        Transaction.type == 'income',
+        Transaction.date >= first_day_month
+    ).scalar() or 0
+    
+    monthly_expense = db.session.query(func.sum(Transaction.amount)).filter(
+        Transaction.type == 'expense',
+        Transaction.date >= first_day_month
+    ).scalar() or 0
+    
+    # Receitas por categoria
+    income_by_category = db.session.query(
+        Transaction.category_name, func.sum(Transaction.amount)
+    ).filter(
+        Transaction.type == 'income',
+        Transaction.date >= last_month
+    ).group_by(Transaction.category_name).order_by(func.sum(Transaction.amount).desc()).limit(5).all()
+    
+    expense_by_category = db.session.query(
+        Transaction.category_name, func.sum(Transaction.amount)
+    ).filter(
+        Transaction.type == 'expense',
+        Transaction.date >= last_month
+    ).group_by(Transaction.category_name).order_by(func.sum(Transaction.amount).desc()).limit(5).all()
+    
+    # Evolução mensal
+    monthly_evolution = []
+    for i in range(5, -1, -1):
+        month_date = today.replace(day=1) - timedelta(days=30*i)
+        month_start = month_date.replace(day=1)
+        if month_date.month == 12:
+            month_end = month_date.replace(year=month_date.year+1, month=1, day=1) - timedelta(days=1)
+        else:
+            month_end = month_date.replace(month=month_date.month+1, day=1) - timedelta(days=1)
+        
+        income = db.session.query(func.sum(Transaction.amount)).filter(
+            Transaction.type == 'income',
+            Transaction.date >= month_start,
+            Transaction.date <= month_end
+        ).scalar() or 0
+        
+        expense = db.session.query(func.sum(Transaction.amount)).filter(
+            Transaction.type == 'expense',
+            Transaction.date >= month_start,
+            Transaction.date <= month_end
+        ).scalar() or 0
+        
+        monthly_evolution.append({
+            'month': month_start.strftime('%b/%Y'),
+            'income': float(income),
+            'expense': float(expense)
+        })
+    
+    # ========== ESTUDOS ==========
+    total_studies = Study.query.count()
+    total_questions = StudyQuestion.query.filter_by(is_published=True).count()
+    recent_studies = Study.query.order_by(Study.created_at.desc()).limit(5).all()
+    
+    most_accessed_studies = db.session.query(
+        Study.title, func.count(StudyProgress.id).label('views')
+    ).join(StudyProgress, Study.id == StudyProgress.study_id).group_by(Study.id).order_by(func.count(StudyProgress.id).desc()).limit(5).all()
+    
+    # ========== EVENTOS ==========
+    upcoming_events = Event.query.filter(
+        Event.start_time >= datetime.now()
+    ).order_by(Event.start_time.asc()).limit(5).all()
+    
+    # ========== ATIVIDADES RECENTES ==========
+    recent_activities = SystemLog.query.order_by(
+        SystemLog.created_at.desc()
+    ).limit(10).all()
+    
+    # ========== ESTATÍSTICAS DOS MINISTÉRIOS ==========
+    ministries_stats = []
+    for ministry in Ministry.query.all():
+        ministries_stats.append({
+            'name': ministry.name,
+            'members_count': ministry.members.count(),
+            'events_count': Event.query.filter_by(ministry_id=ministry.id).count()
+        })
+    
+    # ========== CRESCIMENTO DE MEMBROS ==========
+    member_growth = []
+    for i in range(5, -1, -1):
+        month_date = today.replace(day=1) - timedelta(days=30*i)
+        month_start = month_date.replace(day=1)
+        if month_date.month == 12:
+            month_end = month_date.replace(year=month_date.year+1, month=1, day=1) - timedelta(days=1)
+        else:
+            month_end = month_date.replace(month=month_date.month+1, day=1) - timedelta(days=1)
+        
+        count = User.query.filter(
+            User.created_at >= month_start,
+            User.created_at <= month_end
+        ).count()
+        
+        member_growth.append({
+            'month': month_start.strftime('%b/%Y'),
+            'count': count
+        })
+    
+    stats = {
+        'total_members': total_members,
+        'active_members': active_members,
+        'pending_members': pending_members,
+        'new_members_month': new_members_month,
+        'monthly_income': float(monthly_income),
+        'monthly_expense': float(monthly_expense),
+        'balance': float(monthly_income - monthly_expense),
+        'total_studies': total_studies,
+        'total_questions': total_questions
+    }
+    
+    return render_template('admin/dashboard.html',
+                         stats=stats,
+                         members_by_church=members_by_church,
+                         income_by_category=income_by_category,
+                         expense_by_category=expense_by_category,
+                         monthly_evolution=monthly_evolution,
+                         recent_studies=recent_studies,
+                         most_accessed_studies=most_accessed_studies,
+                         upcoming_events=upcoming_events,
+                         recent_activities=recent_activities,
+                         ministries_stats=ministries_stats,
+                         member_growth=member_growth,
+                         datetime=datetime)
+
+
+@admin_bp.route('/church-dashboard')
+@login_required
+def church_dashboard():
+    """Dashboard para pastor líder da filial"""
+    if not current_user.church_role or not current_user.church_role.is_lead_pastor:
+        flash('Acesso negado. Apenas pastores líderes.', 'danger')
+        return redirect(url_for('members.dashboard'))
+    
+    church = current_user.church
+    if not church:
+        flash('Você não está vinculado a nenhuma congregação.', 'danger')
+        return redirect(url_for('members.dashboard'))
+    
+    from datetime import datetime, timedelta
+    from sqlalchemy import func
+    
+    today = datetime.now().date()
+    first_day_month = today.replace(day=1)
+    
+    # ========== MEMBROS DA FILIAL ==========
+    total_members = User.query.filter_by(church_id=church.id).count()
+    active_members = User.query.filter_by(church_id=church.id, status='active').count()
+    pending_members = User.query.filter_by(church_id=church.id, status='pending').count()
+    new_members_month = User.query.filter(
+        User.church_id == church.id,
+        User.created_at >= first_day_month
+    ).count()
+    
+    # ========== FINANCEIRO DA FILIAL ==========
+    monthly_income = db.session.query(func.sum(Transaction.amount)).filter(
+        Transaction.church_id == church.id,
+        Transaction.type == 'income',
+        Transaction.date >= first_day_month
+    ).scalar() or 0
+    
+    monthly_expense = db.session.query(func.sum(Transaction.amount)).filter(
+        Transaction.church_id == church.id,
+        Transaction.type == 'expense',
+        Transaction.date >= first_day_month
+    ).scalar() or 0
+    
+    # Receitas por categoria
+    income_by_category = db.session.query(
+        Transaction.category_name, func.sum(Transaction.amount)
+    ).filter(
+        Transaction.church_id == church.id,
+        Transaction.type == 'income',
+        Transaction.date >= first_day_month
+    ).group_by(Transaction.category_name).order_by(func.sum(Transaction.amount).desc()).limit(5).all()
+    
+    # ========== MINISTÉRIOS DA FILIAL ==========
+    ministries = Ministry.query.filter_by(church_id=church.id).all()
+    ministries_stats = []
+    for ministry in ministries:
+        ministries_stats.append({
+            'id': ministry.id,
+            'name': ministry.name,
+            'members_count': ministry.members.count(),
+            'events_count': Event.query.filter_by(ministry_id=ministry.id).count(),
+            'balance': sum(t.amount for t in ministry.transactions if t.type == 'income') - 
+                       sum(t.amount for t in ministry.transactions if t.type == 'expense')
+        })
+    
+    # ========== PRÓXIMOS EVENTOS ==========
+    upcoming_events = Event.query.filter(
+        Event.church_id == church.id,
+        Event.start_time >= datetime.now()
+    ).order_by(Event.start_time.asc()).limit(5).all()
+    
+    stats = {
+        'total_members': total_members,
+        'active_members': active_members,
+        'pending_members': pending_members,
+        'new_members_month': new_members_month,
+        'monthly_income': float(monthly_income),
+        'monthly_expense': float(monthly_expense),
+        'balance': float(monthly_income - monthly_expense),
+        'ministries_count': len(ministries)
+    }
+    
+    return render_template('admin/church_dashboard.html',
+                         stats=stats,
+                         church=church,
+                         income_by_category=income_by_category,
+                         ministries_stats=ministries_stats,
+                         upcoming_events=upcoming_events,
+                         datetime=datetime)
+
+@admin_bp.route('/ministry-dashboard/<int:ministry_id>')
+@login_required
+def ministry_dashboard(ministry_id):
+    """Dashboard para líderes de ministério"""
+    ministry = Ministry.query.get_or_404(ministry_id)
+    
+    # Verificar permissão
+    from app.modules.members.routes import is_ministry_leader
+    is_leader = is_ministry_leader(ministry)
+    is_global_admin = current_user.church_role and current_user.church_role.name == 'Administrador Global'
+    is_pastor = current_user.church_role and current_user.church_role.is_lead_pastor
+    
+    if not (is_leader or is_global_admin or is_pastor):
+        flash('Acesso negado. Você não é líder deste ministério.', 'danger')
+        return redirect(url_for('members.dashboard'))
+    
+    from datetime import datetime, timedelta
+    from sqlalchemy import func
+    
+    today = datetime.now().date()
+    first_day_month = today.replace(day=1)
+    
+    # ========== MEMBROS DO MINISTÉRIO ==========
+    members = ministry.members.all()
+    total_members = len(members)
+    
+    # Contagem por gênero
+    male_count = sum(1 for m in members if m.gender == 'Masculino')
+    female_count = sum(1 for m in members if m.gender == 'Feminino')
+    
+    # ========== FINANCEIRO DO MINISTÉRIO ==========
+    from app.core.models import MinistryTransaction
+    
+    monthly_income = db.session.query(func.sum(MinistryTransaction.amount)).filter(
+        MinistryTransaction.ministry_id == ministry.id,
+        MinistryTransaction.type == 'income',
+        MinistryTransaction.date >= first_day_month,
+        MinistryTransaction.is_paid == True
+    ).scalar() or 0
+    
+    monthly_expense = db.session.query(func.sum(MinistryTransaction.amount)).filter(
+        MinistryTransaction.ministry_id == ministry.id,
+        MinistryTransaction.type == 'expense',
+        MinistryTransaction.date >= first_day_month
+    ).scalar() or 0
+    
+    # Dívidas pendentes
+    pending_debts = db.session.query(func.sum(MinistryTransaction.amount)).filter(
+        MinistryTransaction.ministry_id == ministry.id,
+        MinistryTransaction.is_debt == True,
+        MinistryTransaction.is_paid == False
+    ).scalar() or 0
+    
+    # Receitas por categoria
+    income_by_category = db.session.query(
+        MinistryTransaction.category_name, func.sum(MinistryTransaction.amount)
+    ).filter(
+        MinistryTransaction.ministry_id == ministry.id,
+        MinistryTransaction.type == 'income',
+        MinistryTransaction.date >= first_day_month
+    ).group_by(MinistryTransaction.category_name).order_by(func.sum(MinistryTransaction.amount).desc()).limit(5).all()
+    
+    # ========== EVENTOS DO MINISTÉRIO ==========
+    upcoming_events = Event.query.filter(
+        Event.ministry_id == ministry.id,
+        Event.start_time >= datetime.now()
+    ).order_by(Event.start_time.asc()).limit(5).all()
+    
+    # ========== PRÓXIMOS ANIVERSARIANTES ==========
+    birthday_alerts = []
+    today_date = datetime.now().date()
+    future_limit = today_date + timedelta(days=10)
+    
+    for member in members:
+        if member.birth_date:
+            try:
+                bday_this_year = member.birth_date.replace(year=today_date.year)
+            except ValueError:
+                bday_this_year = member.birth_date.replace(year=today_date.year, day=28)
+            
+            if bday_this_year < today_date:
+                try:
+                    bday_this_year = bday_this_year.replace(year=today_date.year + 1)
+                except ValueError:
+                    bday_this_year = bday_this_year.replace(year=today_date.year + 1, day=28)
+            
+            if today_date <= bday_this_year <= future_limit:
+                days_until = (bday_this_year - today_date).days
+                birthday_alerts.append({
+                    'name': member.name,
+                    'day': member.birth_date.day,
+                    'month': member.birth_date.strftime('%m'),
+                    'is_today': days_until == 0,
+                    'days_until': days_until
+                })
+    birthday_alerts.sort(key=lambda x: x['days_until'])
+    
+    stats = {
+        'total_members': total_members,
+        'male_count': male_count,
+        'female_count': female_count,
+        'monthly_income': float(monthly_income),
+        'monthly_expense': float(monthly_expense),
+        'balance': float(monthly_income - monthly_expense),
+        'pending_debts': float(pending_debts),
+        'events_count': Event.query.filter_by(ministry_id=ministry.id).count()
+    }
+    
+    return render_template('admin/ministry_dashboard.html',
+                         stats=stats,
+                         ministry=ministry,
+                         income_by_category=income_by_category,
+                         upcoming_events=upcoming_events,
+                         birthday_alerts=birthday_alerts,
+                         members=members[:10],
+                         datetime=datetime)
 
 # ==================== GESTÃO DE PALAVRAS E EMOJIS ====================
 

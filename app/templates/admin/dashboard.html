@@ -1,0 +1,359 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Cabeçalho -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="fw-bold text-primary"><i class="bi bi-speedometer2 me-2"></i>Dashboard Administrativo</h1>
+            <p class="text-muted">Visão geral da sua igreja e indicadores de desempenho</p>
+        </div>
+        <div class="text-end">
+            <small class="text-muted">Atualizado em: {{ datetime.now().strftime('%d/%m/%Y %H:%M') }}</small>
+        </div>
+    </div>
+
+    <!-- Cards de KPIs -->
+    <div class="row g-4 mb-4">
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm rounded-4 bg-primary bg-opacity-10">
+                <div class="card-body p-4">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <small class="text-muted text-uppercase fw-bold">Membros Totais</small>
+                            <h2 class="fw-bold mb-0">{{ stats.total_members }}</h2>
+                        </div>
+                        <div class="bg-primary rounded-circle p-3">
+                            <i class="bi bi-people-fill text-white fs-4"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm rounded-4 bg-success bg-opacity-10">
+                <div class="card-body p-4">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <small class="text-muted text-uppercase fw-bold">Membros Ativos</small>
+                            <h2 class="fw-bold mb-0">{{ stats.active_members }}</h2>
+                        </div>
+                        <div class="bg-success rounded-circle p-3">
+                            <i class="bi bi-person-check-fill text-white fs-4"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm rounded-4 bg-warning bg-opacity-10">
+                <div class="card-body p-4">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <small class="text-muted text-uppercase fw-bold">Pendentes</small>
+                            <h2 class="fw-bold mb-0">{{ stats.pending_members }}</h2>
+                        </div>
+                        <div class="bg-warning rounded-circle p-3">
+                            <i class="bi bi-clock-history text-white fs-4"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm rounded-4 bg-info bg-opacity-10">
+                <div class="card-body p-4">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <small class="text-muted text-uppercase fw-bold">Novos (Mês)</small>
+                            <h2 class="fw-bold mb-0">{{ stats.new_members_month }}</h2>
+                        </div>
+                        <div class="bg-info rounded-circle p-3">
+                            <i class="bi bi-person-plus-fill text-white fs-4"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Segunda linha de KPIs Financeiros -->
+    <div class="row g-4 mb-4">
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm rounded-4">
+                <div class="card-body p-4">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <small class="text-muted text-uppercase fw-bold">Receitas (Mês)</small>
+                        <i class="bi bi-arrow-up-circle-fill text-success fs-4"></i>
+                    </div>
+                    <h2 class="fw-bold mb-0 text-success">
+                        {{ current_user.church.currency_symbol if current_user.church else 'R$' }} {{ "%.2f"|format(stats.monthly_income) }}
+                    </h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm rounded-4">
+                <div class="card-body p-4">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <small class="text-muted text-uppercase fw-bold">Despesas (Mês)</small>
+                        <i class="bi bi-arrow-down-circle-fill text-danger fs-4"></i>
+                    </div>
+                    <h2 class="fw-bold mb-0 text-danger">
+                        {{ current_user.church.currency_symbol if current_user.church else 'R$' }} {{ "%.2f"|format(stats.monthly_expense) }}
+                    </h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm rounded-4">
+                <div class="card-body p-4">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <small class="text-muted text-uppercase fw-bold">Saldo (Mês)</small>
+                        <i class="bi bi-wallet2-fill text-primary fs-4"></i>
+                    </div>
+                    <h2 class="fw-bold mb-0 text-primary">
+                        {{ current_user.church.currency_symbol if current_user.church else 'R$' }} {{ "%.2f"|format(stats.balance) }}
+                    </h2>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <!-- Gráfico de Evolução Financeira -->
+        <div class="col-lg-8">
+            <div class="card border-0 shadow-sm rounded-4">
+                <div class="card-header bg-transparent border-0 p-4 pb-0">
+                    <h5 class="fw-bold mb-0"><i class="bi bi-graph-up me-2 text-primary"></i>Evolução Financeira</h5>
+                    <p class="text-muted small">Últimos 6 meses</p>
+                </div>
+                <div class="card-body p-4">
+                    <canvas id="financeChart" height="250"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Top Categorias -->
+        <div class="col-lg-4">
+            <div class="card border-0 shadow-sm rounded-4 mb-4">
+                <div class="card-header bg-transparent border-0 p-4 pb-0">
+                    <h5 class="fw-bold mb-0"><i class="bi bi-pie-chart me-2 text-primary"></i>Top Receitas</h5>
+                    <p class="text-muted small">Últimos 30 dias</p>
+                </div>
+                <div class="card-body p-4 pt-2">
+                    <div class="list-group list-group-flush">
+                        {% for cat in income_by_category %}
+                        <div class="list-group-item px-0 py-2 border-0 d-flex justify-content-between align-items-center">
+                            <span><i class="bi bi-tag me-2 text-success"></i>{{ cat[0] or 'Sem categoria' }}</span>
+                            <span class="fw-bold text-success">{{ current_user.church.currency_symbol if current_user.church else 'R$' }} {{ "%.2f"|format(cat[1]) }}</span>
+                        </div>
+                        {% else %}
+                        <p class="text-muted text-center py-3">Nenhuma receita registrada</p>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <div class="card border-0 shadow-sm rounded-4">
+                <div class="card-header bg-transparent border-0 p-4 pb-0">
+                    <h5 class="fw-bold mb-0"><i class="bi bi-pie-chart me-2 text-danger"></i>Top Despesas</h5>
+                    <p class="text-muted small">Últimos 30 dias</p>
+                </div>
+                <div class="card-body p-4 pt-2">
+                    <div class="list-group list-group-flush">
+                        {% for cat in expense_by_category %}
+                        <div class="list-group-item px-0 py-2 border-0 d-flex justify-content-between align-items-center">
+                            <span><i class="bi bi-tag me-2 text-danger"></i>{{ cat[0] or 'Sem categoria' }}</span>
+                            <span class="fw-bold text-danger">{{ current_user.church.currency_symbol if current_user.church else 'R$' }} {{ "%.2f"|format(cat[1]) }}</span>
+                        </div>
+                        {% else %}
+                        <p class="text-muted text-center py-3">Nenhuma despesa registrada</p>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4 mt-2">
+        <!-- Membros por Igreja -->
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm rounded-4">
+                <div class="card-header bg-transparent border-0 p-4 pb-0">
+                    <h5 class="fw-bold mb-0"><i class="bi bi-buildings me-2 text-primary"></i>Membros por Congregação</h5>
+                </div>
+                <div class="card-body p-4">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr><th>Congregação</th><th class="text-end">Membros</th></tr>
+                            </thead>
+                            <tbody>
+                                {% for church_name, count in members_by_church %}
+                                <tr><td>{{ church_name or 'Sem igreja' }}</td><td class="text-end fw-bold">{{ count }}</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Estudos Mais Acessados -->
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm rounded-4">
+                <div class="card-header bg-transparent border-0 p-4 pb-0">
+                    <h5 class="fw-bold mb-0"><i class="bi bi-journal-bookmark-fill me-2 text-primary"></i>Estudos Mais Acessados</h5>
+                </div>
+                <div class="card-body p-4">
+                    <div class="list-group list-group-flush">
+                        {% for study_title, views in most_accessed_studies %}
+                        <div class="list-group-item px-0 py-2 border-0 d-flex justify-content-between align-items-center">
+                            <span>{{ study_title }}</span>
+                            <span class="badge bg-primary rounded-pill">{{ views }} visualizações</span>
+                        </div>
+                        {% else %}
+                        <p class="text-muted text-center py-3">Nenhum dado disponível</p>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4 mt-2">
+        <!-- Próximos Eventos -->
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm rounded-4">
+                <div class="card-header bg-transparent border-0 p-4 pb-0">
+                    <h5 class="fw-bold mb-0"><i class="bi bi-calendar-event me-2 text-primary"></i>Próximos Eventos</h5>
+                </div>
+                <div class="card-body p-4">
+                    <div class="list-group list-group-flush">
+                        {% for event in upcoming_events %}
+                        <div class="list-group-item px-0 py-2 border-0">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="fw-bold mb-0">{{ event.title }}</h6>
+                                    <small class="text-muted">{{ event.start_time.strftime('%d/%m/%Y %H:%M') }}</small>
+                                </div>
+                                {% if event.ministry %}
+                                <span class="badge bg-info">{{ event.ministry.name }}</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% else %}
+                        <p class="text-muted text-center py-3">Nenhum evento agendado</p>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Atividades Recentes -->
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm rounded-4">
+                <div class="card-header bg-transparent border-0 p-4 pb-0">
+                    <h5 class="fw-bold mb-0"><i class="bi bi-activity me-2 text-primary"></i>Atividades Recentes</h5>
+                </div>
+                <div class="card-body p-4">
+                    <div class="list-group list-group-flush">
+                        {% for log in recent_activities %}
+                        <div class="list-group-item px-0 py-2 border-0">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <span class="badge bg-secondary mb-1">{{ log.module }}</span>
+                                    <div class="small">{{ log.description }}</div>
+                                </div>
+                                <small class="text-muted">{{ log.created_at.strftime('%d/%m %H:%M') }}</small>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Crescimento de Membros -->
+    <div class="row g-4 mt-2">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm rounded-4">
+                <div class="card-header bg-transparent border-0 p-4 pb-0">
+                    <h5 class="fw-bold mb-0"><i class="bi bi-graph-up me-2 text-primary"></i>Crescimento de Membros</h5>
+                    <p class="text-muted small">Últimos 6 meses</p>
+                </div>
+                <div class="card-body p-4">
+                    <canvas id="memberGrowthChart" height="250"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Scripts para os gráficos -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Gráfico de Evolução Financeira
+    const financeCtx = document.getElementById('financeChart').getContext('2d');
+    const monthlyEvolution = {{ monthly_evolution|tojson }};
+    
+    new Chart(financeCtx, {
+        type: 'line',
+        data: {
+            labels: monthlyEvolution.map(m => m.month),
+            datasets: [
+                {
+                    label: 'Receitas',
+                    data: monthlyEvolution.map(m => m.income),
+                    borderColor: '#10b981',
+                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                    tension: 0.3,
+                    fill: true
+                },
+                {
+                    label: 'Despesas',
+                    data: monthlyEvolution.map(m => m.expense),
+                    borderColor: '#ef4444',
+                    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                    tension: 0.3,
+                    fill: true
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                legend: { position: 'top' }
+            }
+        }
+    });
+
+    // Gráfico de Crescimento de Membros
+    const growthCtx = document.getElementById('memberGrowthChart').getContext('2d');
+    const memberGrowth = {{ member_growth|tojson }};
+    
+    new Chart(growthCtx, {
+        type: 'bar',
+        data: {
+            labels: memberGrowth.map(m => m.month),
+            datasets: [{
+                label: 'Novos Membros',
+                data: memberGrowth.map(m => m.count),
+                backgroundColor: '#4f46e5',
+                borderRadius: 8
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                legend: { position: 'top' }
+            }
+        }
+    });
+});
+</script>
+{% endblock %}

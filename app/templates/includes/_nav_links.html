@@ -1,4 +1,5 @@
 <nav class="nav flex-column">
+    <!-- Dashboard Principal (Membro) -->
     <a class="nav-link {{ 'active' if request.endpoint == 'members.dashboard' }}" href="{{ url_for('members.dashboard') }}">
         <i class="bi bi-speedometer2 me-2"></i> Dashboard
     </a>
@@ -91,6 +92,13 @@
         <i class="bi bi-diagram-3 me-2"></i> Ministérios
     </a>
 
+    <!-- ========== DASHBOARD DA FILIAL (Pastor Líder) ========== -->
+    {% if current_user.church_role and current_user.church_role.is_lead_pastor %}
+    <a class="nav-link {{ 'active' if request.endpoint == 'admin.church_dashboard' }}" href="{{ url_for('admin.church_dashboard') }}">
+        <i class="bi bi-building me-2"></i> Dashboard da Filial
+    </a>
+    {% endif %}
+
     <!-- ========== MEMBROS DA FILIAL (Pastor da Filial) ========== -->
     {% if current_user.can_approve_members or 
           (current_user.church_role and (
@@ -113,7 +121,7 @@
     </a>
     {% endif %}
 
-    <!-- Link "Meus Ministérios Liderados" com submenu colapsável E link para página -->
+    <!-- Link "Meus Ministérios Liderados" com submenu colapsável -->
     {% if current_user.is_authenticated %}
         {% set led_ministries_list = [] %}
         {% for m in current_user.ministries %}
@@ -154,6 +162,11 @@
                             {% endif %}
                         </div>
                         <div class="ps-3">
+                            <!-- Dashboard do Ministério -->
+                            <a class="nav-link py-1 small {{ 'active' if request.endpoint == 'admin.ministry_dashboard' and request.view_args.get('ministry_id')|int == m.id }}" 
+                               href="{{ url_for('admin.ministry_dashboard', ministry_id=m.id) }}">
+                                <i class="bi bi-speedometer2 me-2"></i> Dashboard
+                            </a>
                             <a class="nav-link py-1 small {{ 'active' if request.endpoint == 'finance.ministry_categories' and request.args.get('ministry_id')|int == m.id }}" 
                                href="{{ url_for('finance.ministry_categories', ministry_id=m.id) }}">
                                 <i class="bi bi-tags me-2"></i> Categorias
@@ -203,17 +216,27 @@
     {% if current_user.church_role and current_user.church_role.name == 'Administrador Global' %}
     <hr class="my-3 opacity-25">
     <label class="small text-muted px-3 mb-2">ADMINISTRAÇÃO</label>
-    <a class="nav-link {{ 'active' if 'admin.list_churches' in request.endpoint }}" href="{{ url_for('admin.list_churches') }}">
+    <a class="nav-link {{ 'active' if request.endpoint == 'admin.admin_dashboard' }}" href="{{ url_for('admin.admin_dashboard') }}">
+        <i class="bi bi-speedometer2 me-2"></i> Dashboard Global
+    </a>
+    <a class="nav-link {{ 'active' if request.endpoint == 'admin.list_churches' }}" href="{{ url_for('admin.list_churches') }}">
         <i class="bi bi-building me-2"></i> Congregações
     </a>
-    <a class="nav-link {{ 'active' if 'admin.list_members' in request.endpoint }}" href="{{ url_for('admin.list_members') }}">
+    <a class="nav-link {{ 'active' if request.endpoint == 'admin.list_members' }}" href="{{ url_for('admin.list_members') }}">
         <i class="bi bi-globe me-2"></i> Gestão Global
     </a>
     <a class="nav-link" href="{{ url_for('admin.view_logs') }}">
         <i class="bi bi-journal-text me-2"></i> Logs do Sistema
     </a>
-    <a class="nav-link {{ 'active' if 'admin.list_church_roles' in request.endpoint }}" href="{{ url_for('admin.list_church_roles') }}">
+    <a class="nav-link {{ 'active' if request.endpoint == 'admin.list_church_roles' }}" href="{{ url_for('admin.list_church_roles') }}">
         <i class="bi bi-person-badge me-2"></i> Cargos das Congregações
+    </a>
+    {% endif %}
+
+    <!-- ========== CONFIGURAÇÕES DO SISTEMA (Admin Global) ========== -->
+    {% if current_user.church_role and current_user.church_role.name == 'Administrador Global' %}
+    <a class="nav-link {{ 'active' if request.endpoint == 'admin.system_settings' }}" href="{{ url_for('admin.system_settings') }}">
+        <i class="bi bi-sliders2 me-2"></i> Configurações do Sistema
     </a>
     {% endif %}
 
@@ -237,8 +260,14 @@
 /* Hover suave nos links */
 .nav-link {
     transition: all 0.2s ease;
+    border-radius: 8px;
+    margin: 2px 0;
 }
 .nav-link:hover {
     background-color: rgba(255,255,255,0.1);
+}
+/* Dropdown menu items */
+.collapse .nav-link {
+    padding-left: 2rem !important;
 }
 </style>
