@@ -4,7 +4,7 @@ from app.core.models import db, User, Church
 from app.utils.logger import log_action
 from app.utils.email_utils import send_verification_email_via_smtp
 from werkzeug.utils import secure_filename
-from datetime import datetime
+from datetime import datetime, timedelta
 import os
 import uuid
 
@@ -223,6 +223,71 @@ def approve_member(user_id):
     db.session.commit()
     return redirect(request.referrer or url_for('members.dashboard'))
 
+# Adicione estas funções no final do arquivo, antes do @auth_bp.route('/change-password')
+
+@auth_bp.route('/forgot-password', methods=['GET', 'POST'])
+def forgot_password():
+    """Página para solicitar redefinição de senha"""
+    if request.method == 'POST':
+        email = request.form.get('email').lower().strip()
+        user = User.query.filter_by(email=email).first()
+        
+        if user:
+            # Gerar token de reset
+            token = str(uuid.uuid4())
+            user.reset_password_token = token
+            user.reset_password_expires = datetime.utcnow() + timedelta(hours=24)
+            db.session.commit()
+            
+            # Enviar email
+            from app.utils.email_utils import send_password_reset_email
+            success, message = send_password_reset_email(user)
+            
+            if success:
+                flash('Enviamos um link para redefinir sua senha. Verifique seu e-mail (incluindo a pasta de spam).', 'success')
+            else:
+                flash(f'Erro ao enviar email: {message}', 'danger')
+        else:
+            # Não revelar se o email existe ou não por segurança
+            flash('Se o e-mail estiver cadastrado, você receberá um link para redefinir sua senha.', 'success')
+        
+        return redirect(url_for('auth.login'))
+    
+    return render_template('auth/forgot_password.html')
+
+
+@auth_bp.route('/reset-password/<token>', methods=['GET', 'POST'])
+def reset_password(token):
+    """Página para redefinir a senha com o token"""
+    from datetime import timedelta
+    
+    user = User.query.filter_by(reset_password_token=token).first()
+    
+    # Verificar se o token é válido e não expirou
+    if not user or not user.reset_password_expires or user.reset_password_expires < datetime.utcnow():
+        flash('O link de redefinição de senha é inválido ou expirou. Solicite um novo link.', 'danger')
+        return redirect(url_for('auth.forgot_password'))
+    
+    if request.method == 'POST':
+        password = request.form.get('password')
+        confirm_password = request.form.get('confirm_password')
+        
+        if not password or len(password) < 6:
+            flash('A senha deve ter pelo menos 6 caracteres.', 'danger')
+        elif password != confirm_password:
+            flash('As senhas não conferem.', 'danger')
+        else:
+            # Redefinir a senha
+            user.set_password(password)
+            user.reset_password_token = None
+            user.reset_password_expires = None
+            db.session.commit()
+            
+           
+            flash('Senha redefinida com sucesso! Faça login com sua nova senha.', 'success')
+            return redirect(url_for('auth.login'))
+    
+    return render_template('auth/reset_password.html', token=token)
 
 @auth_bp.route('/change-password', methods=['GET', 'POST'])
 @login_required

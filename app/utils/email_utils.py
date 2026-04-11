@@ -61,6 +61,79 @@ def send_email(church_id, to_email, subject, html_content, text_content=None):
         current_app.logger.error(f"Erro ao enviar email: {str(e)}")
         return False, str(e)
 
+def send_password_reset_email(user):
+    """Envia email para redefinição de senha"""
+    from flask import url_for
+    
+    church = Church.query.get(user.church_id) if user.church_id else None
+    church_name = church.name if church else "Ecclesia Master"
+    
+    reset_url = url_for('auth.reset_password', token=user.reset_password_token, _external=True)
+    
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <style>
+            body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
+            .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+            .header {{ background: #4f46e5; padding: 20px; text-align: center; border-radius: 10px 10px 0 0; }}
+            .header h1 {{ color: white; margin: 0; }}
+            .content {{ padding: 30px; background: #f9fafb; }}
+            .button {{ display: inline-block; background: #4f46e5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; margin: 20px 0; }}
+            .footer {{ text-align: center; padding: 20px; font-size: 12px; color: #666; }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1>{church_name}</h1>
+            </div>
+            <div class="content">
+                <h2>Olá {user.name}!</h2>
+                <p>Recebemos uma solicitação para redefinir sua senha no Ecclesia Master.</p>
+                <p>Clique no botão abaixo para criar uma nova senha:</p>
+                <p style="text-align: center;">
+                    <a href="{reset_url}" class="button">Redefinir minha senha</a>
+                </p>
+                <p>Se o botão não funcionar, copie e cole o link abaixo no seu navegador:</p>
+                <p><a href="{reset_url}">{reset_url}</a></p>
+                <p>Este link expira em 24 horas.</p>
+                <p>Se você não solicitou essa alteração, ignore este email e sua senha permanecerá a mesma.</p>
+                <p>Atenciosamente,<br>Equipe {church_name}</p>
+            </div>
+            <div class="footer">
+                <p>Este é um email automático, por favor não responda.</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+    
+    text_content = f"""
+    Olá {user.name}!
+    
+    Recebemos uma solicitação para redefinir sua senha no Ecclesia Master.
+    
+    Clique no link abaixo para criar uma nova senha:
+    {reset_url}
+    
+    Este link expira em 24 horas.
+    
+    Se você não solicitou essa alteração, ignore este email.
+    
+    Atenciosamente,
+    Equipe {church_name}
+    """
+    
+    return send_email(
+        church_id=user.church_id,
+        to_email=user.email,
+        subject=f'Redefinição de Senha - {church_name}',
+        html_content=html_content,
+        text_content=text_content
+    )
 
 def send_verification_email_via_smtp(user):
     """Envia email de verificação usando SMTP da filial"""

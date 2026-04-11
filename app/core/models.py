@@ -88,6 +88,10 @@ class User(db.Model, UserMixin):
     localidade = db.Column(db.String(100), nullable=True)     # Localidade
     education_level = db.Column(db.String(100), nullable=True)  # Escolaridade
     created_at = db.Column(db.DateTime, default=datetime.utcnow)  # Criado em
+
+    # Recuperação de senha
+    reset_password_token = db.Column(db.String(100), unique=True, nullable=True)
+    reset_password_expires = db.Column(db.DateTime, nullable=True)
     
     # Status e Permissões
     status = db.Column(db.String(20), default='pending') # pending, active, rejected
