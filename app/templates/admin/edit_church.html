@@ -1,66 +1,127 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="row justify-content-center">
-    <div class="col-md-6">
+    <div class="col-md-8">
         <div class="card border-0 shadow-sm p-4">
             <h3 class="fw-bold mb-4">Editar Congregação</h3>
-            <form method="POST" enctype="multipart/form-data">
+            <form method="POST" enctype="multipart/form-data" id="churchForm">
+                <!-- Dados básicos -->
+                <h5 class="fw-bold mb-3">Dados Básicos</h5>
                 <div class="mb-3">
                     <label class="form-label small fw-bold">NOME DA CONGREGAÇÃO</label>
                     <input type="text" name="name" class="form-control bg-light border-0" value="{{ church.name }}" required>
                 </div>
                 <div class="mb-3">
                     <label class="form-label small fw-bold">ENDEREÇO</label>
-                    <input type="text" name="address" class="form-control bg-light border-0" value="{{ church.address or '' }}" >
+                    <input type="text" name="address" class="form-control bg-light border-0" value="{{ church.address or '' }}">
                 </div>
-                <!-- Novos campos -->
                 <div class="mb-3">
                     <label class="form-label small fw-bold">CÓDIGO POSTAL</label>
-                    <input type="text" name="postal_code" class="form-control bg-light border-0" value="{{ church.postal_code or '' }}" placeholder="Ex: 1234-567">
+                    <input type="text" name="postal_code" class="form-control bg-light border-0" value="{{ church.postal_code or '' }}">
                 </div>
                 <div class="mb-3">
                     <label class="form-label small fw-bold">CONCELHO (MUNICÍPIO)</label>
-                    <input type="text" name="concelho" class="form-control bg-light border-0" value="{{ church.concelho or '' }}" placeholder="Ex: Lisboa">
+                    <input type="text" name="concelho" class="form-control bg-light border-0" value="{{ church.concelho or '' }}">
                 </div>
                 <div class="mb-3">
                     <label class="form-label small fw-bold">LOCALIDADE</label>
-                    <input type="text" name="localidade" class="form-control bg-light border-0" value="{{ church.localidade or '' }}" placeholder="Ex: Centro">
+                    <input type="text" name="localidade" class="form-control bg-light border-0" value="{{ church.localidade or '' }}">
                 </div>
-                <div class="mb-3">
-                    <label class="form-label small fw-bold">CIDADE</label>
-                    <input type="text" name="city" class="form-control bg-light border-0" value="{{ church.city or '' }}">
-                </div>
-                <div class="mb-3">
-                    <label class="form-label small fw-bold">PAÍS</label>
-                    <select name="country" class="form-select bg-light border-0" required>
-                        <option value="Portugal" {{ 'selected' if church.country == 'Portugal' }}>Portugal</option>
-                        <option value="Brasil" {{ 'selected' if church.country == 'Brasil' }}>Brasil</option>
-                        <option value="Espanha" {{ 'selected' if church.country == 'Espanha' }}>Espanha</option>
-                        <option value="França" {{ 'selected' if church.country == 'França' }}>França</option>
-                        <option value="Alemanha" {{ 'selected' if church.country == 'Alemanha' }}>Alemanha</option>
-                        <option value="Itália" {{ 'selected' if church.country == 'Itália' }}>Itália</option>
-                        <option value="Irlanda" {{ 'selected' if church.country == 'Irlanda' }}>Irlanda</option>
-                        <option value="Bélgica" {{ 'selected' if church.country == 'Bélgica' }}>Bélgica</option>
-                        <option value="Outro" {{ 'selected' if church.country == 'Outro' }}>Outro</option>
-                    </select>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label small fw-bold">CIDADE</label>
+                        <input type="text" name="city" class="form-control bg-light border-0" value="{{ church.city or '' }}">
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label small fw-bold">PAÍS</label>
+                        <select name="country" class="form-select bg-light border-0" required>
+                            <option value="Portugal" {{ 'selected' if church.country == 'Portugal' }}>Portugal</option>
+                            <option value="Brasil" {{ 'selected' if church.country == 'Brasil' }}>Brasil</option>
+                            <option value="Espanha" {{ 'selected' if church.country == 'Espanha' }}>Espanha</option>
+                            <option value="França" {{ 'selected' if church.country == 'França' }}>França</option>
+                            <option value="Alemanha" {{ 'selected' if church.country == 'Alemanha' }}>Alemanha</option>
+                            <option value="Itália" {{ 'selected' if church.country == 'Itália' }}>Itália</option>
+                            <option value="Irlanda" {{ 'selected' if church.country == 'Irlanda' }}>Irlanda</option>
+                            <option value="Bélgica" {{ 'selected' if church.country == 'Bélgica' }}>Bélgica</option>
+                            <option value="Outro" {{ 'selected' if church.country == 'Outro' }}>Outro</option>
+                        </select>
+                    </div>
                 </div>
                 <div class="row">
                     <div class="col-md-6 mb-3">
                         <label class="form-label small fw-bold">NIF / Nº CONTRIBUINTE</label>
-                        <input type="text" name="nif" class="form-control bg-light border-0" value="{{ church.nif or '' }}" placeholder="Ex: 517760010">
+                        <input type="text" name="nif" class="form-control bg-light border-0" value="{{ church.nif or '' }}">
                     </div>
                     <div class="col-md-6 mb-3">
                         <label class="form-label small fw-bold">E-MAIL FISCAL / CONTATO</label>
-                        <input type="email" name="email" class="form-control bg-light border-0" value="{{ church.email or '' }}" placeholder="Ex: financeiro@igreja.com">
+                        <input type="email" name="email" class="form-control bg-light border-0" value="{{ church.email or '' }}">
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label small fw-bold">LOGO DA CONGREGAÇÃO</label>
-                        {% if church.logo_path %}
-                        <img src="{{ url_for('static', filename=church.logo_path) }}" alt="Logo atual" class="img-thumbnail mb-2" style="max-height: 100px;">
-                        <small class="text-muted d-block mb-2">Logo atual. Envie um novo para substituir.</small>
-                        {% endif %}
-                        <input type="file" name="logo" class="form-control bg-light border-0" accept="image/*">
-                        <small class="text-muted">Formatos: JPG, PNG, GIF. Tamanho máx: 2MB.</small>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">LOGO DA CONGREGAÇÃO</label>
+                    {% if church.logo_path %}
+                    <img src="{{ url_for('static', filename=church.logo_path) }}" alt="Logo atual" class="img-thumbnail mb-2" style="max-height: 100px;">
+                    <small class="text-muted d-block mb-2">Logo atual. Envie um novo para substituir.</small>
+                    {% endif %}
+                    <input type="file" name="logo" class="form-control bg-light border-0" accept="image/*">
+                </div>
+
+                <hr class="my-4">
+                <h5 class="fw-bold mb-3"><i class="bi bi-envelope-fill me-2"></i>Configurações de Email (SMTP)</h5>
+                <p class="text-muted small">Configure o envio de emails para esta congregação</p>
+                
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">SERVIDOR SMTP</label>
+                    <input type="text" name="smtp_server" class="form-control bg-light border-0" value="{{ church.smtp_server or '' }}" placeholder="ex: smtp.gmail.com">
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label small fw-bold">PORTA SMTP</label>
+                        <input type="text" name="smtp_port" class="form-control bg-light border-0" value="{{ church.smtp_port or 587 }}">
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label small fw-bold">USAR TLS</label>
+                        <select name="smtp_use_tls" class="form-select bg-light border-0">
+                            <option value="true" {{ 'selected' if church.smtp_use_tls == true }}>Sim</option>
+                            <option value="false" {{ 'selected' if church.smtp_use_tls == false }}>Não</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">USUÁRIO SMTP (EMAIL)</label>
+                    <input type="email" name="smtp_user" class="form-control bg-light border-0" value="{{ church.smtp_user or '' }}">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">SENHA SMTP / APP PASSWORD</label>
+                    <input type="password" name="smtp_password" class="form-control bg-light border-0" value="{{ church.smtp_password or '' }}" placeholder="••••••••">
+                    <div class="form-text">Deixe em branco para manter a senha atual</div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">EMAIL REMETENTE</label>
+                    <input type="email" name="email_from" class="form-control bg-light border-0" value="{{ church.email_from or '' }}">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">NOME DO REMETENTE</label>
+                    <input type="text" name="email_from_name" class="form-control bg-light border-0" value="{{ church.email_from_name or 'Ecclesia Master' }}">
+                </div>
+                
+                <!-- Botão de Teste de Email -->
+                <div class="mb-3">
+                    <button type="button" class="btn btn-outline-info" onclick="testEmail()">
+                        <i class="bi bi-send me-2"></i> Testar Configurações de Email
+                    </button>
+                    <div id="emailTestResult" class="mt-2" style="display: none;"></div>
+                </div>
+
+                <hr class="my-4">
+                <h5 class="fw-bold mb-3"><i class="bi bi-robot me-2"></i>Configurações de IA (Gemini)</h5>
+                <p class="text-muted small">Configure a chave da API para geração de questões com IA</p>
+                
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">CHAVE DA API GEMINI</label>
+                    <input type="password" name="gemini_api_key" class="form-control bg-light border-0" value="{{ church.gemini_api_key or '' }}" placeholder="AIza...">
+                    <div class="form-text">
+                        <a href="https://aistudio.google.com/" target="_blank">Obter chave no Google AI Studio</a>
                     </div>
                 </div>
 
@@ -75,7 +136,6 @@
                         <small class="text-muted d-block mb-2">Frente atual. Envie uma nova para substituir.</small>
                         {% endif %}
                         <input type="file" name="member_card_front" class="form-control bg-light border-0" accept="image/*">
-                        <small class="text-muted">Formatos: JPG, PNG. Tamanho máx: 5MB. Dimensões: 85.6mm x 54mm (300 DPI).</small>
                     </div>
                     <div class="col-md-6 mb-3">
                         <label class="form-label small fw-bold">VERSO DO CARTÃO (85.6mm x 54mm)</label>
@@ -84,26 +144,71 @@
                         <small class="text-muted d-block mb-2">Verso atual. Envie um novo para substituir.</small>
                         {% endif %}
                         <input type="file" name="member_card_back" class="form-control bg-light border-0" accept="image/*">
-                        <small class="text-muted">Formatos: JPG, PNG. Tamanho máx: 5MB. Dimensões: 85.6mm x 54mm (300 DPI).</small>
                     </div>
-                    <a href="{{ url_for('admin.edit_card_layout', church_id=church.id) }}" class="btn btn-sm btn-info">
-                        <i class="bi bi-card-text"></i> Configurar Layout Cartão
-                    </a>
                 </div>
-                <div class="alert alert-info small mt-3">
-                    <i class="bi bi-info-circle me-2"></i><strong>Dica:</strong> As artes devem ser preparadas com espaços em branco para os dados do membro (nome, foto, cargo, etc). O sistema posicionará automaticamente as informações sobre sua arte.
+                <a href="{{ url_for('admin.edit_card_layout', church_id=church.id) }}" class="btn btn-sm btn-info">
+                    <i class="bi bi-card-text"></i> Configurar Layout Cartão
+                </a>
+
+                <hr class="my-4">
+                <h5 class="fw-bold mb-3"><i class="bi bi-shield-lock me-2"></i>Segurança</h5>
+                
+                <div class="form-check mb-3">
+                    <input type="checkbox" name="maintenance_mode" class="form-check-input" id="maintenance_mode" {{ 'checked' if church.maintenance_mode }}>
+                    <label class="form-check-label fw-bold small" for="maintenance_mode">
+                        MODO DE MANUTENÇÃO
+                    </label>
+                    <div class="form-text">Quando ativado, apenas administradores podem acessar o sistema</div>
                 </div>
+
                 <div class="form-check mb-4">
                     <input type="checkbox" name="is_main" class="form-check-input" id="is_main" {{ 'checked' if church.is_main }}>
                     <label class="form-check-label" for="is_main">É a congregação principal (sede)</label>
                 </div>
-                <div class="d-grid mt-4">
+
+                <div class="d-grid gap-2">
                     <button type="submit" class="btn btn-primary btn-lg py-3 fw-bold shadow-sm">
                         Salvar Alterações
                     </button>
+                    <a href="{{ url_for('admin.list_churches') }}" class="btn btn-outline-secondary">
+                        Cancelar
+                    </a>
                 </div>
             </form>
         </div>
     </div>
 </div>
+
+<script>
+function testEmail() {
+    const testEmail = prompt('Digite o email de teste:', 'teste@exemplo.com');
+    if (!testEmail) return;
+    
+    const resultDiv = document.getElementById('emailTestResult');
+    resultDiv.style.display = 'block';
+    resultDiv.innerHTML = '<div class="alert alert-info">Enviando email de teste...</div>';
+    
+    fetch('{{ url_for("admin.test_church_email", id=church.id) }}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ test_email: testEmail })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            resultDiv.innerHTML = '<div class="alert alert-success"><i class="bi bi-check-circle me-2"></i> ' + data.message + '</div>';
+        } else {
+            resultDiv.innerHTML = '<div class="alert alert-danger"><i class="bi bi-exclamation-triangle me-2"></i> Erro: ' + data.message + '</div>';
+        }
+        setTimeout(() => {
+            resultDiv.style.display = 'none';
+        }, 5000);
+    })
+    .catch(error => {
+        resultDiv.innerHTML = '<div class="alert alert-danger">Erro ao enviar: ' + error + '</div>';
+    });
+}
+</script>
 {% endblock %}

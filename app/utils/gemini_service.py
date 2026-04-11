@@ -8,8 +8,21 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-def get_gemini_client():
-    api_key = os.environ.get("GEMINI_API_KEY")
+def get_gemini_client(church_id=None):
+    """Retorna cliente Gemini configurado com a chave da filial"""
+    from app.core.models import Church
+    
+    api_key = None
+    
+    if church_id:
+        church = Church.query.get(church_id)
+        if church and church.gemini_api_key:
+            api_key = church.gemini_api_key
+    
+    # Fallback para .env se não tiver configurado na filial
+    if not api_key:
+        api_key = os.environ.get("GEMINI_API_KEY")
+    
     if not api_key:
         return None
     return genai.Client(api_key=api_key)
@@ -50,12 +63,12 @@ def extract_text_from_file(file_path):
         current_app.logger.error(f"Erro no extract_text: {e}")
         return None
 
-def generate_questions(content_or_path, type='adult', count=7, is_file=False):
-    client = get_gemini_client()
+def generate_questions(content_or_path, type='adult', count=7, is_file=False, church_id=None):
+    client = get_gemini_client(church_id=church_id)  # 🔥 CORRIGIDO
     if not client:
         return {"error": "GEMINI_API_KEY não configurada no ambiente."}
 
-    model_name = 'gemini-2.5-flash'  # Mais rápido que o 2.5 para textos grandes
+    model_name = 'gemini-2.5-flash'
     contents = []
     indexing_wait = 2
     text_content = ""
@@ -87,28 +100,23 @@ def generate_questions(content_or_path, type='adult', count=7, is_file=False):
             ))
         except Exception as e:
             current_app.logger.error(f"Erro no upload Gemini: {e}")
-            # Fallback: extrair texto localmente
             text_content = extract_text_from_file(content_or_path)
             if not text_content:
                 return {"error": f"Falha no processamento do arquivo: {str(e)}"}
     else:
-        # Conteúdo direto como texto
         text_content = content_or_path
 
-    # 🔥 SE TEXTO FOR MUITO GRANDE, PEGAR APENAS A PRIMEIRA PARTE
+    # Se texto for muito grande
     if text_content and len(text_content) > 8000:
-        # Avisar que apenas parte será processada
         current_app.logger.info(f"Conteúdo grande ({len(text_content)} caracteres). Usando primeiros 6000 caracteres.")
         text_content = text_content[:6000]
-        # Adicionar observação no resultado
         partial_note = "\n\n[Nota: O conteúdo original é muito extenso. As questões foram geradas com base na primeira parte do texto.]"
         text_content += partial_note
 
-    # Se tiver texto, adiciona como Part
     if text_content:
         contents.append(types.Part(text=text_content))
 
-    # Montar o prompt baseado no tipo
+    # Montar o prompt
     if type == 'kids':
         prompt_text = f"""
         Você é um educador infantil especializado em criar atividades bíblicas divertidas.
@@ -176,7 +184,7 @@ def generate_questions(content_or_path, type='adult', count=7, is_file=False):
             config=types.GenerateContentConfig(
                 response_mime_type='application/json',
                 temperature=0.3,
-                http_options={'timeout': 60000}  # 60 segundos
+                http_options={'timeout': 60000}
             )
         )
         
@@ -185,7 +193,6 @@ def generate_questions(content_or_path, type='adult', count=7, is_file=False):
         
         ai_text = response.text.strip()
         
-        # Limpa formatação markdown se vier
         if ai_text.startswith("```json"):
             ai_text = ai_text.split("```json")[1].split("```")[0].strip()
         elif ai_text.startswith("```"):
@@ -193,7 +200,6 @@ def generate_questions(content_or_path, type='adult', count=7, is_file=False):
         
         ai_data = json.loads(ai_text)
         
-        # 🔥 Se for kids e não tiver game_words, criar lista vazia
         if type == 'kids' and 'game_words' not in ai_data:
             ai_data['game_words'] = []
         

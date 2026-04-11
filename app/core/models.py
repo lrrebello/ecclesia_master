@@ -33,6 +33,17 @@ class Church(db.Model):
     postal_code = db.Column(db.String(20), nullable=True)  # Código postal
     concelho = db.Column(db.String(100), nullable=True)    # Concelho (município)
     localidade = db.Column(db.String(100), nullable=True)  # Localidade
+
+    # 🔥 CONFIGURAÇÕES POR FILIAL
+    smtp_server = db.Column(db.String(255), nullable=True)
+    smtp_port = db.Column(db.Integer, default=587)
+    smtp_user = db.Column(db.String(255), nullable=True)
+    smtp_password = db.Column(db.String(255), nullable=True)
+    smtp_use_tls = db.Column(db.Boolean, default=True)
+    email_from = db.Column(db.String(255), nullable=True)
+    email_from_name = db.Column(db.String(255), nullable=True)
+    gemini_api_key = db.Column(db.String(500), nullable=True)
+    maintenance_mode = db.Column(db.Boolean, default=False)
     
     members = db.relationship('User', backref='church', lazy=True)
     ministries = db.relationship('Ministry', backref='church', lazy=True)
@@ -509,6 +520,39 @@ class ChurchTheme(db.Model):
     # Relacionamento
     church = db.relationship('Church', backref=db.backref('theme', uselist=False))
 
+# ==================== CLASSES PARA CONFIGURACAO DAS CHAVES  ====================
+
+class SystemSetting(db.Model):
+    """Configurações do sistema (chaves de API, email, etc.)"""
+    __tablename__ = 'system_settings'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    key = db.Column(db.String(100), unique=True, nullable=False)
+    value = db.Column(db.Text, nullable=True)
+    description = db.Column(db.String(255))
+    is_encrypted = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    @classmethod
+    def get(cls, key, default=None):
+        setting = cls.query.filter_by(key=key).first()
+        return setting.value if setting else default
+    
+    @classmethod
+    def set(cls, key, value, description=None, is_encrypted=False):
+        setting = cls.query.filter_by(key=key).first()
+        if setting:
+            setting.value = value
+            if description:
+                setting.description = description
+            setting.is_encrypted = is_encrypted
+        else:
+            setting = cls(key=key, value=value, description=description, is_encrypted=is_encrypted)
+            db.session.add(setting)
+        db.session.commit()
+        return setting
+    
 # ==================== NOVAS CLASSES PARA MÓDULO BANCÁRIO (NÃO ALTERAM O EXISTENTE) ====================
 
 class BankAccount(db.Model):

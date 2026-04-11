@@ -340,7 +340,26 @@ def edit_church(id):
         church.postal_code = request.form.get('postal_code')
         church.concelho = request.form.get('concelho')
         church.localidade = request.form.get('localidade')
+        
+        # 🔥 CONFIGURAÇÕES SMTP
+        church.smtp_server = request.form.get('smtp_server') or None
+        church.smtp_port = int(request.form.get('smtp_port')) if request.form.get('smtp_port') else 587
+        church.smtp_user = request.form.get('smtp_user') or None
+        # Só atualiza a senha se foi fornecida (não sobrescrever com vazio)
+        if request.form.get('smtp_password'):
+            church.smtp_password = request.form.get('smtp_password')
+        church.smtp_use_tls = request.form.get('smtp_use_tls') == 'true'
+        church.email_from = request.form.get('email_from') or None
+        church.email_from_name = request.form.get('email_from_name') or 'Ecclesia Master'
+        
+        # 🔥 CHAVE API GEMINI
+        if request.form.get('gemini_api_key'):
+            church.gemini_api_key = request.form.get('gemini_api_key')
+        
+        # 🔥 MODO MANUTENÇÃO
+        church.maintenance_mode = 'maintenance_mode' in request.form
 
+        # Upload de logo
         file = request.files.get('logo')
         if file and file.filename:
             filename = secure_filename(file.filename)
@@ -348,8 +367,17 @@ def edit_church(id):
             os.makedirs(logos_dir, exist_ok=True)
             full_path = os.path.join(logos_dir, filename)
             file.save(full_path)
+            # Remover logo antigo se existir
+            if church.logo_path:
+                old_logo = os.path.join(current_app.config['UPLOAD_FOLDER'], church.logo_path.replace('uploads/', ''))
+                if os.path.exists(old_logo):
+                    try:
+                        os.remove(old_logo)
+                    except:
+                        pass
             church.logo_path = f'uploads/churches/logos/{filename}'
         
+        # Upload de cartão frente/verso
         card_front = request.files.get('member_card_front')
         if card_front and card_front.filename:
             filename = secure_filename(card_front.filename)
@@ -370,7 +398,6 @@ def edit_church(id):
 
         db.session.commit()
         
-        # === LOG ADICIONADO ===
         log_action(
             action='UPDATE',
             module='CHURCH',
@@ -379,12 +406,75 @@ def edit_church(id):
             new_values={'name': church.name, 'address': church.address},
             church_id=church.id
         )
-        # ======================
         
         flash('Congregação atualizada!', 'success')
         return redirect(url_for('admin.list_churches'))
     
     return render_template('admin/edit_church.html', church=church)
+
+@admin_bp.route('/church/<int:id>/test-email', methods=['POST'])
+@login_required
+def test_church_email(id):
+    """Testar configuração de email da congregação"""
+    from flask import current_app
+    import smtplib
+    from email.mime.text import MIMEText
+    from email.mime.multipart import MIMEMultipart
+    
+    church = Church.query.get_or_404(id)
+    
+    if not can_edit_church(church):
+        return jsonify({'success': False, 'message': 'Acesso negado'}), 403
+    
+    data = request.get_json()
+    test_email = data.get('test_email') if data else None
+    
+    if not test_email:
+        return jsonify({'success': False, 'message': 'Email de teste não informado'}), 400
+    
+    # Verificar se as configurações existem
+    if not church.smtp_server:
+        return jsonify({'success': False, 'message': 'Servidor SMTP não configurado. Salve as configurações primeiro.'}), 400
+    
+    try:
+        # Criar mensagem
+        msg = MIMEMultipart()
+        msg['From'] = church.email_from
+        msg['To'] = test_email
+        msg['Subject'] = f'Teste de Email - {church.name}'
+        
+        body = f"""
+        Este é um email de teste do Ecclesia Master para a congregação {church.name}.
+        
+        Configurações utilizadas:
+        - Servidor SMTP: {church.smtp_server}
+        - Porta: {church.smtp_port}
+        - TLS: {'Sim' if church.smtp_use_tls else 'Não'}
+        - Usuário: {church.smtp_user}
+        - Email remetente: {church.email_from}
+        
+        Se você recebeu este email, as configurações estão corretas!
+        
+        Data e hora do teste: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}
+        """
+        
+        msg.attach(MIMEText(body, 'plain'))
+        
+        # Conectar e enviar
+        if church.smtp_use_tls:
+            server = smtplib.SMTP(church.smtp_server, church.smtp_port)
+            server.starttls()
+        else:
+            server = smtplib.SMTP_SSL(church.smtp_server, church.smtp_port)
+        
+        server.login(church.smtp_user, church.smtp_password)
+        server.send_message(msg)
+        server.quit()
+        
+        return jsonify({'success': True, 'message': 'Email enviado com sucesso!'})
+        
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
 
 @admin_bp.route('/church/delete/<int:id>', methods=['POST'])
 @login_required
@@ -535,6 +625,104 @@ def edit_card_layout(church_id):
             return jsonify({'success': False, 'error': str(e)}), 500
     
     return render_template('admin/edit_card_layout.html', church=church)
+
+# ==================== CONFIGURAÇÕES DO SISTEMA ====================
+
+@admin_bp.route('/system-settings', methods=['GET'])
+@login_required
+def system_settings():
+    """Página de configurações do sistema (chaves de API, email, etc.)"""
+    if not is_global_admin():
+        flash('Acesso negado. Apenas administradores globais.', 'danger')
+        return redirect(url_for('members.dashboard'))
+    
+    from app.core.models import SystemSetting
+    
+    settings = SystemSetting.query.all()
+    settings_dict = {s.key: s.value for s in settings}
+    
+    return render_template('admin/system_settings.html', settings=settings_dict)
+
+
+@admin_bp.route('/system-settings/save', methods=['POST'])
+@login_required
+def save_system_settings():
+    """Salvar configurações do sistema"""
+    if not is_global_admin():
+        return jsonify({'success': False, 'message': 'Acesso negado'}), 403
+    
+    from app.core.models import SystemSetting
+    
+    # Salvar configurações de email
+    email_keys = ['smtp_server', 'smtp_port', 'smtp_user', 'smtp_password', 
+                  'smtp_use_tls', 'email_from', 'email_from_name']
+    
+    for key in email_keys:
+        value = request.form.get(key, '')
+        SystemSetting.set(key, value)
+    
+    # Salvar chave da API Gemini
+    gemini_key = request.form.get('gemini_api_key', '')
+    if gemini_key:
+        SystemSetting.set('gemini_api_key', gemini_key, is_encrypted=True)
+    
+    # Salvar configurações gerais
+    SystemSetting.set('site_name', request.form.get('site_name', 'Ecclesia Master'))
+    SystemSetting.set('site_logo', request.form.get('site_logo', ''))
+    SystemSetting.set('timezone', request.form.get('timezone', 'America/Sao_Paulo'))
+    SystemSetting.set('maintenance_mode', request.form.get('maintenance_mode', 'false'))
+    
+    log_action(
+        action='UPDATE',
+        module='ADMIN',
+        description="Configurações do sistema atualizadas",
+        church_id=current_user.church_id
+    )
+    
+    return jsonify({'success': True})
+
+
+@admin_bp.route('/system-settings/test-email', methods=['POST'])
+@login_required
+def test_email():
+    """Testar configuração de email"""
+    if not is_global_admin():
+        return jsonify({'success': False, 'message': 'Acesso negado'}), 403
+    
+    from flask_mail import Mail, Message
+    from app import mail
+    from app.core.models import SystemSetting
+    
+    test_email = request.form.get('test_email')
+    if not test_email:
+        return jsonify({'success': False, 'message': 'Email de teste não informado'}), 400
+    
+    # Recarregar configurações do banco
+    app.config['MAIL_SERVER'] = SystemSetting.get('smtp_server', '')
+    app.config['MAIL_PORT'] = int(SystemSetting.get('smtp_port', 587))
+    app.config['MAIL_USE_TLS'] = SystemSetting.get('smtp_use_tls', 'true') == 'true'
+    app.config['MAIL_USERNAME'] = SystemSetting.get('smtp_user', '')
+    app.config['MAIL_PASSWORD'] = SystemSetting.get('smtp_password', '')
+    app.config['MAIL_DEFAULT_SENDER'] = SystemSetting.get('email_from', '')
+    
+    mail = Mail(app)
+    
+    try:
+        msg = Message(
+            subject='Teste de Configuração de Email - Ecclesia Master',
+            recipients=[test_email],
+            body=f"""
+            Este é um email de teste do Ecclesia Master.
+            
+            Se você recebeu este email, as configurações SMTP estão corretas!
+            
+            Data e hora do teste: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}
+            """
+        )
+        mail.send(msg)
+        return jsonify({'success': True, 'message': 'Email enviado com sucesso!'})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
 
 # ==================== GESTÃO DE MEMBROS ====================
 
