@@ -298,6 +298,7 @@ class BibleStory(db.Model):
     title = db.Column(db.String(200), nullable=False)
     content = db.Column(db.Text, nullable=False)
     image_path = db.Column(db.String(255)) # URL ou caminho da ilustração
+    puzzle_image = db.Column(db.String(500))  # NOVO CAMPO
     reference = db.Column(db.String(100)) # Ex: Gênesis 1
     order = db.Column(db.Integer, default=0)
     game_data = db.Column(db.Text) # JSON com palavras e dicas para jogos

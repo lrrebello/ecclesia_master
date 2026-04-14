@@ -1,226 +1,448 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="container py-5 text-center">
-    <div class="mb-4">
-        <a href="{{ url_for('edification.kids') }}" class="btn btn-outline-primary rounded-pill mb-3">
-            <i class="bi bi-arrow-left me-2"></i> Voltar para Ecclesia Kids
-        </a>
-        <h1 class="fw-bold text-primary">Quebra-Cabeça Bíblico</h1>
-        <p class="text-muted">Escolha a dificuldade e monte a imagem!</p>
-    </div>
-
+<div class="container py-3 py-md-5">
     <div class="row justify-content-center">
-        <div class="col-md-10">
-            <div class="card border-0 shadow-sm rounded-4 p-4 mb-4">
-                <div class="row g-3 align-items-center mb-4">
-                    <div class="col-md-4">
-                        <label class="form-label small fw-bold">DIFICULDADE</label>
-                        <select id="difficulty" class="form-select bg-light border-0 rounded-pill">
-                            <option value="3">Fácil (3x3)</option>
-                            <option value="4" selected>Médio (4x4)</option>
-                            <option value="5">Difícil (5x5)</option>
-                        </select>
-                    </div>
-                    <div class="col-md-4">
-                        <label class="form-label small fw-bold">IMAGEM</label>
-                        <select id="image-select" class="form-select bg-light border-0 rounded-pill">
-                            <option value="https://picsum.photos/512/512?random=1" selected>Imagem de Teste 1 (Picsum)</option>
-                            <option value="https://picsum.photos/512/512?random=2">Imagem de Teste 2</option>
-                            <option value="https://picsum.photos/512/512?random=3">Imagem de Teste 3</option>
-                            <!--<option value="https://bibleforchildren.org/images/portuguese/01/1.jpg">Criação</option>
-                            <option value="https://bibleforchildren.org/images/portuguese/02/1.jpg">Arca de Noé</option>
-                            <option value="https://bibleforchildren.org/images/portuguese/48/1.jpg">Nascimento de Jesus</option>-->
-                        </select>
-                    </div>
-                    <div class="col-md-4">
-                        <button onclick="initPuzzle()" class="btn btn-primary w-100 fw-bold rounded-pill mt-3">
-                            <i class="bi bi-play-fill me-1"></i> Novo Jogo
-                        </button>
-                    </div>
+        <div class="col-12 col-lg-10">
+            <!-- Cabeçalho com botões - empilhado no mobile -->
+            <div class="d-flex flex-column flex-sm-row justify-content-between align-items-center mb-4 gap-2">
+                <h1 class="fw-bold text-warning fs-2 fs-md-1 mb-0">
+                    <i class="bi bi-puzzle me-2"></i>Quebra-Cabeça
+                </h1>
+                <div class="d-flex gap-2 flex-wrap justify-content-center">
+                    {% if story %}
+                    <button id="generate-image-btn" class="btn btn-success rounded-pill btn-sm btn-md-normal" 
+                            data-story-id="{{ story.id }}" 
+                            style="background: linear-gradient(135deg, #10b981, #059669); border: none;">
+                        <i class="bi bi-magic me-1 me-md-2"></i><span class="d-none d-sm-inline">Gerar Imagem com IA</span><span class="d-inline d-sm-none">Gerar</span>
+                    </button>
+                    <a href="{{ url_for('edification.view_bible_story', id=story.id) }}" class="btn btn-outline-secondary rounded-pill btn-sm btn-md-normal">
+                        <i class="bi bi-book me-1 me-md-2"></i><span class="d-none d-sm-inline">Ler História</span><span class="d-inline d-sm-none">Ler</span>
+                    </a>
+                    {% endif %}
+                    <a href="{{ url_for('edification.kids') }}" class="btn btn-outline-secondary rounded-pill btn-sm btn-md-normal">
+                        <i class="bi bi-arrow-left me-1 me-md-2"></i><span class="d-none d-sm-inline">Biblioteca</span><span class="d-inline d-sm-none">Voltar</span>
+                    </a>
                 </div>
+            </div>
 
-                <div id="puzzle-container" class="mx-auto position-relative" style="width: 400px; height: 400px; background: #f8f9fa; border: 2px dashed #dee2e6;">
-                    <!-- Puzzle pieces will be here -->
+            <!-- Loading Indicator - responsivo -->
+            <div id="loading-indicator" class="text-center py-4 py-md-5 d-none">
+                <div class="spinner-border text-warning" role="status" style="width: 2.5rem; height: 2.5rem;">
+                    <span class="visually-hidden">Gerando imagem...</span>
                 </div>
+                <p class="mt-3 text-muted small">✨ Criando ilustração especial... isso pode levar alguns segundos.</p>
+            </div>
 
-                <div id="victory-msg" class="mt-4 alert alert-success d-none rounded-pill fw-bold">
-                    <i class="bi bi-trophy-fill me-2"></i> Parabéns! Você montou o quebra-cabeça!
+            <!-- Card principal do jogo -->
+            <div class="card border-0 shadow-sm rounded-4" id="puzzle-card">
+                <div class="card-body p-3 p-md-5 text-center">
+                    
+                    {% if story %}
+                    <h3 class="mb-2 fs-4 fs-md-3">{{ story.title }}</h3>
+                    <p class="text-muted small mb-3 mb-md-4" id="image-status">
+                        {% if story.puzzle_image %}
+                        🧩 <span class="text-success">Ilustração exclusiva!</span>
+                        {% else %}
+                        ⚠️ <span class="text-warning">Clique em "Gerar Imagem" para criar uma ilustração!</span>
+                        {% endif %}
+                    </p>
+                    {% else %}
+                    <h3 class="mb-2 fs-4">Quebra-Cabeça Bíblico</h3>
+                    <p class="text-muted small mb-4">Selecione uma história no menu acima!</p>
+                    {% endif %}
+                    
+                    <div class="row">
+                        <div class="col-12">
+                            <!-- Canvas responsivo - NÃO fixo em 600px -->
+                            <div class="d-flex justify-content-center">
+                                <canvas id="puzzle-canvas" class="img-fluid rounded-4 shadow-sm border" 
+                                        style="width: 100%; max-width: min(90vw, 90vh, 500px); height: auto; cursor: pointer; touch-action: manipulation;"></canvas>
+                            </div>
+                            
+                            <!-- Controles - responsivos -->
+                            <div class="mt-3 mt-md-4 d-flex justify-content-center gap-2 gap-md-3 flex-wrap">
+                                <button id="shuffle-btn" class="btn btn-warning rounded-pill px-3 px-md-4 py-1 py-md-2 btn-sm btn-md-normal">
+                                    <i class="bi bi-shuffle me-1"></i><span class="d-none d-sm-inline">Embaralhar</span>
+                                </button>
+                                <button id="reset-btn" class="btn btn-outline-secondary rounded-pill px-3 px-md-4 py-1 py-md-2 btn-sm btn-md-normal">
+                                    <i class="bi bi-arrow-repeat me-1"></i><span class="d-none d-sm-inline">Reiniciar</span>
+                                </button>
+                                <button id="solve-btn" class="btn btn-success rounded-pill px-3 px-md-4 py-1 py-md-2 btn-sm btn-md-normal">
+                                    <i class="bi bi-check2-circle me-1"></i><span class="d-none d-sm-inline">Resolver</span>
+                                </button>
+                                <select id="grid-size" class="form-select rounded-pill w-auto py-1 py-md-2" style="font-size: 0.9rem;">
+                                    <option value="3">3x3</option>
+                                    <option value="4" selected>4x4</option>
+                                    <option value="5">5x5</option>
+                                    <option value="6">6x6</option>
+                                </select>
+                            </div>
+                            
+                            <div id="message" class="mt-3"></div>
+                            
+                            <div class="alert alert-info mt-3 mt-md-4 small p-2 p-md-3">
+                                <i class="bi bi-info-circle me-2"></i>
+                                <strong>Como jogar:</strong> Toque/clique em uma peça e depois em outra para trocá-las.
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 </div>
 
-<style>
-    .puzzle-piece {
-        position: absolute;
-        cursor: pointer;
-        border: 1px solid rgba(255,255,255,0.3);
-        box-sizing: border-box;
-        transition: transform 0.2s;
-    }
-    .puzzle-piece:hover {
-        z-index: 100;
-        transform: scale(1.02);
-        box-shadow: 0 5px 15px rgba(0,0,0,0.2);
-    }
-    .puzzle-piece.correct {
-        border: none;
-        pointer-events: none;
-    }
-</style>
-
 <script>
-let size = 4;
-let imageUrl = '';
-let pieces = [];
-const container = document.getElementById('puzzle-container');
-const victoryMsg = document.getElementById('victory-msg');
+let game = null;
+let currentImageUrl = "{{ url_for('edification.get_puzzle_image', story_id=story.id) if story else url_for('static', filename='img/kids_default.jpg') }}";
 
-// Variáveis globais para drag (eventos únicos no document)
-let currentPiece = null;
-let isDragging = false;
-let startX = 0;
-let startY = 0;
-
-// Eventos globais (definidos só uma vez)
-document.onmousemove = (e) => {
-    if (!isDragging || !currentPiece) return;
-    
-    let x = e.clientX - startX;
-    let y = e.clientY - startY;
-    
-    x = Math.max(0, Math.min(x, 400 - currentPiece.offsetWidth));
-    y = Math.max(0, Math.min(y, 400 - currentPiece.offsetHeight));
-    
-    currentPiece.style.left = `${x}px`;
-    currentPiece.style.top = `${y}px`;
-};
-
-document.onmouseup = () => {
-    if (!isDragging || !currentPiece) return;
-    isDragging = false;
-    currentPiece.style.zIndex = '';
-    checkPosition(currentPiece);
-    currentPiece = null;
-};
-
-// Touch global (para celular)
-document.ontouchmove = (e) => {
-    if (!isDragging || !currentPiece) return;
-    const touch = e.touches[0];
-    let x = touch.clientX - startX;
-    let y = touch.clientY - startY;
-    
-    x = Math.max(0, Math.min(x, 400 - currentPiece.offsetWidth));
-    y = Math.max(0, Math.min(y, 400 - currentPiece.offsetHeight));
-    
-    currentPiece.style.left = `${x}px`;
-    currentPiece.style.top = `${y}px`;
-    e.preventDefault();
-};
-
-document.ontouchend = () => {
-    if (!isDragging || !currentPiece) return;
-    isDragging = false;
-    currentPiece.style.zIndex = '';
-    checkPosition(currentPiece);
-    currentPiece = null;
-};
-
-function initPuzzle() {
-    size = parseInt(document.getElementById('difficulty').value) || 4;
-    imageUrl = document.getElementById('image-select').value || 'https://picsum.photos/512/512?random=1';
-
-    container.innerHTML = '';
-    victoryMsg.classList.add('d-none');
-    
-    const containerSize = 400;
-    const pieceSize = containerSize / size;
-    pieces = [];
-
-    if (!imageUrl) {
-        container.innerHTML = '<p class="text-danger mt-5">Selecione uma imagem válida!</p>';
-        return;
+class PuzzleGame {
+    constructor(canvasId, imageUrl) {
+        this.canvas = document.getElementById(canvasId);
+        this.ctx = this.canvas.getContext('2d');
+        this.imageUrl = imageUrl;
+        this.gridSize = 4;
+        this.tileSize = 0;
+        this.pieces = [];
+        this.solution = [];
+        this.canvasSize = 500; // Tamanho base menor para mobile
+        this.selectedIndex = undefined;
+        
+        // Ajustar tamanho base para mobile
+        const isMobile = window.innerWidth < 576;
+        this.canvasSize = isMobile ? 350 : 500;
+        
+        this.init();
     }
-
-    for (let r = 0; r < size; r++) {
-        for (let c = 0; c < size; c++) {
-            const piece = document.createElement('div');
-            piece.className = 'puzzle-piece';
-            piece.style.width = `${pieceSize}px`;
-            piece.style.height = `${pieceSize}px`;
-            piece.style.backgroundImage = `url(${imageUrl})`;
-            piece.style.backgroundSize = `${containerSize}px ${containerSize}px`;
-            piece.style.backgroundPosition = `-${c * pieceSize}px -${r * pieceSize}px`;
-            
-            piece.dataset.correctX = c * pieceSize;
-            piece.dataset.correctY = r * pieceSize;
-            
-            const startX = Math.random() * (containerSize - pieceSize);
-            const startY = Math.random() * (containerSize - pieceSize);
-            piece.style.left = `${startX}px`;
-            piece.style.top = `${startY}px`;
-            
-            // Drag com mouse
-            piece.onmousedown = (e) => {
-                isDragging = true;
-                currentPiece = piece;
-                startX = e.clientX - piece.offsetLeft;
-                startY = e.clientY - piece.offsetTop;
-                piece.style.zIndex = 1000;
-                e.preventDefault();
+    
+    async init() {
+        this.canvas.width = this.canvasSize;
+        this.canvas.height = this.canvasSize;
+        
+        await this.loadImage();
+        this.setupEventListeners();
+        this.shuffle();
+        this.draw();
+    }
+    
+    loadImage() {
+        return new Promise((resolve, reject) => {
+            this.img = new Image();
+            this.img.crossOrigin = "Anonymous";
+            this.img.onload = () => {
+                this.tileSize = this.canvasSize / this.gridSize;
+                this.createPieces();
+                resolve();
             };
-
-            // Drag com touch
-            piece.ontouchstart = (e) => {
-                isDragging = true;
-                currentPiece = piece;
-                const touch = e.touches[0];
-                startX = touch.clientX - piece.offsetLeft;
-                startY = touch.clientY - piece.offsetTop;
-                piece.style.zIndex = 1000;
-                e.preventDefault();
+            this.img.onerror = () => {
+                console.error('Erro ao carregar imagem');
+                this.createFallbackImage();
+                resolve();
             };
-            
-            container.appendChild(piece);
-            pieces.push(piece);
+            this.img.src = this.imageUrl;
+        });
+    }
+    
+    createFallbackImage() {
+        const canvas = document.createElement('canvas');
+        canvas.width = this.canvasSize;
+        canvas.height = this.canvasSize;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#6f42c1';
+        ctx.fillRect(0, 0, this.canvasSize, this.canvasSize);
+        ctx.fillStyle = 'white';
+        ctx.font = `${Math.floor(this.canvasSize/15)}px sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.fillText('Quebra-Cabeça', this.canvasSize/2, this.canvasSize/2);
+        
+        this.img = new Image();
+        this.img.src = canvas.toDataURL();
+        this.tileSize = this.canvasSize / this.gridSize;
+        this.createPieces();
+    }
+    
+    createPieces() {
+        this.pieces = [];
+        for (let row = 0; row < this.gridSize; row++) {
+            for (let col = 0; col < this.gridSize; col++) {
+                this.pieces.push({
+                    row: row,
+                    col: col,
+                    correctRow: row,
+                    correctCol: col
+                });
+            }
+        }
+        this.solution = JSON.parse(JSON.stringify(this.pieces));
+    }
+    
+    shuffle() {
+        for (let i = this.pieces.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [this.pieces[i], this.pieces[j]] = [this.pieces[j], this.pieces[i]];
+        }
+        for (let i = 0; i < this.pieces.length; i++) {
+            const row = Math.floor(i / this.gridSize);
+            const col = i % this.gridSize;
+            this.pieces[i].row = row;
+            this.pieces[i].col = col;
         }
     }
     
-    console.log("Puzzle iniciado com imagem:", imageUrl);
-}
-
-function checkPosition(el) {
-    const curX = parseFloat(el.style.left) || 0;
-    const curY = parseFloat(el.style.top) || 0;
-    const corX = parseFloat(el.dataset.correctX);
-    const corY = parseFloat(el.dataset.correctY);
+    draw() {
+        this.ctx.clearRect(0, 0, this.canvasSize, this.canvasSize);
+        
+        for (const piece of this.pieces) {
+            const x = piece.col * this.tileSize;
+            const y = piece.row * this.tileSize;
+            const sx = piece.correctCol * this.tileSize;
+            const sy = piece.correctRow * this.tileSize;
+            
+            this.ctx.drawImage(this.img, sx, sy, this.tileSize, this.tileSize, x, y, this.tileSize, this.tileSize);
+            this.ctx.strokeStyle = '#ddd';
+            this.ctx.lineWidth = 1.5;
+            this.ctx.strokeRect(x, y, this.tileSize, this.tileSize);
+        }
+        
+        if (this.isComplete()) {
+            this.showMessage('🎉 Parabéns! Você completou o quebra-cabeça! 🎉', 'success');
+        }
+    }
     
-    const threshold = 20;
-    if (Math.abs(curX - corX) < threshold && Math.abs(curY - corY) < threshold) {
-        el.style.left = `${corX}px`;
-        el.style.top = `${corY}px`;
-        el.classList.add('correct');
-        el.style.cursor = 'default';
-        checkVictory();
+    isComplete() {
+        for (let i = 0; i < this.pieces.length; i++) {
+            if (this.pieces[i].correctRow !== this.pieces[i].row || 
+                this.pieces[i].correctCol !== this.pieces[i].col) {
+                return false;
+            }
+        }
+        return true;
+    }
+    
+    showMessage(msg, type) {
+        const messageDiv = document.getElementById('message');
+        const className = type === 'success' ? 'alert alert-success' : 'alert alert-info';
+        messageDiv.innerHTML = `<div class="${className} small">${msg}</div>`;
+        setTimeout(() => {
+            if (messageDiv.innerHTML.includes(msg)) {
+                messageDiv.innerHTML = '';
+            }
+        }, 3000);
+    }
+    
+    swapPieces(index1, index2) {
+        const temp = {
+            row: this.pieces[index1].row,
+            col: this.pieces[index1].col
+        };
+        this.pieces[index1].row = this.pieces[index2].row;
+        this.pieces[index1].col = this.pieces[index2].col;
+        this.pieces[index2].row = temp.row;
+        this.pieces[index2].col = temp.col;
+        this.draw();
+    }
+    
+    getPieceIndex(row, col) {
+        return this.pieces.findIndex(p => p.row === row && p.col === col);
+    }
+    
+    handleCanvasClick(e) {
+        // Suporte para toque e clique
+        let clientX, clientY;
+        if (e.touches) {
+            clientX = e.touches[0].clientX;
+            clientY = e.touches[0].clientY;
+            e.preventDefault();
+        } else {
+            clientX = e.clientX;
+            clientY = e.clientY;
+        }
+        
+        const rect = this.canvas.getBoundingClientRect();
+        const scaleX = this.canvas.width / rect.width;
+        const scaleY = this.canvas.height / rect.height;
+        
+        const mouseX = (clientX - rect.left) * scaleX;
+        const mouseY = (clientY - rect.top) * scaleY;
+        
+        const col = Math.floor(mouseX / this.tileSize);
+        const row = Math.floor(mouseY / this.tileSize);
+        
+        if (row >= 0 && row < this.gridSize && col >= 0 && col < this.gridSize) {
+            const clickedIndex = this.getPieceIndex(row, col);
+            
+            if (this.selectedIndex === undefined) {
+                this.selectedIndex = clickedIndex;
+                this.highlightPiece(row, col);
+            } else if (this.selectedIndex === clickedIndex) {
+                this.selectedIndex = undefined;
+                this.draw();
+            } else {
+                this.swapPieces(this.selectedIndex, clickedIndex);
+                this.selectedIndex = undefined;
+            }
+        }
+    }
+    
+    highlightPiece(row, col) {
+        this.ctx.save();
+        this.ctx.strokeStyle = '#ffc107';
+        this.ctx.lineWidth = 3;
+        this.ctx.strokeRect(col * this.tileSize, row * this.tileSize, this.tileSize, this.tileSize);
+        this.ctx.restore();
+    }
+    
+    reset() {
+        this.createPieces();
+        this.shuffle();
+        this.selectedIndex = undefined;
+        this.draw();
+    }
+    
+    solve() {
+        this.pieces = JSON.parse(JSON.stringify(this.solution));
+        this.selectedIndex = undefined;
+        this.draw();
+        this.showMessage('Quebra-cabeça resolvido!', 'info');
+    }
+    
+    setGridSize(size) {
+        this.gridSize = parseInt(size);
+        this.tileSize = this.canvasSize / this.gridSize;
+        this.createPieces();
+        this.shuffle();
+        this.selectedIndex = undefined;
+        this.draw();
+    }
+    
+    updateImage(newImageUrl) {
+        this.imageUrl = newImageUrl;
+        this.loadImage().then(() => {
+            this.createPieces();
+            this.shuffle();
+            this.selectedIndex = undefined;
+            this.draw();
+        });
+    }
+    
+    setupEventListeners() {
+        // Suporte para clique e toque
+        this.canvas.addEventListener('click', (e) => this.handleCanvasClick(e));
+        this.canvas.addEventListener('touchstart', (e) => this.handleCanvasClick(e), { passive: false });
+        
+        document.getElementById('shuffle-btn').addEventListener('click', () => this.shuffle());
+        document.getElementById('reset-btn').addEventListener('click', () => this.reset());
+        document.getElementById('solve-btn').addEventListener('click', () => this.solve());
+        document.getElementById('grid-size').addEventListener('change', (e) => this.setGridSize(e.target.value));
     }
 }
 
-function checkVictory() {
-    const allCorrect = pieces.every(p => p.classList.contains('correct'));
-    if (allCorrect) {
-        victoryMsg.classList.remove('d-none');
-        victoryMsg.scrollIntoView({ behavior: 'smooth' });
+// Inicializar o jogo
+function initGame(imageUrl) {
+    if (game) {
+        game.updateImage(imageUrl);
+    } else {
+        game = new PuzzleGame('puzzle-canvas', imageUrl);
     }
 }
 
-// Eventos
-document.getElementById('difficulty').addEventListener('change', initPuzzle);
-document.getElementById('image-select').addEventListener('change', initPuzzle);
-document.querySelector('button[onclick="initPuzzle()"]').addEventListener('click', initPuzzle);
+{% if story %}
+initGame(currentImageUrl);
+{% else %}
+const canvas = document.getElementById('puzzle-canvas');
+const alertBox = document.querySelector('.alert-info');
+if (canvas) canvas.style.display = 'none';
+if (alertBox) alertBox.innerHTML = '⚠️ Selecione uma história no menu para começar!';
+{% endif %}
 
-// Inicializa na carga
-document.addEventListener('DOMContentLoaded', initPuzzle);
+// Botão de gerar imagem
+const generateBtn = document.getElementById('generate-image-btn');
+if (generateBtn) {
+    generateBtn.addEventListener('click', async function() {
+        const storyId = this.dataset.storyId;
+        const loadingIndicator = document.getElementById('loading-indicator');
+        const puzzleCard = document.getElementById('puzzle-card');
+        const imageStatus = document.getElementById('image-status');
+        
+        loadingIndicator.classList.remove('d-none');
+        puzzleCard.classList.add('opacity-50');
+        
+        try {
+            const response = await fetch(`/edification/kids/story/${storyId}/generate-puzzle-image`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                const newImageUrl = data.image_url + '?t=' + new Date().getTime();
+                game.updateImage(newImageUrl);
+                
+                if (imageStatus) {
+                    imageStatus.innerHTML = '✨ <span class="text-success">Ilustração gerada com IA!</span>';
+                }
+                
+                const msgDiv = document.getElementById('message');
+                msgDiv.innerHTML = '<div class="alert alert-success small">🎨 Imagem gerada! Agora monte o quebra-cabeça.</div>';
+                setTimeout(() => {
+                    msgDiv.innerHTML = '';
+                }, 3000);
+            } else {
+                alert('Erro: ' + data.message);
+            }
+        } catch (error) {
+            console.error('Erro:', error);
+            alert('Erro ao gerar imagem. Tente novamente.');
+        } finally {
+            loadingIndicator.classList.add('d-none');
+            puzzleCard.classList.remove('opacity-50');
+        }
+    });
+}
+
+// Redimensionar canvas ao rotacionar o celular
+window.addEventListener('resize', () => {
+    if (game) {
+        const isMobile = window.innerWidth < 576;
+        const newSize = isMobile ? 350 : 500;
+        if (game.canvasSize !== newSize) {
+            game.canvasSize = newSize;
+            game.canvas.width = newSize;
+            game.canvas.height = newSize;
+            game.tileSize = newSize / game.gridSize;
+            game.createPieces();
+            game.draw();
+        }
+    }
+});
 </script>
+
+<style>
+.opacity-50 {
+    opacity: 0.5;
+    pointer-events: none;
+}
+#loading-indicator {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: white;
+    border-radius: 20px;
+    padding: 1.5rem;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+    z-index: 1000;
+    border: 2px solid #ffc107;
+}
+.btn-sm, .btn-md-normal {
+    font-size: 0.85rem;
+}
+@media (max-width: 576px) {
+    .btn-sm, .btn-md-normal {
+        font-size: 0.75rem;
+        padding: 0.25rem 0.75rem;
+    }
+}
+</style>
 {% endblock %}

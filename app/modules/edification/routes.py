@@ -22,6 +22,57 @@ import requests
 import tempfile
 from urllib.parse import urlparse
 
+
+def gerar_imagem_pollinations(prompt_descricao, width=1024, height=1024):
+    """
+    Gera imagem usando Pollinations.ai - 100% grátis, sem chave
+    Retorna os bytes da imagem ou None em caso de erro
+    """
+    try:
+        # Pollinations aceita prompt em texto puro na URL
+        # Parâmetros: width, height, seed (opcional), model (flux ou turbo)
+        url = f"https://image.pollinations.ai/prompt/{prompt_descricao}?width={width}&height={height}&model=flux"
+        
+        response = requests.get(url, timeout=60)
+        
+        if response.status_code == 200:
+            return response.content  # bytes da imagem
+        print(f"Erro Pollinations: status {response.status_code}")
+        return None
+    except requests.exceptions.Timeout:
+        print("Timeout ao gerar imagem")
+        return None
+    except Exception as e:
+        print(f"Erro ao gerar imagem: {e}")
+        return None
+
+def gerar_prompt_para_imagem(historia):
+    """
+    Gera um prompt otimizado para criar imagem no estilo ilustração infantil fofa
+    """
+    titulo = historia.title
+    referencia = historia.reference or ""
+    conteudo = historia.content[:200] if historia.content else ""
+    
+    # 🔥 NOVO PROMPT - FOCO EM ESTILO FOFO E COLORIDO
+    prompt = f"""Create a cute, colorful, friendly children's Bible story illustration:
+Story: {titulo}
+Scene: {conteudo}
+
+Style requirements:
+- Super cute, kawaii, chibi art style
+- Bright, vibrant, warm colors (pastels, yellows, soft blues)
+- Round faces, big sparkly eyes, friendly smiles
+- Soft lighting, no shadows or darkness
+- Simple, clean backgrounds
+- Like a Pixar/DreamWorks children's book illustration
+- Characters should look cuddly and approachable
+- For kids aged 3-8
+
+Art style: Digital painting, cartoon, storybook quality, high resolution, colorful, happy, magical feel."""
+    
+    return prompt.replace('\n', ' ').strip()
+    
 def download_pdf_from_url(url):
     """Baixa PDF de uma URL e retorna caminho do arquivo temporário"""
     try:
@@ -1567,56 +1618,37 @@ def add_bible_story():
         return redirect(url_for('edification.kids'))
     
     title = request.form.get('title')
-    content = request.form.get('content')
-    image_url = request.form.get('image_path')  # URL original fornecida
+    content = request.form.get('content')  # Conteúdo vindo do textarea
+    image_url = request.form.get('image_path')
+    generate_puzzle_image = request.form.get('generate_puzzle_image') == 'on'
     
-    # 🔥 Guardar a URL original (pode ser imagem ou PDF externo)
-    final_image_path = image_url  # Por padrão, mantém a URL original
+    final_image_path = None
+    extracted_content = None  # Para conteúdo extraído de arquivo/PDF
     
-    # Processar URL se for PDF (para extrair texto, mas manter URL original)
-    if image_url and image_url.lower().endswith('.pdf'):
-        flash('Detectado PDF na URL. Baixando para processamento...', 'info')
-        
-        temp_pdf = download_pdf_from_url(image_url)
-        
-        if temp_pdf:
-            try:
-                # Extrair texto do PDF (apenas para o conteúdo)
-                extracted_text = extract_text(temp_pdf)
-                if not content:
-                    content = extracted_text
-                
-                flash('PDF processado com sucesso!', 'success')
-                
-            except Exception as e:
-                flash(f'Erro ao processar PDF: {str(e)}', 'danger')
-            finally:
-                # Limpar arquivo temporário
-                try:
-                    if temp_pdf and os.path.exists(temp_pdf):
-                        os.unlink(temp_pdf)
-                except:
-                    pass
-        else:
-            flash('Não foi possível baixar o PDF da URL.', 'danger')
-    
-    # Upload tradicional (já existente)
+    # ========================================
+    # CASO 1: Upload de arquivo (PDF, DOCX, TXT)
+    # ========================================
     file = request.files.get('story_file')
     file_path = None
+    
     if file and file.filename != '':
         filename = secure_filename(file.filename)
         file_path = os.path.join(current_app.config['UPLOAD_FOLDER'], filename)
         file.save(file_path)
+        
         try:
+            # Extrair texto do arquivo
             extracted_text = extract_text(file_path)
-            if not content:
-                content = extracted_text
+            if extracted_text and extracted_text.strip():
+                extracted_content = extracted_text
+                flash(f'Texto extraído do arquivo {filename} com sucesso!', 'success')
+            else:
+                flash(f'O arquivo {filename} não continha texto extraível.', 'warning')
         except Exception as e:
             flash(f'Erro ao extrair texto do arquivo: {str(e)}', 'warning')
         
-        # Para upload tradicional, podemos guardar o caminho local OU manter URL
-        # Vamos manter como sempre foi (salvar localmente e guardar caminho)
-        if filename.lower().endswith('.pdf'):
+        # Se for PDF ou imagem, salvar na pasta media
+        if filename.lower().endswith(('.pdf', '.jpg', '.jpeg', '.png', '.gif')):
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
             unique_filename = f"{timestamp}_{filename}"
             media_folder = os.path.join(current_app.config['UPLOAD_FOLDER'], 'media')
@@ -1624,46 +1656,155 @@ def add_bible_story():
             final_path = os.path.join(media_folder, unique_filename)
             import shutil
             shutil.copy2(file_path, final_path)
-            final_image_path = f'uploads/media/{unique_filename}'  # Caminho local
-        else:
-            # Para imagens, também salvar localmente
-            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            unique_filename = f"{timestamp}_{filename}"
-            media_folder = os.path.join(current_app.config['UPLOAD_FOLDER'], 'media')
-            os.makedirs(media_folder, exist_ok=True)
-            final_path = os.path.join(media_folder, unique_filename)
-            shutil.copy2(file_path, final_path)
             final_image_path = f'uploads/media/{unique_filename}'
-
-    # Se não tem conteúdo
-    if not content or not content.strip():
-        flash('Nenhum conteúdo foi fornecido ou extraído.', 'danger')
+    
+    # ========================================
+    # CASO 2: URL fornecida (imagem ou PDF externo)
+    # ========================================
+    if image_url and not final_image_path:
+        # Se for PDF, tentamos baixar e extrair texto
+        if image_url.lower().endswith('.pdf'):
+            flash('Detectado PDF na URL. Baixando para extrair texto...', 'info')
+            temp_pdf = download_pdf_from_url(image_url)
+            
+            if temp_pdf:
+                try:
+                    extracted_text = extract_text(temp_pdf)
+                    if extracted_text and extracted_text.strip():
+                        extracted_content = extracted_text
+                        flash('Texto extraído do PDF da URL com sucesso!', 'success')
+                    else:
+                        flash('O PDF não continha texto extraível.', 'warning')
+                except Exception as e:
+                    flash(f'Erro ao extrair texto do PDF da URL: {str(e)}', 'warning')
+                finally:
+                    # Limpar arquivo temporário
+                    try:
+                        if temp_pdf and os.path.exists(temp_pdf):
+                            os.unlink(temp_pdf)
+                    except:
+                        pass
+            else:
+                flash('Não foi possível baixar o PDF da URL.', 'danger')
+        
+        # Guardar a URL original (pode ser imagem ou PDF)
+        final_image_path = image_url
+    
+    # ========================================
+    # DEFINIR O CONTEÚDO FINAL
+    # ========================================
+    # Prioridade: 1. Conteúdo do textarea, 2. Conteúdo extraído de arquivo/PDF
+    final_content = None
+    
+    if content and content.strip():
+        final_content = content.strip()
+        flash('Usando conteúdo digitado manualmente.', 'info')
+    elif extracted_content and extracted_content.strip():
+        final_content = extracted_content.strip()
+        flash('Usando conteúdo extraído do arquivo/PDF.', 'info')
+    
+    # Se ainda não tem conteúdo, tenta extrair do image_url novamente (fallback)
+    if not final_content and image_url and image_url.lower().endswith('.pdf'):
+        flash('Tentando extrair texto do PDF novamente...', 'info')
+        temp_pdf = download_pdf_from_url(image_url)
+        if temp_pdf:
+            try:
+                extracted_text = extract_text(temp_pdf)
+                if extracted_text and extracted_text.strip():
+                    final_content = extracted_text.strip()
+                    flash('Texto extraído do PDF com sucesso na segunda tentativa!', 'success')
+            except Exception as e:
+                flash(f'Erro na segunda tentativa: {str(e)}', 'danger')
+            finally:
+                try:
+                    if temp_pdf and os.path.exists(temp_pdf):
+                        os.unlink(temp_pdf)
+                except:
+                    pass
+    
+    # ========================================
+    # VALIDAÇÃO FINAL
+    # ========================================
+    if not final_content:
+        flash('Nenhum conteúdo foi fornecido ou extraído. A história precisa de texto para continuar.', 'danger')
+        # Limpar arquivo temporário se existir
+        if file_path and os.path.exists(file_path):
+            try:
+                os.unlink(file_path)
+            except:
+                pass
         return redirect(url_for('edification.manage_kids'))
-
-    # Criar a história
+    
+    # ========================================
+    # CRIAR A HISTÓRIA
+    # ========================================
     new_story = BibleStory(
         title=title,
-        content=content,
+        content=final_content,  # Usa o conteúdo final determinado
         reference=request.form.get('reference'),
-        image_path=final_image_path,  # Mantém URL original para PDFs externos
+        image_path=final_image_path,
         order=request.form.get('order', 0)
     )
     db.session.add(new_story)
     db.session.commit()
     
-    # Gerar questões com IA (usando o conteúdo extraído)
+    log_action(
+        action='CREATE',
+        module='KIDS_STORY',
+        description=f"Nova história infantil: {new_story.title}",
+        new_values={'id': new_story.id, 'title': new_story.title, 'content_length': len(final_content)},
+        church_id=current_user.church_id
+    )
+    
+    # ========================================
+    # GERAR IMAGEM PARA O QUEBRA-CABEÇA (opcional)
+    # ========================================
+    if generate_puzzle_image:
+        flash('Gerando imagem para o quebra-cabeça... Isso pode levar alguns segundos.', 'info')
+        
+        try:
+            # Criar prompt otimizado baseado no título e conteúdo
+            prompt = f"Biblical children's story illustration: {new_story.title}. {new_story.content[:300]}"
+            prompt = prompt.replace('\n', ' ').strip()
+            
+            # Gerar imagem via Pollinations
+            imagem_bytes = gerar_imagem_pollinations(prompt)
+            
+            if imagem_bytes:
+                # Salvar a imagem gerada
+                puzzle_filename = f"puzzle_{new_story.id}_{datetime.now().strftime('%Y%m%d')}.jpg"
+                puzzle_folder = os.path.join(current_app.config['UPLOAD_FOLDER'], 'media', 'puzzles')
+                os.makedirs(puzzle_folder, exist_ok=True)
+                puzzle_path = os.path.join(puzzle_folder, puzzle_filename)
+                
+                with open(puzzle_path, 'wb') as f:
+                    f.write(imagem_bytes)
+                
+                # Salvar o caminho no campo puzzle_image
+                new_story.puzzle_image = f'uploads/media/puzzles/{puzzle_filename}'
+                db.session.commit()
+                
+                flash('✨ Imagem para o quebra-cabeça gerada com sucesso!', 'success')
+            else:
+                flash('Não foi possível gerar a imagem para o quebra-cabeça. Use uma imagem padrão.', 'warning')
+                
+        except Exception as e:
+            flash(f'Erro ao gerar imagem: {str(e)}', 'warning')
+    
+    # ========================================
+    # GERAR QUESTÕES COM IA (opcional)
+    # ========================================
     if request.form.get('generate_ai_questions'):
         try:
-            # Usar o conteúdo extraído (que já veio do PDF ou arquivo)
-            if content and len(content.strip()) >= 100:
-                ai_data = generate_questions(content, type='kids', count=7)
+            if final_content and len(final_content.strip()) >= 100:
+                ai_data = generate_questions(final_content, type='kids', count=7)
             else:
-                flash('Conteúdo insuficiente para gerar questões.', 'warning')
+                flash('Conteúdo insuficiente (mínimo 100 caracteres) para gerar questões.', 'warning')
                 ai_data = {}
-
+            
             if "error" in ai_data:
                 flash(f'Erro na IA: {ai_data["error"]}', 'danger')
-            elif "questions" in ai_data:
+            elif "questions" in ai_data and ai_data["questions"]:
                 for q_data in ai_data["questions"]:
                     new_q = BibleQuiz(
                         story_id=new_story.id,
@@ -1685,19 +1826,62 @@ def add_bible_story():
                 
                 flash(f'{len(ai_data["questions"])} questões geradas pela IA!', 'success')
                 return redirect(url_for('edification.review_kids_questions', story_id=new_story.id))
+            else:
+                flash('IA não retornou questões válidas.', 'warning')
         except Exception as e:
             flash(f'Erro ao gerar questões: {str(e)}', 'warning')
-
-    # Limpar arquivo temporário
+    
+    # ========================================
+    # LIMPAR ARQUIVO TEMPORÁRIO
+    # ========================================
     if file_path and os.path.exists(file_path):
         try:
             os.unlink(file_path)
         except:
             pass
     
-    flash('História adicionada!', 'success')
+    flash('História adicionada com sucesso!', 'success')
     return redirect(url_for('edification.manage_kids'))
 
+@edification_bp.route('/kids/story/<int:story_id>/generate-puzzle-image', methods=['POST'])
+@login_required
+def generate_puzzle_image(story_id):
+    """Gera uma imagem para o quebra-cabeça usando IA"""
+    story = BibleStory.query.get_or_404(story_id)
+    
+    try:
+        # Criar prompt baseado na história
+        prompt = f"Biblical children's story illustration: {story.title}. {story.content[:300]}"
+        prompt = prompt.replace('\n', ' ').strip()
+        
+        # Gerar imagem via Pollinations
+        imagem_bytes = gerar_imagem_pollinations(prompt)
+        
+        if imagem_bytes:
+            # Salvar a imagem
+            puzzle_filename = f"puzzle_{story.id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.jpg"
+            puzzle_folder = os.path.join(current_app.config['UPLOAD_FOLDER'], 'media', 'puzzles')
+            os.makedirs(puzzle_folder, exist_ok=True)
+            puzzle_path = os.path.join(puzzle_folder, puzzle_filename)
+            
+            with open(puzzle_path, 'wb') as f:
+                f.write(imagem_bytes)
+            
+            # Atualizar o campo no banco
+            story.puzzle_image = f'uploads/media/puzzles/{puzzle_filename}'
+            db.session.commit()
+            
+            return jsonify({
+                'success': True, 
+                'image_url': url_for('edification.get_puzzle_image', story_id=story.id),
+                'message': 'Imagem gerada com sucesso!'
+            })
+        else:
+            return jsonify({'success': False, 'message': 'Erro ao gerar imagem'}), 500
+            
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+    
 @edification_bp.route('/kids/story/<int:story_id>/review-questions', methods=['GET', 'POST'])
 @login_required
 def review_kids_questions(story_id):
@@ -1906,13 +2090,24 @@ def who_am_i():
 @edification_bp.route('/kids/puzzle')
 def puzzle_game():
     story_id = request.args.get('story_id')
-    if story_id:
-        story = BibleStory.query.get_or_404(story_id)
-        image_url = story.image_path or url_for('static', filename='img/kids_default.jpg')
-    else:
-        image_url = url_for('static', filename='img/kids_default.jpg')
+    story = None
     
-    return render_template('edification/kids_puzzle.html', image_url=image_url)
+    if story_id:
+        # Caso 1: História específica
+        story = BibleStory.query.get_or_404(int(story_id))
+    else:
+        # Caso 2: "Geral" - pegar uma história que JÁ TEM imagem gerada
+        # Primeiro, tenta pegar histórias com puzzle_image (já gerada)
+        story = BibleStory.query.filter(
+            BibleStory.puzzle_image.isnot(None),
+            BibleStory.puzzle_image != ''
+        ).order_by(func.random()).first()
+        
+        # Se não tiver nenhuma com imagem gerada, pega qualquer uma
+        if not story:
+            story = BibleStory.query.order_by(func.random()).first()
+    
+    return render_template('edification/kids_puzzle.html', story=story)
 
 @edification_bp.route('/kids/word-search')
 def word_search():
@@ -2013,6 +2208,28 @@ def hangman():
                          story=story, 
                          game_data=game_data,
                          hints_data=hints_data)
+
+@edification_bp.route('/kids/story/<int:story_id>/puzzle-image')
+def get_puzzle_image(story_id):
+    """Retorna a imagem do quebra-cabeça para uma história"""
+    story = BibleStory.query.get_or_404(story_id)
+    
+    # Se tem imagem de puzzle salva
+    if hasattr(story, 'puzzle_image') and story.puzzle_image:
+        image_path = os.path.join(current_app.config['UPLOAD_FOLDER'], 
+                                 story.puzzle_image.replace('uploads/', ''))
+        if os.path.exists(image_path):
+            return send_file(image_path, mimetype='image/jpeg')
+    
+    # Se não tem, tenta usar a imagem da história
+    if story.image_path and not story.image_path.startswith('http'):
+        image_path = os.path.join(current_app.config['UPLOAD_FOLDER'], 
+                                 story.image_path.replace('uploads/', ''))
+        if os.path.exists(image_path):
+            return send_file(image_path, mimetype='image/jpeg')
+    
+    # Fallback para imagem padrão
+    return send_file('static/img/kids_default.jpg', mimetype='image/jpeg')
 
 # ============================================
 # API ROTAS
