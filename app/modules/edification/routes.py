@@ -18,6 +18,27 @@ import bleach
 import unicodedata
 from weasyprint import HTML
 from io import BytesIO
+import requests
+import tempfile
+from urllib.parse import urlparse
+
+def download_pdf_from_url(url):
+    """Baixa PDF de uma URL e retorna caminho do arquivo temporário"""
+    try:
+        response = requests.get(url, timeout=30, stream=True)
+        response.raise_for_status()
+        
+        # Criar arquivo temporário
+        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.pdf')
+        for chunk in response.iter_content(chunk_size=8192):
+            if chunk:
+                temp_file.write(chunk)
+        temp_file.close()
+        
+        return temp_file.name
+    except Exception as e:
+        print(f"Erro ao baixar PDF: {str(e)}")
+        return None
 
 def remover_acentos(texto):
     """Remove acentos de uma string"""
@@ -1547,8 +1568,39 @@ def add_bible_story():
     
     title = request.form.get('title')
     content = request.form.get('content')
-    image_path = request.form.get('image_path')
+    image_url = request.form.get('image_path')  # URL original fornecida
     
+    # 🔥 Guardar a URL original (pode ser imagem ou PDF externo)
+    final_image_path = image_url  # Por padrão, mantém a URL original
+    
+    # Processar URL se for PDF (para extrair texto, mas manter URL original)
+    if image_url and image_url.lower().endswith('.pdf'):
+        flash('Detectado PDF na URL. Baixando para processamento...', 'info')
+        
+        temp_pdf = download_pdf_from_url(image_url)
+        
+        if temp_pdf:
+            try:
+                # Extrair texto do PDF (apenas para o conteúdo)
+                extracted_text = extract_text(temp_pdf)
+                if not content:
+                    content = extracted_text
+                
+                flash('PDF processado com sucesso!', 'success')
+                
+            except Exception as e:
+                flash(f'Erro ao processar PDF: {str(e)}', 'danger')
+            finally:
+                # Limpar arquivo temporário
+                try:
+                    if temp_pdf and os.path.exists(temp_pdf):
+                        os.unlink(temp_pdf)
+                except:
+                    pass
+        else:
+            flash('Não foi possível baixar o PDF da URL.', 'danger')
+    
+    # Upload tradicional (já existente)
     file = request.files.get('story_file')
     file_path = None
     if file and file.filename != '':
@@ -1561,33 +1613,52 @@ def add_bible_story():
                 content = extracted_text
         except Exception as e:
             flash(f'Erro ao extrair texto do arquivo: {str(e)}', 'warning')
+        
+        # Para upload tradicional, podemos guardar o caminho local OU manter URL
+        # Vamos manter como sempre foi (salvar localmente e guardar caminho)
+        if filename.lower().endswith('.pdf'):
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            unique_filename = f"{timestamp}_{filename}"
+            media_folder = os.path.join(current_app.config['UPLOAD_FOLDER'], 'media')
+            os.makedirs(media_folder, exist_ok=True)
+            final_path = os.path.join(media_folder, unique_filename)
+            import shutil
+            shutil.copy2(file_path, final_path)
+            final_image_path = f'uploads/media/{unique_filename}'  # Caminho local
+        else:
+            # Para imagens, também salvar localmente
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            unique_filename = f"{timestamp}_{filename}"
+            media_folder = os.path.join(current_app.config['UPLOAD_FOLDER'], 'media')
+            os.makedirs(media_folder, exist_ok=True)
+            final_path = os.path.join(media_folder, unique_filename)
+            shutil.copy2(file_path, final_path)
+            final_image_path = f'uploads/media/{unique_filename}'
 
+    # Se não tem conteúdo
+    if not content or not content.strip():
+        flash('Nenhum conteúdo foi fornecido ou extraído.', 'danger')
+        return redirect(url_for('edification.manage_kids'))
+
+    # Criar a história
     new_story = BibleStory(
         title=title,
         content=content,
         reference=request.form.get('reference'),
-        image_path=image_path,
+        image_path=final_image_path,  # Mantém URL original para PDFs externos
         order=request.form.get('order', 0)
     )
     db.session.add(new_story)
     db.session.commit()
     
-    log_action(
-        action='CREATE',
-        module='KIDS_STORY',
-        description=f"Nova história infantil: {new_story.title}",
-        new_values={'id': new_story.id, 'title': new_story.title},
-        church_id=current_user.church_id
-    )
-
+    # Gerar questões com IA (usando o conteúdo extraído)
     if request.form.get('generate_ai_questions'):
         try:
-            if file_path:
-                ai_data = generate_questions(file_path, type='kids', count=7, is_file=True)
-            elif content and len(content.strip()) >= 100:
+            # Usar o conteúdo extraído (que já veio do PDF ou arquivo)
+            if content and len(content.strip()) >= 100:
                 ai_data = generate_questions(content, type='kids', count=7)
             else:
-                flash('Conteúdo insuficiente para gerar questões com IA.', 'warning')
+                flash('Conteúdo insuficiente para gerar questões.', 'warning')
                 ai_data = {}
 
             if "error" in ai_data:
@@ -1612,19 +1683,18 @@ def add_bible_story():
                 
                 db.session.commit()
                 
-                log_action(
-                    action='GENERATE',
-                    module='KIDS_QUESTIONS',
-                    description=f"Questões geradas para história: {new_story.title}",
-                    new_values={'story_id': new_story.id, 'questions_count': len(ai_data["questions"])},
-                    church_id=current_user.church_id
-                )
-                
-                flash('História adicionada e questões geradas pela IA aguardando revisão!', 'success')
+                flash(f'{len(ai_data["questions"])} questões geradas pela IA!', 'success')
                 return redirect(url_for('edification.review_kids_questions', story_id=new_story.id))
         except Exception as e:
-            flash(f'Erro ao gerar questões: {str(e)}', 'danger')
+            flash(f'Erro ao gerar questões: {str(e)}', 'warning')
 
+    # Limpar arquivo temporário
+    if file_path and os.path.exists(file_path):
+        try:
+            os.unlink(file_path)
+        except:
+            pass
+    
     flash('História adicionada!', 'success')
     return redirect(url_for('edification.manage_kids'))
 

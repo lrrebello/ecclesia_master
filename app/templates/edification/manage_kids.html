@@ -131,8 +131,15 @@
                         <input type="text" name="reference" class="form-control bg-light border-0" placeholder="Ex: Gênesis 1:1">
                     </div>
                     <div class="col-md-6">
-                        <label class="form-label small fw-bold">URL DA ILUSTRAÇÃO (OPCIONAL)</label>
-                        <input type="url" name="image_path" class="form-control bg-light border-0" placeholder="https://...">
+                        <label class="form-label small fw-bold">
+                            URL DA ILUSTRAÇÃO (OPCIONAL)
+                            <small class="text-muted d-block">Se for PDF, será baixado automaticamente</small>
+                        </label>
+                        <input type="url" name="image_path" class="form-control bg-light border-0" placeholder="https://... (PDF será processado)">
+                        <small class="text-muted">
+                            <i class="bi bi-info-circle"></i> 
+                            Cole uma URL de imagem (jpg, png) ou de PDF. Se for PDF, o sistema vai baixar, extrair o texto e gerar as questões!
+                        </small>
                     </div>
                     <div class="col-12">
                         <label class="form-label small fw-bold">UPLOAD DE ARQUIVO (PDF, DOCX, PPTX)</label>
