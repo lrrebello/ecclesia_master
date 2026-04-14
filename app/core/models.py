@@ -88,6 +88,7 @@ class User(db.Model, UserMixin):
     localidade = db.Column(db.String(100), nullable=True)     # Localidade
     education_level = db.Column(db.String(100), nullable=True)  # Escolaridade
     created_at = db.Column(db.DateTime, default=datetime.utcnow)  # Criado em
+    observations = db.Column(db.Text, nullable=True)  # Observações gerais (tamanho roupa, sapato, alergias, etc.)
 
     # Recuperação de senha
     reset_password_token = db.Column(db.String(100), unique=True, nullable=True)

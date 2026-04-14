@@ -182,7 +182,8 @@ def edit_profile():
             'phone': current_user.phone,
             'address': current_user.address,
             'tax_id': current_user.tax_id,  # 🔥 ADICIONADO
-            'documents': current_user.documents  # 🔥 ADICIONADO
+            'documents': current_user.documents,  # 🔥 ADICIONADO
+            'observations': current_user.observations  # 🔥 ADICIONAR
         }
         
         current_user.name = request.form.get('name')
@@ -192,6 +193,7 @@ def edit_profile():
         current_user.gender = request.form.get('gender')
         current_user.marital_status = request.form.get('marital_status')
         current_user.spouse_name = request.form.get('spouse_name') if request.form.get('marital_status') == 'Casado(a)' else None
+        current_user.observations = request.form.get('observations')
         
         # 🔥 CORRIGIDO: Salvar tax_id (NIF) em vez de documents
         current_user.tax_id = request.form.get('tax_id')  # NIF/CPF

@@ -173,6 +173,19 @@
                                 <strong>{{ current_user.created_at.strftime('%d/%m/%Y') if current_user.created_at else 'Não informado' }}</strong>
                             </div>
                         </div>
+                        <!-- Observações Gerais -->
+                        {% if current_user.observations %}
+                        <h5 class="fw-bold mb-3 mt-4"><i class="bi bi-pencil-square me-2 text-primary"></i> Observações</h5>
+                        <div class="row g-3">
+                            <div class="col-12">
+                                <div class="bg-light rounded-3 p-3">
+                                    <small class="text-muted d-block mb-1">Informações Adicionais</small>
+                                    <p class="mb-0">{{ current_user.observations|replace('\n', '<br>')|safe }}</p>
+                                </div>
+                            </div>
+                        </div>
+                        <hr class="my-4">
+                        {% endif %}
                     </div>
 
                     <hr class="my-4">
