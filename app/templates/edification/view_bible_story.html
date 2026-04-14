@@ -17,19 +17,37 @@
                         <span class="badge bg-warning bg-opacity-10 text-warning px-3 py-2 rounded-pill">{{ story.reference }}</span>
                     </div>
                     
+                    <!-- ============================================ -->
+                    <!-- EXIBIÇÃO DE PDF (FINALMENTE CORRIGIDA) -->
+                    <!-- ============================================ -->
                     {% if story.image_path and story.image_path.lower().endswith('.pdf') %}
-                    <div class="ratio ratio-16x9 mb-5 rounded-4 overflow-hidden shadow-sm border">
-                        <iframe src="{{ story.image_path }}" allow="autoplay"></iframe>
-                    </div>
-                    <div class="text-center mb-5">
-                        <a href="{{ story.image_path }}" target="_blank" class="btn btn-warning fw-bold rounded-pill px-4">
-                            <i class="bi bi-file-earmark-pdf me-2"></i>Abrir PDF em nova aba
-                        </a>
-                    </div>
+                        {% if story.image_path.startswith('http') %}
+                            {% set pdf_url = story.image_path %}
+                        {% else %}
+                            {% set pdf_url = '/static/' + story.image_path %}
+                        {% endif %}
+                        <div class="ratio ratio-16x9 mb-5 rounded-4 overflow-hidden shadow-sm border">
+                            <iframe src="{{ pdf_url }}" allow="autoplay"></iframe>
+                        </div>
+                        <div class="text-center mb-5">
+                            <a href="{{ pdf_url }}" target="_blank" class="btn btn-warning fw-bold rounded-pill px-4">
+                                <i class="bi bi-file-earmark-pdf me-2"></i>Abrir PDF em nova aba
+                            </a>
+                        </div>
+                    
+                    <!-- ============================================ -->
+                    <!-- EXIBIÇÃO DE IMAGEM -->
+                    <!-- ============================================ -->
                     {% elif story.image_path %}
-                    <div class="text-center mb-5">
-                        <img src="{{ story.image_path }}" class="img-fluid rounded-4 shadow-sm" alt="{{ story.title }}" style="max-height: 500px; object-fit: contain;">
-                    </div>
+                        {% if story.image_path.startswith('http') %}
+                            <div class="text-center mb-5">
+                                <img src="{{ story.image_path }}" class="img-fluid rounded-4 shadow-sm" alt="{{ story.title }}" style="max-height: 500px; object-fit: contain;">
+                            </div>
+                        {% else %}
+                            <div class="text-center mb-5">
+                                <img src="/static/{{ story.image_path }}" class="img-fluid rounded-4 shadow-sm" alt="{{ story.title }}" style="max-height: 500px; object-fit: contain;">
+                            </div>
+                        {% endif %}
                     {% endif %}
 
                     <div class="story-content fs-5 text-muted lh-lg mb-5">

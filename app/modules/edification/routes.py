@@ -22,6 +22,52 @@ import requests
 import tempfile
 from urllib.parse import urlparse
 
+import traceback
+import sys
+
+    
+def validar_e_comprimir_pdf(caminho_arquivo, tamanho_maximo_mb=10):
+    """
+    Verifica o tamanho do PDF e comprime se necessário
+    Retorna: (caminho_do_arquivo_processado, foi_comprimido)
+    """
+    tamanho_mb = os.path.getsize(caminho_arquivo) / (1024 * 1024)
+    
+    if tamanho_mb <= tamanho_maximo_mb:
+        print(f"✅ PDF dentro do limite: {tamanho_mb:.2f} MB")
+        return caminho_arquivo, False
+    
+    print(f"⚠️ PDF muito grande: {tamanho_mb:.2f} MB. Comprimindo...")
+    
+    try:
+        from PyPDF2 import PdfReader, PdfWriter
+        
+        # Ler o PDF original
+        leitor = PdfReader(caminho_arquivo)
+        escritor = PdfWriter()
+        
+        # Copiar páginas sem compressão de imagem (PyPDF2 não comprime imagens)
+        for pagina in leitor.pages:
+            escritor.add_page(pagina)
+        
+        # Salvar em arquivo temporário
+        caminho_comprimido = caminho_arquivo.replace('.pdf', '_comprimido.pdf')
+        with open(caminho_comprimido, 'wb') as f:
+            escritor.write(f)
+        
+        tamanho_novo_mb = os.path.getsize(caminho_comprimido) / (1024 * 1024)
+        print(f"✅ PDF comprimido: {tamanho_novo_mb:.2f} MB (redução de {(1 - tamanho_novo_mb/tamanho_mb)*100:.1f}%)")
+        
+        # Substituir o arquivo original pelo comprimido
+        os.replace(caminho_comprimido, caminho_arquivo)
+        
+        return caminho_arquivo, True
+        
+    except Exception as e:
+        print(f"❌ Erro ao comprimir PDF: {str(e)}")
+        return caminho_arquivo, False
+
+
 def dividir_texto_para_ia(texto, tamanho_maximo=6000):
     """
     Divide um texto grande em partes menores para processamento pela IA
@@ -293,6 +339,26 @@ def compress_and_resize_image(img):
     
     return img
 
+@edification_bp.route('/uploads/<path:filename>')
+def serve_upload(filename):
+    """Serve arquivos da pasta uploads (PDFs, imagens)"""
+    try:
+        # Verifica se o arquivo existe
+        file_path = os.path.join(current_app.config['UPLOAD_FOLDER'], filename)
+        if os.path.exists(file_path):
+            return send_file(file_path)
+        else:
+            # Tenta na pasta media
+            media_path = os.path.join(current_app.config['UPLOAD_FOLDER'], 'media', filename)
+            if os.path.exists(media_path):
+                return send_file(media_path)
+            
+            print(f"Arquivo não encontrado: {file_path}")
+            abort(404)
+    except Exception as e:
+        print(f"Erro ao servir arquivo: {e}")
+        abort(404)
+        
 # ============================================
 # ROTAS DEVOCIONAIS
 # ============================================
@@ -1652,51 +1718,66 @@ def add_bible_story():
         return redirect(url_for('edification.kids'))
     
     title = request.form.get('title')
-    content = request.form.get('content')  # Conteúdo vindo do textarea
+    content = request.form.get('content')
     image_url = request.form.get('image_path')
     generate_puzzle_image = request.form.get('generate_puzzle_image') == 'on'
     
-    final_image_path = None
-    extracted_content = None  # Para conteúdo extraído de arquivo/PDF
+    final_image_path = None  # Caminho da imagem/PDF para salvar no banco
+    file_path = None         # Caminho do arquivo temporário para extração
     
     # ========================================
-    # CASO 1: Upload de arquivo (PDF, DOCX, TXT)
+    # PROCESSAR UPLOAD DE ARQUIVO
     # ========================================
     file = request.files.get('story_file')
-    file_path = None
     
     if file and file.filename != '':
         filename = secure_filename(file.filename)
+        file_ext = os.path.splitext(filename)[1].lower()
         file_path = os.path.join(current_app.config['UPLOAD_FOLDER'], filename)
         file.save(file_path)
         
+        # Validar tamanho do PDF
+        if file_ext == '.pdf':
+            tamanho_mb = os.path.getsize(file_path) / (1024 * 1024)
+            if tamanho_mb > 15:
+                flash(f'O PDF tem {tamanho_mb:.1f} MB. O sistema vai comprimi-lo.', 'warning')
+                file_path, comprimido = validar_e_comprimir_pdf(file_path)
+                if comprimido:
+                    flash('PDF comprimido com sucesso!', 'success')
+            elif tamanho_mb > 10:
+                flash(f'O PDF tem {tamanho_mb:.1f} MB. O processamento pode ser lento.', 'info')
+        
+        # Extrair texto do arquivo
         try:
-            # Extrair texto do arquivo
             extracted_text = extract_text(file_path)
             if extracted_text and extracted_text.strip():
-                extracted_content = extracted_text
+                content = extracted_text
                 flash(f'Texto extraído do arquivo {filename} com sucesso!', 'success')
             else:
                 flash(f'O arquivo {filename} não continha texto extraível.', 'warning')
         except Exception as e:
-            flash(f'Erro ao extrair texto do arquivo: {str(e)}', 'warning')
+            flash(f'Erro ao extrair texto: {str(e)}', 'warning')
         
-        # Se for PDF ou imagem, salvar na pasta media
-        if filename.lower().endswith(('.pdf', '.jpg', '.jpeg', '.png', '.gif')):
-            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            unique_filename = f"{timestamp}_{filename}"
-            media_folder = os.path.join(current_app.config['UPLOAD_FOLDER'], 'media')
-            os.makedirs(media_folder, exist_ok=True)
-            final_path = os.path.join(media_folder, unique_filename)
-            import shutil
-            shutil.copy2(file_path, final_path)
-            final_image_path = f'uploads/media/{unique_filename}'
+        # 🔥 SALVAR PDF PERMANENTEMENTE para leitura posterior
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        unique_filename = f"{timestamp}_{filename}"
+        media_folder = os.path.join(current_app.config['UPLOAD_FOLDER'], 'media')
+        os.makedirs(media_folder, exist_ok=True)
+        final_path = os.path.join(media_folder, unique_filename)
+        
+        import shutil
+        shutil.copy2(file_path, final_path)
+        final_image_path = f'uploads/media/{unique_filename}'
+        
+        flash(f'PDF salvo permanentemente para leitura!', 'success')
     
     # ========================================
-    # CASO 2: URL fornecida (imagem ou PDF externo)
+    # PROCESSAR URL (imagem ou PDF externo)
     # ========================================
-    if image_url and not final_image_path:
-        # Se for PDF, tentamos baixar e extrair texto
+    elif image_url and image_url.strip():
+        final_image_path = image_url
+        
+        # Se for PDF, baixar e extrair texto
         if image_url.lower().endswith('.pdf'):
             flash('Detectado PDF na URL. Baixando para extrair texto...', 'info')
             temp_pdf = download_pdf_from_url(image_url)
@@ -1705,14 +1786,13 @@ def add_bible_story():
                 try:
                     extracted_text = extract_text(temp_pdf)
                     if extracted_text and extracted_text.strip():
-                        extracted_content = extracted_text
+                        content = extracted_text
                         flash('Texto extraído do PDF da URL com sucesso!', 'success')
                     else:
                         flash('O PDF não continha texto extraível.', 'warning')
                 except Exception as e:
-                    flash(f'Erro ao extrair texto do PDF da URL: {str(e)}', 'warning')
+                    flash(f'Erro ao extrair texto do PDF: {str(e)}', 'warning')
                 finally:
-                    # Limpar arquivo temporário
                     try:
                         if temp_pdf and os.path.exists(temp_pdf):
                             os.unlink(temp_pdf)
@@ -1720,48 +1800,12 @@ def add_bible_story():
                         pass
             else:
                 flash('Não foi possível baixar o PDF da URL.', 'danger')
-        
-        # Guardar a URL original (pode ser imagem ou PDF)
-        final_image_path = image_url
     
     # ========================================
-    # DEFINIR O CONTEÚDO FINAL
+    # VALIDAR CONTEÚDO
     # ========================================
-    # Prioridade: 1. Conteúdo do textarea, 2. Conteúdo extraído de arquivo/PDF
-    final_content = None
-    
-    if content and content.strip():
-        final_content = content.strip()
-        flash('Usando conteúdo digitado manualmente.', 'info')
-    elif extracted_content and extracted_content.strip():
-        final_content = extracted_content.strip()
-        flash('Usando conteúdo extraído do arquivo/PDF.', 'info')
-    
-    # Se ainda não tem conteúdo, tenta extrair do image_url novamente (fallback)
-    if not final_content and image_url and image_url.lower().endswith('.pdf'):
-        flash('Tentando extrair texto do PDF novamente...', 'info')
-        temp_pdf = download_pdf_from_url(image_url)
-        if temp_pdf:
-            try:
-                extracted_text = extract_text(temp_pdf)
-                if extracted_text and extracted_text.strip():
-                    final_content = extracted_text.strip()
-                    flash('Texto extraído do PDF com sucesso na segunda tentativa!', 'success')
-            except Exception as e:
-                flash(f'Erro na segunda tentativa: {str(e)}', 'danger')
-            finally:
-                try:
-                    if temp_pdf and os.path.exists(temp_pdf):
-                        os.unlink(temp_pdf)
-                except:
-                    pass
-    
-    # ========================================
-    # VALIDAÇÃO FINAL
-    # ========================================
-    if not final_content:
-        flash('Nenhum conteúdo foi fornecido ou extraído. A história precisa de texto para continuar.', 'danger')
-        # Limpar arquivo temporário se existir
+    if not content or not content.strip():
+        flash('Nenhum conteúdo foi fornecido ou extraído. A história precisa de texto.', 'danger')
         if file_path and os.path.exists(file_path):
             try:
                 os.unlink(file_path)
@@ -1774,7 +1818,7 @@ def add_bible_story():
     # ========================================
     new_story = BibleStory(
         title=title,
-        content=final_content,  # Usa o conteúdo final determinado
+        content=content.strip(),
         reference=request.form.get('reference'),
         image_path=final_image_path,
         order=request.form.get('order', 0)
@@ -1786,26 +1830,22 @@ def add_bible_story():
         action='CREATE',
         module='KIDS_STORY',
         description=f"Nova história infantil: {new_story.title}",
-        new_values={'id': new_story.id, 'title': new_story.title, 'content_length': len(final_content)},
+        new_values={'id': new_story.id, 'title': new_story.title},
         church_id=current_user.church_id
     )
     
     # ========================================
-    # GERAR IMAGEM PARA O QUEBRA-CABEÇA (opcional)
+    # GERAR IMAGEM PARA O QUEBRA-CABEÇA
     # ========================================
     if generate_puzzle_image:
-        flash('Gerando imagem para o quebra-cabeça... Isso pode levar alguns segundos.', 'info')
-        
+        flash('Gerando imagem para o quebra-cabeça...', 'info')
         try:
-            # Criar prompt otimizado baseado no título e conteúdo
             prompt = f"Biblical children's story illustration: {new_story.title}. {new_story.content[:300]}"
             prompt = prompt.replace('\n', ' ').strip()
             
-            # Gerar imagem via Pollinations
             imagem_bytes = gerar_imagem_pollinations(prompt)
             
             if imagem_bytes:
-                # Salvar a imagem gerada
                 puzzle_filename = f"puzzle_{new_story.id}_{datetime.now().strftime('%Y%m%d')}.jpg"
                 puzzle_folder = os.path.join(current_app.config['UPLOAD_FOLDER'], 'media', 'puzzles')
                 os.makedirs(puzzle_folder, exist_ok=True)
@@ -1814,54 +1854,44 @@ def add_bible_story():
                 with open(puzzle_path, 'wb') as f:
                     f.write(imagem_bytes)
                 
-                # Salvar o caminho no campo puzzle_image
                 new_story.puzzle_image = f'uploads/media/puzzles/{puzzle_filename}'
                 db.session.commit()
-                
                 flash('✨ Imagem para o quebra-cabeça gerada com sucesso!', 'success')
             else:
-                flash('Não foi possível gerar a imagem para o quebra-cabeça. Use uma imagem padrão.', 'warning')
-                
+                flash('Não foi possível gerar a imagem para o quebra-cabeça.', 'warning')
         except Exception as e:
             flash(f'Erro ao gerar imagem: {str(e)}', 'warning')
     
     # ========================================
-    # GERAR QUESTÕES COM IA (opcional)
+    # GERAR QUESTÕES COM IA
     # ========================================
     if request.form.get('generate_ai_questions'):
         try:
-            if final_content and len(final_content.strip()) >= 100:
-                # 🔥 Dividir o texto em partes se for muito grande
-                partes_texto = dividir_texto_para_ia(final_content, tamanho_maximo=6000)
+            if len(content.strip()) >= 100:
+                partes_texto = dividir_texto_para_ia(content, tamanho_maximo=6000)
                 
                 if len(partes_texto) > 1:
-                    flash(f'Conteúdo muito extenso ({len(final_content)} caracteres). A IA processará em {len(partes_texto)} partes.', 'info')
+                    flash(f'Conteúdo extenso ({len(content)} caracteres). Processando em {len(partes_texto)} partes.', 'info')
                 
                 todas_questoes = []
-                todos_jogos = []
+                dados_jogo = None
                 
                 for idx, parte in enumerate(partes_texto):
                     if len(parte.strip()) < 100:
                         continue
-                        
-                    if len(partes_texto) > 1:
-                        flash(f'Processando parte {idx+1} de {len(partes_texto)}...', 'info')
                     
-                    # Gerar questões para esta parte
                     ai_data = generate_questions(parte, type='kids', count=7)
                     
                     if "error" in ai_data:
-                        flash(f'Erro na IA na parte {idx+1}: {ai_data["error"]}', 'danger')
+                        flash(f'Erro na IA (parte {idx+1}): {ai_data["error"]}', 'danger')
                         continue
                     elif "questions" in ai_data and ai_data["questions"]:
                         todas_questoes.extend(ai_data["questions"])
-                        
-                        if "game_words" in ai_data and not todos_jogos:
-                            todos_jogos = ai_data["game_words"]
+                        if not dados_jogo and "game_words" in ai_data:
+                            dados_jogo = ai_data["game_words"]
                 
-                # Salvar todas as questões geradas
                 if todas_questoes:
-                    for q_data in todas_questoes[:21]:  # Limitar a 21 questões no máximo
+                    for q_data in todas_questoes[:21]:
                         new_q = BibleQuiz(
                             story_id=new_story.id,
                             question=q_data["question"],
@@ -1875,18 +1905,16 @@ def add_bible_story():
                         )
                         db.session.add(new_q)
                     
-                    if todos_jogos:
-                        new_story.game_data = json.dumps(todos_jogos)
+                    if dados_jogo:
+                        new_story.game_data = json.dumps(dados_jogo)
                     
                     db.session.commit()
-                    
                     flash(f'{len(todas_questoes)} questões geradas pela IA!', 'success')
                     return redirect(url_for('edification.review_kids_questions', story_id=new_story.id))
                 else:
-                    flash('IA não retornou questões válidas para nenhuma parte do texto.', 'warning')
+                    flash('IA não retornou questões válidas.', 'warning')
             else:
                 flash('Conteúdo insuficiente (mínimo 100 caracteres) para gerar questões.', 'warning')
-                
         except Exception as e:
             flash(f'Erro ao gerar questões: {str(e)}', 'warning')
     
