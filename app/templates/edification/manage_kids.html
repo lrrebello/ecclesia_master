@@ -38,36 +38,47 @@
                                     <th class="text-end pe-4">Ações</th>
                                 </tr>
                             </thead>
-                            <tbody>
-                                {% for story in stories %}
-                                <tr>
-                                    <td class="ps-4">{{ story.order }}</td>
-                                    <td><span class="fw-bold">{{ story.title }}</span></td>
-                                    <td>{{ story.reference or '-' }}</td>
-                                    <td>
-                                        <span class="badge bg-info bg-opacity-10 text-info">{{ story.quizzes|length }}</span>
-                                        {% set pending = story.quizzes|selectattr('is_published', 'equalto', false)|list|length %}
-                                        {% if pending > 0 %}
-                                        <a href="{{ url_for('edification.review_kids_questions', story_id=story.id) }}" class="badge bg-warning text-dark text-decoration-none ms-1">
-                                            {{ pending }} pendentes
-                                        </a>
-                                        {% endif %}
-                                    </td>
-                                    <td class="text-end pe-4">
-                                        <button class="btn btn-sm btn-light text-primary me-1" title="Adicionar Quiz" onclick="setStoryId('{{ story.id }}', '{{ story.title }}')" data-bs-toggle="modal" data-bs-target="#addQuizModal">
-                                            <i class="bi bi-patch-question"></i>
-                                        </button>
-                                        <a href="{{ url_for('edification.delete_bible_story', id=story.id) }}" class="btn btn-sm btn-light text-danger" onclick="return confirm('Excluir esta história e todos os seus quizzes?')">
-                                            <i class="bi bi-trash"></i>
-                                        </a>
-                                    </td>
-                                </tr>
-                                {% else %}
-                                <tr>
-                                    <td colspan="5" class="text-center py-4 text-muted">Nenhuma história cadastrada.</td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
+                                <tbody>
+                                    {% for story in stories %}
+                                    <tr>
+                                        <td class="ps-4">{{ story.order }}</td>
+                                        <td><span class="fw-bold">{{ story.title }}</span></td>
+                                        <td>{{ story.reference or '-' }}</td>
+                                        <td>
+                                            <span class="badge bg-info bg-opacity-10 text-info">{{ story.quizzes|length }}</span>
+                                            {% set pending = story.quizzes|selectattr('is_published', 'equalto', false)|list|length %}
+                                            {% if pending > 0 %}
+                                            <a href="{{ url_for('edification.review_kids_questions', story_id=story.id) }}" class="badge bg-warning text-dark text-decoration-none ms-1">
+                                                {{ pending }} pendentes
+                                            </a>
+                                            {% endif %}
+                                        </td>
+                                        <td class="text-end pe-4">
+                                            <!-- Botão Editar -->
+                                            <a href="{{ url_for('edification.edit_bible_story', story_id=story.id) }}" 
+                                            class="btn btn-sm btn-light text-info me-1" title="Editar História">
+                                                <i class="bi bi-pencil-square"></i>
+                                            </a>
+                                            <!-- Botão Adicionar Quiz -->
+                                            <button class="btn btn-sm btn-light text-primary me-1" title="Adicionar Quiz" 
+                                                    onclick="setStoryId('{{ story.id }}', '{{ story.title }}')" 
+                                                    data-bs-toggle="modal" data-bs-target="#addQuizModal">
+                                                <i class="bi bi-patch-question"></i>
+                                            </button>
+                                            <!-- Botão Excluir -->
+                                            <a href="{{ url_for('edification.delete_bible_story', id=story.id) }}" 
+                                            class="btn btn-sm btn-light text-danger" 
+                                            onclick="return confirm('Excluir esta história e todos os seus quizzes?')">
+                                                <i class="bi bi-trash"></i>
+                                            </a>
+                                        </td>
+                                    </tr>
+                                    {% else %}
+                                    <tr>
+                                        <td colspan="5" class="text-center py-4 text-muted">Nenhuma história cadastrada.</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
                         </table>
                     </div>
                 </div>

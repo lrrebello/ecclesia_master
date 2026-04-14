@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card border-0 shadow-sm rounded-4">
+                <div class="card-body p-4 p-md-5 text-center">
+                    <i class="bi bi-arrow-repeat display-1 text-warning mb-3 d-block"></i>
+                    <h3 class="fw-bold mb-3">Regenerar Questões</h3>
+                    <p class="text-muted mb-4">
+                        Você está prestes a <strong>regenerar as questões</strong> da história 
+                        <strong class="text-warning">{{ story.title }}</strong>.
+                    </p>
+                    <p class="text-muted mb-4">
+                        ⚠️ <strong>Atenção:</strong> Todas as questões existentes serão <strong>substituídas</strong>
+                        por novas questões geradas pela IA.
+                    </p>
+                    
+                    <form method="POST">
+                        <div class="d-flex gap-3 justify-content-center">
+                            <a href="{{ url_for('edification.edit_bible_story', story_id=story.id) }}" 
+                               class="btn btn-outline-secondary rounded-pill px-4">
+                                Cancelar
+                            </a>
+                            <button type="submit" class="btn btn-warning fw-bold rounded-pill px-4">
+                                <i class="bi bi-check-lg me-2"></i>Confirmar Regeneração
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

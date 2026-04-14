@@ -22,6 +22,40 @@ import requests
 import tempfile
 from urllib.parse import urlparse
 
+def dividir_texto_para_ia(texto, tamanho_maximo=6000):
+    """
+    Divide um texto grande em partes menores para processamento pela IA
+    Retorna uma lista de partes
+    """
+    if not texto:
+        return []
+    
+    # Se o texto for menor que o limite, retorna como uma única parte
+    if len(texto) <= tamanho_maximo:
+        return [texto]
+    
+    # Divide por parágrafos
+    paragrafos = texto.split('\n\n')
+    partes = []
+    parte_atual = ""
+    
+    for paragrafo in paragrafos:
+        # Se adicionar este parágrafo ultrapassar o limite
+        if len(parte_atual) + len(paragrafo) + 2 > tamanho_maximo:
+            if parte_atual:
+                partes.append(parte_atual.strip())
+            parte_atual = paragrafo
+        else:
+            if parte_atual:
+                parte_atual += "\n\n" + paragrafo
+            else:
+                parte_atual = paragrafo
+    
+    # Adiciona a última parte
+    if parte_atual:
+        partes.append(parte_atual.strip())
+    
+    return partes
 
 def gerar_imagem_pollinations(prompt_descricao, width=1024, height=1024):
     """
@@ -1797,37 +1831,62 @@ def add_bible_story():
     if request.form.get('generate_ai_questions'):
         try:
             if final_content and len(final_content.strip()) >= 100:
-                ai_data = generate_questions(final_content, type='kids', count=7)
+                # 🔥 Dividir o texto em partes se for muito grande
+                partes_texto = dividir_texto_para_ia(final_content, tamanho_maximo=6000)
+                
+                if len(partes_texto) > 1:
+                    flash(f'Conteúdo muito extenso ({len(final_content)} caracteres). A IA processará em {len(partes_texto)} partes.', 'info')
+                
+                todas_questoes = []
+                todos_jogos = []
+                
+                for idx, parte in enumerate(partes_texto):
+                    if len(parte.strip()) < 100:
+                        continue
+                        
+                    if len(partes_texto) > 1:
+                        flash(f'Processando parte {idx+1} de {len(partes_texto)}...', 'info')
+                    
+                    # Gerar questões para esta parte
+                    ai_data = generate_questions(parte, type='kids', count=7)
+                    
+                    if "error" in ai_data:
+                        flash(f'Erro na IA na parte {idx+1}: {ai_data["error"]}', 'danger')
+                        continue
+                    elif "questions" in ai_data and ai_data["questions"]:
+                        todas_questoes.extend(ai_data["questions"])
+                        
+                        if "game_words" in ai_data and not todos_jogos:
+                            todos_jogos = ai_data["game_words"]
+                
+                # Salvar todas as questões geradas
+                if todas_questoes:
+                    for q_data in todas_questoes[:21]:  # Limitar a 21 questões no máximo
+                        new_q = BibleQuiz(
+                            story_id=new_story.id,
+                            question=q_data["question"],
+                            option_a=q_data["options"].get("A"),
+                            option_b=q_data["options"].get("B"),
+                            option_c=q_data["options"].get("C"),
+                            option_d=q_data["options"].get("D"),
+                            correct_option=q_data["correct_option"],
+                            explanation=q_data.get("explanation"),
+                            is_published=False
+                        )
+                        db.session.add(new_q)
+                    
+                    if todos_jogos:
+                        new_story.game_data = json.dumps(todos_jogos)
+                    
+                    db.session.commit()
+                    
+                    flash(f'{len(todas_questoes)} questões geradas pela IA!', 'success')
+                    return redirect(url_for('edification.review_kids_questions', story_id=new_story.id))
+                else:
+                    flash('IA não retornou questões válidas para nenhuma parte do texto.', 'warning')
             else:
                 flash('Conteúdo insuficiente (mínimo 100 caracteres) para gerar questões.', 'warning')
-                ai_data = {}
-            
-            if "error" in ai_data:
-                flash(f'Erro na IA: {ai_data["error"]}', 'danger')
-            elif "questions" in ai_data and ai_data["questions"]:
-                for q_data in ai_data["questions"]:
-                    new_q = BibleQuiz(
-                        story_id=new_story.id,
-                        question=q_data["question"],
-                        option_a=q_data["options"].get("A"),
-                        option_b=q_data["options"].get("B"),
-                        option_c=q_data["options"].get("C"),
-                        option_d=q_data["options"].get("D"),
-                        correct_option=q_data["correct_option"],
-                        explanation=q_data.get("explanation"),
-                        is_published=False
-                    )
-                    db.session.add(new_q)
                 
-                if "game_words" in ai_data:
-                    new_story.game_data = json.dumps(ai_data["game_words"])
-                
-                db.session.commit()
-                
-                flash(f'{len(ai_data["questions"])} questões geradas pela IA!', 'success')
-                return redirect(url_for('edification.review_kids_questions', story_id=new_story.id))
-            else:
-                flash('IA não retornou questões válidas.', 'warning')
         except Exception as e:
             flash(f'Erro ao gerar questões: {str(e)}', 'warning')
     
@@ -1842,6 +1901,124 @@ def add_bible_story():
     
     flash('História adicionada com sucesso!', 'success')
     return redirect(url_for('edification.manage_kids'))
+
+@edification_bp.route('/kids/story/edit/<int:story_id>', methods=['GET', 'POST'])
+@login_required
+def edit_bible_story(story_id):
+    if not can_manage_kids():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('edification.kids'))
+    
+    story = BibleStory.query.get_or_404(story_id)
+    
+    if request.method == 'POST':
+        # Atualizar dados básicos
+        story.title = request.form.get('title')
+        story.reference = request.form.get('reference')
+        story.order = request.form.get('order', 0)
+        
+        # Conteúdo - pode vir do textarea ou de arquivo
+        content = request.form.get('content')
+        file = request.files.get('story_file')
+        
+        if file and file.filename != '':
+            filename = secure_filename(file.filename)
+            file_path = os.path.join(current_app.config['UPLOAD_FOLDER'], filename)
+            file.save(file_path)
+            try:
+                extracted_text = extract_text(file_path)
+                if extracted_text and extracted_text.strip():
+                    story.content = extracted_text
+                    flash('Texto extraído do arquivo com sucesso!', 'success')
+                else:
+                    flash('O arquivo não continha texto extraível.', 'warning')
+            except Exception as e:
+                flash(f'Erro ao extrair texto: {str(e)}', 'warning')
+            finally:
+                if os.path.exists(file_path):
+                    os.unlink(file_path)
+        elif content and content.strip():
+            story.content = content.strip()
+        
+        # Atualizar imagem
+        image_url = request.form.get('image_path')
+        if image_url:
+            story.image_path = image_url
+        
+        db.session.commit()
+        
+        log_action(
+            action='UPDATE',
+            module='KIDS_STORY',
+            description=f"História infantil editada: {story.title}",
+            old_values={'id': story.id},
+            new_values={'title': story.title},
+            church_id=current_user.church_id
+        )
+        
+        flash('História atualizada com sucesso!', 'success')
+        
+        # Ações pós-salvar
+        if request.form.get('regenerate_questions') == 'on':
+            return redirect(url_for('edification.regenerate_kids_questions', story_id=story.id))
+        
+        return redirect(url_for('edification.manage_kids'))
+    
+    return render_template('edification/edit_bible_story.html', story=story)
+
+@edification_bp.route('/kids/story/<int:story_id>/regenerate-questions', methods=['GET', 'POST'])
+@login_required
+def regenerate_kids_questions(story_id):
+    if not can_manage_kids():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('edification.kids'))
+    
+    story = BibleStory.query.get_or_404(story_id)
+    
+    if request.method == 'POST':
+        # Deletar questões existentes
+        BibleQuiz.query.filter_by(story_id=story_id).delete()
+        
+        # Gerar novas questões
+        try:
+            texto_para_ia = story.content
+            if len(texto_para_ia) > 6000:
+                texto_para_ia = texto_para_ia[:6000]
+                flash(f'Conteúdo extenso. Processando os primeiros 6000 caracteres.', 'info')
+            
+            ai_data = generate_questions(texto_para_ia, type='kids', count=7)
+            
+            if "error" in ai_data:
+                flash(f'Erro na IA: {ai_data["error"]}', 'danger')
+            elif "questions" in ai_data and ai_data["questions"]:
+                for q_data in ai_data["questions"]:
+                    new_q = BibleQuiz(
+                        story_id=story_id,
+                        question=q_data["question"],
+                        option_a=q_data["options"].get("A"),
+                        option_b=q_data["options"].get("B"),
+                        option_c=q_data["options"].get("C"),
+                        option_d=q_data["options"].get("D"),
+                        correct_option=q_data["correct_option"],
+                        explanation=q_data.get("explanation"),
+                        is_published=False
+                    )
+                    db.session.add(new_q)
+                
+                if "game_words" in ai_data:
+                    story.game_data = json.dumps(ai_data["game_words"])
+                
+                db.session.commit()
+                flash(f'{len(ai_data["questions"])} novas questões geradas!', 'success')
+            else:
+                flash('IA não retornou questões válidas.', 'warning')
+                
+        except Exception as e:
+            flash(f'Erro ao regenerar questões: {str(e)}', 'warning')
+        
+        return redirect(url_for('edification.review_kids_questions', story_id=story_id))
+    
+    return render_template('edification/regenerate_kids_questions.html', story=story)
 
 @edification_bp.route('/kids/story/<int:story_id>/generate-puzzle-image', methods=['POST'])
 @login_required
