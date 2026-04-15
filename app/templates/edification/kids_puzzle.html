@@ -10,11 +10,6 @@
                 </h1>
                 <div class="d-flex gap-2 flex-wrap justify-content-center">
                     {% if story %}
-                    <button id="generate-image-btn" class="btn btn-success rounded-pill btn-sm btn-md-normal" 
-                            data-story-id="{{ story.id }}" 
-                            style="background: linear-gradient(135deg, #10b981, #059669); border: none;">
-                        <i class="bi bi-magic me-1 me-md-2"></i><span class="d-none d-sm-inline">Gerar Imagem com IA</span><span class="d-inline d-sm-none">Gerar</span>
-                    </button>
                     <a href="{{ url_for('edification.view_bible_story', id=story.id) }}" class="btn btn-outline-secondary rounded-pill btn-sm btn-md-normal">
                         <i class="bi bi-book me-1 me-md-2"></i><span class="d-none d-sm-inline">Ler História</span><span class="d-inline d-sm-none">Ler</span>
                     </a>
@@ -43,7 +38,7 @@
                         {% if story.puzzle_image %}
                         🧩 <span class="text-success">Ilustração exclusiva!</span>
                         {% else %}
-                        ⚠️ <span class="text-warning">Clique em "Gerar Imagem" para criar uma ilustração!</span>
+                        ⚠️ <span class="text-warning">Nenhuma imagem gerada. Use a edição da história para criar.</span>
                         {% endif %}
                     </p>
                     {% else %}
@@ -53,10 +48,10 @@
                     
                     <div class="row">
                         <div class="col-12">
-                            <!-- Canvas responsivo - NÃO fixo em 600px -->
+                            <!-- Canvas responsivo - com aspect-ratio para não cortar -->
                             <div class="d-flex justify-content-center">
-                                <canvas id="puzzle-canvas" class="img-fluid rounded-4 shadow-sm border" 
-                                        style="width: 100%; max-width: min(90vw, 90vh, 500px); height: auto; cursor: pointer; touch-action: manipulation;"></canvas>
+                                <canvas id="puzzle-canvas" class="rounded-4 shadow-sm border" 
+                                        style="width: 100%; max-width: min(90vw, 90vh, 500px); height: auto; cursor: pointer; touch-action: manipulation; aspect-ratio: 1 / 1; background-color: #f5f5f5;"></canvas>
                             </div>
                             
                             <!-- Controles - responsivos -->
@@ -105,7 +100,7 @@ class PuzzleGame {
         this.tileSize = 0;
         this.pieces = [];
         this.solution = [];
-        this.canvasSize = 500; // Tamanho base menor para mobile
+        this.canvasSize = 500;
         this.selectedIndex = undefined;
         
         // Ajustar tamanho base para mobile
@@ -116,8 +111,11 @@ class PuzzleGame {
     }
     
     async init() {
+        // 🔥 Garantir que o canvas seja quadrado
         this.canvas.width = this.canvasSize;
         this.canvas.height = this.canvasSize;
+        this.canvas.style.width = `${this.canvasSize}px`;
+        this.canvas.style.height = `${this.canvasSize}px`;
         
         await this.loadImage();
         this.setupEventListeners();
@@ -130,6 +128,7 @@ class PuzzleGame {
             this.img = new Image();
             this.img.crossOrigin = "Anonymous";
             this.img.onload = () => {
+                // 🔥 Calcular o tamanho do tile baseado no canvas quadrado
                 this.tileSize = this.canvasSize / this.gridSize;
                 this.createPieces();
                 resolve();
@@ -195,10 +194,16 @@ class PuzzleGame {
         for (const piece of this.pieces) {
             const x = piece.col * this.tileSize;
             const y = piece.row * this.tileSize;
-            const sx = piece.correctCol * this.tileSize;
-            const sy = piece.correctRow * this.tileSize;
             
-            this.ctx.drawImage(this.img, sx, sy, this.tileSize, this.tileSize, x, y, this.tileSize, this.tileSize);
+            // 🔥 Desenhar a peça redimensionada para caber exatamente no tile
+            const imgWidth = this.img.width;
+            const imgHeight = this.img.height;
+            const tileWidthImg = (this.tileSize / this.canvasSize) * imgWidth;
+            const tileHeightImg = (this.tileSize / this.canvasSize) * imgHeight;
+            const sx = piece.correctCol * tileWidthImg;
+            const sy = piece.correctRow * tileHeightImg;
+
+            this.ctx.drawImage(this.img, sx, sy, tileWidthImg, tileHeightImg, x, y, this.tileSize, this.tileSize);
             this.ctx.strokeStyle = '#ddd';
             this.ctx.lineWidth = 1.5;
             this.ctx.strokeRect(x, y, this.tileSize, this.tileSize);
@@ -247,7 +252,6 @@ class PuzzleGame {
     }
     
     handleCanvasClick(e) {
-        // Suporte para toque e clique
         let clientX, clientY;
         if (e.touches) {
             clientX = e.touches[0].clientX;
@@ -326,7 +330,6 @@ class PuzzleGame {
     }
     
     setupEventListeners() {
-        // Suporte para clique e toque
         this.canvas.addEventListener('click', (e) => this.handleCanvasClick(e));
         this.canvas.addEventListener('touchstart', (e) => this.handleCanvasClick(e), { passive: false });
         
@@ -355,52 +358,6 @@ if (canvas) canvas.style.display = 'none';
 if (alertBox) alertBox.innerHTML = '⚠️ Selecione uma história no menu para começar!';
 {% endif %}
 
-// Botão de gerar imagem
-const generateBtn = document.getElementById('generate-image-btn');
-if (generateBtn) {
-    generateBtn.addEventListener('click', async function() {
-        const storyId = this.dataset.storyId;
-        const loadingIndicator = document.getElementById('loading-indicator');
-        const puzzleCard = document.getElementById('puzzle-card');
-        const imageStatus = document.getElementById('image-status');
-        
-        loadingIndicator.classList.remove('d-none');
-        puzzleCard.classList.add('opacity-50');
-        
-        try {
-            const response = await fetch(`/edification/kids/story/${storyId}/generate-puzzle-image`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' }
-            });
-            
-            const data = await response.json();
-            
-            if (data.success) {
-                const newImageUrl = data.image_url + '?t=' + new Date().getTime();
-                game.updateImage(newImageUrl);
-                
-                if (imageStatus) {
-                    imageStatus.innerHTML = '✨ <span class="text-success">Ilustração gerada com IA!</span>';
-                }
-                
-                const msgDiv = document.getElementById('message');
-                msgDiv.innerHTML = '<div class="alert alert-success small">🎨 Imagem gerada! Agora monte o quebra-cabeça.</div>';
-                setTimeout(() => {
-                    msgDiv.innerHTML = '';
-                }, 3000);
-            } else {
-                alert('Erro: ' + data.message);
-            }
-        } catch (error) {
-            console.error('Erro:', error);
-            alert('Erro ao gerar imagem. Tente novamente.');
-        } finally {
-            loadingIndicator.classList.add('d-none');
-            puzzleCard.classList.remove('opacity-50');
-        }
-    });
-}
-
 // Redimensionar canvas ao rotacionar o celular
 window.addEventListener('resize', () => {
     if (game) {
@@ -410,6 +367,8 @@ window.addEventListener('resize', () => {
             game.canvasSize = newSize;
             game.canvas.width = newSize;
             game.canvas.height = newSize;
+            game.canvas.style.width = `${newSize}px`;
+            game.canvas.style.height = `${newSize}px`;
             game.tileSize = newSize / game.gridSize;
             game.createPieces();
             game.draw();

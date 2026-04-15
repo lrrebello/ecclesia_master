@@ -21,10 +21,51 @@ from io import BytesIO
 import requests
 import tempfile
 from urllib.parse import urlparse
+import fitz 
 
-import traceback
-import sys
-
+def extrair_melhor_imagem_do_pdf(caminho_pdf, largura_minima=200, altura_minima=200):
+    """
+    Extrai a melhor imagem de um PDF (prioriza a maior em resolução)
+    Retorna os bytes da imagem e sua extensão, ou (None, None)
+    """
+    try:
+        doc = fitz.open(caminho_pdf)
+        melhor_imagem = None
+        melhor_area = 0
+        melhor_ext = "jpg"
+        
+        for pagina_num in range(len(doc)):
+            pagina = doc.load_page(pagina_num)
+            imagens = pagina.get_images(full=True)
+            
+            for img in imagens:
+                xref = img[0]
+                base_img = doc.extract_image(xref)
+                imagem_bytes = base_img["image"]
+                ext = base_img["ext"]  # jpg, png, etc.
+                
+                # Verificar tamanho da imagem (extraindo do bytes é mais complicado)
+                # Então usamos a área em pixels que o PyMuPDF fornece
+                largura = base_img.get("width", 0)
+                altura = base_img.get("height", 0)
+                area = largura * altura
+                
+                # Filtrar imagens muito pequenas (ícones, bordas)
+                if largura >= largura_minima and altura >= altura_minima:
+                    if area > melhor_area:
+                        melhor_area = area
+                        melhor_imagem = imagem_bytes
+                        melhor_ext = ext
+        
+        doc.close()
+        
+        if melhor_imagem:
+            return melhor_imagem, melhor_ext
+        return None, None
+        
+    except Exception as e:
+        print(f"Erro ao extrair imagem do PDF: {e}")
+        return None, None
     
 def validar_e_comprimir_pdf(caminho_arquivo, tamanho_maximo_mb=10):
     """
@@ -1770,6 +1811,31 @@ def add_bible_story():
         final_image_path = f'uploads/media/{unique_filename}'
         
         flash(f'PDF salvo permanentemente para leitura!', 'success')
+        
+        # ========================================
+        # 🔥 NOVO: EXTRAIR IMAGEM DO PDF PARA O QUEBRA-CABEÇA
+        # ========================================
+        if generate_puzzle_image and file_ext == '.pdf':
+            flash('Procurando ilustrações no PDF...', 'info')
+            
+            imagem_bytes, imagem_ext = extrair_melhor_imagem_do_pdf(final_path)
+            
+            if imagem_bytes:
+                # Salvar a imagem extraída do PDF
+                puzzle_filename = f"puzzle_{timestamp}_{title[:20]}_extraida.{imagem_ext}"
+                puzzle_folder = os.path.join(current_app.config['UPLOAD_FOLDER'], 'media', 'puzzles')
+                os.makedirs(puzzle_folder, exist_ok=True)
+                puzzle_path = os.path.join(puzzle_folder, puzzle_filename)
+                
+                with open(puzzle_path, 'wb') as f:
+                    f.write(imagem_bytes)
+                
+                # Guardamos o caminho temporariamente (story ainda não tem ID)
+                imagem_extraida_path = f'uploads/media/puzzles/{puzzle_filename}'
+                flash('✨ Ilustração encontrada no PDF! Será usada no quebra-cabeça.', 'success')
+            else:
+                imagem_extraida_path = None
+                flash('Nenhuma ilustração encontrada no PDF. Será gerada por IA se necessário.', 'warning')
     
     # ========================================
     # PROCESSAR URL (imagem ou PDF externo)
@@ -1790,6 +1856,25 @@ def add_bible_story():
                         flash('Texto extraído do PDF da URL com sucesso!', 'success')
                     else:
                         flash('O PDF não continha texto extraível.', 'warning')
+                    
+                    # 🔥 Tentar extrair imagem do PDF baixado
+                    if generate_puzzle_image:
+                        imagem_bytes, imagem_ext = extrair_melhor_imagem_do_pdf(temp_pdf)
+                        if imagem_bytes:
+                            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+                            puzzle_filename = f"puzzle_{timestamp}_{title[:20]}_extraida.{imagem_ext}"
+                            puzzle_folder = os.path.join(current_app.config['UPLOAD_FOLDER'], 'media', 'puzzles')
+                            os.makedirs(puzzle_folder, exist_ok=True)
+                            puzzle_path = os.path.join(puzzle_folder, puzzle_filename)
+                            
+                            with open(puzzle_path, 'wb') as f:
+                                f.write(imagem_bytes)
+                            
+                            imagem_extraida_path = f'uploads/media/puzzles/{puzzle_filename}'
+                            flash('✨ Ilustração encontrada no PDF da URL!', 'success')
+                        else:
+                            imagem_extraida_path = None
+                            
                 except Exception as e:
                     flash(f'Erro ao extrair texto do PDF: {str(e)}', 'warning')
                 finally:
@@ -1800,6 +1885,9 @@ def add_bible_story():
                         pass
             else:
                 flash('Não foi possível baixar o PDF da URL.', 'danger')
+                imagem_extraida_path = None
+        else:
+            imagem_extraida_path = None
     
     # ========================================
     # VALIDAR CONTEÚDO
@@ -1835,10 +1923,18 @@ def add_bible_story():
     )
     
     # ========================================
-    # GERAR IMAGEM PARA O QUEBRA-CABEÇA
+    # SALVAR IMAGEM EXTRAÍDA (se houver)
     # ========================================
-    if generate_puzzle_image:
-        flash('Gerando imagem para o quebra-cabeça...', 'info')
+    if generate_puzzle_image and 'imagem_extraida_path' in locals() and imagem_extraida_path:
+        new_story.puzzle_image = imagem_extraida_path
+        db.session.commit()
+        flash('🧩 Imagem do PDF salva para o quebra-cabeça!', 'success')
+    
+    # ========================================
+    # GERAR IMAGEM PARA O QUEBRA-CABEÇA (FALLBACK - IA)
+    # ========================================
+    elif generate_puzzle_image and (not hasattr(new_story, 'puzzle_image') or not new_story.puzzle_image):
+        flash('Gerando imagem para o quebra-cabeça com IA...', 'info')
         try:
             prompt = f"Biblical children's story illustration: {new_story.title}. {new_story.content[:300]}"
             prompt = prompt.replace('\n', ' ').strip()
@@ -1846,7 +1942,7 @@ def add_bible_story():
             imagem_bytes = gerar_imagem_pollinations(prompt)
             
             if imagem_bytes:
-                puzzle_filename = f"puzzle_{new_story.id}_{datetime.now().strftime('%Y%m%d')}.jpg"
+                puzzle_filename = f"puzzle_{new_story.id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.jpg"
                 puzzle_folder = os.path.join(current_app.config['UPLOAD_FOLDER'], 'media', 'puzzles')
                 os.makedirs(puzzle_folder, exist_ok=True)
                 puzzle_path = os.path.join(puzzle_folder, puzzle_filename)
@@ -1856,7 +1952,7 @@ def add_bible_story():
                 
                 new_story.puzzle_image = f'uploads/media/puzzles/{puzzle_filename}'
                 db.session.commit()
-                flash('✨ Imagem para o quebra-cabeça gerada com sucesso!', 'success')
+                flash('✨ Imagem para o quebra-cabeça gerada com IA!', 'success')
             else:
                 flash('Não foi possível gerar a imagem para o quebra-cabeça.', 'warning')
         except Exception as e:
@@ -1930,6 +2026,8 @@ def add_bible_story():
     flash('História adicionada com sucesso!', 'success')
     return redirect(url_for('edification.manage_kids'))
 
+
+
 @edification_bp.route('/kids/story/edit/<int:story_id>', methods=['GET', 'POST'])
 @login_required
 def edit_bible_story(story_id):
@@ -1968,10 +2066,11 @@ def edit_bible_story(story_id):
         elif content and content.strip():
             story.content = content.strip()
         
-        # Atualizar imagem
+        # 🔥 CORREÇÃO: Atualizar imagem SOMENTE se foi fornecida
         image_url = request.form.get('image_path')
-        if image_url:
-            story.image_path = image_url
+        if image_url and image_url.strip():
+            story.image_path = image_url.strip()
+        # Se não forneceu URL, mantém a existente (não faz nada)
         
         db.session.commit()
         
@@ -2086,6 +2185,106 @@ def generate_puzzle_image(story_id):
             
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)}), 500
+    
+@edification_bp.route('/kids/story/<int:story_id>/regenerate-puzzle-image')
+@edification_bp.route('/kids/story/<int:story_id>/regenerate-puzzle-image/<source>')
+@login_required
+def regenerate_puzzle_image(story_id, source=None):
+    """Regenera a imagem do quebra-cabeça
+    source: 'pdf' (extrai do PDF) ou 'ai' (gera com IA)
+    """
+    if not can_manage_kids():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('edification.kids'))
+    
+    story = BibleStory.query.get_or_404(story_id)
+    
+    # Se não especificou source, tenta PDF primeiro, depois IA (fallback)
+    if source is None:
+        # Tenta extrair do PDF primeiro
+        if story.image_path and story.image_path.lower().endswith('.pdf'):
+            source = 'pdf'
+        else:
+            source = 'ai'
+    
+    try:
+        imagem_bytes = None
+        imagem_ext = 'jpg'
+        
+        # ========================================
+        # OPÇÃO 1: EXTRAIR DO PDF
+        # ========================================
+        if source == 'pdf':
+            if not story.image_path or not story.image_path.lower().endswith('.pdf'):
+                flash('❌ Esta história não tem um PDF associado para extrair imagens.', 'warning')
+                return redirect(url_for('edification.edit_bible_story', story_id=story.id))
+            
+            flash('📄 Procurando ilustrações no PDF...', 'info')
+            
+            if story.image_path.startswith('http'):
+                temp_pdf = download_pdf_from_url(story.image_path)
+                if temp_pdf:
+                    imagem_bytes, imagem_ext = extrair_melhor_imagem_do_pdf(temp_pdf)
+                    if temp_pdf and os.path.exists(temp_pdf):
+                        os.unlink(temp_pdf)
+            else:
+                pdf_path = os.path.join(current_app.config['UPLOAD_FOLDER'], 
+                                       story.image_path.replace('uploads/', ''))
+                if os.path.exists(pdf_path):
+                    imagem_bytes, imagem_ext = extrair_melhor_imagem_do_pdf(pdf_path)
+            
+            if imagem_bytes:
+                flash('✨ Ilustração encontrada no PDF!', 'success')
+            else:
+                flash('⚠️ Nenhuma imagem encontrada no PDF. Tente a opção com IA.', 'warning')
+        
+        # ========================================
+        # OPÇÃO 2: GERAR COM IA
+        # ========================================
+        elif source == 'ai':
+            flash('🎨 Gerando ilustração com IA... Isso pode levar alguns segundos.', 'info')
+            
+            prompt = f"Biblical children's story illustration: {story.title}. {story.content[:300]}"
+            prompt = prompt.replace('\n', ' ').strip()
+            
+            imagem_bytes = gerar_imagem_pollinations(prompt)
+            if imagem_bytes:
+                imagem_ext = 'jpg'
+                flash('✨ Imagem gerada com IA!', 'success')
+        
+        # ========================================
+        # SALVAR IMAGEM
+        # ========================================
+        if imagem_bytes:
+            puzzle_filename = f"puzzle_{story.id}_{source}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.{imagem_ext}"
+            puzzle_folder = os.path.join(current_app.config['UPLOAD_FOLDER'], 'media', 'puzzles')
+            os.makedirs(puzzle_folder, exist_ok=True)
+            puzzle_path = os.path.join(puzzle_folder, puzzle_filename)
+            
+            with open(puzzle_path, 'wb') as f:
+                f.write(imagem_bytes)
+            
+            # Remover imagem antiga (opcional)
+            if story.puzzle_image:
+                old_path = os.path.join(current_app.config['UPLOAD_FOLDER'], 
+                                       story.puzzle_image.replace('uploads/', ''))
+                if os.path.exists(old_path):
+                    try:
+                        os.unlink(old_path)
+                    except:
+                        pass
+            
+            story.puzzle_image = f'uploads/media/puzzles/{puzzle_filename}'
+            db.session.commit()
+            
+            flash('✅ Imagem do quebra-cabeça atualizada com sucesso!', 'success')
+        else:
+            flash('❌ Não foi possível gerar ou extrair imagem para o quebra-cabeça.', 'warning')
+            
+    except Exception as e:
+        flash(f'❌ Erro ao regenerar imagem: {str(e)}', 'danger')
+    
+    return redirect(url_for('edification.edit_bible_story', story_id=story.id))
     
 @edification_bp.route('/kids/story/<int:story_id>/review-questions', methods=['GET', 'POST'])
 @login_required

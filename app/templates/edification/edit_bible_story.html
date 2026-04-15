@@ -32,10 +32,10 @@
                                        value="{{ story.reference or '' }}" placeholder="Ex: Gênesis 1:1">
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label fw-bold">URL da Ilustração</label>
+                                <label class="form-label fw-bold">URL da Ilustração (opcional)</label>
                                 <input type="url" name="image_path" class="form-control bg-light border-0" 
-                                       value="{{ story.image_path or '' }}" placeholder="https://...">
-                                <small class="text-muted">URL da imagem ou PDF</small>
+                                       value="{{ story.image_path or '' }}" placeholder="https://... (opcional)">
+                                <small class="text-muted">Deixe em branco para manter a imagem/PDF atual</small>
                             </div>
                             <div class="col-12">
                                 <label class="form-label fw-bold">Upload de Arquivo (PDF, DOCX, TXT)</label>
@@ -50,6 +50,9 @@
                                 <small class="text-muted">HTML e Markdown são suportados</small>
                             </div>
                             
+                            <!-- ============================================ -->
+                            <!-- GERENCIAR QUESTÕES -->
+                            <!-- ============================================ -->
                             <div class="col-12">
                                 <hr>
                                 <h5 class="fw-bold mb-3"><i class="bi bi-patch-question me-2"></i>Gerenciar Questões</h5>
@@ -61,12 +64,12 @@
                                     </a>
                                     <a href="{{ url_for('edification.regenerate_kids_questions', story_id=story.id) }}" 
                                        class="btn btn-outline-warning rounded-pill">
-                                        <i class="bi bi-arrow-repeat me-2"></i>Regenerar com IA
+                                        <i class="bi bi-arrow-repeat me-2"></i>Regenerar Questões com IA
                                     </a>
                                     <div class="form-check form-switch ms-2">
                                         <input class="form-check-input" type="checkbox" name="regenerate_questions" id="regenerateSwitch">
                                         <label class="form-check-label fw-bold" for="regenerateSwitch">
-                                            Regenerar após salvar
+                                            Regenerar questões após salvar
                                         </label>
                                     </div>
                                 </div>
@@ -87,7 +90,48 @@
                                 {% else %}
                                 <div class="alert alert-warning">
                                     <i class="bi bi-exclamation-triangle me-2"></i>
-                                    Nenhuma questão cadastrada. Clique em "Regenerar com IA" para gerar automaticamente.
+                                    Nenhuma questão cadastrada. Clique em "Regenerar Questões com IA" para gerar automaticamente.
+                                </div>
+                                {% endif %}
+                            </div>
+                            
+                            <!-- ============================================ -->
+                            <!-- GERENCIAR IMAGEM DO QUEBRA-CABEÇA -->
+                            <!-- ============================================ -->
+                            <div class="col-12">
+                                <hr>
+                                <h5 class="fw-bold mb-3"><i class="bi bi-puzzle me-2"></i>Imagem do Quebra-Cabeça</h5>
+                                
+                                <div class="d-flex gap-3 flex-wrap mb-4">
+                                    <!-- Botão que abre o modal -->
+                                    <a href="#" class="btn btn-outline-success rounded-pill" data-bs-toggle="modal" data-bs-target="#modalRegenerateImage">
+                                        <i class="bi bi-image me-2"></i>Regenerar Imagem do Quebra-Cabeça
+                                    </a>
+                                </div>
+                                
+                                {% if story.puzzle_image %}
+                                <div class="alert alert-success">
+                                    <i class="bi bi-check-circle me-2"></i>
+                                    <strong>Imagem atual:</strong> {{ story.puzzle_image.split('/')|last }}
+                                    <br>
+                                    <small class="text-muted">Clique em "Regenerar" para escolher entre extrair do PDF ou gerar com IA.</small>
+                                </div>
+                                {% else %}
+                                <div class="alert alert-secondary">
+                                    <i class="bi bi-info-circle me-2"></i>
+                                    Nenhuma imagem de quebra-cabeça foi gerada ainda.
+                                    <br>
+                                    <small class="text-muted">Clique em "Regenerar Imagem do Quebra-Cabeça" para criar uma ilustração.</small>
+                                </div>
+                                {% endif %}
+                                
+                                <!-- Preview da imagem atual se existir -->
+                                {% if story.puzzle_image %}
+                                <div class="text-center mt-3">
+                                    <p class="text-muted small mb-2">Preview da imagem atual:</p>
+                                    <img src="{{ url_for('edification.get_puzzle_image', story_id=story.id) }}" 
+                                         alt="Imagem do quebra-cabeça" 
+                                         style="max-width: 200px; max-height: 150px; border-radius: 10px; border: 1px solid #ddd;">
                                 </div>
                                 {% endif %}
                             </div>
@@ -100,6 +144,50 @@
                         </div>
                     </form>
                 </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================ -->
+<!-- MODAL PARA ESCOLHER ORIGEM DA IMAGEM -->
+<!-- ============================================ -->
+<div class="modal fade" id="modalRegenerateImage" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 rounded-4">
+            <div class="modal-header border-0">
+                <h5 class="modal-title fw-bold text-success">
+                    <i class="bi bi-image me-2"></i>Regenerar Imagem
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <p class="text-muted mb-4">Escolha a origem da nova imagem para o quebra-cabeça:</p>
+                
+                <div class="d-grid gap-3">
+                    <!-- Opção 1: Extrair do PDF -->
+                    <a href="{{ url_for('edification.regenerate_puzzle_image', story_id=story.id, source='pdf') }}" 
+                       class="btn btn-outline-primary rounded-pill py-3 text-start d-flex align-items-center">
+                        <i class="bi bi-file-earmark-pdf fs-2 me-3 text-danger"></i>
+                        <div>
+                            <strong>📄 Extrair do PDF</strong><br>
+                            <small class="text-muted">Usa a primeira ilustração encontrada no PDF da história</small>
+                        </div>
+                    </a>
+                    
+                    <!-- Opção 2: Gerar com IA -->
+                    <a href="{{ url_for('edification.regenerate_puzzle_image', story_id=story.id, source='ai') }}" 
+                       class="btn btn-outline-success rounded-pill py-3 text-start d-flex align-items-center">
+                        <i class="bi bi-stars fs-2 me-3 text-warning"></i>
+                        <div>
+                            <strong>🎨 Gerar com IA</strong><br>
+                            <small class="text-muted">Cria uma ilustração original baseada no conteúdo da história</small>
+                        </div>
+                    </a>
+                </div>
+            </div>
+            <div class="modal-footer border-0">
+                <button type="button" class="btn btn-light rounded-pill" data-bs-dismiss="modal">Cancelar</button>
             </div>
         </div>
     </div>
