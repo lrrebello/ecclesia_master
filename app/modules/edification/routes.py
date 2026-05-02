@@ -2001,8 +2001,21 @@ def add_bible_story():
                         )
                         db.session.add(new_q)
                     
+                    # 🔥 CORREÇÃO: Converter game_words para o formato esperado pelos jogos
                     if dados_jogo:
-                        new_story.game_data = json.dumps(dados_jogo)
+                        dados_jogo_convertido = []
+                        for palavra in dados_jogo:
+                            if isinstance(palavra, str):
+                                dados_jogo_convertido.append({
+                                    "word": palavra.upper().strip(),
+                                    "hint": ""
+                                })
+                            elif isinstance(palavra, dict) and "word" in palavra:
+                                dados_jogo_convertido.append({
+                                    "word": palavra.get("word", "").upper().strip(),
+                                    "hint": palavra.get("hint", "")
+                                })
+                        new_story.game_data = json.dumps(dados_jogo_convertido)
                     
                     db.session.commit()
                     flash(f'{len(todas_questoes)} questões geradas pela IA!', 'success')
@@ -2132,8 +2145,22 @@ def regenerate_kids_questions(story_id):
                     )
                     db.session.add(new_q)
                 
-                if "game_words" in ai_data:
-                    story.game_data = json.dumps(ai_data["game_words"])
+                # 🔥 CORREÇÃO: Converter game_words para o formato esperado pelos jogos
+                if "game_words" in ai_data and ai_data["game_words"]:
+                    dados_jogo = ai_data["game_words"]
+                    dados_jogo_convertido = []
+                    for palavra in dados_jogo:
+                        if isinstance(palavra, str):
+                            dados_jogo_convertido.append({
+                                "word": palavra.upper().strip(),
+                                "hint": ""
+                            })
+                        elif isinstance(palavra, dict) and "word" in palavra:
+                            dados_jogo_convertido.append({
+                                "word": palavra.get("word", "").upper().strip(),
+                                "hint": palavra.get("hint", "")
+                            })
+                    story.game_data = json.dumps(dados_jogo_convertido)
                 
                 db.session.commit()
                 flash(f'{len(ai_data["questions"])} novas questões geradas!', 'success')
