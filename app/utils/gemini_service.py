@@ -64,7 +64,7 @@ def extract_text_from_file(file_path):
         return None
 
 def generate_questions(content_or_path, type='adult', count=7, is_file=False, church_id=None):
-    client = get_gemini_client(church_id=church_id)  # 🔥 CORRIGIDO
+    client = get_gemini_client(church_id=church_id)
     if not client:
         return {"error": "GEMINI_API_KEY não configurada no ambiente."}
 
@@ -127,8 +127,9 @@ def generate_questions(content_or_path, type='adult', count=7, is_file=False, ch
         Indique a resposta correta e uma breve explicação alegre.
         DISTRIBUA A RESPOSTA CORRETA ALEATORIAMENTE ENTRE A, B e C (não coloque sempre em A).
 
-        2. Extraia 8 palavras-chave importantes da história para jogos.
-        As palavras devem ser substantivos simples (sem espaços).
+        2. Extraia de 8 a 12 palavras-chave importantes da história para jogos.
+        Para CADA palavra, forneça uma DICA que ajude a criança a adivinhar.
+        As dicas devem ser simples, educativas e fazer referência à história.
 
         Responda APENAS em formato JSON seguindo EXATAMENTE esta estrutura:
         {{
@@ -141,11 +142,19 @@ def generate_questions(content_or_path, type='adult', count=7, is_file=False, ch
                         "C": "Opção C"
                     }},
                     "correct_option": "B",
-                    "explanation": "Explicação curta"
+                    "explanation": "Explicação curta e alegre"
                 }}
             ],
-            "game_words": ["PALAVRA1", "PALAVRA2", "PALAVRA3"]
+            "game_words": [
+                {{"word": "PALAVRA1", "hint": "Dica para adivinhar esta palavra"}},
+                {{"word": "PALAVRA2", "hint": "Dica para adivinhar esta palavra"}},
+                {{"word": "PALAVRA3", "hint": "Dica para adivinhar esta palavra"}}
+            ]
         }}
+        
+        IMPORTANTE: As palavras devem ser substantivos importantes da história.
+        Exemplo correto: {{"word": "NOÉ", "hint": "Construiu uma grande arca por ordem de Deus"}}
+        Exemplo correto: {{"word": "DILÚVIO", "hint": "A grande chuva que durou 40 dias e 40 noites"}}
         """
     else:
         prompt_text = f"""
@@ -200,8 +209,30 @@ def generate_questions(content_or_path, type='adult', count=7, is_file=False, ch
         
         ai_data = json.loads(ai_text)
         
-        if type == 'kids' and 'game_words' not in ai_data:
-            ai_data['game_words'] = []
+        # 🔥 CORREÇÃO: Garantir que game_words esteja no formato correto
+        if type == 'kids':
+            if 'game_words' not in ai_data:
+                ai_data['game_words'] = []
+            else:
+                # Converter se veio como array de strings
+                game_words_corrigido = []
+                for item in ai_data['game_words']:
+                    if isinstance(item, str):
+                        game_words_corrigido.append({
+                            "word": item.upper().strip(),
+                            "hint": f"Personagem ou elemento desta história"
+                        })
+                    elif isinstance(item, dict) and 'word' in item:
+                        game_words_corrigido.append({
+                            "word": item.get('word', '').upper().strip(),
+                            "hint": item.get('hint', f"Elemento importante da história")
+                        })
+                    elif isinstance(item, dict) and 'palavra' in item:
+                        game_words_corrigido.append({
+                            "word": item.get('palavra', '').upper().strip(),
+                            "hint": item.get('dica', f"Elemento importante da história")
+                        })
+                ai_data['game_words'] = game_words_corrigido
         
         return ai_data
     
