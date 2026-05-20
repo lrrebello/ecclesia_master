@@ -14,8 +14,9 @@
 
             <div class="card border-0 shadow-sm rounded-4">
                 <div class="card-body p-4 p-md-5">
-                    <form method="POST" enctype="multipart/form-data">
+                    <form method="POST" enctype="multipart/form-data" id="mainForm">
                         <div class="row g-4">
+                            <!-- Campos básicos -->
                             <div class="col-md-8">
                                 <label class="form-label fw-bold">Título</label>
                                 <input type="text" name="title" class="form-control bg-light border-0" 
@@ -33,21 +34,92 @@
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label fw-bold">URL da Ilustração (opcional)</label>
-                                <input type="url" name="image_path" class="form-control bg-light border-0" 
-                                       value="{{ story.image_path or '' }}" placeholder="https://... (opcional)">
-                                <small class="text-muted">Deixe em branco para manter a imagem/PDF atual</small>
+                                <input type="text" name="image_path" class="form-control bg-light border-0" 
+                                    value="{{ story.image_path or '' }}" placeholder="https://... (opcional)">
                             </div>
+                            
                             <div class="col-12">
                                 <label class="form-label fw-bold">Upload de Arquivo (PDF, DOCX, TXT)</label>
                                 <input type="file" name="story_file" class="form-control bg-light border-0" 
                                        accept=".pdf,.docx,.pptx,.txt">
-                                <small class="text-muted">Envie um arquivo para substituir o conteúdo atual</small>
                             </div>
+                            
                             <div class="col-12">
                                 <label class="form-label fw-bold">Conteúdo da História</label>
-                                <textarea name="content" class="form-control bg-light border-0" rows="12" 
-                                          placeholder="Digite o texto da história aqui...">{{ story.content }}</textarea>
-                                <small class="text-muted">HTML e Markdown são suportados</small>
+                                <textarea name="content" id="storyContent" class="form-control bg-light border-0" rows="12">{{ story.content }}</textarea>
+                            </div>
+                            
+                            <!-- ============================================ -->
+                            <!-- GERENCIAR PALAVRAS DO JOGO -->
+                            <!-- ============================================ -->
+                            <div class="col-12">
+                                <hr>
+                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                    <h5 class="fw-bold mb-0">
+                                        <i class="bi bi-tags me-2"></i>Palavras do Jogo
+                                    </h5>
+                                    <div>
+                                        <a href="{{ url_for('edification.regenerate_kids_words', story_id=story.id) }}" 
+                                        class="btn btn-outline-warning btn-sm rounded-pill me-2"
+                                        onclick="return confirm('Regenerar todas as palavras com IA? Isso substituirá as palavras atuais.')">
+                                            <i class="bi bi-arrow-repeat me-1"></i>Regenerar com IA
+                                        </a>
+                                        <button type="button" id="clearKeywordsBtn" class="btn btn-outline-danger btn-sm rounded-pill">
+                                            <i class="bi bi-trash me-1"></i>Limpar todas
+                                        </button>
+                                    </div>
+                                </div>
+                                <p class="text-muted small mb-3">
+                                    Estas palavras são usadas nos jogos (caça-palavras, forca, etc.).
+                                </p>
+                                
+                                <div class="row">
+                                    <div class="col-md-12">
+                                        <div class="border rounded-3 p-3 bg-light" style="min-height: 200px;">
+                                            <div id="keywordsList" class="d-flex flex-column gap-2">
+                                                {% set words_list = game_words_list|default([]) %}
+                                                {% for word_data in words_list %}
+                                                <div class="keyword-item d-flex align-items-center gap-2 p-2 bg-white rounded-3 border">
+                                                    <div class="flex-grow-1">
+                                                        <input type="text" class="form-control form-control-sm keyword-word" 
+                                                            value="{{ word_data.word }}" style="font-weight: bold; width: 150px; display: inline-block;">
+                                                        <input type="text" class="form-control form-control-sm keyword-hint" 
+                                                            value="{{ word_data.hint or '' }}" placeholder="Dica (opcional)" style="width: 300px; display: inline-block; margin-left: 10px;">
+                                                    </div>
+                                                    <button type="button" class="btn-remove-keyword btn btn-sm btn-outline-danger" 
+                                                            data-word="{{ word_data.word }}" title="Remover">
+                                                        <i class="bi bi-trash"></i>
+                                                    </button>
+                                                    <input type="hidden" name="keywords_existing_word" value="{{ word_data.word }}">
+                                                    <input type="hidden" name="keywords_existing_hint" value="{{ word_data.hint or '' }}">
+                                                </div>
+                                                {% else %}
+                                                <div class="text-muted small text-center py-4" id="noKeywordsMsg">
+                                                    Nenhuma palavra adicionada ainda.
+                                                </div>
+                                                {% endfor %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="row mt-3">
+                                    <div class="col-md-12">
+                                        <div class="input-group">
+                                            <input type="text" id="newKeywordWord" class="form-control" placeholder="Palavra (ex: DAVI)" style="flex: 2;">
+                                            <input type="text" id="newKeywordHint" class="form-control" placeholder="Dica (opcional)" style="flex: 3;">
+                                            <button type="button" id="addKeywordBtn" class="btn btn-primary">
+                                                <i class="bi bi-plus-lg"></i> Adicionar
+                                            </button>
+                                        </div>
+                                        <div class="form-text text-muted small mt-1">
+                                            <i class="bi bi-info-circle"></i> 
+                                            Palavras em maiúsculo, sem acentos. Mínimo 3 caracteres.
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <input type="hidden" name="game_words" id="gameWordsHidden" value="">
                             </div>
                             
                             <!-- ============================================ -->
@@ -55,22 +127,18 @@
                             <!-- ============================================ -->
                             <div class="col-12">
                                 <hr>
-                                <h5 class="fw-bold mb-3"><i class="bi bi-patch-question me-2"></i>Gerenciar Questões</h5>
-                                
-                                <div class="d-flex gap-3 flex-wrap mb-4">
-                                    <a href="{{ url_for('edification.review_kids_questions', story_id=story.id) }}" 
-                                       class="btn btn-outline-primary rounded-pill">
-                                        <i class="bi bi-eye me-2"></i>Ver/Editar Questões
-                                    </a>
-                                    <a href="{{ url_for('edification.regenerate_kids_questions', story_id=story.id) }}" 
-                                       class="btn btn-outline-warning rounded-pill">
-                                        <i class="bi bi-arrow-repeat me-2"></i>Regenerar Questões com IA
-                                    </a>
-                                    <div class="form-check form-switch ms-2">
-                                        <input class="form-check-input" type="checkbox" name="regenerate_questions" id="regenerateSwitch">
-                                        <label class="form-check-label fw-bold" for="regenerateSwitch">
-                                            Regenerar questões após salvar
-                                        </label>
+                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                    <h5 class="fw-bold mb-0"><i class="bi bi-patch-question me-2"></i>Questões</h5>
+                                    <div>
+                                        <a href="{{ url_for('edification.review_kids_questions', story_id=story.id) }}" 
+                                           class="btn btn-outline-primary btn-sm rounded-pill">
+                                            <i class="bi bi-eye me-1"></i>Ver/Editar
+                                        </a>
+                                        <a href="{{ url_for('edification.regenerate_kids_questions', story_id=story.id) }}" 
+                                           class="btn btn-outline-warning btn-sm rounded-pill"
+                                           onclick="return confirm('Regenerar questões com IA? Isso substituirá as questões atuais.')">
+                                            <i class="bi bi-arrow-repeat me-1"></i>Regenerar
+                                        </a>
                                     </div>
                                 </div>
                                 
@@ -78,34 +146,25 @@
                                 <div class="alert alert-info">
                                     <i class="bi bi-info-circle me-2"></i>
                                     Esta história tem <strong>{{ story.quizzes|length }} questões</strong> cadastradas.
-                                    {% set published = story.quizzes|selectattr('is_published', 'equalto', true)|list|length %}
-                                    {% if published > 0 %}
-                                    <span class="badge bg-success ms-2">{{ published }} publicadas</span>
-                                    {% endif %}
-                                    {% set pending = story.quizzes|length - published %}
-                                    {% if pending > 0 %}
-                                    <span class="badge bg-warning ms-2">{{ pending }} pendentes</span>
-                                    {% endif %}
                                 </div>
                                 {% else %}
                                 <div class="alert alert-warning">
                                     <i class="bi bi-exclamation-triangle me-2"></i>
-                                    Nenhuma questão cadastrada. Clique em "Regenerar Questões com IA" para gerar automaticamente.
+                                    Nenhuma questão cadastrada. Clique em "Regenerar".
                                 </div>
                                 {% endif %}
                             </div>
                             
                             <!-- ============================================ -->
-                            <!-- GERENCIAR IMAGEM DO QUEBRA-CABEÇA -->
+                            <!-- IMAGEM DO QUEBRA-CABEÇA -->
                             <!-- ============================================ -->
                             <div class="col-12">
                                 <hr>
                                 <h5 class="fw-bold mb-3"><i class="bi bi-puzzle me-2"></i>Imagem do Quebra-Cabeça</h5>
                                 
                                 <div class="d-flex gap-3 flex-wrap mb-4">
-                                    <!-- Botão que abre o modal -->
                                     <a href="#" class="btn btn-outline-success rounded-pill" data-bs-toggle="modal" data-bs-target="#modalRegenerateImage">
-                                        <i class="bi bi-image me-2"></i>Regenerar Imagem do Quebra-Cabeça
+                                        <i class="bi bi-image me-2"></i>Regenerar Imagem
                                     </a>
                                 </div>
                                 
@@ -113,32 +172,22 @@
                                 <div class="alert alert-success">
                                     <i class="bi bi-check-circle me-2"></i>
                                     <strong>Imagem atual:</strong> {{ story.puzzle_image.split('/')|last }}
-                                    <br>
-                                    <small class="text-muted">Clique em "Regenerar" para escolher entre extrair do PDF ou gerar com IA.</small>
+                                </div>
+                                <div class="text-center mt-3">
+                                    <img src="{{ url_for('edification.get_puzzle_image', story_id=story.id) }}" 
+                                         alt="Quebra-cabeça" style="max-width: 200px; border-radius: 10px;">
                                 </div>
                                 {% else %}
                                 <div class="alert alert-secondary">
                                     <i class="bi bi-info-circle me-2"></i>
                                     Nenhuma imagem de quebra-cabeça foi gerada ainda.
-                                    <br>
-                                    <small class="text-muted">Clique em "Regenerar Imagem do Quebra-Cabeça" para criar uma ilustração.</small>
-                                </div>
-                                {% endif %}
-                                
-                                <!-- Preview da imagem atual se existir -->
-                                {% if story.puzzle_image %}
-                                <div class="text-center mt-3">
-                                    <p class="text-muted small mb-2">Preview da imagem atual:</p>
-                                    <img src="{{ url_for('edification.get_puzzle_image', story_id=story.id) }}" 
-                                         alt="Imagem do quebra-cabeça" 
-                                         style="max-width: 200px; max-height: 150px; border-radius: 10px; border: 1px solid #ddd;">
                                 </div>
                                 {% endif %}
                             </div>
                             
                             <div class="col-12 text-end">
                                 <button type="submit" class="btn btn-warning fw-bold rounded-pill px-5 py-2">
-                                    <i class="bi bi-save me-2"></i>Salvar Alterações
+                                    <i class="bi bi-save me-2"></i>Salvar
                                 </button>
                             </div>
                         </div>
@@ -149,9 +198,7 @@
     </div>
 </div>
 
-<!-- ============================================ -->
-<!-- MODAL PARA ESCOLHER ORIGEM DA IMAGEM -->
-<!-- ============================================ -->
+<!-- Modal para regenerar imagem -->
 <div class="modal fade" id="modalRegenerateImage" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 rounded-4">
@@ -159,37 +206,171 @@
                 <h5 class="modal-title fw-bold text-success">
                     <i class="bi bi-image me-2"></i>Regenerar Imagem
                 </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body p-4">
-                <p class="text-muted mb-4">Escolha a origem da nova imagem para o quebra-cabeça:</p>
-                
+                <p class="text-muted mb-4">Escolha a origem da nova imagem:</p>
                 <div class="d-grid gap-3">
-                    <!-- Opção 1: Extrair do PDF -->
                     <a href="{{ url_for('edification.regenerate_puzzle_image', story_id=story.id, source='pdf') }}" 
-                       class="btn btn-outline-primary rounded-pill py-3 text-start d-flex align-items-center">
-                        <i class="bi bi-file-earmark-pdf fs-2 me-3 text-danger"></i>
-                        <div>
-                            <strong>📄 Extrair do PDF</strong><br>
-                            <small class="text-muted">Usa a primeira ilustração encontrada no PDF da história</small>
-                        </div>
+                       class="btn btn-outline-primary rounded-pill py-3">
+                        <i class="bi bi-file-earmark-pdf me-2"></i> Extrair do PDF
                     </a>
-                    
-                    <!-- Opção 2: Gerar com IA -->
                     <a href="{{ url_for('edification.regenerate_puzzle_image', story_id=story.id, source='ai') }}" 
-                       class="btn btn-outline-success rounded-pill py-3 text-start d-flex align-items-center">
-                        <i class="bi bi-stars fs-2 me-3 text-warning"></i>
-                        <div>
-                            <strong>🎨 Gerar com IA</strong><br>
-                            <small class="text-muted">Cria uma ilustração original baseada no conteúdo da história</small>
-                        </div>
+                       class="btn btn-outline-success rounded-pill py-3">
+                        <i class="bi bi-stars me-2"></i> Gerar com IA
                     </a>
                 </div>
-            </div>
-            <div class="modal-footer border-0">
-                <button type="button" class="btn btn-light rounded-pill" data-bs-dismiss="modal">Cancelar</button>
             </div>
         </div>
     </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const keywordsList = document.getElementById('keywordsList');
+    const newKeywordWord = document.getElementById('newKeywordWord');
+    const newKeywordHint = document.getElementById('newKeywordHint');
+    const addBtn = document.getElementById('addKeywordBtn');
+    const clearBtn = document.getElementById('clearKeywordsBtn');
+    const gameWordsHidden = document.getElementById('gameWordsHidden');
+    const noKeywordsMsg = document.getElementById('noKeywordsMsg');
+    
+    function updateHiddenKeywords() {
+        const gameData = [];
+        document.querySelectorAll('.keyword-item').forEach(item => {
+            const word = item.querySelector('.keyword-word').value.trim().toUpperCase();
+            const hint = item.querySelector('.keyword-hint').value.trim();
+            if (word) {
+                gameData.push({word: word, hint: hint});
+            }
+        });
+        gameWordsHidden.value = JSON.stringify(gameData);
+    }
+    
+    function removeKeywordItem(item) {
+        item.remove();
+        if (keywordsList.children.length === 0 && noKeywordsMsg) {
+            noKeywordsMsg.style.display = 'block';
+        }
+        updateHiddenKeywords();
+        showToast('Palavra removida', 'info');
+    }
+    
+    function addKeywordToList(word, hint) {
+        // Verificar duplicata
+        const existing = Array.from(document.querySelectorAll('.keyword-item .keyword-word')).some(input => 
+            input.value.trim().toUpperCase() === word
+        );
+        if (existing) {
+            showToast('Palavra já existe!', 'warning');
+            return false;
+        }
+        
+        // Remover mensagem "nenhuma palavra"
+        if (noKeywordsMsg) noKeywordsMsg.style.display = 'none';
+        
+        // Criar elemento da palavra
+        const keywordDiv = document.createElement('div');
+        keywordDiv.className = 'keyword-item d-flex align-items-center gap-2 p-2 bg-white rounded-3 border';
+        keywordDiv.innerHTML = `
+            <div class="flex-grow-1">
+                <input type="text" class="form-control form-control-sm keyword-word" 
+                       value="${escapeHtml(word)}" style="font-weight: bold; width: 150px; display: inline-block;">
+                <input type="text" class="form-control form-control-sm keyword-hint" 
+                       value="${escapeHtml(hint)}" placeholder="Dica (opcional)" style="width: 300px; display: inline-block; margin-left: 10px;">
+            </div>
+            <button type="button" class="btn-remove-keyword btn btn-sm btn-outline-danger" title="Remover">
+                <i class="bi bi-trash"></i>
+            </button>
+        `;
+        
+        // Adicionar eventos
+        keywordDiv.querySelector('.keyword-word').addEventListener('input', updateHiddenKeywords);
+        keywordDiv.querySelector('.keyword-hint').addEventListener('input', updateHiddenKeywords);
+        keywordDiv.querySelector('.btn-remove-keyword').addEventListener('click', function(e) {
+            e.preventDefault();
+            removeKeywordItem(keywordDiv);
+        });
+        
+        keywordsList.appendChild(keywordDiv);
+        updateHiddenKeywords();
+        return true;
+    }
+    
+    // Adicionar nova palavra
+    addBtn.addEventListener('click', function() {
+        let word = newKeywordWord.value.trim().toUpperCase();
+        const hint = newKeywordHint.value.trim();
+        
+        if (word.length < 3) {
+            showToast('Palavra deve ter no mínimo 3 caracteres', 'warning');
+            return;
+        }
+        // Remover acentos
+        word = word.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        word = word.replace(/[^A-Z0-9]/g, '');
+        
+        if (addKeywordToList(word, hint)) {
+            newKeywordWord.value = '';
+            newKeywordHint.value = '';
+            newKeywordWord.focus();
+        }
+    });
+    
+    // Enter para adicionar
+    newKeywordWord.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            addBtn.click();
+        }
+    });
+    
+    // Limpar todas
+    if (clearBtn) {
+        clearBtn.addEventListener('click', function() {
+            if (confirm('Remover TODAS as palavras? Esta ação não pode ser desfeita.')) {
+                keywordsList.innerHTML = '';
+                if (noKeywordsMsg) noKeywordsMsg.style.display = 'block';
+                updateHiddenKeywords();
+                showToast('Todas as palavras removidas', 'info');
+            }
+        });
+    }
+    
+    // Inicializar eventos para palavras existentes
+    document.querySelectorAll('.keyword-item').forEach(item => {
+        item.querySelector('.keyword-word').addEventListener('input', updateHiddenKeywords);
+        item.querySelector('.keyword-hint').addEventListener('input', updateHiddenKeywords);
+        item.querySelector('.btn-remove-keyword').addEventListener('click', function(e) {
+            e.preventDefault();
+            removeKeywordItem(item);
+        });
+    });
+    
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+    
+    function showToast(message, type) {
+        const toast = document.createElement('div');
+        toast.className = 'toast-notification';
+        toast.style.backgroundColor = type === 'warning' ? '#f59e0b' : '#1f2937';
+        toast.style.color = 'white';
+        toast.style.position = 'fixed';
+        toast.style.bottom = '20px';
+        toast.style.left = '50%';
+        toast.style.transform = 'translateX(-50%)';
+        toast.style.padding = '10px 20px';
+        toast.style.borderRadius = '50px';
+        toast.style.zIndex = '9999';
+        toast.textContent = message;
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 3000);
+    }
+    
+    updateHiddenKeywords();
+});
+</script>
 {% endblock %}

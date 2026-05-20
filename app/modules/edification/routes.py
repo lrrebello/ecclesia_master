@@ -2041,6 +2041,9 @@ def add_bible_story():
 
 
 
+import unicodedata
+import json
+
 @edification_bp.route('/kids/story/edit/<int:story_id>', methods=['GET', 'POST'])
 @login_required
 def edit_bible_story(story_id):
@@ -2050,16 +2053,62 @@ def edit_bible_story(story_id):
     
     story = BibleStory.query.get_or_404(story_id)
     
+    # Processar game_data para o template (GET)
+    game_words_list = []
+    if story.game_data:
+        try:
+            game_words_list = json.loads(story.game_data)
+        except:
+            game_words_list = []
+    
     if request.method == 'POST':
-        # Atualizar dados básicos
+        # Atualizar campos
         story.title = request.form.get('title')
         story.reference = request.form.get('reference')
         story.order = request.form.get('order', 0)
         
-        # Conteúdo - pode vir do textarea ou de arquivo
-        content = request.form.get('content')
-        file = request.files.get('story_file')
+        # URL da ilustração (opcional)
+        image_path = request.form.get('image_path')
+        if image_path and image_path.strip():
+            story.image_path = image_path.strip()
         
+        # Conteúdo
+        content = request.form.get('content')
+        if content and content.strip():
+            story.content = content.strip()
+        
+        # ========================================
+        # PALAVRAS DO JOGO (com dicas)
+        # ========================================
+        game_words_str = request.form.get('game_words', '')
+        
+        if game_words_str:
+            try:
+                game_data = json.loads(game_words_str)
+                # Validar e limpar os dados
+                cleaned_data = []
+                for item in game_data:
+                    word = item.get('word', '').strip().upper()
+                    if word and len(word) >= 3:
+                        # Remover acentos da palavra
+                        word_clean = ''.join(
+                            c for c in unicodedata.normalize('NFD', word)
+                            if unicodedata.category(c) != 'Mn'
+                        )
+                        word_clean = ''.join(c for c in word_clean if c.isalnum())
+                        cleaned_data.append({
+                            'word': word_clean,
+                            'hint': item.get('hint', '').strip()
+                        })
+                story.game_data = json.dumps(cleaned_data) if cleaned_data else None
+            except json.JSONDecodeError:
+                flash('Erro ao processar palavras do jogo', 'danger')
+                story.game_data = None
+        else:
+            story.game_data = None
+        
+        # Processar arquivo
+        file = request.files.get('story_file')
         if file and file.filename != '':
             filename = secure_filename(file.filename)
             file_path = os.path.join(current_app.config['UPLOAD_FOLDER'], filename)
@@ -2068,43 +2117,65 @@ def edit_bible_story(story_id):
                 extracted_text = extract_text(file_path)
                 if extracted_text and extracted_text.strip():
                     story.content = extracted_text
-                    flash('Texto extraído do arquivo com sucesso!', 'success')
-                else:
-                    flash('O arquivo não continha texto extraível.', 'warning')
+                    flash('Texto extraído do arquivo!', 'success')
             except Exception as e:
-                flash(f'Erro ao extrair texto: {str(e)}', 'warning')
+                flash(f'Erro: {str(e)}', 'warning')
             finally:
                 if os.path.exists(file_path):
                     os.unlink(file_path)
-        elif content and content.strip():
-            story.content = content.strip()
-        
-        # 🔥 CORREÇÃO: Atualizar imagem SOMENTE se foi fornecida
-        image_url = request.form.get('image_path')
-        if image_url and image_url.strip():
-            story.image_path = image_url.strip()
-        # Se não forneceu URL, mantém a existente (não faz nada)
         
         db.session.commit()
-        
-        log_action(
-            action='UPDATE',
-            module='KIDS_STORY',
-            description=f"História infantil editada: {story.title}",
-            old_values={'id': story.id},
-            new_values={'title': story.title},
-            church_id=current_user.church_id
-        )
-        
         flash('História atualizada com sucesso!', 'success')
-        
-        # Ações pós-salvar
-        if request.form.get('regenerate_questions') == 'on':
-            return redirect(url_for('edification.regenerate_kids_questions', story_id=story.id))
-        
         return redirect(url_for('edification.manage_kids'))
     
-    return render_template('edification/edit_bible_story.html', story=story)
+    return render_template('edification/edit_bible_story.html', 
+                         story=story, 
+                         game_words_list=game_words_list)
+
+@edification_bp.route('/kids/story/<int:story_id>/regenerate-words')
+@login_required
+def regenerate_kids_words(story_id):
+    """Regenera palavras do jogo com IA baseado no conteúdo da história"""
+    if not can_manage_kids():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('edification.kids'))
+    
+    story = BibleStory.query.get_or_404(story_id)
+    
+    if not story.content or len(story.content.strip()) < 100:
+        flash('Conteúdo insuficiente para gerar palavras (mínimo 100 caracteres).', 'warning')
+        return redirect(url_for('edification.edit_bible_story', story_id=story.id))
+    
+    try:
+        # Gerar questões para obter as game_words
+        ai_data = generate_questions(story.content, type='kids', count=7)
+        
+        if "error" in ai_data:
+            flash(f'Erro na IA: {ai_data["error"]}', 'danger')
+        elif "game_words" in ai_data and ai_data["game_words"]:
+            game_data = []
+            for palavra in ai_data["game_words"]:
+                if isinstance(palavra, str):
+                    game_data.append({"word": palavra.upper().strip(), "hint": ""})
+                elif isinstance(palavra, dict) and "word" in palavra:
+                    game_data.append({
+                        "word": palavra.get("word", "").upper().strip(),
+                        "hint": palavra.get("hint", "")
+                    })
+            
+            if game_data:
+                story.game_data = json.dumps(game_data)
+                db.session.commit()
+                flash(f'{len(game_data)} palavras geradas com sucesso!', 'success')
+            else:
+                flash('Nenhuma palavra válida foi gerada.', 'warning')
+        else:
+            flash('IA não retornou palavras válidas.', 'warning')
+            
+    except Exception as e:
+        flash(f'Erro ao gerar palavras: {str(e)}', 'danger')
+    
+    return redirect(url_for('edification.edit_bible_story', story_id=story.id))
 
 @edification_bp.route('/kids/story/<int:story_id>/regenerate-questions', methods=['GET', 'POST'])
 @login_required
