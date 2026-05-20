@@ -7,17 +7,17 @@
             <h2 class="fw-bold text-primary">
                 <i class="bi bi-emoji-smile me-2"></i> Emojis e Palavras
             </h2>
-            <p class="text-muted">Gerencie quais palavras são representadas por cada emoji nos jogos bíblicos.</p>
+            <p class="text-muted">Gerencie quais palavras são representadas por cada emoji ou imagem nos jogos bíblicos.</p>
         </div>
         <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addEmojiModal">
-            <i class="bi bi-plus-lg me-2"></i> Novo Emoji
+            <i class="bi bi-plus-lg me-2"></i> Novo Emoji/Imagem
         </button>
         <a href="{{ url_for('edification.kids') }}" class="btn btn-outline-secondary rounded-pill">
             <i class="bi bi-arrow-left me-2"></i> Voltar
         </a>
     </div>
 
-    <!-- Cards de Emojis -->
+    <!-- Cards de Emojis/Imagens -->
     <div class="row g-4">
         {% for item in emoji_words %}
         <div class="col-md-6 col-lg-4">
@@ -30,12 +30,17 @@
                             {% elif item.emoji_type == 'bootstrap' %}
                                 <i class="bi {{ item.emoji }}" style="font-size: 3rem; color: var(--primary);"></i>
                             {% elif item.emoji_type == 'custom' and item.custom_icon %}
-                                <img src="{{ url_for('static', filename=item.custom_icon) }}" style="width: 50px; height: 50px;">
+                                <img src="{{ url_for('static', filename=item.custom_icon) }}" style="width: 50px; height: 50px; object-fit: contain;">
+                            {% else %}
+                                <span style="font-size: 2rem;">🖼️</span>
                             {% endif %}
                         </div>
                         <div class="flex-grow-1">
                             <span class="badge bg-secondary bg-opacity-10">
-                                {{ item.emoji_type }}
+                                {% if item.emoji_type == 'unicode' %}Emoji Unicode
+                                {% elif item.emoji_type == 'bootstrap' %}Ícone Bootstrap
+                                {% elif item.emoji_type == 'custom' %}Imagem Personalizada
+                                {% else %}{{ item.emoji_type }}{% endif %}
                             </span>
                         </div>
                         <button class="btn btn-sm btn-outline-danger rounded-circle" 
@@ -66,19 +71,19 @@
         {% else %}
         <div class="col-12 text-center py-5">
             <i class="bi bi-emoji-smile fs-1 text-muted opacity-25 d-block mb-3"></i>
-            <p class="text-muted">Nenhum emoji cadastrado. Clique em "Novo Emoji" para começar.</p>
+            <p class="text-muted">Nenhum emoji ou imagem cadastrada. Clique em "Novo Emoji/Imagem" para começar.</p>
         </div>
         {% endfor %}
     </div>
 </div>
 
-<!-- Modal para adicionar emoji -->
+<!-- Modal para adicionar emoji/imagem -->
 <div class="modal fade" id="addEmojiModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow-lg rounded-4">
             <div class="modal-header bg-primary text-white border-0">
                 <h5 class="modal-title fw-bold">
-                    <i class="bi bi-plus-lg me-2"></i> Novo Emoji
+                    <i class="bi bi-plus-lg me-2"></i> Novo Emoji / Imagem
                 </h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
@@ -101,7 +106,7 @@
                 <div id="bootstrap_section" style="display: none;">
                     <label class="form-label fw-bold">ÍCONE BOOTSTRAP</label>
                     <input type="text" id="bootstrap_icon" class="form-control bg-light border-0" 
-                           placeholder="Ex: bi-star-fill, bi-crown">
+                           placeholder="Ex: bi-star-fill, bi-crown, bi-heart-fill">
                     <div id="icon_preview" class="mt-2 p-3 bg-light rounded text-center" style="font-size: 2rem;">
                         <i class="bi bi-emoji-smile"></i>
                     </div>
@@ -110,6 +115,18 @@
                 <div id="custom_section" style="display: none;">
                     <label class="form-label fw-bold">IMAGEM PERSONALIZADA</label>
                     <input type="file" id="custom_icon" class="form-control bg-light border-0" accept="image/*">
+                    <div class="form-text mt-2">
+                        <i class="bi bi-info-circle"></i> 
+                        <strong>Nota:</strong> Para imagens, NÃO é necessário adicionar emoji. A imagem será usada diretamente no jogo.
+                    </div>
+                </div>
+                
+                <div class="mt-3" id="words_section">
+                    <label class="form-label fw-bold">PALAVRAS ASSOCIADAS</label>
+                    <input type="text" id="associated_words" class="form-control bg-light border-0" 
+                           placeholder="Ex: LEÃO, JESUS, DAVI, MOISÉS" 
+                           autocomplete="off">
+                    <div class="form-text">Digite as palavras separadas por vírgula. Ex: LEÃO, FORÇA, CORAGEM</div>
                 </div>
             </div>
             <div class="modal-footer bg-light border-0">
@@ -120,7 +137,7 @@
     </div>
 </div>
 
-<!-- Modal para adicionar palavra a um emoji -->
+<!-- Modal para adicionar palavra a um emoji existente -->
 <div class="modal fade" id="addWordModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow-lg rounded-4">
@@ -159,10 +176,21 @@ function toggleIconType() {
     if (type === 'bootstrap') {
         const iconInput = document.getElementById('bootstrap_icon');
         if (iconInput) {
-            iconInput.addEventListener('input', function() {
-                document.getElementById('icon_preview').innerHTML = `<i class="bi ${this.value}" style="font-size: 2rem;"></i>`;
-            });
+            iconInput.removeEventListener('input', previewIcon);
+            iconInput.addEventListener('input', previewIcon);
+            previewIcon();
         }
+    }
+}
+
+function previewIcon() {
+    const iconInput = document.getElementById('bootstrap_icon');
+    const value = iconInput.value;
+    const preview = document.getElementById('icon_preview');
+    if (value) {
+        preview.innerHTML = `<i class="bi ${value}" style="font-size: 2rem;"></i>`;
+    } else {
+        preview.innerHTML = `<i class="bi bi-emoji-smile" style="font-size: 2rem;"></i>`;
     }
 }
 
@@ -170,24 +198,48 @@ function salvarEmoji() {
     const type = document.getElementById('emoji_type').value;
     let emoji = '';
     
+    // Para imagens personalizadas, NÃO exigimos emoji
     if (type === 'unicode') {
         emoji = document.getElementById('unicode_emoji').value;
+        if (!emoji) {
+            alert('Por favor, selecione um emoji.');
+            return;
+        }
     } else if (type === 'bootstrap') {
         emoji = document.getElementById('bootstrap_icon').value;
+        if (!emoji) {
+            alert('Por favor, selecione um ícone Bootstrap.');
+            return;
+        }
+    } else if (type === 'custom') {
+        const file = document.getElementById('custom_icon').files[0];
+        if (!file) {
+            alert('Por favor, selecione uma imagem.');
+            return;
+        }
+        // Para imagens, emoji pode ficar vazio (será ignorado)
+        emoji = '';
     }
     
-    if (!emoji) {
-        alert('Selecione um emoji ou ícone.');
-        return;
-    }
+    // Capturar palavras associadas
+    const wordsInput = document.getElementById('associated_words').value;
+    const words = wordsInput.split(',').map(w => w.trim().toUpperCase()).filter(w => w);
     
     const formData = new FormData();
     formData.append('emoji', emoji);
     formData.append('emoji_type', type);
+    formData.append('words', words.join(','));
     
     if (type === 'custom') {
         const file = document.getElementById('custom_icon').files[0];
         if (file) formData.append('custom_icon', file);
+    }
+    
+    // Desabilitar botão para evitar duplo clique
+    const btn = document.querySelector('#addEmojiModal .btn-primary');
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Salvando...';
     }
     
     fetch('/admin/emoji-word/add', {
@@ -200,11 +252,19 @@ function salvarEmoji() {
             location.reload();
         } else {
             alert(data.message || 'Erro ao salvar');
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = 'Salvar';
+            }
         }
     })
     .catch(error => {
         console.error('Erro:', error);
         alert('Erro na requisição');
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = 'Salvar';
+        }
     });
 }
 
@@ -230,7 +290,6 @@ function salvarPalavra() {
         return;
     }
     
-    // Desabilita o botão para evitar cliques duplos
     const btn = document.querySelector('#addWordModal .btn-primary');
     if (btn) {
         btn.disabled = true;
@@ -244,12 +303,9 @@ function salvarPalavra() {
     })
     .then(response => response.json())
     .then(data => {
-        console.log('Resposta:', data);
         if (data.success) {
-            // Fecha o modal
             const modal = bootstrap.Modal.getInstance(document.getElementById('addWordModal'));
             if (modal) modal.hide();
-            // Força o recarregamento da página
             window.location.href = window.location.href;
         } else {
             alert(data.message || 'Erro ao adicionar palavra');
@@ -278,9 +334,7 @@ function removerPalavra(emojiId, word) {
         })
         .then(response => response.json())
         .then(data => {
-            console.log('Resposta exclusão:', data);
             if (data.success) {
-                // Força o recarregamento da página
                 window.location.href = window.location.href;
             } else {
                 alert(data.message || 'Erro ao remover palavra');
@@ -294,7 +348,7 @@ function removerPalavra(emojiId, word) {
 }
 
 function excluirEmoji(emojiId) {
-    if (confirm('Tem certeza que deseja excluir este emoji?')) {
+    if (confirm('Tem certeza que deseja excluir este item?')) {
         fetch(`/admin/emoji-word/delete/${emojiId}`, { method: 'POST' })
         .then(response => response.json())
         .then(data => {
@@ -324,6 +378,12 @@ document.addEventListener('DOMContentLoaded', function() {
     display: flex;
     align-items: center;
     justify-content: center;
+    overflow: hidden;
+}
+.emoji-preview img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
 }
 .badge .btn-close {
     width: 0.5rem;

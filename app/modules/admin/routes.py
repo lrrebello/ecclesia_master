@@ -442,46 +442,87 @@ def word_emoji_list():
                            total_emojis=total_emojis)
 
 
-@admin_bp.route('/emoji-word/add', methods=['POST'])
+@admin_bp.route('/word-emoji/add', methods=['POST'])
 @login_required
-def emoji_word_add():
-    """Adiciona novo emoji"""
+def word_emoji_add():
+    """Adiciona um novo emoji/palavra"""
     if not can_manage_word_emoji():
         return jsonify({'success': False, 'message': 'Acesso negado.'}), 403
     
     from app.core.models import EmojiWord
     
-    emoji = request.form.get('emoji')
-    emoji_type = request.form.get('emoji_type', 'unicode')
-    custom_icon = None
+    try:
+        # 👇 IMPORTANTE: Tratar dados do formulário
+        emoji = request.form.get('emoji', '')
+        emoji_type = request.form.get('emoji_type', 'unicode')
+        words_raw = request.form.get('words', '')
+        words = [w.strip().upper() for w in words_raw.split(',') if w.strip()]
+        
+        custom_icon = None
+        
+        if emoji_type == 'custom':
+            file = request.files.get('custom_icon')
+            if file and file.filename:
+                filename = secure_filename(file.filename)
+                emoji_dir = os.path.join(current_app.config['UPLOAD_FOLDER'], 'emojis')
+                os.makedirs(emoji_dir, exist_ok=True)
+                unique_filename = f"{datetime.now().strftime('%Y%m%d%H%M%S')}_{filename}"
+                full_path = os.path.join(emoji_dir, unique_filename)
+                file.save(full_path)
+                custom_icon = f'uploads/emojis/{unique_filename}'
+                emoji = custom_icon  # ← para compatibilidade
+        
+        new_emoji = EmojiWord(
+            emoji=emoji,
+            emoji_type=emoji_type,
+            custom_icon=custom_icon,
+            words=words
+        )
+        db.session.add(new_emoji)
+        db.session.commit()
+        
+        return jsonify({'success': True, 'id': new_emoji.id})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': str(e)}), 500
     
-    print(f"📝 Recebido: emoji={emoji}, type={emoji_type}")
+@admin_bp.route('/word-emoji/add-image', methods=['POST'])
+@login_required
+def word_emoji_add_image():
+    """Adiciona uma imagem normal (sem emoji)"""
+    if not can_manage_word_emoji():
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('members.dashboard'))
     
-    if emoji_type == 'custom':
-        file = request.files.get('custom_icon')
-        if file and file.filename:
-            filename = secure_filename(file.filename)
-            emoji_dir = os.path.join(current_app.config['UPLOAD_FOLDER'], 'emojis')
-            os.makedirs(emoji_dir, exist_ok=True)
-            unique_filename = f"{uuid.uuid4()}_{filename}"
-            full_path = os.path.join(emoji_dir, unique_filename)
-            file.save(full_path)
-            custom_icon = f'uploads/emojis/{unique_filename}'
-            emoji = custom_icon
+    from app.core.models import EmojiWord
     
-    new_emoji = EmojiWord(
-        emoji=emoji,
-        emoji_type=emoji_type,
-        custom_icon=custom_icon,
-        words=[]
+    file = request.files.get('image')
+    if not file or not file.filename:
+        flash('Nenhuma imagem enviada.', 'danger')
+        return redirect(request.referrer or url_for('admin.word_emoji_list'))
+    
+    words_raw = request.form.get('words', '')
+    words = [w.strip().upper() for w in words_raw.split(',') if w.strip()]
+    
+    filename = secure_filename(file.filename)
+    image_dir = os.path.join(current_app.config['UPLOAD_FOLDER'], 'emojis')
+    os.makedirs(image_dir, exist_ok=True)
+    unique_filename = f"{datetime.now().strftime('%Y%m%d%H%M%S')}_{filename}"
+    full_path = os.path.join(image_dir, unique_filename)
+    file.save(full_path)
+    
+    # Salva como 'custom' (imagem) sem emoji
+    new_item = EmojiWord(
+        emoji='',               # ← vazio
+        emoji_type='custom',    # ← tipo imagem
+        custom_icon=f'uploads/emojis/{unique_filename}',
+        words=words
     )
-    
-    db.session.add(new_emoji)
+    db.session.add(new_item)
     db.session.commit()
     
-    print(f"✅ Emoji criado: ID={new_emoji.id}, {emoji}")
-    
-    return jsonify({'success': True, 'id': new_emoji.id})
+    flash('Imagem adicionada com sucesso!', 'success')
+    return redirect(url_for('admin.word_emoji_list'))
 
 @admin_bp.route('/emoji-word/<int:id>/add-word', methods=['POST'])
 @login_required
@@ -538,6 +579,55 @@ def emoji_word_add_word(id):
         })
     
     return jsonify({'success': False, 'message': f'Palavra "{word}" já existe.'}), 400
+
+@admin_bp.route('/emoji-word/add', methods=['POST'])
+@login_required
+def emoji_word_add():
+    """Adiciona novo emoji ou imagem personalizada"""
+    if not can_manage_word_emoji():
+        return jsonify({'success': False, 'message': 'Acesso negado.'}), 403
+    
+    from app.core.models import EmojiWord
+    
+    try:
+        emoji = request.form.get('emoji', '')
+        emoji_type = request.form.get('emoji_type', 'unicode')
+        words_raw = request.form.get('words', '')
+        words = [w.strip().upper() for w in words_raw.split(',') if w.strip()]
+        
+        custom_icon = None
+        
+        if emoji_type == 'custom':
+            file = request.files.get('custom_icon')
+            if file and file.filename:
+                filename = secure_filename(file.filename)
+                emoji_dir = os.path.join(current_app.config['UPLOAD_FOLDER'], 'emojis')
+                os.makedirs(emoji_dir, exist_ok=True)
+                unique_filename = f"{datetime.now().strftime('%Y%m%d%H%M%S')}_{filename}"
+                full_path = os.path.join(emoji_dir, unique_filename)
+                file.save(full_path)
+                custom_icon = f'uploads/emojis/{unique_filename}'
+                emoji = ''  # ← IMPORTANTE: imagem não precisa de emoji
+        elif emoji_type == 'bootstrap':
+            if not emoji:
+                return jsonify({'success': False, 'message': 'Selecione um ícone Bootstrap.'}), 400
+        elif emoji_type == 'unicode':
+            if not emoji:
+                return jsonify({'success': False, 'message': 'Selecione um emoji.'}), 400
+        
+        new_emoji = EmojiWord(
+            emoji=emoji,
+            emoji_type=emoji_type,
+            custom_icon=custom_icon,
+            words=words
+        )
+        db.session.add(new_emoji)
+        db.session.commit()
+        
+        return jsonify({'success': True, 'id': new_emoji.id})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': str(e)}), 500
 
 @admin_bp.route('/emoji-word/<int:id>/remove-word', methods=['POST'])
 @login_required

@@ -2460,27 +2460,49 @@ def memory_game():
     
     if story_id:
         story = BibleStory.query.get_or_404(int(story_id))
-        game_data = json.loads(story.game_data) if story.game_data else []
-        # Remover acentos das palavras
-        if game_data and isinstance(game_data, list):
-            if len(game_data) > 0 and isinstance(game_data[0], dict) and 'word' in game_data[0]:
-                for item in game_data:
-                    if 'word' in item:
-                        item['word'] = remover_acentos(item['word'].upper())
-            elif isinstance(game_data[0], str):
-                game_data = [remover_acentos(w.upper()) for w in game_data]
+        if story.game_data:
+            try:
+                # Garantir que game_data é uma lista
+                if isinstance(story.game_data, str):
+                    game_data = json.loads(story.game_data)
+                elif isinstance(story.game_data, list):
+                    game_data = story.game_data
+                else:
+                    game_data = []
+                
+                # Remover acentos das palavras
+                if game_data and isinstance(game_data, list):
+                    for i, item in enumerate(game_data):
+                        if isinstance(item, dict) and 'word' in item:
+                            game_data[i]['word'] = remover_acentos(item['word'].upper())
+                        elif isinstance(item, str):
+                            game_data[i] = remover_acentos(item.upper())
+            except Exception as e:
+                print(f"Erro ao carregar game_data: {e}")
+                game_data = []
     else:
         story = BibleStory.query.order_by(func.random()).first()
-        if story:
-            game_data = json.loads(story.game_data) if story.game_data else []
-            if game_data and isinstance(game_data, list):
-                if len(game_data) > 0 and isinstance(game_data[0], dict) and 'word' in game_data[0]:
-                    for item in game_data:
-                        if 'word' in item:
-                            item['word'] = remover_acentos(item['word'].upper())
-                elif isinstance(game_data[0], str):
-                    game_data = [remover_acentos(w.upper()) for w in game_data]
+        if story and story.game_data:
+            try:
+                if isinstance(story.game_data, str):
+                    game_data = json.loads(story.game_data)
+                elif isinstance(story.game_data, list):
+                    game_data = story.game_data
+                else:
+                    game_data = []
+                
+                if game_data and isinstance(game_data, list):
+                    for i, item in enumerate(game_data):
+                        if isinstance(item, dict) and 'word' in item:
+                            game_data[i]['word'] = remover_acentos(item['word'].upper())
+                        elif isinstance(item, str):
+                            game_data[i] = remover_acentos(item.upper())
+            except Exception as e:
+                print(f"Erro ao carregar game_data: {e}")
+                game_data = []
     
+    # 🔥 IMPORTANTE: Garantir que game_data é uma lista Python válida
+    # e que será serializada corretamente para JSON
     return render_template('edification/kids_memory_game.html', 
                          game_data=game_data, 
                          story=story)
@@ -2670,6 +2692,7 @@ def get_puzzle_image(story_id):
 def get_emoji_for_word(word):
     from app.core.models import EmojiWord
     import unicodedata
+    from urllib.parse import urljoin
     
     word_normalized = word.upper().strip()
     word_normalized = unicodedata.normalize('NFKD', word_normalized).encode('ASCII', 'ignore').decode('ASCII')
@@ -2681,13 +2704,30 @@ def get_emoji_for_word(word):
         for stored_word in words:
             stored_normalized = unicodedata.normalize('NFKD', stored_word.upper()).encode('ASCII', 'ignore').decode('ASCII')
             if word_normalized == stored_normalized:
-                return jsonify({'success': True, 'emoji': emoji_item.emoji, 'type': emoji_item.emoji_type, 'custom_icon': emoji_item.custom_icon})
-    
-    for emoji_item in all_emojis:
-        words = emoji_item.words or []
-        for stored_word in words:
-            stored_normalized = unicodedata.normalize('NFKD', stored_word.upper()).encode('ASCII', 'ignore').decode('ASCII')
-            if stored_normalized in word_normalized or word_normalized in stored_normalized:
-                return jsonify({'success': True, 'emoji': emoji_item.emoji, 'type': emoji_item.emoji_type, 'custom_icon': emoji_item.custom_icon})
+                if emoji_item.emoji_type == 'custom' and emoji_item.custom_icon:
+                    # 🔥 CORREÇÃO: Adicionar /static/ ao caminho
+                    custom_path = emoji_item.custom_icon
+                    if not custom_path.startswith('/static/') and not custom_path.startswith('http'):
+                        custom_path = f"/static/{custom_path}"
+                    return jsonify({
+                        'success': True, 
+                        'type': 'custom',
+                        'custom_icon': custom_path,
+                        'emoji': ''
+                    })
+                elif emoji_item.emoji_type == 'unicode':
+                    return jsonify({
+                        'success': True, 
+                        'type': 'unicode',
+                        'emoji': emoji_item.emoji,
+                        'custom_icon': None
+                    })
+                elif emoji_item.emoji_type == 'bootstrap':
+                    return jsonify({
+                        'success': True, 
+                        'type': 'bootstrap',
+                        'emoji': emoji_item.emoji,
+                        'custom_icon': None
+                    })
     
     return jsonify({'success': True, 'emoji': word[0].upper() if word else '📖', 'type': 'text'})

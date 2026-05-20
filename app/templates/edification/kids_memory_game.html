@@ -81,6 +81,12 @@
     line-height: 1;
 }
 
+.card-front .card-emoji img {
+    width: 60px;
+    height: 60px;
+    object-fit: contain;
+}
+
 .card-front .card-name {
     font-size: 0.7rem;
     margin-top: 8px;
@@ -105,13 +111,30 @@
     50% { transform: scale(1.1); }
     100% { transform: scale(1); }
 }
+.card-front .card-emoji img {
+    width: 60px;
+    height: 60px;
+    object-fit: contain;
+    display: block;
+    margin: 0 auto;
+}
 
+/* Fallback para imagens quebradas */
+.card-front .card-emoji img::before {
+    content: "🖼️";
+    font-size: 2rem;
+    display: block;
+}
 @media (max-width: 576px) {
     .memory-grid {
         grid-template-columns: repeat(3, 1fr);
     }
     .card-front .card-emoji {
         font-size: 2.5rem;
+    }
+    .card-front .card-emoji img {
+        width: 40px;
+        height: 40px;
     }
     .card-front .card-name {
         font-size: 0.6rem;
@@ -121,7 +144,11 @@
 
 <script>
 // Dados da história e palavras geradas pela IA
-const aiWords = {{ game_data | tojson }};
+// 🔥 Usar |safe e garantir que é um array válido
+const aiWords = {{ game_data | tojson | safe }};
+
+// 🔥 VALIDAÇÃO: se aiWords não for array, usar array vazio
+const safeAiWords = Array.isArray(aiWords) ? aiWords : [];
 
 let gameDeck = [];
 let flippedCards = [];
@@ -130,32 +157,60 @@ let moves = 0;
 let canFlip = true;
 let emojiCache = {};
 
-// Buscar emoji da API (URL CORRIGIDA)
+// Função para criar o HTML do conteúdo da carta
+function createCardContent(data) {
+    if (data.type === 'unicode') {
+        return `<div class="card-emoji">${data.emoji}</div>`;
+    } else if (data.type === 'bootstrap') {
+        return `<div class="card-emoji"><i class="bi ${data.emoji}" style="font-size: 3rem;"></i></div>`;
+    } else if (data.type === 'custom' && data.custom_icon) {
+        // 🔥 Usar a URL completa retornada pela API
+        return `<div class="card-emoji"><img src="${data.custom_icon}" style="width: 60px; height: 60px; object-fit: contain;" onerror="this.parentElement.innerHTML='❓'"></div>`;
+    } else {
+        return `<div class="card-emoji">${data.letter || '?'}</div>`;
+    }
+}
+
+// Buscar emoji da API
 async function getEmojiForWord(word) {
     if (emojiCache[word]) return emojiCache[word];
     
     try {
-        // 🔥 CORRIGIDO: usar a rota correta /api/emoji-for-word/
         const response = await fetch(`/edification/api/emoji-for-word/${encodeURIComponent(word)}`);
         const data = await response.json();
         
-        let emojiHtml = '';
-        if (data.success && data.emoji) {
-            if (data.type === 'unicode') {
-                emojiHtml = `<div class="card-emoji">${data.emoji}</div>`;
-            } else if (data.type === 'bootstrap') {
-                emojiHtml = `<div class="card-emoji"><i class="bi ${data.emoji}" style="font-size: 3rem;"></i></div>`;
+        let html = '';
+        
+        if (data.success) {
+            if (data.type === 'unicode' && data.emoji) {
+                html = `<div class="card-emoji">${data.emoji}</div>`;
+            } else if (data.type === 'bootstrap' && data.emoji) {
+                html = `<div class="card-emoji"><i class="bi ${data.emoji}" style="font-size: 3rem;"></i></div>`;
             } else if (data.type === 'custom' && data.custom_icon) {
-                emojiHtml = `<div class="card-emoji"><img src="{{ url_for('static', filename='') }}${data.custom_icon}" style="width: 60px; height: 60px;"></div>`;
+                // 🔥 CORREÇÃO SIMPLES: usar o caminho como está, adicionando /static/ na frente
+                let imagePath = data.custom_icon;
+                
+                // Se já começa com /static/, não adicionar de novo
+                if (!imagePath.startsWith('/static/')) {
+                    imagePath = `/static/${imagePath}`;
+                }
+                
+                console.log(`📷 Carregando imagem: ${imagePath}`);
+                
+                html = `<div class="card-emoji">
+                            <img src="${imagePath}" 
+                                 style="width: 60px; height: 60px; object-fit: contain;" 
+                                 onerror="console.error('Erro imagem: ${imagePath}'); this.style.display='none'; this.parentElement.innerHTML='❓'">
+                        </div>`;
             } else {
-                emojiHtml = `<div class="card-emoji">${word.charAt(0).toUpperCase()}</div>`;
+                html = `<div class="card-emoji">${word.charAt(0).toUpperCase()}</div>`;
             }
         } else {
-            emojiHtml = `<div class="card-emoji">${word.charAt(0).toUpperCase()}</div>`;
+            html = `<div class="card-emoji">${word.charAt(0).toUpperCase()}</div>`;
         }
         
-        emojiCache[word] = emojiHtml;
-        return emojiHtml;
+        emojiCache[word] = html;
+        return html;
     } catch(e) {
         console.error('Erro ao buscar emoji:', e);
         return `<div class="card-emoji">${word.charAt(0).toUpperCase()}</div>`;
@@ -170,23 +225,34 @@ function getNameForWord(word) {
 // Array fixo de palavras padrão (fallback)
 const defaultWords = [
     'ARCA', 'DAVI', 'GOLIAS', 'MOISÉS',
-    'LEÃO', 'PEIXE', 'POMBA', 'ESTRELA',
-    'JESUS', 'CRUZ', 'BÍBLIA', 'ORAÇÃO'
+    'LEÃO', 'PEIXE', 'POMBA', 'ESTRELA'
 ];
 
 async function createGameCards() {
     const cards = [];
     let wordsToUse = [];
     
+    console.log('safeAiWords:', safeAiWords);
+    
     // Tenta usar palavras da IA
-    if (aiWords && aiWords.length >= 4) {
-        wordsToUse = aiWords.slice(0, 8).map(w => w.word || w);
-    } else {
+    if (safeAiWords && safeAiWords.length >= 4) {
+        wordsToUse = safeAiWords.slice(0, 8).map(w => {
+            if (typeof w === 'object' && w !== null) {
+                return w.word || w;
+            }
+            return w;
+        }).filter(w => w);
+    }
+    
+    if (wordsToUse.length === 0) {
         wordsToUse = defaultWords.slice(0, 8);
     }
     
+    console.log('Palavras a usar:', wordsToUse);
+    
+    // Processar palavras
     for (const word of wordsToUse) {
-        const cleanWord = typeof word === 'object' ? word.word : word;
+        const cleanWord = String(word);
         const upperWord = cleanWord.toUpperCase();
         const emojiHtml = await getEmojiForWord(upperWord);
         
@@ -205,6 +271,8 @@ async function createGameCards() {
 
 async function initGame() {
     const gameBoard = document.getElementById('game-board');
+    if (!gameBoard) return;
+    
     gameBoard.innerHTML = '';
     gameDeck = await createGameCards();
     flippedCards = [];
