@@ -10,7 +10,18 @@
                         <i class="bi bi-arrow-left"></i>
                     </a>
                     <div>
-                        <h1 class="h4 fw-semibold mb-0" style="color: var(--text-main);">{{ album.title }}</h1>
+                        <div class="d-flex align-items-center gap-2">
+                            <h1 class="h4 fw-semibold mb-0" style="color: var(--text-main);">{{ album.title }}</h1>
+                            {% if album.ministry %}
+                            <span class="badge bg-light text-primary border border-primary-subtle rounded-pill small" style="font-size: 0.7rem;">
+                                {{ album.ministry.name }}
+                            </span>
+                            {% else %}
+                            <span class="badge bg-light text-muted border border-secondary-subtle rounded-pill small" style="font-size: 0.7rem;">
+                                Geral
+                            </span>
+                            {% endif %}
+                        </div>
                         <p class="text-muted small mb-0">{{ album.description or 'Sem descrição' }}</p>
                     </div>
                 </div>
@@ -23,6 +34,10 @@
                 <div class="d-flex gap-2">
                     <a href="{{ url_for('edification.add_media') }}?album_id={{ album.id }}" class="btn btn-light btn-sm rounded-3 shadow-sm">
                         <i class="bi bi-plus-lg me-1"></i> Adicionar
+                    </a>
+                    {# BOTÃO DE EDITAR ÁLBUM ADICIONADO #}
+                    <a href="{{ url_for('edification.edit_album', id=album.id) }}" class="btn btn-light btn-sm rounded-3 shadow-sm">
+                        <i class="bi bi-pencil me-1"></i> Editar
                     </a>
                     <button class="btn btn-light btn-sm rounded-3 shadow-sm text-danger" 
                             onclick="if(confirm('Excluir este álbum?')) window.location.href='{{ url_for('edification.delete_album', id=album.id) }}'">
@@ -401,7 +416,7 @@ document.getElementById('lightboxSlideshow')?.addEventListener('click', toggleSl
 // Teclado
 document.addEventListener('keydown', (e) => {
     const modal = document.getElementById('lightboxModal');
-    if (modal.classList.contains('show')) {
+    if (modal && modal.classList.contains('show')) {
         if (e.key === 'ArrowLeft') prevImage();
         if (e.key === 'ArrowRight') nextImage();
         if (e.key === 'Escape') stopSlideshow();

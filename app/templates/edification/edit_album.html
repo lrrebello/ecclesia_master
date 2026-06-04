@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow-sm border-0 rounded-4">
+                <div class="card-header bg-white border-0 py-3">
+                    <div class="d-flex align-items-center gap-2">
+                        <a href="{{ url_for('edification.gallery_album', id=album.id) }}" class="btn btn-light btn-sm rounded-circle">
+                            <i class="bi bi-arrow-left"></i>
+                        </a>
+                        <h5 class="mb-0 fw-bold">Editar Álbum</h5>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <form action="{{ url_for('edification.edit_album', id=album.id) }}" method="POST">
+                        <div class="mb-3">
+                            <label for="title" class="form-label small fw-bold text-muted">Título do Álbum</label>
+                            <input type="text" class="form-control rounded-3" id="title" name="title" value="{{ album.title }}" required>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="description" class="form-label small fw-bold text-muted">Descrição</label>
+                            <textarea class="form-control rounded-3" id="description" name="description" rows="3">{{ album.description }}</textarea>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="ministry_id" class="form-label small fw-bold text-muted">Ministério Responsável</label>
+                            <select class="form-select rounded-3" id="ministry_id" name="ministry_id">
+                                {% if can_set_general %}
+                                <option value="" {% if not album.ministry_id %}selected{% endif %}>Geral (Toda a Igreja)</option>
+                                {% endif %}
+                                
+                                {% for m in ministries %}
+                                <option value="{{ m.id }}" {% if album.ministry_id == m.id %}selected{% endif %}>
+                                    {{ m.name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            <div class="form-text small">
+                                <i class="bi bi-info-circle me-1"></i>
+                                Ao alterar o ministério do álbum, todas as mídias dentro dele serão atualizadas automaticamente.
+                            </div>
+                        </div>
+                        
+                        <div class="d-grid gap-2 mt-4">
+                            <button type="submit" class="btn btn-primary rounded-pill py-2 fw-bold">
+                                Salvar Alterações
+                            </button>
+                            <a href="{{ url_for('edification.gallery_album', id=album.id) }}" class="btn btn-light rounded-pill py-2">
+                                Cancelar
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1428,9 +1428,11 @@ def gallery():
     query_albums = Album.query.filter_by(church_id=current_user.church_id)
     query_media = Media.query.filter_by(church_id=current_user.church_id, album_id=None)
     
-    ministry_ids = [m.id for m in current_user.ministries]
-    query_albums = query_albums.filter((Album.ministry_id.is_(None)) | (Album.ministry_id.in_(ministry_ids)))
-    query_media = query_media.filter((Media.ministry_id.is_(None)) | (Media.ministry_id.in_(ministry_ids)))
+    # CORREÇÃO: Se for admin ou puder gerenciar mídia globalmente, não filtra por ministério
+    if not can_manage_media_globally():
+        ministry_ids = [m.id for m in current_user.ministries]
+        query_albums = query_albums.filter((Album.ministry_id.is_(None)) | (Album.ministry_id.in_(ministry_ids)))
+        query_media = query_media.filter((Media.ministry_id.is_(None)) | (Media.ministry_id.in_(ministry_ids)))
     
     ministry_id = request.args.get('ministry_id')
     if ministry_id:
@@ -1454,8 +1456,17 @@ def gallery():
 @login_required
 def gallery_album(id):
     album = Album.query.get_or_404(id)
+    
+    # CORREÇÃO: Verificar se o usuário tem acesso ao álbum se ele for restrito a um ministério
+    if album.ministry_id and not can_manage_media_globally():
+        ministry_ids = [m.id for m in current_user.ministries]
+        if album.ministry_id not in ministry_ids:
+            flash('Você não tem permissão para acessar este álbum.', 'danger')
+            return redirect(url_for('edification.gallery'))
+
     media_items = Media.query.filter_by(album_id=id).order_by(Media.created_at.desc()).all()
     return render_template('edification/gallery_album.html', album=album, media_items=media_items)
+
 
 @edification_bp.route('/media/add', methods=['GET', 'POST'])
 @login_required
@@ -1596,6 +1607,65 @@ def add_media():
     return render_template('edification/add_media.html', 
                          ministries=ministries,
                          can_upload_to_general=can_upload_to_general)
+
+# NOVA ROTA: Editar Álbum
+@edification_bp.route('/gallery/edit_album/<int:id>', methods=['GET', 'POST'])
+@login_required
+def edit_album(id):
+    album = Album.query.get_or_404(id)
+    
+    # Verifica permissão (mesma lógica de deletar)
+    if not can_delete_album(album):
+        flash('Acesso negado.', 'danger')
+        return redirect(url_for('edification.gallery'))
+    
+    if request.method == 'POST':
+        old_values = {
+            'title': album.title,
+            'description': album.description,
+            'ministry_id': album.ministry_id
+        }
+        
+        album.title = request.form.get('title')
+        album.description = request.form.get('description')
+        
+        # Lógica de alteração de ministério
+        m_id = request.form.get('ministry_id')
+        new_ministry_id = int(m_id) if m_id and m_id != '' else None
+        
+        # Se mudou o ministério, atualiza também todas as mídias dentro do álbum
+        if album.ministry_id != new_ministry_id:
+            album.ministry_id = new_ministry_id
+            for media in album.media_items:
+                media.ministry_id = new_ministry_id
+        
+        db.session.commit()
+        
+        log_action(
+            action='UPDATE',
+            module='ALBUM',
+            description=f"Álbum atualizado: {album.title}",
+            old_values=old_values,
+            new_values={
+                'title': album.title,
+                'description': album.description,
+                'ministry_id': album.ministry_id
+            },
+            church_id=current_user.church_id
+        )
+        
+        flash('Álbum atualizado com sucesso!', 'success')
+        return redirect(url_for('edification.gallery_album', id=album.id))
+    
+    # Busca ministérios que o usuário pode gerenciar para preencher o select
+    ministries = get_user_managed_ministries()
+    can_set_general = can_manage_media_globally()
+    
+    return render_template('edification/edit_album.html', 
+                         album=album, 
+                         ministries=ministries,
+                         can_set_general=can_set_general)
+
 
 @edification_bp.route('/album/<int:id>/delete')
 @login_required
